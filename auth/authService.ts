@@ -13,6 +13,7 @@ const ensureClient = () => {
 
 export const signUp = async (email: string, password: string) => {
   const client = ensureClient();
+  // We use window.location.origin to ensure the user is sent back to the same domain they are currently on
   const { data, error } = await client.auth.signUp({
     email,
     password,

@@ -8,28 +8,27 @@ const AuthScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setSuccess(false);
     try {
       if (isLogin) {
         await signIn(email, password);
       } else {
         await signUp(email, password);
-        setSuccess(true);
+        setEmailSent(true);
       }
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
 
-  if (success) {
+  if (emailSent) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-10 border border-slate-100 text-center animate-slide-in">
@@ -37,17 +36,21 @@ const AuthScreen: React.FC = () => {
             ✉️
           </div>
           <h2 className="text-2xl font-black text-slate-900 mb-2">Check Your Email</h2>
-          <p className="text-slate-500 mb-8 leading-relaxed">
-            We've sent a verification link to <span className="font-bold text-slate-900">{email}</span>.
+          <p className="text-slate-500 mb-8 leading-relaxed text-sm">
+            We've sent a verification link to <span className="font-bold text-slate-900">{email}</span>. 
+            Please check your inbox and spam folder.
           </p>
           <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl text-left mb-8">
-            <h4 className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Important Note</h4>
-            <p className="text-xs text-amber-700 leading-relaxed">
-              If the link says "Site cannot be reached", ensure you've added this URL to <b>Redirect URLs</b> in your Supabase Auth settings.
+            <h4 className="text-[10px] font-black text-amber-600 uppercase tracking-widest mb-1">Testing Tip</h4>
+            <p className="text-[11px] text-amber-700 leading-tight">
+              If the link doesn't work, ensure your site's URL is added to the <b>Redirect URLs</b> in your Supabase Dashboard.
             </p>
           </div>
           <button 
-            onClick={() => setIsLogin(true)}
+            onClick={() => {
+              setEmailSent(false);
+              setIsLogin(true);
+            }}
             className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-slate-800 transition"
           >
             Back to Sign In
@@ -76,7 +79,8 @@ const AuthScreen: React.FC = () => {
             <input 
               type="email" 
               required
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition"
+              placeholder="alex@example.com"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -86,14 +90,15 @@ const AuthScreen: React.FC = () => {
             <input 
               type="password" 
               required
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition"
+              placeholder="••••••••"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-100 p-3 rounded-xl">
+            <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
               <p className="text-red-500 text-xs font-bold leading-tight">{error}</p>
             </div>
           )}
@@ -124,7 +129,7 @@ const AuthScreen: React.FC = () => {
           {isLogin ? "Don't have an account?" : "Already have an account?"}{' '}
           <button 
             onClick={() => setIsLogin(!isLogin)}
-            className="text-blue-600 font-bold"
+            className="text-blue-600 font-bold hover:underline"
           >
             {isLogin ? 'Sign Up' : 'Log In'}
           </button>
