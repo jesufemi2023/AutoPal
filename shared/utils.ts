@@ -8,16 +8,18 @@
  */
 export const getEnv = (key: string): string | undefined => {
   try {
-    // Priority 1: Browser shim (for previews/local)
-    if ((window as any).process?.env?.[key]) {
-      return (window as any).process.env[key];
+    // 1. Check window.process shim (highest priority for browser runtime)
+    const windowProcess = (window as any).process;
+    if (windowProcess?.env?.[key]) {
+      return windowProcess.env[key];
     }
-    // Priority 2: Standard Node-style process (for build/Vercel environments)
-    if (typeof process !== 'undefined' && process.env?.[key]) {
+    
+    // 2. Fallback to standard process.env (for SSR or different module environments)
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
       return process.env[key];
     }
   } catch (e) {
-    console.warn(`Error accessing env var ${key}:`, e);
+    // Silently handle cases where process might be a restricted global
   }
   return undefined;
 };
