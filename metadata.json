@@ -1,0 +1,8 @@
+{
+  "name": "AutoPal NG",
+  "description": "A high-performance vehicle ownership intelligence platform providing just-in-time maintenance alerts, AI-powered diagnostics, and document management with a serverless architecture.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
