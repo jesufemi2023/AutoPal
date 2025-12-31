@@ -1,12 +1,14 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIResponse } from "../shared/types.ts";
+import { getEnv } from "../shared/utils.ts";
 
 const getAIClient = () => {
-  if (!process.env.API_KEY) {
+  const apiKey = getEnv('API_KEY');
+  if (!apiKey) {
     throw new Error("Gemini API key is not configured.");
   }
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  return new GoogleGenAI({ apiKey });
 };
 
 export const getAdvancedDiagnostic = async (

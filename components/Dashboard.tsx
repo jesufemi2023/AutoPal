@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { getAdvancedDiagnostic, decodeVIN } from '../services/geminiService.ts';
 import { AIResponse, Vehicle } from '../shared/types.ts';
+import { getEnv } from '../shared/utils.ts';
 
 const Dashboard: React.FC = () => {
   const { vehicles, tasks, user, setTier, addVehicle } = useAutoPalStore();
@@ -26,8 +27,9 @@ const Dashboard: React.FC = () => {
         user?.tier === 'premium'
       );
       setAiAdvice(advice);
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Service Error:", error);
+      alert(error.message || "AI Analysis failed. Check if API Key is configured.");
     } finally {
       setIsAskingAI(false);
     }
@@ -71,8 +73,9 @@ const Dashboard: React.FC = () => {
   };
 
   const handleUpgrade = () => {
+    const publicKey = getEnv('PAYSTACK_PUBLIC_KEY') || 'pk_test_placeholder';
     const handler = (window as any).PaystackPop.setup({
-      key: process.env.PAYSTACK_PUBLIC_KEY || 'pk_test_placeholder',
+      key: publicKey,
       email: user?.email,
       amount: 500000, 
       currency: "NGN",
