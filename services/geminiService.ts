@@ -1,13 +1,20 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { AIResponse, MaintenanceScheduleResponse, BodyType } from "../shared/types.ts";
-import { getEnv } from "../shared/utils.ts";
+import { AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
 
-// Updated getAIClient to follow Google GenAI SDK initialization guidelines by using process.env.API_KEY directly.
+/**
+ * Gemini Service Module
+ * Handles all Just-in-Time (JIT) AI operations.
+ * Optimized for Gemini 3 Flash to maintain the $70/year budget.
+ */
+
 const getAIClient = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
+/**
+ * Generates a localized maintenance roadmap based on vehicle specs.
+ */
 export const generateMaintenanceSchedule = async (
   make: string, 
   model: string, 
@@ -15,18 +22,20 @@ export const generateMaintenanceSchedule = async (
   mileage: number
 ): Promise<MaintenanceScheduleResponse> => {
   const ai = getAIClient();
-  const prompt = `Create a 5-step maintenance schedule for a ${year} ${make} ${model} with ${mileage}km. Focus on tropical high-traffic conditions.`;
+  const prompt = `Generate a maintenance roadmap for a ${year} ${make} ${model} currently at ${mileage}km. 
+  Environment: Tropical (Nigeria), high dust, heavy traffic, variable fuel quality. 
+  Return exactly 5 upcoming tasks with realistic estimated costs in NGN.`;
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: prompt,
     config: {
-      systemInstruction: "You are AutoPal Garage AI. Return structured JSON.",
+      systemInstruction: "You are the AutoPal Mechanical Intelligence engine. You provide accurate, safety-first maintenance schedules. Return ONLY structured JSON.",
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          summary: { type: Type.STRING },
+          summary: { type: Type.STRING, description: "Brief overview of the vehicle's current health status." },
           tasks: {
             type: Type.ARRAY,
             items: {
@@ -34,10 +43,10 @@ export const generateMaintenanceSchedule = async (
               properties: {
                 title: { type: Type.STRING },
                 description: { type: Type.STRING },
-                dueMileage: { type: Type.NUMBER },
+                dueMileage: { type: Type.NUMBER, description: "Mileage at which this task should be performed." },
                 priority: { type: Type.STRING, enum: ["low", "medium", "high"] },
                 category: { type: Type.STRING, enum: ["engine", "tires", "brakes", "fluids", "other"] },
-                estimatedCost: { type: Type.NUMBER }
+                estimatedCost: { type: Type.NUMBER, description: "Estimated cost in NGN." }
               },
               required: ["title", "dueMileage", "priority", "category"]
             }
@@ -51,13 +60,16 @@ export const generateMaintenanceSchedule = async (
   return JSON.parse(response.text || "{}") as MaintenanceScheduleResponse;
 };
 
+/**
+ * Decodes a 17-digit VIN into structured vehicle specifications.
+ */
 export const decodeVIN = async (vin: string): Promise<any> => {
   const ai = getAIClient();
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Analyze VIN: ${vin}`,
+    contents: `Decode VIN: ${vin}`,
     config: {
-      systemInstruction: "Identify vehicle specs and body type for a garage UI.",
+      systemInstruction: "You are a VIN decoder for a high-end garage app. Identify make, model, year, body type, and basic technical specs. If the VIN is invalid, return generic placeholders.",
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -70,7 +82,8 @@ export const decodeVIN = async (vin: string): Promise<any> => {
             type: Type.OBJECT,
             properties: {
               engineSize: { type: Type.STRING },
-              fuelType: { type: Type.STRING }
+              fuelType: { type: Type.STRING },
+              oilGrade: { type: Type.STRING }
             }
           }
         }
@@ -80,14 +93,18 @@ export const decodeVIN = async (vin: string): Promise<any> => {
   return JSON.parse(response.text || "{}");
 };
 
-export const getAdvancedDiagnostic = async (context: any, symptoms: string, isPremium: boolean): Promise<AIResponse> => {
+/**
+ * Provides real-time diagnostic advice based on symptoms.
+ */
+export const getAdvancedDiagnostic = async (vehicle: any, symptoms: string, isPremium: boolean): Promise<AIResponse> => {
   const ai = getAIClient();
   const model = isPremium ? "gemini-3-pro-preview" : "gemini-3-flash-preview";
+  
   const response = await ai.models.generateContent({
     model: model,
-    contents: `Vehicle: ${JSON.stringify(context)}. Symptom: ${symptoms}`,
+    contents: `Asset: ${vehicle.year} ${vehicle.make} ${vehicle.model}. Current Symptoms: ${symptoms}`,
     config: {
-      systemInstruction: "AutoPal Diagnostic AI. Focus on practical Nigerian market solutions.",
+      systemInstruction: "You are AutoPal Diagnostic AI. Provide clear, actionable advice. Be conservative with safety (brakes/steering). Mention market-specific parts availability in Nigeria where relevant.",
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -104,7 +121,9 @@ export const getAdvancedDiagnostic = async (context: any, symptoms: string, isPr
   return JSON.parse(response.text || "{}") as AIResponse;
 };
 
-// Implemented processReceiptOCR to analyze vehicle maintenance receipts using multimodal Gemini.
+/**
+ * OCR Service for maintenance receipts.
+ */
 export const processReceiptOCR = async (base64ImageWithHeader: string): Promise<any> => {
   const ai = getAIClient();
   const base64Data = base64ImageWithHeader.includes(',') 
@@ -115,7 +134,7 @@ export const processReceiptOCR = async (base64ImageWithHeader: string): Promise<
     model: "gemini-3-flash-preview",
     contents: {
       parts: [
-        { text: "Analyze this receipt from an auto workshop. Extract: description of work done, total cost (number), date, and current mileage if visible." },
+        { text: "Analyze this workshop receipt. Extract the date, total amount, and a summary of work done." },
         { inlineData: { mimeType: "image/jpeg", data: base64Data } }
       ]
     },

@@ -52,8 +52,10 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id'>): Promise<Vehic
       body_type: vehicle.bodyType,
       status: vehicle.status,
       image_url: vehicle.imageUrl,
-      engine_size: vehicle.engine_size,
-      fuel_type: vehicle.fuel_type,
+      // Fixed: Property access should be engineSize to match Vehicle type
+      engine_size: vehicle.engineSize,
+      // Fixed: Property access should be fuelType to match Vehicle type
+      fuel_type: vehicle.fuelType,
       specs: vehicle.specs
     }])
     .select()

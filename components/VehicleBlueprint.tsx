@@ -10,26 +10,49 @@ interface BlueprintProps {
 /**
  * VehicleBlueprint
  * Renders high-fidelity technical line art for different vehicle classes.
- * Cost: $0 (No API calls, purely local SVGs).
+ * Mobile-First: Scales based on container width.
  */
 export const VehicleBlueprint: React.FC<BlueprintProps> = ({ type, className = "" }) => {
-  const renderPath = () => {
+  const getPath = () => {
     switch (type) {
       case 'suv':
-        return <path d="M10 80h180l10-20H60l-10 20zm20-20l15-30h100l15 30H30z" stroke="currentColor" strokeWidth="2" fill="none" />;
+        return (
+          <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 70h160l-10-25H50l-15 15H20v10z" />
+            <circle cx="50" cy="75" r="10" />
+            <circle cx="150" cy="75" r="10" />
+            <path d="M50 45h80v15H40l10-15z" opacity="0.4" />
+          </g>
+        );
       case 'truck':
-        return <path d="M10 80h150V40h-40l-20 20H10v20zm150-40h40v40h-40z" stroke="currentColor" strokeWidth="2" fill="none" />;
+        return (
+          <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 70h60V40h40l10 10h70v20h10" />
+            <circle cx="45" cy="75" r="10" />
+            <circle cx="155" cy="75" r="10" />
+            <rect x="120" y="50" width="60" height="20" opacity="0.4" />
+          </g>
+        );
       case 'sedan':
       default:
-        return <path d="M10 80h180l-20-30H40L10 80zm30 0c0 5 5 10 10 10s10-5 10-10H40zm110 0c0 5 5 10 10 10s10-5 10-10h-20z" stroke="currentColor" strokeWidth="2" fill="none" />;
+        return (
+          <g fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 70h170l-25-30H50L15 70z" />
+            <circle cx="50" cy="75" r="10" />
+            <circle cx="150" cy="75" r="10" />
+            <path d="M55 45h90v15H45l10-15z" opacity="0.4" />
+          </g>
+        );
     }
   };
 
   return (
-    <div className={`aspect-[16/9] w-full flex items-center justify-center bg-slate-50 rounded-3xl border border-slate-100 p-8 ${className}`}>
-      <svg viewBox="0 0 200 100" className="w-full h-full text-slate-200 drop-shadow-sm">
-        {renderPath()}
-        <text x="100" y="95" textAnchor="middle" className="text-[10px] fill-slate-300 font-black uppercase tracking-widest">{type} BLUEPRINT</text>
+    <div className={`aspect-[16/9] w-full flex items-center justify-center bg-slate-50 rounded-3xl border border-slate-100 p-6 md:p-10 ${className}`}>
+      <svg viewBox="0 0 200 100" className="w-full h-full text-slate-300 transition-colors duration-500 hover:text-blue-400">
+        {getPath()}
+        <text x="100" y="95" textAnchor="middle" className="text-[8px] fill-slate-400 font-black uppercase tracking-[0.3em]">
+          {type} Technical Blueprint v1.0
+        </text>
       </svg>
     </div>
   );
