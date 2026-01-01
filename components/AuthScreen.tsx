@@ -1,23 +1,27 @@
 
 import React, { useState, useEffect } from 'react';
 import { signIn, signUp, signInWithGoogle, sendPasswordResetEmail, updatePassword } from '../auth/authService.ts';
+import { useAutoPalStore } from '../shared/store.ts';
 
 type AuthMode = 'login' | 'signup' | 'forgot' | 'reset';
 
 const AuthScreen: React.FC = () => {
-  const [mode, setMode] = useState<AuthMode>('login');
+  const isRecovering = useAutoPalStore(s => s.isRecovering);
+  const setRecovering = useAutoPalStore(s => s.setRecovering);
+  
+  const [mode, setMode] = useState<AuthMode>(isRecovering ? 'reset' : 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Check if we are arriving from a password recovery link
+  // Sync mode if isRecovering state changes or hash is present
   useEffect(() => {
-    if (window.location.hash.includes('type=recovery')) {
+    if (isRecovering || window.location.hash.includes('type=recovery')) {
       setMode('reset');
     }
-  }, []);
+  }, [isRecovering]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,8 +40,12 @@ const AuthScreen: React.FC = () => {
         setSuccessMessage(`Reset link sent to ${email}. Check your inbox or spam.`);
       } else if (mode === 'reset') {
         await updatePassword(password);
-        setSuccessMessage('Password updated successfully! Redirecting...');
-        setTimeout(() => window.location.reload(), 1500);
+        setSuccessMessage('Password updated successfully! Redirecting to login...');
+        setRecovering(false);
+        setTimeout(() => {
+          // Force a reload to clear all auth states and go back to login
+          window.location.href = window.location.origin;
+        }, 1500);
       }
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred');
@@ -182,7 +190,7 @@ const AuthScreen: React.FC = () => {
               <button onClick={() => setMode('signup')} className="text-blue-600 font-bold hover:underline">Sign Up</button>
             </>
           )}
-          {(mode === 'signup' || mode === 'forgot' || mode === 'reset') && (
+          {(mode === 'signup' || mode === 'forgot' || (mode === 'reset' && !isRecovering)) && (
             <>
               Already have an account?{' '}
               <button onClick={() => setMode('login')} className="text-blue-600 font-bold hover:underline">Log In</button>

@@ -12,7 +12,7 @@ import AdminPanel from './components/AdminPanel.tsx';
  * Main Entry point with Protected Route Logic.
  */
 const App: React.FC = () => {
-  const { session, setSession, isInitialized, setInitialized } = useAutoPalStore();
+  const { session, setSession, isInitialized, setInitialized, isRecovering, setRecovering } = useAutoPalStore();
   const [activeTab, setActiveTab] = React.useState<'dashboard' | 'marketplace' | 'admin'>('dashboard');
   const [initError, setInitError] = useState<string | null>(null);
 
@@ -33,7 +33,10 @@ const App: React.FC = () => {
         setInitialized(true);
 
         // 2. Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event === 'PASSWORD_RECOVERY') {
+            setRecovering(true);
+          }
           setSession(session);
         });
 
@@ -46,7 +49,7 @@ const App: React.FC = () => {
     };
 
     initAuth();
-  }, [setSession, setInitialized]);
+  }, [setSession, setInitialized, setRecovering]);
 
   if (!isInitialized) {
     return (
@@ -84,6 +87,11 @@ const App: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  // If we are recovering a password, show AuthScreen regardless of session
+  if (isRecovering) {
+    return <AuthScreen />;
   }
 
   if (!session) {

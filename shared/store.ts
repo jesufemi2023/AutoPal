@@ -10,6 +10,7 @@ interface AutoPalState {
   session: any | null;
   isInitialized: boolean;
   isLoading: boolean;
+  isRecovering: boolean;
   
   // Data
   vehicles: Vehicle[];
@@ -22,6 +23,7 @@ interface AutoPalState {
   setSession: (session: any) => void;
   setUser: (user: UserProfile | null) => void;
   setInitialized: (initialized: boolean) => void;
+  setRecovering: (recovering: boolean) => void;
   setTier: (tier: Tier) => void;
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
@@ -38,6 +40,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   session: null,
   isInitialized: false,
   isLoading: false,
+  isRecovering: false,
   vehicles: [
     {
       id: 'v_1',
@@ -112,6 +115,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   },
   setUser: (user) => set({ user }),
   setInitialized: (initialized) => set({ isInitialized: initialized }),
+  setRecovering: (isRecovering) => set({ isRecovering }),
   setTier: (tier) => set((state) => ({ 
     user: state.user ? { ...state.user, tier } : null 
   })),
