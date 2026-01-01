@@ -1,4 +1,3 @@
-
 /**
  * Utility functions for formatting and calculations.
  */
@@ -14,12 +13,12 @@ export const getEnv = (key: string): string | undefined => {
       return windowProcess.env[key];
     }
     
-    // 2. Fallback to standard process.env (for SSR or different module environments)
+    // 2. Fallback to standard process.env (for Vercel build/injection)
     if (typeof process !== 'undefined' && process.env && process.env[key]) {
       return process.env[key];
     }
   } catch (e) {
-    // Silently handle cases where process might be a restricted global
+    // Silent catch for restricted environments
   }
   return undefined;
 };

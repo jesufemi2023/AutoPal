@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -9,13 +8,13 @@
       /**
        * ENVIRONMENT CONFIGURATION
        * Shimming process.env for browser compatibility.
+       * These values can be overwritten by Vercel Environment Variables.
        */
       window.process = { 
         env: {
           SUPABASE_URL: "https://dojvsourwlvvolvmppxx.supabase.co",
           SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvanZzb3Vyd2x2dm9sdm1wcHh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODM1NjYsImV4cCI6MjA4Mjc1OTU2Nn0.wvwghiH0ADBjQJFLbSXSwV9CEYXdECFq38u_WurKblQ",
-          // The API_KEY should be set in the Vercel environment variables as well.
-          API_KEY: "" 
+          API_KEY: "" // Set this in Vercel Dashboard for AI features
         } 
       };
     </script>
@@ -67,5 +66,7 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- The app starts here -->
+    <script type="module" src="index.tsx"></script>
   </body>
 </html>
