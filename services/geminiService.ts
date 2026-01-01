@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
+import { getEnv } from "../shared/utils.ts";
 
 /**
  * Gemini Service Module
@@ -9,7 +10,11 @@ import { AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
  */
 
 const getAIClient = () => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getEnv('API_KEY');
+  if (!apiKey) {
+    throw new Error("Gemini API_KEY is not defined. Please check your environment variables.");
+  }
+  return new GoogleGenAI({ apiKey });
 };
 
 /**
