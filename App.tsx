@@ -26,11 +26,12 @@ const App: React.FC = () => {
       try {
         if (!supabase) return;
 
-        // 1. Immediate URL fragment check
-        // We do this BEFORE getSession to prevent a race condition where session 
-        // triggers a dashboard render before isRecovering is set.
+        // 1. Precise URL fragment check
+        // ONLY trigger recovery mode if 'type=recovery' is explicitly in the hash.
+        // Google OAuth often returns an 'access_token' in the hash, which we should NOT 
+        // mistake for a password recovery event.
         const hash = window.location.hash;
-        if (hash && (hash.includes('type=recovery') || hash.includes('access_token='))) {
+        if (hash && hash.includes('type=recovery')) {
           setRecovering(true);
         }
 
@@ -51,9 +52,9 @@ const App: React.FC = () => {
             setRecovering(false);
           }
 
-          if (event === 'USER_UPDATED' && isRecovering) {
-            // After successful password update, we handle the cleanup in AuthScreen
-            // but we keep the recovery flag true until explicit navigation happens
+          if (event === 'SIGNED_IN' && !window.location.hash.includes('type=recovery')) {
+            // Ensure recovery mode is off if we just signed in normally
+            setRecovering(false);
           }
 
           setSession(session);
@@ -68,7 +69,7 @@ const App: React.FC = () => {
     };
 
     initAuth();
-  }, [setSession, setInitialized, setRecovering, isRecovering]);
+  }, [setSession, setInitialized, setRecovering]);
 
   if (!isInitialized) {
     return (
@@ -108,7 +109,7 @@ const App: React.FC = () => {
     );
   }
 
-  // PRIORITY 1: Recovery Screen
+  // PRIORITY 1: Recovery Screen (Strict Check)
   if (isRecovering) {
     return <AuthScreen />;
   }

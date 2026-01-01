@@ -15,10 +15,13 @@ const AuthScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Sync mode if isRecovering state changes or hash is present
+  // Sync mode based on global recovery state
   useEffect(() => {
-    if (isRecovering || window.location.hash.includes('type=recovery')) {
+    if (isRecovering) {
       setMode('reset');
+    } else if (mode === 'reset' && !isRecovering) {
+      // If we are in reset mode but recovery flag is cleared, go to login
+      setMode('login');
     }
   }, [isRecovering]);
 
@@ -38,26 +41,17 @@ const AuthScreen: React.FC = () => {
         await sendPasswordResetEmail(email);
         setSuccessMessage(`Reset link sent to ${email}. Check your inbox or spam.`);
       } else if (mode === 'reset') {
-        // 1. Update the password
         await updatePassword(password);
-        
         setSuccessMessage('Password updated successfully! Redirecting to login...');
         
-        // 2. Explicitly Sign Out
-        // Recovery links log you in automatically with a temporary session.
-        // We must destroy it to ensure the user logs in with the NEW password.
+        // Ensure standard session is cleared after password update
         await signOut();
 
-        // 3. Cleanup and redirect
         setTimeout(() => {
-          // Clear the recovery flag globally
           setRecovering(false);
-          // Clear URL hash to prevent re-triggering recovery mode
           window.history.replaceState(null, '', window.location.pathname);
-          // Switch UI back to login mode
           setMode('login');
           setSuccessMessage(null);
-          // Optional: Force reload to ensure fresh app state
           window.location.reload();
         }, 2000);
       }
