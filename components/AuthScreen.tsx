@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { signIn, signUp, signInWithGoogle, sendPasswordResetEmail, updatePassword } from '../auth/authService.ts';
 import { useAutoPalStore } from '../shared/store.ts';
@@ -41,11 +40,14 @@ const AuthScreen: React.FC = () => {
       } else if (mode === 'reset') {
         await updatePassword(password);
         setSuccessMessage('Password updated successfully! Redirecting to login...');
-        setRecovering(false);
+        
+        // We delay clearing the recovery state to show the success message
         setTimeout(() => {
-          // Force a reload to clear all auth states and go back to login
-          window.location.href = window.location.origin;
-        }, 1500);
+          setRecovering(false);
+          // Clear hash to prevent re-triggering reset mode on reload
+          window.history.replaceState(null, '', window.location.pathname);
+          window.location.reload();
+        }, 2000);
       }
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred');

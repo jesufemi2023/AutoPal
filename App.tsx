@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -27,15 +26,26 @@ const App: React.FC = () => {
       try {
         if (!supabase) return;
 
-        // 1. Check current session
+        // 1. Check if we are currently in a recovery flow from URL before session check
+        // Supabase recovery links usually contain access_token and type=recovery in the hash
+        const hash = window.location.hash;
+        if (hash && (hash.includes('type=recovery') || hash.includes('type=signup'))) {
+          setRecovering(true);
+        }
+
+        // 2. Check current session
         const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
         setInitialized(true);
 
-        // 2. Listen for auth changes
+        // 3. Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          console.debug("Auth Event:", event);
           if (event === 'PASSWORD_RECOVERY') {
             setRecovering(true);
+          }
+          if (event === 'SIGNED_OUT') {
+            setRecovering(false);
           }
           setSession(session);
         });
@@ -89,7 +99,7 @@ const App: React.FC = () => {
     );
   }
 
-  // If we are recovering a password, show AuthScreen regardless of session
+  // CRITICAL: Check recovery status FIRST to prevent dashboard redirect
   if (isRecovering) {
     return <AuthScreen />;
   }
