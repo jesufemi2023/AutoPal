@@ -19,8 +19,7 @@ const AuthScreen: React.FC = () => {
   useEffect(() => {
     if (isRecovering) {
       setMode('reset');
-    } else if (mode === 'reset' && !isRecovering) {
-      // If we are in reset mode but recovery flag is cleared, go to login
+    } else {
       setMode('login');
     }
   }, [isRecovering]);
@@ -41,17 +40,24 @@ const AuthScreen: React.FC = () => {
         await sendPasswordResetEmail(email);
         setSuccessMessage(`Reset link sent to ${email}. Check your inbox or spam.`);
       } else if (mode === 'reset') {
+        // 1. Apply the new password
         await updatePassword(password);
+        
+        // 2. Clear state and inform user
         setSuccessMessage('Password updated successfully! Redirecting to login...');
         
-        // Ensure standard session is cleared after password update
+        // 3. Force sign out to destroy the temporary recovery session
         await signOut();
 
+        // 4. Clean up URL and redirect to login mode after delay
         setTimeout(() => {
           setRecovering(false);
-          window.history.replaceState(null, '', window.location.pathname);
+          if (window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
           setMode('login');
           setSuccessMessage(null);
+          // Small nudge to clear any residual app state
           window.location.reload();
         }, 2000);
       }
@@ -62,6 +68,7 @@ const AuthScreen: React.FC = () => {
     }
   };
 
+  // Intermediate success screen for specific flows
   if (successMessage && (mode === 'signup' || mode === 'forgot')) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -93,17 +100,15 @@ const AuthScreen: React.FC = () => {
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 border border-slate-100">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-500/30 mx-auto mb-4">
-            A
-          </div>
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-500/30 mx-auto mb-4">A</div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tighter">
             {mode === 'login' && 'Welcome Back'}
             {mode === 'signup' && 'Join AutoPal NG'}
             {mode === 'forgot' && 'Reset Password'}
-            {mode === 'reset' && 'Create New Password'}
+            {mode === 'reset' && 'New Password'}
           </h1>
           <p className="text-slate-500 text-sm">
-            {mode === 'forgot' ? 'We will send you a secure link.' : 'Vehicle Ownership Intelligence'}
+            {mode === 'reset' ? 'Please set a secure new password.' : 'Vehicle Ownership Intelligence'}
           </p>
         </div>
 
@@ -126,7 +131,7 @@ const AuthScreen: React.FC = () => {
             <div>
               <div className="flex justify-between items-center mb-1">
                 <label className="block text-xs font-bold text-slate-400 uppercase">
-                  {mode === 'reset' ? 'New Password' : 'Password'}
+                  {mode === 'reset' ? 'Create Password' : 'Password'}
                 </label>
                 {mode === 'login' && (
                   <button 
@@ -182,6 +187,7 @@ const AuthScreen: React.FC = () => {
             </div>
 
             <button 
+              type="button"
               onClick={() => signInWithGoogle()}
               className="w-full mt-6 py-4 border border-slate-200 rounded-2xl font-bold text-slate-700 flex items-center justify-center gap-2 hover:bg-slate-50 transition"
             >
@@ -193,16 +199,10 @@ const AuthScreen: React.FC = () => {
 
         <p className="mt-8 text-center text-sm text-slate-500">
           {mode === 'login' && (
-            <>
-              Don't have an account?{' '}
-              <button onClick={() => setMode('signup')} className="text-blue-600 font-bold hover:underline">Sign Up</button>
-            </>
+            <>Don't have an account? <button onClick={() => setMode('signup')} className="text-blue-600 font-bold hover:underline">Sign Up</button></>
           )}
           {(mode === 'signup' || mode === 'forgot' || (mode === 'reset' && !isRecovering)) && (
-            <>
-              Already have an account?{' '}
-              <button onClick={() => setMode('login')} className="text-blue-600 font-bold hover:underline">Log In</button>
-            </>
+            <>Already have an account? <button onClick={() => setMode('login')} className="text-blue-600 font-bold hover:underline">Log In</button></>
           )}
         </p>
       </div>

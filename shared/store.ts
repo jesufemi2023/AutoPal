@@ -1,37 +1,50 @@
-
 import { create } from 'zustand';
 import { 
   Vehicle, UserProfile, MaintenanceTask, FuelLog, ServiceLog, 
   MarketplaceProduct, Tier 
 } from './types.ts';
 
+/**
+ * AutoPal Global State Store
+ * Manages user sessions, vehicle data, and UI state.
+ */
 interface AutoPalState {
+  // --- Auth & Session ---
   user: UserProfile | null;
   session: any | null;
   isInitialized: boolean;
   isLoading: boolean;
-  isRecovering: boolean;
+  isRecovering: boolean; // True when user is in Password Reset flow
   
-  // Data
+  // --- Vehicle Data ---
   vehicles: Vehicle[];
   tasks: MaintenanceTask[];
   fuelLogs: FuelLog[];
   serviceLogs: ServiceLog[];
   marketplace: MarketplaceProduct[];
   
-  // Actions
+  // --- Actions ---
+  /** Handles Supabase session updates and maps raw user data to UserProfile */
   setSession: (session: any) => void;
   setUser: (user: UserProfile | null) => void;
   setInitialized: (initialized: boolean) => void;
   setRecovering: (recovering: boolean) => void;
   setTier: (tier: Tier) => void;
+  
+  /** Vehicle Management */
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
   removeVehicle: (id: string) => void;
+  
+  /** Task Management */
   setTasks: (tasks: MaintenanceTask[]) => void;
   addTask: (task: MaintenanceTask) => void;
+  
+  /** Marketplace & Global UI */
   setMarketplace: (items: MarketplaceProduct[]) => void;
   setLoading: (loading: boolean) => void;
+  
+  /** Clean up state on logout */
   reset: () => void;
 }
 
@@ -41,6 +54,8 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   isInitialized: false,
   isLoading: false,
   isRecovering: false,
+  
+  // Initial Mock Data (Replace with DB fetch in Production)
   vehicles: [
     {
       id: 'v_1',
@@ -62,15 +77,6 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
       dueMileage: 20000,
       status: 'pending',
       priority: 'medium'
-    },
-    {
-      id: 't_2',
-      vehicleId: 'v_1',
-      title: 'Brake Inspection',
-      description: 'Check front and rear pads.',
-      dueMileage: 18000,
-      status: 'pending',
-      priority: 'high'
     }
   ],
   fuelLogs: [],
@@ -84,15 +90,6 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
       vendorName: 'Lagos Auto Parts',
       isVerified: true,
       compatibility: ['Toyota', 'Honda', 'Lexus']
-    },
-    {
-      id: 'p_2',
-      name: 'Front Brake Pads',
-      category: 'Brakes',
-      price: 18500,
-      vendorName: 'Oando Spares',
-      isVerified: true,
-      compatibility: ['Toyota Camry', 'Toyota Corolla']
     }
   ],
 
@@ -113,18 +110,29 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
       } 
     });
   },
+  
   setUser: (user) => set({ user }),
   setInitialized: (initialized) => set({ isInitialized: initialized }),
   setRecovering: (isRecovering) => set({ isRecovering }),
   setTier: (tier) => set((state) => ({ 
     user: state.user ? { ...state.user, tier } : null 
   })),
+  
   setVehicles: (vehicles) => set({ vehicles }),
   addVehicle: (vehicle) => set((state) => ({ vehicles: [vehicle, ...state.vehicles] })),
   removeVehicle: (id) => set((state) => ({ vehicles: state.vehicles.filter(v => v.id !== id) })),
+  
   setTasks: (tasks) => set({ tasks }),
   addTask: (task) => set((state) => ({ tasks: [task, ...state.tasks] })),
+  
   setMarketplace: (items) => set({ marketplace: items }),
   setLoading: (loading) => set({ isLoading: loading }),
-  reset: () => set({ user: null, session: null, vehicles: [], tasks: [] }),
+  
+  reset: () => set({ 
+    user: null, 
+    session: null, 
+    vehicles: [], 
+    tasks: [], 
+    isRecovering: false 
+  }),
 }));

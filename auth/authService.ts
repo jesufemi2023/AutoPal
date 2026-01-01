@@ -1,16 +1,17 @@
-
 import { supabase } from './supabaseClient.ts';
 
 /**
- * Auth Service
- * High-level wrappers for Supabase Auth operations.
+ * Authentication Service Wrapper
+ * Abstracts Supabase Auth logic to allow for potential future migration
+ * to other providers (Firebase, Auth0) without breaking components.
  */
 
 const ensureClient = () => {
-  if (!supabase) throw new Error("Supabase is not configured. Please check your environment variables.");
+  if (!supabase) throw new Error("Supabase is not configured. Missing Environment Variables.");
   return supabase;
 };
 
+/** Standard Email/Password Sign Up */
 export const signUp = async (email: string, password: string) => {
   const client = ensureClient();
   const { data, error } = await client.auth.signUp({
@@ -29,6 +30,7 @@ export const signUp = async (email: string, password: string) => {
   return data;
 };
 
+/** Standard Email/Password Sign In */
 export const signIn = async (email: string, password: string) => {
   const client = ensureClient();
   const { data, error } = await client.auth.signInWithPassword({
@@ -39,6 +41,7 @@ export const signIn = async (email: string, password: string) => {
   return data;
 };
 
+/** Password Recovery: Trigger secure email link */
 export const sendPasswordResetEmail = async (email: string) => {
   const client = ensureClient();
   const { data, error } = await client.auth.resetPasswordForEmail(email, {
@@ -48,6 +51,7 @@ export const sendPasswordResetEmail = async (email: string) => {
   return data;
 };
 
+/** Password Recovery: Set final password */
 export const updatePassword = async (newPassword: string) => {
   const client = ensureClient();
   const { data, error } = await client.auth.updateUser({
@@ -57,9 +61,13 @@ export const updatePassword = async (newPassword: string) => {
   return data;
 };
 
+/**
+ * Google OAuth Flow
+ * Automatically redirects to Google's consent screen.
+ * Callback handled by Supabase, then redirected back to App origin.
+ */
 export const signInWithGoogle = async () => {
   const client = ensureClient();
-  // Ensure the redirect URL is the base origin to avoid deep link conflicts
   const redirectTo = window.location.origin;
   
   const { data, error } = await client.auth.signInWithOAuth({
@@ -76,12 +84,14 @@ export const signInWithGoogle = async () => {
   return data;
 };
 
+/** Clear user session */
 export const signOut = async () => {
   const client = ensureClient();
   const { error } = await client.auth.signOut();
   if (error) throw error;
 };
 
+/** Fetch existing session on app boot */
 export const getSession = async () => {
   if (!supabase) return null;
   const { data: { session }, error } = await supabase.auth.getSession();
