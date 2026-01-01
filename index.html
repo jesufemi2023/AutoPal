@@ -9,31 +9,42 @@
       /**
        * ENVIRONMENT CONFIGURATION
        * Shimming process.env for browser compatibility.
-       * We use an additive approach to preserve keys injected by the platform (like Vercel).
        */
-      window.process = window.process || { env: {} };
-      window.process.env = window.process.env || {};
-      
-      const defaults = {
-        SUPABASE_URL: "https://dojvsourwlvvolvmppxx.supabase.co",
-        SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvanZzb3Vyd2x2dm9sdm1wcHh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODM1NjYsImV4cCI6MjA4Mjc1OTU2Nn0.wvwghiH0ADBjQJFLbSXSwV9CEYXdECFq38u_WurKblQ"
-      };
+      (function() {
+        window.process = window.process || { env: {} };
+        window.process.env = window.process.env || {};
+        
+        // Define default Supabase credentials
+        const defaults = {
+          SUPABASE_URL: "https://dojvsourwlvvolvmppxx.supabase.co",
+          SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvanZzb3Vyd2x2dm9sdm1wcHh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODM1NjYsImV4cCI6MjA4Mjc1OTU2Nn0.wvwghiH0ADBjQJFLbSXSwV9CEYXdECFq38u_WurKblQ"
+        };
 
-      for (const key in defaults) {
-        if (!window.process.env[key]) {
-          window.process.env[key] = defaults[key];
+        // Apply defaults if not already present
+        for (const key in defaults) {
+          if (!window.process.env[key]) {
+            window.process.env[key] = defaults[key];
+          }
         }
-      }
 
-      // Vercel/Vite Bridge: If VITE_API_KEY is provided but API_KEY is not, alias it.
-      if (!window.process.env.API_KEY && window.process.env.VITE_API_KEY) {
-        window.process.env.API_KEY = window.process.env.VITE_API_KEY;
-      }
+        // Bridge common environment variable names to API_KEY
+        // This handles cases where Vercel or Vite prefixes the key.
+        const possibleKeyNames = ['VITE_API_KEY', 'GEMINI_API_KEY', 'REACT_APP_API_KEY'];
+        if (!window.process.env.API_KEY) {
+          for (const name of possibleKeyNames) {
+            if (window.process.env[name]) {
+              window.process.env.API_KEY = window.process.env[name];
+              console.log(`AutoPal: Found API key in ${name}, aliasing to API_KEY`);
+              break;
+            }
+          }
+        }
 
-      console.log("Environment Initialization:", {
-        hasApiKey: !!window.process.env.API_KEY,
-        supabaseConfigured: !!(window.process.env.SUPABASE_URL && window.process.env.SUPABASE_ANON_KEY)
-      });
+        console.log("AutoPal: Environment Initialized", {
+          hasApiKey: !!window.process.env.API_KEY,
+          envSource: window.process.env.API_KEY ? "Detected" : "Missing"
+        });
+      })();
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://js.paystack.co/v1/inline.js"></script>

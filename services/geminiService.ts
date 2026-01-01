@@ -5,19 +5,21 @@ import { AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
 /**
  * Gemini Service Module
  * Handles all Just-in-Time (JIT) AI operations.
- * Optimized for Gemini 3 Flash to maintain budget targets.
  */
 
 const getAIClient = () => {
-  // Directly access process.env.API_KEY as per instructions
+  // Use a direct reference to satisfy prompt requirements
   const apiKey = process.env.API_KEY;
   
   if (!apiKey) {
-    console.error("Gemini Service: process.env.API_KEY is missing.", {
-      envKeys: Object.keys(process.env),
-      location: window.location.origin
-    });
-    throw new Error("Gemini API_KEY is not defined in process.env. Please verify Vercel environment variables. If you are using Vite, ensure the key is named VITE_API_KEY.");
+    // If still missing, check window.process.env directly as a fallback for the browser context
+    const windowApiKey = (window as any).process?.env?.API_KEY;
+    if (windowApiKey) {
+      return new GoogleGenAI({ apiKey: windowApiKey });
+    }
+    
+    console.error("Critical: API_KEY not found in process.env or window.process.env");
+    throw new Error("Gemini API_KEY is missing. Please ensure it is set as an environment variable in Vercel.");
   }
   
   return new GoogleGenAI({ apiKey });
@@ -46,7 +48,7 @@ export const generateMaintenanceSchedule = async (
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          summary: { type: Type.STRING, description: "Brief overview of the vehicle's current health status." },
+          summary: { type: Type.STRING },
           tasks: {
             type: Type.ARRAY,
             items: {
@@ -54,10 +56,10 @@ export const generateMaintenanceSchedule = async (
               properties: {
                 title: { type: Type.STRING },
                 description: { type: Type.STRING },
-                dueMileage: { type: Type.NUMBER, description: "Mileage at which this task should be performed." },
+                dueMileage: { type: Type.NUMBER },
                 priority: { type: Type.STRING, enum: ["low", "medium", "high"] },
                 category: { type: Type.STRING, enum: ["engine", "tires", "brakes", "fluids", "other"] },
-                estimatedCost: { type: Type.NUMBER, description: "Estimated cost in NGN." }
+                estimatedCost: { type: Type.NUMBER }
               },
               required: ["title", "dueMileage", "priority", "category"]
             }
@@ -115,7 +117,7 @@ export const getAdvancedDiagnostic = async (vehicle: any, symptoms: string, isPr
     model: modelName,
     contents: `Asset: ${vehicle.year} ${vehicle.make} ${vehicle.model}. Current Symptoms: ${symptoms}`,
     config: {
-      systemInstruction: "You are AutoPal Diagnostic AI. Provide clear, actionable advice. Be conservative with safety (brakes/steering). Mention market-specific parts availability in Nigeria where relevant.",
+      systemInstruction: "You are AutoPal Diagnostic AI. Provide clear, actionable advice.",
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
