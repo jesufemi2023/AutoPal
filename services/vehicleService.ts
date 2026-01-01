@@ -1,6 +1,6 @@
 
 import { supabase } from '../auth/supabaseClient.ts';
-import { Vehicle, MaintenanceTask } from '../shared/types.ts';
+import { Vehicle, MaintenanceTask, ServiceLog } from '../shared/types.ts';
 
 /**
  * Vehicle Service
@@ -18,7 +18,6 @@ export const fetchUserVehicles = async (userId: string): Promise<Vehicle[]> => {
 
   if (error) throw error;
   
-  // Map snake_case from DB to camelCase for Store
   return (data || []).map(v => ({
     id: v.id,
     ownerId: v.owner_id,
@@ -53,8 +52,8 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id'>): Promise<Vehic
       body_type: vehicle.bodyType,
       status: vehicle.status,
       image_url: vehicle.imageUrl,
-      engine_size: vehicle.engineSize,
-      fuel_type: vehicle.fuelType,
+      engine_size: vehicle.engine_size,
+      fuel_type: vehicle.fuel_type,
       specs: vehicle.specs
     }])
     .select()
@@ -62,7 +61,6 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id'>): Promise<Vehic
 
   if (error) throw error;
   
-  // Map result back to CamelCase
   return {
     id: data.id,
     ownerId: data.owner_id,
@@ -81,10 +79,99 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id'>): Promise<Vehic
   } as Vehicle;
 };
 
+export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[]): Promise<void> => {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('maintenance_tasks')
+    .insert(tasks.map(t => ({
+      vehicle_id: t.vehicleId,
+      title: t.title,
+      description: t.description,
+      due_mileage: t.dueMileage,
+      priority: t.priority,
+      category: t.category,
+      estimated_cost: t.estimatedCost,
+      status: t.status
+    })));
+  
+  if (error) throw error;
+};
+
+export const updateTaskStatus = async (taskId: string, status: string): Promise<void> => {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('maintenance_tasks')
+    .update({ status })
+    .eq('id', taskId);
+  
+  if (error) throw error;
+};
+
+// Fixed: Correctly referencing imported ServiceLog type.
+export const createServiceLogEntry = async (log: Omit<ServiceLog, 'id'>): Promise<void> => {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('service_logs')
+    .insert([{
+      vehicle_id: log.vehicleId,
+      task_id: log.taskId,
+      date: log.date,
+      description: log.description,
+      cost: log.cost,
+      mileage: log.mileage
+    }]);
+  
+  if (error) throw error;
+};
+
+export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceTask[]> => {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('maintenance_tasks')
+    .select('*')
+    .eq('vehicle_id', vehicleId)
+    .order('due_mileage', { ascending: true });
+
+  if (error) throw error;
+  
+  return (data || []).map(t => ({
+    id: t.id,
+    vehicleId: t.vehicle_id,
+    title: t.title,
+    description: t.description,
+    dueMileage: t.due_mileage,
+    status: t.status,
+    priority: t.priority,
+    estimatedCost: t.estimated_cost,
+    category: t.category
+  })) as MaintenanceTask[];
+};
+
+// Fixed: Correctly referencing imported ServiceLog type.
+export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<ServiceLog[]> => {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from('service_logs')
+    .select('*')
+    .eq('vehicle_id', vehicleId)
+    .order('date', { ascending: false });
+
+  if (error) throw error;
+  
+  return (data || []).map(l => ({
+    id: l.id,
+    vehicleId: l.vehicle_id,
+    taskId: l.task_id,
+    date: l.date,
+    description: l.description,
+    cost: l.cost,
+    mileage: l.mileage
+  })) as ServiceLog[];
+};
+
 export const updateVehicleData = async (id: string, updates: Partial<Vehicle>): Promise<void> => {
   if (!supabase) return;
   
-  // Map camelCase to snake_case for DB
   const dbUpdates: any = {};
   if (updates.make) dbUpdates.make = updates.make;
   if (updates.model) dbUpdates.model = updates.model;
@@ -93,9 +180,7 @@ export const updateVehicleData = async (id: string, updates: Partial<Vehicle>): 
   if (updates.bodyType) dbUpdates.body_type = updates.bodyType;
   if (updates.imageUrl) dbUpdates.image_url = updates.imageUrl;
   if (updates.status) dbUpdates.status = updates.status;
-  if (updates.engineSize) dbUpdates.engine_size = updates.engineSize;
-  if (updates.fuelType) dbUpdates.fuel_type = updates.fuelType;
-  if (updates.specs) dbUpdates.specs = updates.specs;
+  if (updates.healthScore !== undefined) dbUpdates.health_score = updates.healthScore;
 
   const { error } = await supabase
     .from('vehicles')
@@ -113,16 +198,4 @@ export const deleteVehiclePermanently = async (id: string): Promise<void> => {
     .eq('id', id);
   
   if (error) throw error;
-};
-
-export const fetchMaintenanceTasks = async (vehicleId: string): Promise<MaintenanceTask[]> => {
-  if (!supabase) return [];
-  const { data, error } = await supabase
-    .from('maintenance_tasks')
-    .select('*')
-    .eq('vehicle_id', vehicleId)
-    .order('due_mileage', { ascending: true });
-
-  if (error) throw error;
-  return data || [];
 };
