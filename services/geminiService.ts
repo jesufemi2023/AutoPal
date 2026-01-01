@@ -11,9 +11,15 @@ import { AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
 const getAIClient = () => {
   // Directly access process.env.API_KEY as per instructions
   const apiKey = process.env.API_KEY;
+  
   if (!apiKey) {
-    throw new Error("Gemini API_KEY is not defined in process.env. Please verify Vercel environment variables.");
+    console.error("Gemini Service: process.env.API_KEY is missing.", {
+      envKeys: Object.keys(process.env),
+      location: window.location.origin
+    });
+    throw new Error("Gemini API_KEY is not defined in process.env. Please verify Vercel environment variables. If you are using Vite, ensure the key is named VITE_API_KEY.");
   }
+  
   return new GoogleGenAI({ apiKey });
 };
 
