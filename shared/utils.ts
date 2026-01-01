@@ -5,17 +5,13 @@
 
 export const getEnv = (key: string): string | undefined => {
   try {
-    // 1. Check window.process.env (standard shim)
-    const windowProcess = (window as any).process;
-    if (windowProcess?.env?.[key]) return windowProcess.env[key];
+    // Priority 1: Check window.process.env (standard shim and platform injection)
+    if (window.process?.env?.[key]) return window.process.env[key];
     
-    // 2. Check global process (if available via bundler injection)
+    // Priority 2: Check global process (if available)
     if (typeof process !== 'undefined' && process.env?.[key]) return process.env[key];
 
-    // 3. Check VITE specific prefix (if applicable)
-    if (typeof process !== 'undefined' && process.env?.[`VITE_${key}`]) return process.env[`VITE_${key}`];
-
-    // 4. Check global scope directly (some platforms inject as window.API_KEY)
+    // Priority 3: Check global window scope directly
     if ((window as any)[key]) return (window as any)[key];
   } catch (e) {}
   return undefined;
@@ -48,8 +44,8 @@ export const compressImage = async (file: File, maxWidth = 1200, quality = 0.7):
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const scaleFactor = maxWidth / img.width;
-        canvas.width = maxWidth;
+        const scaleFactor = Math.min(1, maxWidth / img.width);
+        canvas.width = img.width * scaleFactor;
         canvas.height = img.height * scaleFactor;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);

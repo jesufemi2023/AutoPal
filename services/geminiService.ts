@@ -1,18 +1,18 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
-import { getEnv } from "../shared/utils.ts";
 
 /**
  * Gemini Service Module
  * Handles all Just-in-Time (JIT) AI operations.
- * Optimized for Gemini 3 Flash to maintain the $70/year budget.
+ * Optimized for Gemini 3 Flash to maintain budget targets.
  */
 
 const getAIClient = () => {
-  const apiKey = getEnv('API_KEY');
+  // Directly access process.env.API_KEY as per instructions
+  const apiKey = process.env.API_KEY;
   if (!apiKey) {
-    throw new Error("Gemini API_KEY is not defined. Please check your environment variables.");
+    throw new Error("Gemini API_KEY is not defined in process.env. Please verify Vercel environment variables.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -103,10 +103,10 @@ export const decodeVIN = async (vin: string): Promise<any> => {
  */
 export const getAdvancedDiagnostic = async (vehicle: any, symptoms: string, isPremium: boolean): Promise<AIResponse> => {
   const ai = getAIClient();
-  const model = isPremium ? "gemini-3-pro-preview" : "gemini-3-flash-preview";
+  const modelName = isPremium ? "gemini-3-pro-preview" : "gemini-3-flash-preview";
   
   const response = await ai.models.generateContent({
-    model: model,
+    model: modelName,
     contents: `Asset: ${vehicle.year} ${vehicle.make} ${vehicle.model}. Current Symptoms: ${symptoms}`,
     config: {
       systemInstruction: "You are AutoPal Diagnostic AI. Provide clear, actionable advice. Be conservative with safety (brakes/steering). Mention market-specific parts availability in Nigeria where relevant.",

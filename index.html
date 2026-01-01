@@ -9,16 +9,21 @@
       /**
        * ENVIRONMENT CONFIGURATION
        * Shimming process.env for browser compatibility.
-       * We use a getter to ensure we don't overwrite values injected by the platform.
+       * We use an additive approach to preserve keys injected by the platform (like Vercel).
        */
       window.process = window.process || { env: {} };
-      window.process.env = {
-        ...window.process.env,
+      window.process.env = window.process.env || {};
+      
+      const defaults = {
         SUPABASE_URL: "https://dojvsourwlvvolvmppxx.supabase.co",
-        SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvanZzb3Vyd2x2dm9sdm1wcHh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODM1NjYsImV4cCI6MjA4Mjc1OTU2Nn0.wvwghiH0ADBjQJFLbSXSwV9CEYXdECFq38u_WurKblQ",
-        // API_KEY will be injected by the environment. 
-        // We do not define a default empty string here to avoid shadowing.
+        SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvanZzb3Vyd2x2dm9sdm1wcHh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODM1NjYsImV4cCI6MjA4Mjc1OTU2Nn0.wvwghiH0ADBjQJFLbSXSwV9CEYXdECFq38u_WurKblQ"
       };
+
+      for (const key in defaults) {
+        if (!window.process.env[key]) {
+          window.process.env[key] = defaults[key];
+        }
+      }
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://js.paystack.co/v1/inline.js"></script>
