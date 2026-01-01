@@ -52,6 +52,8 @@ const Dashboard: React.FC = () => {
           setTasks(tList);
           // Sync service logs to store
           sList.forEach(log => addServiceLog(log));
+        } catch (e) {
+          console.error("Dashboard: Error fetching vehicle details:", e);
         } finally {
           setIsLoadingDetails(false);
         }
@@ -63,30 +65,39 @@ const Dashboard: React.FC = () => {
   const handleUpdateMileage = async (newVal: number) => {
     if (!activeVehicleId) return;
     updateMileage(activeVehicleId, newVal);
-    await updateVehicleData(activeVehicleId, { mileage: newVal });
+    try {
+      await updateVehicleData(activeVehicleId, { mileage: newVal });
+    } catch (e) {
+      console.error("Dashboard: Error updating mileage in DB:", e);
+    }
   };
 
   const handleCompleteTask = async (task: MaintenanceTask) => {
     if (!activeVehicle) return;
     const cost = task.estimatedCost || 0;
     
-    // 1. Backend Sync
-    await updateTaskStatus(task.id, 'completed');
-    await createServiceLogEntry({
-      vehicleId: activeVehicle.id,
-      taskId: task.id,
-      date: new Date().toISOString(),
-      description: task.title,
-      cost,
-      mileage: activeVehicle.mileage
-    });
+    try {
+      // 1. Backend Sync
+      await updateTaskStatus(task.id, 'completed');
+      await createServiceLogEntry({
+        vehicleId: activeVehicle.id,
+        taskId: task.id,
+        date: new Date().toISOString(),
+        description: task.title,
+        cost,
+        mileage: activeVehicle.mileage
+      });
 
-    // 2. State Sync
-    completeTask(task.id, cost, activeVehicle.mileage);
-    
-    // 3. Health Update Persistence
-    const newHealth = Math.min(100, activeVehicle.healthScore + (task.priority === 'high' ? 15 : 5));
-    await updateVehicleData(activeVehicle.id, { healthScore: newHealth });
+      // 2. State Sync
+      completeTask(task.id, cost, activeVehicle.mileage);
+      
+      // 3. Health Update Persistence
+      const newHealth = Math.min(100, activeVehicle.healthScore + (task.priority === 'high' ? 15 : 5));
+      await updateVehicleData(activeVehicle.id, { healthScore: newHealth });
+    } catch (e) {
+      console.error("Dashboard: Error completing task:", e);
+      alert("Task completion could not be saved to the database.");
+    }
   };
 
   const handleAddVehicle = async (e: React.FormEvent) => {
@@ -95,7 +106,10 @@ const Dashboard: React.FC = () => {
 
     setIsDecoding(true);
     try {
+      // Step 1: Decode VIN using Gemini
+      console.log("Dashboard: Decrypting VIN...");
       const decoded = await decodeVIN(newVin);
+      
       const vehiclePayload: Omit<Vehicle, 'id'> = {
         ownerId: user?.id || 'unknown',
         make: decoded.make || 'Generic',
@@ -110,9 +124,12 @@ const Dashboard: React.FC = () => {
         fuelType: decoded.specs?.fuelType
       };
 
+      // Step 2: Save to Supabase
       const savedVehicle = await createVehicle(vehiclePayload);
       addVehicle(savedVehicle);
 
+      // Step 3: Generate Roadmap
+      console.log("Dashboard: Generating roadmap...");
       const roadmap = await generateMaintenanceSchedule(savedVehicle.make, savedVehicle.model, savedVehicle.year, 0);
       const tasksToSave = roadmap.tasks.map(t => ({
         ...t,
@@ -125,8 +142,10 @@ const Dashboard: React.FC = () => {
       setActiveVehicleId(savedVehicle.id);
       setShowAddModal(false);
       setNewVin('');
-    } catch (err) {
-      alert("Registration failed. Check API Key configuration.");
+    } catch (err: any) {
+      console.error("Dashboard: Onboarding Error Details:", err);
+      const msg = err.message || "Unknown error";
+      alert(`Registration failed. Details: ${msg}. Check console for full trace and verify API_KEY in Vercel.`);
     } finally {
       setIsDecoding(false);
     }
@@ -138,8 +157,9 @@ const Dashboard: React.FC = () => {
     try {
       const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium');
       setAiAdvice(advice);
-    } catch (e) {
-      alert("AI unreachable. Check environment variables.");
+    } catch (e: any) {
+      console.error("Dashboard: Diagnostic AI Error:", e);
+      alert("AI unreachable. Ensure API_KEY is set in your environment variables.");
     } finally {
       setIsAskingAI(false);
     }
@@ -311,20 +331,25 @@ const Dashboard: React.FC = () => {
                 >
                   Sync Receipt
                 </button>
-                <input type="file" ref={receiptInputRef} className="hidden" accept="image/*" onChange={async (e) => {
+                <input type="file" min="1" max="1" ref={receiptInputRef} className="hidden" accept="image/*" onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  const compressed = await compressImage(file);
-                  const reader = new FileReader();
-                  reader.onloadend = async () => {
-                    const result = await processReceiptOCR(reader.result as string);
-                    if (confirm(`AI Analysis: ${result.description} for ${formatCurrency(result.totalCost)}`)) {
-                      const log = { id: Math.random().toString(36).substr(2, 9), vehicleId: activeVehicle.id, date: new Date().toISOString(), description: result.description, cost: result.totalCost, mileage: activeVehicle.mileage };
-                      addServiceLog(log);
-                      await createServiceLogEntry(log);
-                    }
-                  };
-                  reader.readAsDataURL(compressed);
+                  try {
+                    const compressed = await compressImage(file);
+                    const reader = new FileReader();
+                    reader.onloadend = async () => {
+                      const result = await processReceiptOCR(reader.result as string);
+                      if (confirm(`AI Analysis: ${result.description} for ${formatCurrency(result.totalCost)}`)) {
+                        const log = { id: Math.random().toString(36).substr(2, 9), vehicleId: activeVehicle?.id || '', date: new Date().toISOString(), description: result.description, cost: result.totalCost, mileage: activeVehicle?.mileage || 0 };
+                        addServiceLog(log);
+                        await createServiceLogEntry(log);
+                      }
+                    };
+                    reader.readAsDataURL(compressed);
+                  } catch (err) {
+                    console.error("Dashboard: Receipt Scan Error:", err);
+                    alert("Could not process receipt image.");
+                  }
                 }} />
               </div>
               <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 scrollbar-hide">
