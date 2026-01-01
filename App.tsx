@@ -26,27 +26,36 @@ const App: React.FC = () => {
       try {
         if (!supabase) return;
 
-        // 1. Check if we are currently in a recovery flow from URL before session check
-        // Supabase recovery links usually contain access_token and type=recovery in the hash
+        // 1. Immediate URL fragment check
+        // We do this BEFORE getSession to prevent a race condition where session 
+        // triggers a dashboard render before isRecovering is set.
         const hash = window.location.hash;
-        if (hash && (hash.includes('type=recovery') || hash.includes('type=signup'))) {
+        if (hash && (hash.includes('type=recovery') || hash.includes('access_token='))) {
           setRecovering(true);
         }
 
         // 2. Check current session
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setSession(currentSession);
         setInitialized(true);
 
         // 3. Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           console.debug("Auth Event:", event);
+          
           if (event === 'PASSWORD_RECOVERY') {
             setRecovering(true);
           }
+          
           if (event === 'SIGNED_OUT') {
             setRecovering(false);
           }
+
+          if (event === 'USER_UPDATED' && isRecovering) {
+            // After successful password update, we handle the cleanup in AuthScreen
+            // but we keep the recovery flag true until explicit navigation happens
+          }
+
           setSession(session);
         });
 
@@ -59,7 +68,7 @@ const App: React.FC = () => {
     };
 
     initAuth();
-  }, [setSession, setInitialized, setRecovering]);
+  }, [setSession, setInitialized, setRecovering, isRecovering]);
 
   if (!isInitialized) {
     return (
@@ -99,16 +108,17 @@ const App: React.FC = () => {
     );
   }
 
-  // CRITICAL: Check recovery status FIRST to prevent dashboard redirect
+  // PRIORITY 1: Recovery Screen
   if (isRecovering) {
     return <AuthScreen />;
   }
 
+  // PRIORITY 2: Login Screen
   if (!session) {
     return <AuthScreen />;
   }
 
-  // Unified UI Shell for Authenticated Users
+  // PRIORITY 3: Dashboard
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc]">
       <nav className="bg-white border-b border-slate-200 sticky top-0 z-50 glass">

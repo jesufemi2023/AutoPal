@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { signIn, signUp, signInWithGoogle, sendPasswordResetEmail, updatePassword } from '../auth/authService.ts';
+import { signIn, signUp, signInWithGoogle, sendPasswordResetEmail, updatePassword, signOut } from '../auth/authService.ts';
 import { useAutoPalStore } from '../shared/store.ts';
 
 type AuthMode = 'login' | 'signup' | 'forgot' | 'reset';
@@ -38,14 +38,26 @@ const AuthScreen: React.FC = () => {
         await sendPasswordResetEmail(email);
         setSuccessMessage(`Reset link sent to ${email}. Check your inbox or spam.`);
       } else if (mode === 'reset') {
+        // 1. Update the password
         await updatePassword(password);
+        
         setSuccessMessage('Password updated successfully! Redirecting to login...');
         
-        // We delay clearing the recovery state to show the success message
+        // 2. Explicitly Sign Out
+        // Recovery links log you in automatically with a temporary session.
+        // We must destroy it to ensure the user logs in with the NEW password.
+        await signOut();
+
+        // 3. Cleanup and redirect
         setTimeout(() => {
+          // Clear the recovery flag globally
           setRecovering(false);
-          // Clear hash to prevent re-triggering reset mode on reload
+          // Clear URL hash to prevent re-triggering recovery mode
           window.history.replaceState(null, '', window.location.pathname);
+          // Switch UI back to login mode
+          setMode('login');
+          setSuccessMessage(null);
+          // Optional: Force reload to ensure fresh app state
           window.location.reload();
         }, 2000);
       }
