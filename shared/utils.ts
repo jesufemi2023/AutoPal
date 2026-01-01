@@ -1,25 +1,14 @@
+
 /**
  * Utility functions for formatting and calculations.
  */
 
-/**
- * Safely get an environment variable from either window.process.env or process.env
- */
 export const getEnv = (key: string): string | undefined => {
   try {
-    // 1. Check window.process shim (highest priority for browser runtime)
     const windowProcess = (window as any).process;
-    if (windowProcess?.env?.[key]) {
-      return windowProcess.env[key];
-    }
-    
-    // 2. Fallback to standard process.env (for Vercel build/injection)
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
-      return process.env[key];
-    }
-  } catch (e) {
-    // Silent catch for restricted environments
-  }
+    if (windowProcess?.env?.[key]) return windowProcess.env[key];
+    if (typeof process !== 'undefined' && process.env?.[key]) return process.env[key];
+  } catch (e) {}
   return undefined;
 };
 
@@ -32,4 +21,35 @@ export const formatCurrency = (amount: number) => {
 
 export const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString();
+};
+
+/** Structural VIN Validation (ISO 3779) */
+export const isValidVIN = (vin: string): boolean => {
+  const regex = /^[A-HJ-NPR-Z0-9]{17}$/;
+  return regex.test(vin.toUpperCase());
+};
+
+/** Client-side image compression to stay within free-tier limits */
+export const compressImage = async (file: File, maxWidth = 1200, quality = 0.7): Promise<Blob> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const scaleFactor = maxWidth / img.width;
+        canvas.width = maxWidth;
+        canvas.height = img.height * scaleFactor;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error('Compression failed'));
+        }, 'image/jpeg', quality);
+      };
+    };
+    reader.onerror = (err) => reject(err);
+  });
 };
