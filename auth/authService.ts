@@ -59,10 +59,17 @@ export const updatePassword = async (newPassword: string) => {
 
 export const signInWithGoogle = async () => {
   const client = ensureClient();
+  // Ensure the redirect URL is the base origin to avoid deep link conflicts
+  const redirectTo = window.location.origin;
+  
   const { data, error } = await client.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: window.location.origin,
+      redirectTo,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'select_account',
+      },
     },
   });
   if (error) throw error;

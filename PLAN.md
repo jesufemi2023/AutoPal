@@ -17,10 +17,17 @@ I have reviewed and acknowledged the mandatory constraints and reference archite
 - **Payments**: Paystack (Integrated via client-side libraries).
 - **Hosting**: Vercel (Production-ready serverless deployment).
 
-## 3. Immediate Implementation Plan
-- **Core State Management**: Zustand store for vehicle data and user session.
-- **AI Service**: Integration with Gemini Flash Lite for "Ownership Intelligence".
-- **Dashboard**: High-performance Tailwind UI for vehicle health monitoring.
-- **Paystack Stub**: Implementation for subscription logic.
+## 3. Implementation Checklist
+- [x] **Core State Management**: Zustand store for vehicle data and user session.
+- [x] **Authentication Flow**: Login, Signup, and robust Password Recovery.
+- [ ] **Google OAuth Setup**:
+    1. Create Project in Google Cloud Console.
+    2. Configure OAuth Consent Screen (External).
+    3. Create OAuth Client ID (Web App).
+    4. Add Supabase Callback URL to Authorized Redirect URIs.
+    5. Input Client ID/Secret into Supabase Auth Providers.
+- [ ] **AI Service**: Integration with Gemini Flash Lite for "Ownership Intelligence".
+- [ ] **Dashboard**: High-performance Tailwind UI for vehicle health monitoring.
+- [ ] **Payments**: Subscription logic via Paystack.
 
-*Ready to proceed with the core MVP codebase.*
+*Proceeding with feature refinements.*
