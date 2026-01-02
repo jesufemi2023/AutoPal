@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
-import { getAdvancedDiagnostic, decodeVIN, generateMaintenanceSchedule, getVehicleAppraisal } from '../services/geminiService.ts';
+// Fix: Removed non-existent import getVehicleAppraisal
+import { getAdvancedDiagnostic, decodeVIN, generateMaintenanceSchedule } from '../services/geminiService.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, createVehicle, updateVehicleData, 
   updateTaskStatus, createServiceLogEntry, createMaintenanceTasksBatch, uploadVehicleImage 
@@ -28,11 +29,12 @@ const Dashboard: React.FC = () => {
   const [isAppraising, setIsAppraising] = useState(false);
   const [appraisal, setAppraisal] = useState<AppraisalResult | null>(null);
   
+  // Registration States
   const [showAddModal, setShowAddModal] = useState(false);
-  const [regStep, setRegStep] = useState<'choice' | 'vin' | 'manual'>('choice');
+  const [regStep, setRegStep] = useState<'vin' | 'manual'>('vin');
   const [newVin, setNewVin] = useState('');
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   
   const [manualData, setManualData] = useState({
     make: '',
@@ -41,12 +43,8 @@ const Dashboard: React.FC = () => {
     bodyType: 'sedan' as BodyType,
     mileage: 0
   });
-  
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const diagImageRef = useRef<HTMLInputElement>(null);
 
+  const diagImageRef = useRef<HTMLInputElement>(null);
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
   const pendingTasks = tasks.filter(t => t.vehicleId === activeVehicleId && t.status === 'pending');
 
@@ -58,8 +56,6 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     if (activeVehicleId) {
-      setAppraisal(null);
-      setAiAdvice(null);
       const loadDetails = async () => {
         setIsLoadingDetails(true);
         try {
@@ -70,7 +66,7 @@ const Dashboard: React.FC = () => {
           setTasks(tList);
           sLogs.forEach(log => addServiceLog(log));
         } catch (e) {
-          console.error("Dashboard: Data load error", e);
+          console.error("Dashboard Sync Error:", e);
         } finally {
           setIsLoadingDetails(false);
         }
@@ -79,33 +75,22 @@ const Dashboard: React.FC = () => {
     }
   }, [activeVehicleId, setTasks, addServiceLog]);
 
-  const handleMileageUpdate = async (newVal: number) => {
-    if (!activeVehicle) return;
-    try {
-      await updateMileage(activeVehicle.id, newVal);
-      await updateVehicleData(activeVehicle.id, { mileage: newVal });
-      setShowOdometerModal(false);
-    } catch (err) {
-      alert("Failed to sync mileage update.");
+  const handleVINRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isValidVIN(newVin)) {
+      alert("Please enter a valid 17-digit VIN.");
+      return;
     }
-  };
 
-  const handleTaskComplete = async (task: MaintenanceTask) => {
-    if (!activeVehicle) return;
+    setIsProcessing(true);
     try {
-      await updateTaskStatus(task.id, 'completed');
-      await createServiceLogEntry({
-        vehicleId: activeVehicle.id,
-        taskId: task.id,
-        date: new Date().toISOString(),
-        description: task.title,
-        cost: task.estimatedCost || 0,
-        mileage: activeVehicle.mileage,
-        isDirty: false
-      });
-      completeTask(task.id, task.estimatedCost || 0, activeVehicle.mileage);
-    } catch (e) {
-      console.error("Task completion error", e);
+      const details = await decodeVIN(newVin);
+      await finalizeRegistration(details.make, details.model, details.year, details.bodyType, newVin, 0);
+    } catch (err) {
+      console.warn("AI Decoding failed. Switching to manual mode.");
+      setRegStep('manual');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -122,13 +107,14 @@ const Dashboard: React.FC = () => {
         healthScore: 100,
         bodyType,
         status: 'active',
-        imageUrls: uploadedImages,
+        imageUrls: [],
         isDirty: false
       };
 
       const saved = await createVehicle(payload);
       addVehicle(saved);
 
+      // Generate Roadmap (One-time AI operation)
       try {
         const roadmap = await generateMaintenanceSchedule(make, model, year, mileage);
         await createMaintenanceTasksBatch(roadmap.tasks.map(t => ({
@@ -137,12 +123,12 @@ const Dashboard: React.FC = () => {
           status: 'pending' as const,
           isDirty: false
         })));
-      } catch (e) { console.error("Roadmap generation skipped", e); }
+      } catch (e) { console.error("Roadmap skipped", e); }
 
       setActiveVehicleId(saved.id);
       closeModal();
     } catch (err) {
-      alert("Failed to save vehicle profile.");
+      alert("Could not register vehicle. Check connection.");
     } finally {
       setIsProcessing(false);
     }
@@ -150,9 +136,8 @@ const Dashboard: React.FC = () => {
 
   const closeModal = () => {
     setShowAddModal(false);
-    setRegStep('choice');
+    setRegStep('vin');
     setNewVin('');
-    setUploadedImages([]);
     setManualData({ make: '', model: '', year: new Date().getFullYear(), bodyType: 'sedan', mileage: 0 });
   };
 
@@ -160,14 +145,14 @@ const Dashboard: React.FC = () => {
     <div className="space-y-6 md:space-y-10 animate-slide-in p-4 md:p-0">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
-          <h1 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight">Garage</h1>
-          <p className="text-slate-500 font-semibold mt-1">Smart ownership hub for your assets</p>
+          <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-none">Garage</h1>
+          <p className="text-slate-500 font-semibold mt-2">Managing {vehicles.length} assets</p>
         </div>
         <button 
           onClick={() => setShowAddModal(true)}
-          className="w-full md:w-auto bg-blue-600 text-white px-8 py-5 rounded-3xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
+          className="w-full md:w-auto bg-blue-600 text-white px-10 py-5 rounded-3xl font-black uppercase tracking-widest text-[10px] shadow-2xl shadow-blue-500/20 active:scale-95 transition-all"
         >
-          + Add Vehicle
+          + Register Asset
         </button>
       </header>
 
@@ -177,19 +162,11 @@ const Dashboard: React.FC = () => {
           <button 
             key={v.id}
             onClick={() => setActiveVehicleId(v.id)}
-            className={`flex-shrink-0 px-8 py-6 rounded-[2.5rem] border-2 transition-all text-left min-w-[200px] ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-2xl translate-y-[-4px]' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
+            className={`flex-shrink-0 px-8 py-6 rounded-[2.5rem] border-2 transition-all text-left min-w-[220px] ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-2xl translate-y-[-4px]' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200 shadow-sm'}`}
           >
-            <div className="flex items-center gap-3">
-              {v.imageUrls && v.imageUrls.length > 0 ? (
-                <img src={v.imageUrls[0]} className="w-8 h-8 rounded-full object-cover border border-white/20" alt="" />
-              ) : (
-                <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-black text-slate-400">?</div>
-              )}
-              <div>
-                <div className="text-[10px] font-black uppercase opacity-60 tracking-widest leading-none">{v.make}</div>
-                <div className="text-lg font-black leading-tight">{v.model}</div>
-              </div>
-            </div>
+            <div className="text-[10px] font-black uppercase opacity-50 mb-1 tracking-widest">{v.make}</div>
+            <div className="text-xl font-black leading-tight">{v.model}</div>
+            <div className="text-[10px] mt-3 opacity-40 font-mono font-bold tracking-tighter">{v.vin}</div>
           </button>
         ))}
       </div>
@@ -197,74 +174,35 @@ const Dashboard: React.FC = () => {
       {activeVehicle ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-8">
-            <section className="bg-white rounded-[3rem] md:rounded-[4rem] p-8 md:p-14 border border-slate-100 shadow-sm relative overflow-hidden">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center relative">
-                <div className="relative group">
-                   {activeVehicle.imageUrls && activeVehicle.imageUrls.length > 0 ? (
-                     <div className="aspect-[16/9] w-full rounded-3xl overflow-hidden bg-slate-100 shadow-inner relative">
-                        {isAppraising && <div className="absolute inset-0 bg-blue-600/10 z-10"><div className="scan-line"></div></div>}
-                        <img src={activeVehicle.imageUrls[0]} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={activeVehicle.model} />
-                        {activeVehicle.imageUrls.length > 1 && (
-                          <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur px-3 py-1 rounded-full text-[10px] font-black text-white">
-                            + {activeVehicle.imageUrls.length - 1} More
-                          </div>
-                        )}
-                     </div>
-                   ) : (
-                     <div className="relative">
-                       {isAppraising && <div className="absolute inset-0 bg-blue-600/10 z-10 rounded-3xl overflow-hidden"><div className="scan-line"></div></div>}
-                       <VehicleBlueprint type={activeVehicle.bodyType} />
-                     </div>
-                   )}
-                </div>
-                
+            {/* Visual Vehicle Card */}
+            <section className="bg-white rounded-[3.5rem] md:rounded-[4.5rem] p-8 md:p-14 border border-slate-100 shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-12 opacity-[0.03] font-black text-9xl pointer-events-none select-none uppercase tracking-tighter transition-opacity group-hover:opacity-[0.06]">
+                {activeVehicle.make}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center relative z-10">
+                <VehicleBlueprint type={activeVehicle.bodyType} />
                 <div className="space-y-8">
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <span className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">Active Profile</span>
-                      <button 
-                        onClick={async () => {
-                           setIsAppraising(true);
-                           try {
-                             const result = await getVehicleAppraisal(activeVehicle);
-                             setAppraisal(result);
-                           } catch (e) { alert("Appraisal failed"); } finally { setIsAppraising(false); }
-                        }}
-                        disabled={isAppraising}
-                        className="bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-colors disabled:opacity-50"
-                      >
-                        {isAppraising ? 'Appraising...' : 'Get Market Value'}
-                      </button>
-                    </div>
+                    <span className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">Active Profile</span>
                     <h2 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none">
                       {activeVehicle.year} {activeVehicle.model}
                     </h2>
-                    <p className="text-slate-400 font-mono text-xs uppercase tracking-widest">{activeVehicle.vin}</p>
                   </div>
                   
-                  {appraisal && (
-                    <div className="bg-blue-600 text-white rounded-3xl p-6 animate-slide-in">
-                      <div className="text-[10px] font-black uppercase opacity-60 mb-1 tracking-widest">Est. Market Value</div>
-                      <div className="text-3xl font-black mb-2">{formatCurrency(appraisal.estimatedValue)}</div>
-                      <p className="text-[10px] leading-tight opacity-80">{appraisal.marketInsight}</p>
-                    </div>
-                  )}
-
                   <div className="grid grid-cols-2 gap-4">
                     <button 
                       onClick={() => setShowOdometerModal(true)}
-                      className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 text-left transition-all hover:bg-white hover:border-blue-200 active:scale-95"
+                      className="bg-slate-50 rounded-[2.5rem] p-6 border border-slate-100 text-left hover:bg-white hover:border-blue-200 transition-all active:scale-95"
                     >
                       <div className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest flex justify-between">
                         Odometer
-                        {activeVehicle.avgDailyKm && activeVehicle.avgDailyKm > 0 && (
-                          <span className="text-blue-500 lowercase">≈ {Math.round(activeVehicle.avgDailyKm)} km/day</span>
-                        )}
+                        <span className="text-blue-500">→</span>
                       </div>
                       <div className="text-3xl font-black text-slate-900">{activeVehicle.mileage.toLocaleString()} <span className="text-xs uppercase opacity-30">km</span></div>
                     </button>
-                    <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100">
-                      <div className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Status</div>
+                    <div className="bg-slate-50 rounded-[2.5rem] p-6 border border-slate-100">
+                      <div className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Health</div>
                       <div className={`text-3xl font-black ${getHealthColor(activeVehicle.healthScore)}`}>{activeVehicle.healthScore}%</div>
                       <div className="text-[10px] font-black uppercase text-slate-400 mt-1">{getHealthStatusText(activeVehicle.healthScore)}</div>
                     </div>
@@ -273,64 +211,89 @@ const Dashboard: React.FC = () => {
               </div>
             </section>
 
-            <section className="bg-white rounded-[3rem] p-8 md:p-12 border border-slate-100 shadow-sm">
-              <h3 className="text-2xl font-black text-slate-900 mb-10 tracking-tight flex items-center gap-4">
-                <span className="w-2 h-8 bg-blue-600 rounded-full"></span>
-                Roadmap
-              </h3>
-              {pendingTasks.length > 0 ? (
-                <div className="space-y-6">
-                  {pendingTasks.map((task, i) => {
-                    const projectedDate = calculateProjectedServiceDate(activeVehicle, task);
-                    return (
-                      <div key={task.id} className="group relative flex gap-6 md:gap-8 items-start border-b border-slate-50 pb-8 last:border-0 last:pb-0">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-sm border-2 ${task.priority === 'high' ? 'bg-rose-50 border-rose-100 text-rose-500' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
-                          {i + 1}
+            {/* Maintenance Roadmap */}
+            <section className="bg-white rounded-[3.5rem] p-8 md:p-14 border border-slate-100 shadow-sm">
+              <div className="flex justify-between items-center mb-12">
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-4">
+                  <span className="w-2 h-10 bg-blue-600 rounded-full"></span>
+                  Roadmap Intel
+                </h3>
+                {isLoadingDetails && <span className="text-[10px] font-black text-blue-600 animate-pulse tracking-widest uppercase">Syncing...</span>}
+              </div>
+
+              <div className="space-y-8">
+                {pendingTasks.length > 0 ? pendingTasks.map((task, i) => {
+                  const projectedDate = calculateProjectedServiceDate(activeVehicle, task);
+                  return (
+                    <div key={task.id} className="group relative flex gap-6 md:gap-10 items-start border-b border-slate-50 pb-10 last:border-0 last:pb-0">
+                      <div className={`w-14 h-14 rounded-[1.5rem] flex items-center justify-center font-black text-lg border-2 transition-transform group-hover:scale-110 ${task.priority === 'high' ? 'bg-rose-50 border-rose-100 text-rose-500' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>
+                        {i + 1}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex flex-col sm:flex-row justify-between gap-4 mb-3">
+                          <h4 className="font-black text-slate-900 text-xl md:text-2xl tracking-tight leading-none">{task.title}</h4>
+                          <button 
+                            onClick={async () => {
+                              try {
+                                await updateTaskStatus(task.id, 'completed');
+                                completeTask(task.id, task.estimatedCost || 0, activeVehicle.mileage);
+                                // Fix: Added isDirty property required by Omit<ServiceLog, "id">
+                                await createServiceLogEntry({
+                                  vehicleId: activeVehicle.id, taskId: task.id, date: new Date().toISOString(),
+                                  description: task.title, cost: task.estimatedCost || 0, mileage: activeVehicle.mileage,
+                                  isDirty: false
+                                });
+                              } catch (e) { alert("Update failed"); }
+                            }}
+                            className="bg-slate-900 text-white text-[10px] font-black px-8 py-4 rounded-2xl hover:bg-emerald-600 transition-all uppercase tracking-widest active:scale-90"
+                          >
+                            Mark Done
+                          </button>
                         </div>
-                        <div className="flex-1">
-                          <div className="flex flex-col sm:flex-row justify-between gap-4 mb-2">
-                            <h4 className="font-black text-slate-900 text-xl tracking-tight">{task.title}</h4>
-                            <button onClick={() => handleTaskComplete(task)} className="bg-slate-900 text-white text-[10px] font-black px-6 py-3 rounded-xl hover:bg-emerald-600 transition-all uppercase tracking-widest active:scale-90">Done</button>
-                          </div>
-                          <p className="text-slate-500 text-sm leading-relaxed mb-3">{task.description}</p>
-                          <div className="flex flex-wrap gap-4">
-                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">@ {task.dueMileage?.toLocaleString()} km</span>
-                            {projectedDate && (
-                              <span className="text-[10px] font-black uppercase text-blue-500 tracking-wider bg-blue-50 px-2 py-0.5 rounded-lg">
-                                Projected: {projectedDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                              </span>
-                            )}
-                            {task.estimatedCost && <span className="text-[10px] font-black uppercase text-emerald-600 tracking-wider">Est. {formatCurrency(task.estimatedCost)}</span>}
-                          </div>
+                        <p className="text-slate-500 text-sm md:text-base leading-relaxed mb-4 max-w-2xl">{task.description}</p>
+                        <div className="flex flex-wrap gap-4">
+                          <span className="text-[10px] font-black uppercase text-slate-400 border border-slate-100 px-3 py-1 rounded-lg">Due @ {task.dueMileage?.toLocaleString()} km</span>
+                          {projectedDate && (
+                            <span className="text-[10px] font-black uppercase text-blue-500 bg-blue-50 px-3 py-1 rounded-lg">
+                              Est: {projectedDate.toLocaleDateString()}
+                            </span>
+                          )}
+                          {task.estimatedCost && <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg">Est. {formatCurrency(task.estimatedCost)}</span>}
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-20 bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
-                  <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">No pending tasks. You're clear!</p>
-                </div>
-              )}
+                    </div>
+                  );
+                }) : (
+                  <div className="text-center py-20 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
+                    <div className="text-5xl mb-6">✨</div>
+                    <p className="text-slate-900 font-black text-xl mb-1 tracking-tight">Your Vehicle is Optimized</p>
+                    <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">No pending maintenance identified</p>
+                  </div>
+                )}
+              </div>
             </section>
           </div>
 
           <aside className="lg:col-span-4 space-y-8">
-            <div className="bg-[#0f172a] text-white rounded-[3rem] p-10 shadow-2xl relative overflow-hidden">
-              {isAskingAI && <div className="absolute inset-0 bg-blue-600/10 z-10"><div className="scan-line"></div></div>}
-              <h3 className="text-xl font-black mb-8 flex items-center gap-4">
-                <span className="w-8 h-8 bg-blue-600 rounded-xl flex items-center justify-center text-xs">✧</span> 
+            {/* AI Diagnostics Side Panel */}
+            <div className="bg-[#0f172a] text-white rounded-[3.5rem] p-10 shadow-2xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-blue-600/10 blur-[80px] rounded-full"></div>
+              {isAskingAI && <div className="absolute inset-0 bg-blue-600/10 z-20"><div className="scan-line"></div></div>}
+              
+              <h3 className="text-xl font-black mb-8 flex items-center gap-4 relative z-10">
+                <span className="w-10 h-10 bg-blue-600 rounded-2xl flex items-center justify-center text-xs shadow-lg shadow-blue-500/20 animate-pulse">✧</span> 
                 Diagnostics
               </h3>
-              <div className="space-y-4 mb-6">
+              
+              <div className="space-y-4 mb-8 relative z-10">
                 <textarea 
                   value={symptom}
                   onChange={(e) => setSymptom(e.target.value)}
-                  placeholder="Describe car symptoms..."
-                  className="w-full bg-slate-900 border border-slate-800 rounded-[2rem] p-6 text-sm focus:ring-2 focus:ring-blue-600 outline-none h-40 transition-all text-slate-200 resize-none"
+                  placeholder="Describe abnormal sounds or behaviors..."
+                  className="w-full bg-slate-900 border border-slate-800 rounded-[2rem] p-8 text-sm focus:ring-2 focus:ring-blue-600 outline-none h-48 transition-all text-slate-200 resize-none font-medium placeholder-slate-700"
                 />
                 
-                <div className="relative group">
+                <div className="relative">
                   <input type="file" hidden ref={diagImageRef} accept="image/*" onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
@@ -340,16 +303,16 @@ const Dashboard: React.FC = () => {
                     }
                   }} />
                   {diagImage ? (
-                    <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-800">
+                    <div className="relative aspect-video rounded-3xl overflow-hidden bg-slate-800 border border-slate-700">
                       <img src={diagImage} className="w-full h-full object-cover" alt="Symptom" />
-                      <button onClick={() => setDiagImage(null)} className="absolute top-2 right-2 bg-black/60 w-6 h-6 rounded-full text-xs">×</button>
+                      <button onClick={() => setDiagImage(null)} className="absolute top-4 right-4 bg-black/60 backdrop-blur-md w-8 h-8 rounded-full flex items-center justify-center font-bold">×</button>
                     </div>
                   ) : (
                     <button 
                       onClick={() => diagImageRef.current?.click()}
-                      className="w-full py-4 border-2 border-dashed border-slate-800 rounded-2xl text-slate-500 text-[10px] font-black uppercase tracking-widest hover:border-blue-600 transition-colors"
+                      className="w-full py-5 border-2 border-dashed border-slate-800 rounded-[2rem] text-slate-600 text-[10px] font-black uppercase tracking-widest hover:border-blue-600 hover:text-blue-500 transition-all active:scale-[0.98]"
                     >
-                      + Attach Photo (Dash/Engine)
+                      + Attachment (Optional)
                     </button>
                   )}
                 </div>
@@ -362,178 +325,128 @@ const Dashboard: React.FC = () => {
                    try {
                      const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
                      setAiAdvice(advice);
-                     // Set Suggested Parts in Store for Marketplace link
-                     if (advice.partsIdentified && advice.partsIdentified.length > 0) {
-                        setSuggestedParts(advice.partsIdentified);
-                     }
-                   } catch (e) { alert("AI unavailable"); } finally { setIsAskingAI(false); }
+                     if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
+                   } catch (e) { alert("AI currently at capacity"); } finally { setIsAskingAI(false); }
                 }}
-                className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] disabled:opacity-30 active:scale-95 transition-all"
+                className="w-full bg-blue-600 text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-xl shadow-blue-500/20 disabled:opacity-30 active:scale-95 transition-all relative z-10"
               >
-                {isAskingAI ? 'Analyzing...' : 'Analyze Symptoms'}
+                {isAskingAI ? 'Consulting Neural Grid...' : 'Submit Diagnostic Query'}
               </button>
 
               {aiAdvice && (
-                <div className={`mt-8 p-6 rounded-[2rem] animate-slide-in ${aiAdvice.severity === 'critical' ? 'bg-rose-600/20 border border-rose-500/30' : 'bg-white/5 border border-white/10'}`}>
-                  <div className={`text-[10px] font-black uppercase mb-2 tracking-widest ${aiAdvice.severity === 'critical' ? 'text-rose-400' : 'text-blue-400'}`}>
-                    {aiAdvice.severity} alert
+                <div className={`mt-10 p-8 rounded-[2.5rem] animate-slide-in relative z-10 ${aiAdvice.severity === 'critical' ? 'bg-rose-500/10 border border-rose-500/30' : 'bg-white/5 border border-white/10'}`}>
+                  <div className={`text-[10px] font-black uppercase mb-3 tracking-[0.2em] ${aiAdvice.severity === 'critical' ? 'text-rose-400' : 'text-blue-400'}`}>
+                    System Status: {aiAdvice.severity}
                   </div>
-                  <p className="text-sm font-bold text-slate-200 leading-snug mb-4">{aiAdvice.advice}</p>
-                  <ul className="space-y-2">
+                  <p className="text-base font-bold text-slate-200 leading-snug mb-6">{aiAdvice.advice}</p>
+                  <ul className="space-y-3">
                     {aiAdvice.recommendations.map((rec, i) => (
-                      <li key={i} className="text-xs text-slate-400 flex items-start gap-2">
-                        <span className="text-blue-500">→</span> {rec}
+                      <li key={i} className="text-xs text-slate-400 flex items-start gap-3">
+                        <span className="text-blue-500 mt-0.5">•</span> {rec}
                       </li>
                     ))}
                   </ul>
-                  {aiAdvice.partsIdentified && aiAdvice.partsIdentified.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-white/10">
-                      <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Recommended Spares:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {aiAdvice.partsIdentified.map(part => (
-                          <span key={part} className="text-[9px] bg-blue-600 px-2 py-0.5 rounded-full font-black text-white">{part}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
           </aside>
         </div>
       ) : (
-        <div className="py-40 text-center bg-white rounded-[4rem] border-2 border-dashed border-slate-100 shadow-sm">
-           <h3 className="text-3xl font-black text-slate-900 mb-10 tracking-tighter">Your Garage is Empty</h3>
-           <button onClick={() => setShowAddModal(true)} className="bg-slate-900 text-white px-12 py-6 rounded-3xl font-black uppercase tracking-widest hover:bg-blue-600 transition-all text-xs">Add Your First Car</button>
+        <div className="py-48 text-center bg-white rounded-[4.5rem] border-2 border-dashed border-slate-100 shadow-sm">
+           <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center text-4xl mx-auto mb-10 animate-bounce">🏎️</div>
+           <h3 className="text-4xl font-black text-slate-900 mb-4 tracking-tighter">Your Garage is Empty</h3>
+           <p className="text-slate-500 mb-12 max-w-sm mx-auto font-medium leading-relaxed">Join 10,000+ Nigerian owners tracking their vehicle health in real-time.</p>
+           <button onClick={() => setShowAddModal(true)} className="bg-slate-900 text-white px-14 py-6 rounded-[2.5rem] font-black uppercase tracking-widest hover:bg-blue-600 transition-all text-xs shadow-2xl">Register Your First Car</button>
         </div>
       )}
 
-      {/* ODOMETER UPDATE MODAL */}
+      {/* ODOMETER MODAL */}
       {showOdometerModal && activeVehicle && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="w-full max-w-sm">
             <OdometerInput 
               value={activeVehicle.mileage} 
-              onSave={handleMileageUpdate} 
+              onSave={async (v) => {
+                await updateMileage(activeVehicle.id, v);
+                await updateVehicleData(activeVehicle.id, { mileage: v });
+                setShowOdometerModal(false);
+              }} 
               onCancel={() => setShowOdometerModal(false)} 
             />
           </div>
         </div>
       )}
 
-      {/* REGISTRATION MODAL */}
+      {/* REGISTRATION MODAL WITH FALLBACK */}
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xl animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-xl rounded-[3rem] p-10 md:p-16 shadow-2xl relative overflow-y-auto max-h-[90vh] scrollbar-hide">
-             {isProcessing && <div className="absolute inset-0 bg-white/60 z-50 flex flex-col items-center justify-center"><div className="scan-line top-1/2"></div><p className="font-black text-blue-600 animate-pulse text-xs tracking-widest uppercase">AI Decoding Active</p></div>}
+          <div className="bg-white w-full max-w-xl rounded-[3.5rem] p-10 md:p-16 shadow-2xl relative overflow-hidden">
+             {isProcessing && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center"><div className="scan-line top-1/2"></div><p className="font-black text-blue-600 animate-pulse text-[10px] tracking-widest uppercase mt-4">Analyzing Identity...</p></div>}
+            
             <button onClick={closeModal} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl font-black transition-colors">×</button>
             
-            <div className="text-center mb-10">
-              <h2 className="text-4xl font-black text-slate-900 mb-3 tracking-tighter">Vehicle Registration</h2>
-              <p className="text-slate-500 font-medium">Create a digital profile for your asset</p>
+            <div className="text-center mb-12">
+              <h2 className="text-4xl font-black text-slate-900 mb-3 tracking-tighter">Register Asset</h2>
+              <p className="text-slate-500 font-medium">
+                {regStep === 'vin' ? 'Enter Chassis Number for Auto-Decode' : 'Enter Details Manually (AI Unavailable)'}
+              </p>
             </div>
 
-            {regStep === 'choice' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button 
-                  onClick={() => setRegStep('vin')}
-                  className="p-8 border-2 border-slate-100 rounded-[2.5rem] hover:border-blue-600 transition-all text-left group"
-                >
-                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">⚡</div>
-                  <h3 className="text-xl font-black text-slate-900">VIN Quick-Add</h3>
-                  <p className="text-slate-400 text-xs mt-2">AI decodes specs instantly from chassis number.</p>
-                </button>
-                <button 
-                  onClick={() => setRegStep('manual')}
-                  className="p-8 border-2 border-slate-100 rounded-[2.5rem] hover:border-slate-900 transition-all text-left group"
-                >
-                  <div className="w-12 h-12 bg-slate-50 text-slate-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-slate-900 group-hover:text-white transition-colors">📝</div>
-                  <h3 className="text-xl font-black text-slate-900">Manual Entry</h3>
-                  <p className="text-slate-400 text-xs mt-2">Perfect for vintage cars or non-standard models.</p>
-                </button>
-              </div>
-            )}
-            {(regStep === 'vin' || regStep === 'manual') && (
-              <div className="mb-10 animate-slide-in">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">Vehicle Gallery (Max 3)</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {uploadedImages.map((img, idx) => (
-                    <div key={idx} className="aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 relative">
-                      <img src={img} className="w-full h-full object-cover" alt="" />
-                      <button 
-                        onClick={() => setUploadedImages(prev => prev.filter((_, i) => i !== idx))}
-                        className="absolute top-1 right-1 bg-white/80 backdrop-blur w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-bold text-red-500"
-                      >×</button>
-                    </div>
-                  ))}
-                  {uploadedImages.length < 3 && (
-                    <button 
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                      className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300 hover:border-blue-400 hover:text-blue-400 transition-all"
-                    >
-                      <span className="text-2xl font-black">{isUploading ? '...' : '+'}</span>
-                      <span className="text-[8px] font-black uppercase tracking-tighter">Add Photo</span>
-                    </button>
-                  )}
+            {regStep === 'vin' ? (
+              <form onSubmit={handleVINRegistration} className="space-y-10">
+                <div className="space-y-4">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">17-Digit VIN</label>
+                  <input 
+                    type="text" required maxLength={17} placeholder="1HGCM8..." 
+                    className="w-full px-8 py-8 bg-slate-50 border border-slate-100 rounded-[2rem] font-mono text-2xl uppercase tracking-[0.2em] focus:ring-4 focus:ring-blue-600/10 outline-none transition text-center shadow-inner" 
+                    value={newVin} onChange={(e) => setNewVin(e.target.value.toUpperCase())} 
+                  />
                 </div>
-                <input type="file" hidden accept="image/*" multiple ref={fileInputRef} onChange={async (e) => {
-                  const files = e.target.files;
-                  if (!files || !user) return;
-                  setIsUploading(true);
-                  try {
-                    const newImageUrls: string[] = [];
-                    for (let i = 0; i < files.length; i++) {
-                      if (uploadedImages.length + newImageUrls.length >= 3) break;
-                      const compressed = await compressImage(files[i], 800, 0.6);
-                      const url = await uploadVehicleImage(user.id, compressed);
-                      newImageUrls.push(url);
-                    }
-                    setUploadedImages(prev => [...prev, ...newImageUrls]);
-                  } catch (err) { alert("Upload failed"); } finally { setIsUploading(false); }
-                }} />
-              </div>
-            )}
-
-            {regStep === 'vin' && (
-              <form onSubmit={async (e) => {
-                e.preventDefault();
-                setIsProcessing(true);
-                try {
-                  const details = await decodeVIN(newVin);
-                  await finalizeRegistration(details.make, details.model, details.year, details.bodyType, newVin, 0);
-                } catch (err) { setRegStep('manual'); } finally { setIsProcessing(false); }
-              }} className="space-y-8 animate-slide-in">
-                <input 
-                  type="text" required maxLength={17} placeholder="1HGCM8..." 
-                  className="w-full px-8 py-6 bg-slate-50 border border-slate-100 rounded-3xl font-mono text-2xl uppercase tracking-[0.2em] focus:ring-4 focus:ring-blue-600/10 outline-none transition text-center" 
-                  value={newVin} onChange={(e) => setNewVin(e.target.value.toUpperCase())} 
-                />
-                <button disabled={isProcessing || newVin.length < 17} className="w-full bg-slate-900 text-white py-8 rounded-[2rem] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all disabled:opacity-30 text-xs shadow-xl">
-                  {isProcessing ? 'Decoding Satellite Data...' : 'Complete Profile'}
-                </button>
+                <div className="space-y-4">
+                  <button disabled={isProcessing || newVin.length < 17} className="w-full bg-slate-900 text-white py-8 rounded-[2rem] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all disabled:opacity-30 text-xs shadow-2xl">
+                    {isProcessing ? 'Decoding Satellite Data...' : 'Authorize Registration'}
+                  </button>
+                  <button type="button" onClick={() => setRegStep('manual')} className="w-full text-[10px] font-black text-blue-600 uppercase tracking-widest py-2">Skip to Manual Entry</button>
+                </div>
               </form>
-            )}
-
-            {regStep === 'manual' && (
+            ) : (
               <form onSubmit={(e) => { 
                 e.preventDefault(); 
                 finalizeRegistration(manualData.make, manualData.model, manualData.year, manualData.bodyType, newVin || 'MANUAL-REG', manualData.mileage); 
-              }} className="space-y-6 animate-slide-in">
+              }} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="text" required className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm" placeholder="Make" value={manualData.make} onChange={(e) => setManualData({...manualData, make: e.target.value})} />
-                  <input type="text" required className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm" placeholder="Model" value={manualData.model} onChange={(e) => setManualData({...manualData, model: e.target.value})} />
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Make</label>
+                    <input type="text" required className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold" placeholder="e.g. Toyota" value={manualData.make} onChange={(e) => setManualData({...manualData, make: e.target.value})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Model</label>
+                    <input type="text" required className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold" placeholder="e.g. Camry" value={manualData.model} onChange={(e) => setManualData({...manualData, model: e.target.value})} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="number" required className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm" placeholder="Year" value={manualData.year} onChange={(e) => setManualData({...manualData, year: parseInt(e.target.value)})} />
-                  <select className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm" value={manualData.bodyType} onChange={(e) => setManualData({...manualData, bodyType: e.target.value as BodyType})}>
-                    <option value="sedan">Sedan</option>
-                    <option value="suv">SUV</option>
-                    <option value="truck">Truck</option>
-                  </select>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Year</label>
+                    <input type="number" required className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold" value={manualData.year} onChange={(e) => setManualData({...manualData, year: parseInt(e.target.value)})} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Body Type</label>
+                    <select className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold appearance-none" value={manualData.bodyType} onChange={(e) => setManualData({...manualData, bodyType: e.target.value as BodyType})}>
+                      <option value="sedan">Sedan</option>
+                      <option value="suv">SUV</option>
+                      <option value="truck">Truck</option>
+                      <option value="van">Van</option>
+                    </select>
+                  </div>
                 </div>
-                <input type="number" required className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm" placeholder="Current Odometer" value={manualData.mileage} onChange={(e) => setManualData({...manualData, mileage: parseInt(e.target.value)})} />
-                <button disabled={isProcessing} className="w-full bg-slate-900 text-white py-8 rounded-[2rem] font-black uppercase tracking-widest text-xs">Register Asset</button>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Current Odometer (km)</label>
+                  <input type="number" required className="w-full px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold" value={manualData.mileage} onChange={(e) => setManualData({...manualData, mileage: parseInt(e.target.value)})} />
+                </div>
+                <button disabled={isProcessing} className="w-full bg-slate-900 text-white py-8 rounded-[2rem] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all text-xs mt-4">
+                  {isProcessing ? 'Saving Profile...' : 'Complete Registration'}
+                </button>
+                <button type="button" onClick={() => setRegStep('vin')} className="w-full text-[10px] font-black text-slate-400 uppercase tracking-widest py-2">Back to VIN Lookup</button>
               </form>
             )}
           </div>

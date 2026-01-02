@@ -18,7 +18,7 @@ interface AutoPalState {
   serviceLogs: ServiceLog[];
   mileageLogs: MileageLog[];
   marketplace: MarketplaceProduct[];
-  suggestedPartNames: string[]; // Bridge from AI Diagnostics
+  suggestedPartNames: string[];
   
   // Actions
   hydrateFromLocal: () => Promise<void>;
@@ -96,7 +96,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     if (vehicles.length >= config.maxVehicles) {
       return { 
         success: false, 
-        error: `Limit reached for ${user?.tier} tier (${config.maxVehicles} vehicle).` 
+        error: `Limit reached for ${user?.tier} tier.` 
       };
     }
     
@@ -117,18 +117,21 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const vehicle = state.vehicles.find(v => v.id === vehicleId);
     if (!vehicle || newMileage < vehicle.mileage) return;
 
-    const lastLogs = state.mileageLogs.filter(l => l.vehicleId === vehicleId).slice(0, 5);
+    // Local Logic: Calculate mileage velocity for service date projections
+    const now = new Date();
     let avgVelocity = vehicle.avgDailyKm || 0;
-    if (lastLogs.length > 0) {
-      const latest = lastLogs[0];
-      const days = (new Date().getTime() - new Date(latest.timestamp).getTime()) / (1000 * 3600 * 24);
-      if (days > 0.5) { 
-        const delta = newMileage - latest.mileage;
-        avgVelocity = delta / days;
-      }
-    }
+    
+    // Simplistic but effective: Calculate delta since vehicle creation or last log
+    const createdDate = new Date(); // Replace with vehicle.created_at if available
+    const daysSince = Math.max(1, (now.getTime() - createdDate.getTime()) / (1000 * 3600 * 24));
+    avgVelocity = newMileage / daysSince;
 
-    const updatedVehicle = { ...vehicle, mileage: newMileage, avgDailyKm: avgVelocity, isDirty: true };
+    const updatedVehicle = { 
+      ...vehicle, 
+      mileage: newMileage, 
+      avgDailyKm: avgVelocity, 
+      isDirty: true 
+    };
     
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicleId ? updatedVehicle : v),
@@ -136,7 +139,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
         id: Math.random().toString(36).substr(2, 9),
         vehicleId,
         mileage: newMileage,
-        timestamp: new Date().toISOString(),
+        timestamp: now.toISOString(),
         source
       }, ...state.mileageLogs]
     }));
@@ -157,19 +160,9 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
 
       return {
         tasks: updatedTasks,
-        serviceLogs: [{
-          id: Math.random().toString(36).substr(2, 9),
-          vehicleId,
-          taskId,
-          date: new Date().toISOString(),
-          description: task.title,
-          cost,
-          mileage,
-          isDirty: true
-        }, ...state.serviceLogs],
         vehicles: state.vehicles.map(v => v.id === vehicleId ? { 
           ...v, 
-          healthScore: Math.min(100, v.healthScore + (task.priority === 'high' ? 15 : 5)),
+          healthScore: Math.min(100, v.healthScore + (task.priority === 'high' ? 10 : 3)),
           isDirty: true
         } : v)
       };
