@@ -3,6 +3,13 @@ export type Tier = 'free' | 'standard' | 'premium';
 export type UserRole = 'user' | 'admin';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'coupe' | 'van' | 'other';
 export type VehicleStatus = 'active' | 'transferred' | 'archived';
+export type LogSource = 'user' | 'ai_projection' | 'service_provider';
+
+export interface SyncMetadata {
+  isDirty: boolean;
+  lastSyncedAt?: string;
+  localId?: string;
+}
 
 export interface UserProfile {
   id: string;
@@ -12,7 +19,16 @@ export interface UserProfile {
   onboarded: boolean;
 }
 
-export interface Vehicle {
+export interface OwnershipHistory {
+  id: string;
+  vehicleId: string;
+  fromUserId: string | null;
+  toUserId: string;
+  transferDate: string;
+  odometerAtTransfer: number;
+}
+
+export interface Vehicle extends SyncMetadata {
   id: string;
   ownerId: string;
   make: string;
@@ -20,14 +36,15 @@ export interface Vehicle {
   year: number;
   vin: string;
   mileage: number;
+  avgDailyKm?: number; // Calculated velocity
   healthScore: number;
   bodyType: BodyType;
-  imageUrl?: string;
+  imageUrls: string[];
   status: VehicleStatus;
+  isManualEntry?: boolean;
   nextServiceMileage?: number;
   engineSize?: string;
   fuelType?: string;
-  lastServiceDate?: string;
   specs?: {
     tireSize?: string;
     oilGrade?: string;
@@ -35,14 +52,7 @@ export interface Vehicle {
   };
 }
 
-export interface MileageLog {
-  id: string;
-  vehicleId: string;
-  mileage: number;
-  timestamp: string;
-}
-
-export interface MaintenanceTask {
+export interface MaintenanceTask extends SyncMetadata {
   id: string;
   vehicleId: string;
   title: string;
@@ -54,28 +64,7 @@ export interface MaintenanceTask {
   category: 'engine' | 'tires' | 'brakes' | 'fluids' | 'other';
 }
 
-export interface AIResponse {
-  advice: string;
-  recommendations: string[];
-  severity: 'info' | 'warning' | 'critical';
-  marketInsight?: string;
-}
-
-export interface MaintenanceScheduleResponse {
-  tasks: Array<Omit<MaintenanceTask, 'id' | 'vehicleId' | 'status'>>;
-  summary: string;
-}
-
-export interface FuelLog {
-  id: string;
-  vehicleId: string;
-  date: string;
-  amount: number;
-  cost: number;
-  mileage: number;
-}
-
-export interface ServiceLog {
+export interface ServiceLog extends SyncMetadata {
   id: string;
   vehicleId: string;
   taskId?: string;
@@ -83,6 +72,34 @@ export interface ServiceLog {
   description: string;
   cost: number;
   mileage: number;
+  providerName?: string;
+}
+
+export interface MileageLog {
+  id: string;
+  vehicleId: string;
+  mileage: number;
+  timestamp: string;
+  source: LogSource;
+}
+
+export interface AIResponse {
+  advice: string;
+  recommendations: string[];
+  severity: 'info' | 'warning' | 'critical';
+  partsIdentified?: string[];
+}
+
+export interface AppraisalResult {
+  estimatedValue: number;
+  priceRange: { min: number; max: number };
+  marketInsight: string;
+  confidenceScore: number;
+}
+
+export interface MaintenanceScheduleResponse {
+  tasks: Array<Omit<MaintenanceTask, 'id' | 'vehicleId' | 'status' | 'isDirty' | 'lastSyncedAt'>>;
+  summary: string;
 }
 
 export interface MarketplaceProduct {

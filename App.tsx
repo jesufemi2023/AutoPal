@@ -7,6 +7,7 @@ import AuthScreen from './components/AuthScreen.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import Marketplace from './components/Marketplace.tsx';
 import AdminPanel from './components/AdminPanel.tsx';
+import { validateEnv } from './services/envService.ts';
 
 /**
  * AutoPal NG - Core Application Controller
@@ -15,13 +16,19 @@ import AdminPanel from './components/AdminPanel.tsx';
 const App: React.FC = () => {
   const { 
     session, setSession, isInitialized, setInitialized, 
-    isRecovering, setRecovering, setVehicles 
+    isRecovering, setRecovering, setVehicles, hydrateFromLocal 
   } = useAutoPalStore();
   
   const [activeTab, setActiveTab] = React.useState<'dashboard' | 'marketplace' | 'admin'>('dashboard');
   const [initError, setInitError] = useState<string | null>(null);
 
-  // 1. Auth Bootstrap
+  // 1. Initial Setup & Local Hydration
+  useEffect(() => {
+    validateEnv();
+    hydrateFromLocal(); // Instant load from Dexie
+  }, [hydrateFromLocal]);
+
+  // 2. Auth Bootstrap
   useEffect(() => {
     const initAuth = async () => {
       if (!isSupabaseConfigured) {
@@ -55,15 +62,16 @@ const App: React.FC = () => {
     initAuth();
   }, [setSession, setInitialized, setVehicles]);
 
-  // 2. Data Hydration: Fetch vehicles on session
+  // 3. Data Hydration: Sync with remote
   useEffect(() => {
     if (session?.user?.id) {
       const loadUserData = async () => {
         try {
           const vList = await fetchUserVehicles(session.user.id);
+          // Merging logic would happen here in a complex app. For MVP, overwrite memory.
           setVehicles(vList);
         } catch (e) {
-          console.error("Data Hydration Failed:", e);
+          console.error("Remote Hydration Failed:", e);
         }
       };
       loadUserData();

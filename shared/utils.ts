@@ -3,15 +3,15 @@
  * Utility functions for formatting and calculations.
  */
 
+/**
+ * Robust environment variable retriever.
+ * Checks window.process.env shim (configured in index.html), 
+ * native process.env, and global scope.
+ */
 export const getEnv = (key: string): string | undefined => {
   try {
-    // Priority 1: Check window.process.env (standard shim and platform injection)
     if (window.process?.env?.[key]) return window.process.env[key];
-    
-    // Priority 2: Check global process (if available)
     if (typeof process !== 'undefined' && process.env?.[key]) return process.env[key];
-
-    // Priority 3: Check global window scope directly
     if ((window as any)[key]) return (window as any)[key];
   } catch (e) {}
   return undefined;
@@ -28,14 +28,23 @@ export const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString();
 };
 
-/** Structural VIN Validation (ISO 3779) */
 export const isValidVIN = (vin: string): boolean => {
   const regex = /^[A-HJ-NPR-Z0-9]{17}$/;
   return regex.test(vin.toUpperCase());
 };
 
-/** Client-side image compression to stay within free-tier limits */
-export const compressImage = async (file: File, maxWidth = 1200, quality = 0.7): Promise<Blob> => {
+/**
+ * Aggressive Image Compression for $70 budget.
+ * Targets <150KB files to stay within Supabase Free Tier.
+ * 
+ * Note: Default parameters are used instead of importing from configService
+ * to prevent circular module dependencies that cause initialization errors.
+ */
+export const compressImage = async (
+  file: File | Blob, 
+  maxWidth = 1024, 
+  quality = 0.6
+): Promise<Blob> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -48,7 +57,9 @@ export const compressImage = async (file: File, maxWidth = 1200, quality = 0.7):
         canvas.width = img.width * scaleFactor;
         canvas.height = img.height * scaleFactor;
         const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        if (!ctx) return reject(new Error('Canvas Context Missing'));
+        
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         canvas.toBlob((blob) => {
           if (blob) resolve(blob);
           else reject(new Error('Compression failed'));

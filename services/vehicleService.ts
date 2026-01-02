@@ -4,8 +4,31 @@ import { Vehicle, MaintenanceTask, ServiceLog } from '../shared/types.ts';
 
 /**
  * Vehicle Service
- * Handles CRUD operations for the Garage Module via Supabase.
+ * Handles CRUD operations and storage for the Garage Module via Supabase.
  */
+
+export const uploadVehicleImage = async (userId: string, file: Blob): Promise<string> => {
+  if (!supabase) throw new Error("Database connection lost");
+  
+  const fileExt = 'jpg';
+  const fileName = `${userId}/${Math.random().toString(36).substring(2)}.${fileExt}`;
+  const filePath = `vehicle-images/${fileName}`;
+
+  const { data, error } = await supabase.storage
+    .from('assets')
+    .upload(filePath, file, {
+      contentType: 'image/jpeg',
+      upsert: true
+    });
+
+  if (error) throw error;
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('assets')
+    .getPublicUrl(filePath);
+
+  return publicUrl;
+};
 
 export const fetchUserVehicles = async (userId: string): Promise<Vehicle[]> => {
   if (!supabase) return [];
@@ -28,11 +51,13 @@ export const fetchUserVehicles = async (userId: string): Promise<Vehicle[]> => {
     mileage: v.mileage,
     healthScore: v.health_score,
     bodyType: v.body_type,
-    imageUrl: v.image_url,
+    imageUrls: v.image_urls || (v.image_url ? [v.image_url] : []),
     status: v.status,
     engineSize: v.engine_size,
     fuelType: v.fuel_type,
-    specs: v.specs
+    specs: v.specs,
+    // Fix: satisfy Vehicle interface requirement for isDirty
+    isDirty: false
   })) as Vehicle[];
 };
 
@@ -51,10 +76,8 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id'>): Promise<Vehic
       health_score: vehicle.healthScore,
       body_type: vehicle.bodyType,
       status: vehicle.status,
-      image_url: vehicle.imageUrl,
-      // Fixed: Property access should be engineSize to match Vehicle type
+      image_urls: vehicle.imageUrls,
       engine_size: vehicle.engineSize,
-      // Fixed: Property access should be fuelType to match Vehicle type
       fuel_type: vehicle.fuelType,
       specs: vehicle.specs
     }])
@@ -73,11 +96,13 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id'>): Promise<Vehic
     mileage: data.mileage,
     healthScore: data.health_score,
     bodyType: data.body_type,
-    imageUrl: data.image_url,
+    imageUrls: data.image_urls,
     status: data.status,
     engineSize: data.engine_size,
-    fuelType: data.fuel_type,
-    specs: data.specs
+    fuelType: data.fuel_type, // Fixed property name from fuel_type to fuelType
+    specs: data.specs,
+    // Fix: satisfy Vehicle interface requirement for isDirty
+    isDirty: false
   } as Vehicle;
 };
 
@@ -109,7 +134,6 @@ export const updateTaskStatus = async (taskId: string, status: string): Promise<
   if (error) throw error;
 };
 
-// Fixed: Correctly referencing imported ServiceLog type.
 export const createServiceLogEntry = async (log: Omit<ServiceLog, 'id'>): Promise<void> => {
   if (!supabase) return;
   const { error } = await supabase
@@ -145,11 +169,12 @@ export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceT
     status: t.status,
     priority: t.priority,
     estimatedCost: t.estimated_cost,
-    category: t.category
+    category: t.category,
+    // Fix: satisfy MaintenanceTask interface requirement for isDirty
+    isDirty: false
   })) as MaintenanceTask[];
 };
 
-// Fixed: Correctly referencing imported ServiceLog type.
 export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<ServiceLog[]> => {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -167,7 +192,9 @@ export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<Servic
     date: l.date,
     description: l.description,
     cost: l.cost,
-    mileage: l.mileage
+    mileage: l.mileage,
+    // Fix: satisfy ServiceLog interface requirement for isDirty
+    isDirty: false
   })) as ServiceLog[];
 };
 
@@ -180,7 +207,7 @@ export const updateVehicleData = async (id: string, updates: Partial<Vehicle>): 
   if (updates.year) dbUpdates.year = updates.year;
   if (updates.mileage !== undefined) dbUpdates.mileage = updates.mileage;
   if (updates.bodyType) dbUpdates.body_type = updates.bodyType;
-  if (updates.imageUrl) dbUpdates.image_url = updates.imageUrl;
+  if (updates.imageUrls) dbUpdates.image_urls = updates.imageUrls;
   if (updates.status) dbUpdates.status = updates.status;
   if (updates.healthScore !== undefined) dbUpdates.health_score = updates.healthScore;
 
