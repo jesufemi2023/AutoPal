@@ -8,25 +8,27 @@ import Dashboard from './components/Dashboard.tsx';
 import Marketplace from './components/Marketplace.tsx';
 import AdminPanel from './components/AdminPanel.tsx';
 import { validateEnv } from './services/envService.ts';
-import { Toast } from './components/Toast.tsx';
 
 /**
  * AutoPal NG - Core Application Controller
+ * Handles authentication lifecycle, routing, and environment verification.
  */
 const App: React.FC = () => {
   const { 
     session, setSession, isInitialized, setInitialized, 
-    setVehicles, hydrateFromLocal 
+    isRecovering, setRecovering, setVehicles, hydrateFromLocal 
   } = useAutoPalStore();
   
   const [activeTab, setActiveTab] = React.useState<'dashboard' | 'marketplace' | 'admin'>('dashboard');
   const [initError, setInitError] = useState<string | null>(null);
 
+  // 1. Initial Setup & Local Hydration
   useEffect(() => {
     validateEnv();
-    hydrateFromLocal();
+    hydrateFromLocal(); // Instant load from Dexie
   }, [hydrateFromLocal]);
 
+  // 2. Auth Bootstrap
   useEffect(() => {
     const initAuth = async () => {
       if (!isSupabaseConfigured) {
@@ -60,11 +62,13 @@ const App: React.FC = () => {
     initAuth();
   }, [setSession, setInitialized, setVehicles]);
 
+  // 3. Data Hydration: Sync with remote
   useEffect(() => {
     if (session?.user?.id) {
       const loadUserData = async () => {
         try {
           const vList = await fetchUserVehicles(session.user.id);
+          // Merging logic would happen here in a complex app. For MVP, overwrite memory.
           setVehicles(vList);
         } catch (e) {
           console.error("Remote Hydration Failed:", e);
@@ -106,7 +110,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8fafc]">
-      <Toast />
       <nav className="bg-white/80 border-b border-slate-200 sticky top-0 z-50 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex justify-between items-center">
           <div className="flex items-center gap-8">

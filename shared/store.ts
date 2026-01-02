@@ -7,12 +7,6 @@ import {
 import { getConfig } from '../services/configService.ts';
 import { localDb } from '../services/localDb.ts';
 
-export interface Notification {
-  id: string;
-  message: string;
-  type: 'success' | 'error' | 'info';
-}
-
 interface AutoPalState {
   user: UserProfile | null;
   session: any | null;
@@ -24,8 +18,7 @@ interface AutoPalState {
   serviceLogs: ServiceLog[];
   mileageLogs: MileageLog[];
   marketplace: MarketplaceProduct[];
-  suggestedPartNames: string[];
-  notifications: Notification[];
+  suggestedPartNames: string[]; // Bridge from AI Diagnostics
   
   // Actions
   hydrateFromLocal: () => Promise<void>;
@@ -36,8 +29,6 @@ interface AutoPalState {
   setVehicles: (vehicles: Vehicle[]) => void;
   setMarketplace: (products: MarketplaceProduct[]) => void;
   setSuggestedParts: (parts: string[]) => void;
-  addNotification: (message: string, type?: Notification['type']) => void;
-  removeNotification: (id: string) => void;
   addVehicle: (vehicle: Vehicle) => { success: boolean; error?: string };
   updateVehicle: (id: string, updates: Partial<Vehicle>) => void;
   removeVehicle: (id: string) => void;
@@ -61,7 +52,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   mileageLogs: [],
   marketplace: [],
   suggestedPartNames: [],
-  notifications: [],
 
   hydrateFromLocal: async () => {
     try {
@@ -72,16 +62,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     } catch (e) {
       console.error("Local Hydration Failed", e);
     }
-  },
-
-  addNotification: (message, type = 'info') => {
-    const id = Math.random().toString(36).substr(2, 9);
-    set(state => ({ notifications: [...state.notifications, { id, message, type }] }));
-    setTimeout(() => get().removeNotification(id), 4000);
-  },
-
-  removeNotification: (id) => {
-    set(state => ({ notifications: state.notifications.filter(n => n.id !== id) }));
   },
 
   setSession: (session) => {
