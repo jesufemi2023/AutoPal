@@ -12,9 +12,11 @@ import { formatCurrency, isValidVIN, compressImage } from '../shared/utils.ts';
 import { VehicleBlueprint } from './VehicleBlueprint.tsx';
 import { OdometerInput } from './OdometerInput.tsx';
 
+const SAMPLE_VIN = "1HGCM82633A004352"; // Reliable sample for testing
+
 const Dashboard: React.FC = () => {
   const { 
-    vehicles, tasks, user, setSuggestedParts,
+    vehicles, tasks, user, setSuggestedParts, addNotification,
     addVehicle, updateMileage, completeTask, setTasks, addServiceLog 
   } = useAutoPalStore();
 
@@ -29,8 +31,9 @@ const Dashboard: React.FC = () => {
   const [appraisal, setAppraisal] = useState<AppraisalResult | null>(null);
   
   const [showAddModal, setShowAddModal] = useState(false);
-  const [regStep, setRegStep] = useState<'choice' | 'vin' | 'manual'>('choice');
+  const [regStep, setRegStep] = useState<'choice' | 'vin' | 'preview' | 'manual'>('choice');
   const [newVin, setNewVin] = useState('');
+  const [decodedData, setDecodedData] = useState<any>(null);
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   
@@ -85,8 +88,9 @@ const Dashboard: React.FC = () => {
       await updateMileage(activeVehicle.id, newVal);
       await updateVehicleData(activeVehicle.id, { mileage: newVal });
       setShowOdometerModal(false);
+      addNotification("Odometer synced successfully.", "success");
     } catch (err) {
-      alert("Failed to sync mileage update.");
+      addNotification("Sync failed. Using local state.", "error");
     }
   };
 
@@ -104,6 +108,7 @@ const Dashboard: React.FC = () => {
         isDirty: false
       });
       completeTask(task.id, task.estimatedCost || 0, activeVehicle.mileage);
+      addNotification(`Task "${task.title}" completed!`, "success");
     } catch (e) {
       console.error("Task completion error", e);
     }
@@ -128,6 +133,7 @@ const Dashboard: React.FC = () => {
 
       const saved = await createVehicle(payload);
       addVehicle(saved);
+      addNotification(`${make} ${model} registered!`, "success");
 
       try {
         const roadmap = await generateMaintenanceSchedule(make, model, year, mileage);
@@ -142,7 +148,7 @@ const Dashboard: React.FC = () => {
       setActiveVehicleId(saved.id);
       closeModal();
     } catch (err) {
-      alert("Failed to save vehicle profile.");
+      addNotification("Failed to save profile.", "error");
     } finally {
       setIsProcessing(false);
     }
@@ -152,6 +158,7 @@ const Dashboard: React.FC = () => {
     setShowAddModal(false);
     setRegStep('choice');
     setNewVin('');
+    setDecodedData(null);
     setUploadedImages([]);
     setManualData({ make: '', model: '', year: new Date().getFullYear(), bodyType: 'sedan', mileage: 0 });
   };
@@ -228,7 +235,7 @@ const Dashboard: React.FC = () => {
                            try {
                              const result = await getVehicleAppraisal(activeVehicle);
                              setAppraisal(result);
-                           } catch (e) { alert("Appraisal failed"); } finally { setIsAppraising(false); }
+                           } catch (e) { addNotification("Appraisal failed", "error"); } finally { setIsAppraising(false); }
                         }}
                         disabled={isAppraising}
                         className="bg-blue-50 text-blue-600 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-colors disabled:opacity-50"
@@ -362,11 +369,10 @@ const Dashboard: React.FC = () => {
                    try {
                      const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
                      setAiAdvice(advice);
-                     // Set Suggested Parts in Store for Marketplace link
                      if (advice.partsIdentified && advice.partsIdentified.length > 0) {
                         setSuggestedParts(advice.partsIdentified);
                      }
-                   } catch (e) { alert("AI unavailable"); } finally { setIsAskingAI(false); }
+                   } catch (e) { addNotification("AI analysis failed", "error"); } finally { setIsAskingAI(false); }
                 }}
                 className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] disabled:opacity-30 active:scale-95 transition-all"
               >
@@ -425,94 +431,86 @@ const Dashboard: React.FC = () => {
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-xl rounded-[3rem] p-10 md:p-16 shadow-2xl relative overflow-y-auto max-h-[90vh] scrollbar-hide">
-             {isProcessing && <div className="absolute inset-0 bg-white/60 z-50 flex flex-col items-center justify-center"><div className="scan-line top-1/2"></div><p className="font-black text-blue-600 animate-pulse text-xs tracking-widest uppercase">AI Decoding Active</p></div>}
+             {isProcessing && <div className="absolute inset-0 bg-white/60 z-50 flex flex-col items-center justify-center"><div className="scan-line top-1/2"></div><p className="font-black text-blue-600 animate-pulse text-xs tracking-widest uppercase">Satellite Logic Active</p></div>}
             <button onClick={closeModal} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl font-black transition-colors">×</button>
             
             <div className="text-center mb-10">
-              <h2 className="text-4xl font-black text-slate-900 mb-3 tracking-tighter">Vehicle Registration</h2>
-              <p className="text-slate-500 font-medium">Create a digital profile for your asset</p>
+              <h2 className="text-4xl font-black text-slate-900 mb-3 tracking-tighter">Registration</h2>
+              <p className="text-slate-500 font-medium">Step: {regStep === 'choice' ? 'Method' : regStep === 'vin' ? 'Identify' : regStep === 'preview' ? 'Confirm' : 'Details'}</p>
             </div>
 
             {regStep === 'choice' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button 
-                  onClick={() => setRegStep('vin')}
-                  className="p-8 border-2 border-slate-100 rounded-[2.5rem] hover:border-blue-600 transition-all text-left group"
-                >
+                <button onClick={() => setRegStep('vin')} className="p-8 border-2 border-slate-100 rounded-[2.5rem] hover:border-blue-600 transition-all text-left group">
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">⚡</div>
                   <h3 className="text-xl font-black text-slate-900">VIN Quick-Add</h3>
                   <p className="text-slate-400 text-xs mt-2">AI decodes specs instantly from chassis number.</p>
                 </button>
-                <button 
-                  onClick={() => setRegStep('manual')}
-                  className="p-8 border-2 border-slate-100 rounded-[2.5rem] hover:border-slate-900 transition-all text-left group"
-                >
+                <button onClick={() => setRegStep('manual')} className="p-8 border-2 border-slate-100 rounded-[2.5rem] hover:border-slate-900 transition-all text-left group">
                   <div className="w-12 h-12 bg-slate-50 text-slate-600 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-slate-900 group-hover:text-white transition-colors">📝</div>
                   <h3 className="text-xl font-black text-slate-900">Manual Entry</h3>
                   <p className="text-slate-400 text-xs mt-2">Perfect for vintage cars or non-standard models.</p>
                 </button>
               </div>
             )}
-            {(regStep === 'vin' || regStep === 'manual') && (
-              <div className="mb-10 animate-slide-in">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">Vehicle Gallery (Max 3)</label>
-                <div className="grid grid-cols-3 gap-3">
-                  {uploadedImages.map((img, idx) => (
-                    <div key={idx} className="aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 relative">
-                      <img src={img} className="w-full h-full object-cover" alt="" />
-                      <button 
-                        onClick={() => setUploadedImages(prev => prev.filter((_, i) => i !== idx))}
-                        className="absolute top-1 right-1 bg-white/80 backdrop-blur w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-bold text-red-500"
-                      >×</button>
-                    </div>
-                  ))}
-                  {uploadedImages.length < 3 && (
+
+            {regStep === 'vin' && (
+              <div className="animate-slide-in">
+                <div className="mb-8">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 ml-2">Vehicle ID (VIN)</label>
+                  <input 
+                    type="text" maxLength={17} placeholder="1HGCM8..." 
+                    className="w-full px-8 py-6 bg-slate-50 border border-slate-100 rounded-3xl font-mono text-2xl uppercase tracking-[0.2em] focus:ring-4 focus:ring-blue-600/10 outline-none transition text-center mb-4" 
+                    value={newVin} onChange={(e) => setNewVin(e.target.value.toUpperCase())} 
+                  />
+                  <div className="flex justify-center">
                     <button 
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                      className="aspect-square rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-300 hover:border-blue-400 hover:text-blue-400 transition-all"
+                      onClick={() => setNewVin(SAMPLE_VIN)}
+                      className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline"
                     >
-                      <span className="text-2xl font-black">{isUploading ? '...' : '+'}</span>
-                      <span className="text-[8px] font-black uppercase tracking-tighter">Add Photo</span>
+                      Use Sample VIN (Honda)
                     </button>
-                  )}
+                  </div>
                 </div>
-                <input type="file" hidden accept="image/*" multiple ref={fileInputRef} onChange={async (e) => {
-                  const files = e.target.files;
-                  if (!files || !user) return;
-                  setIsUploading(true);
-                  try {
-                    const newImageUrls: string[] = [];
-                    for (let i = 0; i < files.length; i++) {
-                      if (uploadedImages.length + newImageUrls.length >= 3) break;
-                      const compressed = await compressImage(files[i], 800, 0.6);
-                      const url = await uploadVehicleImage(user.id, compressed);
-                      newImageUrls.push(url);
-                    }
-                    setUploadedImages(prev => [...prev, ...newImageUrls]);
-                  } catch (err) { alert("Upload failed"); } finally { setIsUploading(false); }
-                }} />
+                <button 
+                  disabled={isProcessing || newVin.length < 17} 
+                  onClick={async () => {
+                    setIsProcessing(true);
+                    try {
+                      const details = await decodeVIN(newVin);
+                      setDecodedData(details);
+                      setRegStep('preview');
+                    } catch (err) { setRegStep('manual'); } finally { setIsProcessing(false); }
+                  }}
+                  className="w-full bg-slate-900 text-white py-8 rounded-[2rem] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all disabled:opacity-30 text-xs shadow-xl"
+                >
+                  Decode Satellite Data
+                </button>
               </div>
             )}
 
-            {regStep === 'vin' && (
-              <form onSubmit={async (e) => {
-                e.preventDefault();
-                setIsProcessing(true);
-                try {
-                  const details = await decodeVIN(newVin);
-                  await finalizeRegistration(details.make, details.model, details.year, details.bodyType, newVin, 0);
-                } catch (err) { setRegStep('manual'); } finally { setIsProcessing(false); }
-              }} className="space-y-8 animate-slide-in">
-                <input 
-                  type="text" required maxLength={17} placeholder="1HGCM8..." 
-                  className="w-full px-8 py-6 bg-slate-50 border border-slate-100 rounded-3xl font-mono text-2xl uppercase tracking-[0.2em] focus:ring-4 focus:ring-blue-600/10 outline-none transition text-center" 
-                  value={newVin} onChange={(e) => setNewVin(e.target.value.toUpperCase())} 
-                />
-                <button disabled={isProcessing || newVin.length < 17} className="w-full bg-slate-900 text-white py-8 rounded-[2rem] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all disabled:opacity-30 text-xs shadow-xl">
-                  {isProcessing ? 'Decoding Satellite Data...' : 'Complete Profile'}
-                </button>
-              </form>
+            {regStep === 'preview' && decodedData && (
+              <div className="animate-slide-in space-y-8">
+                <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
+                   <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl"></div>
+                   <h3 className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-4">Identity Found</h3>
+                   <div className="text-4xl font-black leading-none mb-2">{decodedData.year} {decodedData.make}</div>
+                   <div className="text-6xl font-black text-blue-500 tracking-tighter leading-none mb-6">{decodedData.model}</div>
+                   <div className="flex gap-4">
+                      <div className="px-3 py-1.5 rounded-lg bg-white/10 text-[10px] font-black uppercase">{decodedData.bodyType}</div>
+                      <div className="px-3 py-1.5 rounded-lg bg-white/10 text-[10px] font-black uppercase">Verified ID</div>
+                   </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <button onClick={() => setRegStep('vin')} className="py-5 font-black text-[10px] uppercase tracking-widest text-slate-400">Back</button>
+                  <button 
+                    onClick={() => finalizeRegistration(decodedData.make, decodedData.model, decodedData.year, decodedData.bodyType, newVin, 0)}
+                    className="bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl active:scale-95 transition-all"
+                  >
+                    Confirm & Add
+                  </button>
+                </div>
+              </div>
             )}
 
             {regStep === 'manual' && (
