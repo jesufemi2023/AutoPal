@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
-import { getAdvancedDiagnostic } from '../services/geminiService.ts';
+import { getAdvancedDiagnostic, decodeVIN } from '../services/geminiService.ts';
 import { registerNewVehicle } from '../services/vehicleRegistrationService.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, updateVehicleData, 
@@ -61,18 +61,49 @@ const Dashboard: React.FC = () => {
     }
   }, [activeVehicleId, setTasks, addServiceLog]);
 
-  const handleRegistration = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  /**
+   * Stage 1: Decode VIN using AI and pre-fill form
+   */
+  const handleIdentifyAsset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isValidVIN(newVin)) {
+      alert("Please enter a valid 17-digit VIN.");
+      return;
+    }
+
     setIsProcessing(true);
     try {
-      const data = regStep === 'manual' ? manualData : undefined;
-      const vehicle = await registerNewVehicle(user?.id || 'guest', newVin, data);
+      const decoded = await decodeVIN(newVin);
+      setManualData({
+        ...manualData,
+        make: decoded.make,
+        model: decoded.model,
+        year: decoded.year,
+        bodyType: decoded.bodyType as BodyType
+      });
+      setRegStep('manual');
+    } catch (err) {
+      console.error("VIN Decode Failed:", err);
+      // Fallback to manual entry on error, but notify user
+      setRegStep('manual');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  /**
+   * Stage 2: Finalize registration with confirmed data
+   */
+  const handleFinalizeRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsProcessing(true);
+    try {
+      const vehicle = await registerNewVehicle(user?.id || 'guest', newVin, manualData);
       addVehicle(vehicle);
       setActiveVehicleId(vehicle.id);
       closeModal();
     } catch (err) {
-      if (regStep === 'vin') setRegStep('manual');
-      else alert("Registration failed. Please try again.");
+      alert("Registration failed. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -195,42 +226,67 @@ const Dashboard: React.FC = () => {
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="bg-white w-full max-w-xl rounded-[3.5rem] p-10 md:p-16 shadow-2xl relative overflow-hidden">
-             {isProcessing && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center"><div className="scan-line top-1/2"></div><p className="font-black text-blue-600 animate-pulse text-[10px] tracking-widest uppercase mt-4">Analyzing...</p></div>}
+             {isProcessing && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center"><div className="scan-line top-1/2"></div><p className="font-black text-blue-600 animate-pulse text-[10px] tracking-widest uppercase mt-4">{regStep === 'vin' ? 'Decoding Chassis...' : 'Finalizing Digital Twin...'}</p></div>}
             
             <button onClick={closeModal} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl font-black">×</button>
-            <h2 className="text-4xl font-black text-slate-900 mb-12 text-center tracking-tighter">Register Asset</h2>
+            <h2 className="text-4xl font-black text-slate-900 mb-6 text-center tracking-tighter">Register Asset</h2>
+            <p className="text-slate-400 text-center text-xs font-bold uppercase tracking-widest mb-10">
+              {regStep === 'vin' ? 'Provide Chassis Number for AI Identification' : 'Verify Detected Details & Add Mileage'}
+            </p>
 
             {regStep === 'vin' ? (
-              <form onSubmit={handleRegistration} className="space-y-10">
+              <form onSubmit={handleIdentifyAsset} className="space-y-10">
                 <input 
                   type="text" required maxLength={17} placeholder="17-Digit Chassis (VIN)" 
                   className="w-full px-8 py-8 bg-slate-50 border border-slate-100 rounded-[2rem] font-mono text-2xl uppercase tracking-[0.2em] focus:ring-4 focus:ring-blue-600/10 outline-none text-center shadow-inner" 
                   value={newVin} onChange={(e) => setNewVin(e.target.value.toUpperCase())} 
                 />
                 <div className="space-y-4">
-                  <button disabled={isProcessing || newVin.length < 17} className="w-full bg-slate-900 text-white py-8 rounded-[2rem] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all text-xs shadow-2xl">
-                    {isProcessing ? 'Decoding Satellite Data...' : 'Identify Asset'}
+                  <button disabled={isProcessing || newVin.length < 17} className="w-full bg-slate-900 text-white py-8 rounded-[2rem] font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all text-xs shadow-2xl disabled:opacity-30">
+                    Identify Asset
                   </button>
                   <button type="button" onClick={() => setRegStep('manual')} className="w-full text-[10px] font-black text-blue-600 uppercase tracking-widest">Skip to Manual Entry</button>
                 </div>
               </form>
             ) : (
-              <form onSubmit={handleRegistration} className="space-y-6">
+              <form onSubmit={handleFinalizeRegistration} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="text" required placeholder="Make" className="w-full px-6 py-5 bg-slate-50 rounded-2xl text-sm font-bold" value={manualData.make} onChange={e => setManualData({...manualData, make: e.target.value})} />
-                  <input type="text" required placeholder="Model" className="w-full px-6 py-5 bg-slate-50 rounded-2xl text-sm font-bold" value={manualData.model} onChange={e => setManualData({...manualData, model: e.target.value})} />
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Make</label>
+                    <input type="text" required placeholder="Make" className="w-full px-6 py-5 bg-slate-50 rounded-2xl text-sm font-bold border border-slate-100 outline-none focus:border-blue-500" value={manualData.make} onChange={e => setManualData({...manualData, make: e.target.value})} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Model</label>
+                    <input type="text" required placeholder="Model" className="w-full px-6 py-5 bg-slate-50 rounded-2xl text-sm font-bold border border-slate-100 outline-none focus:border-blue-500" value={manualData.model} onChange={e => setManualData({...manualData, model: e.target.value})} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <input type="number" required placeholder="Year" className="w-full px-6 py-5 bg-slate-50 rounded-2xl text-sm font-bold" value={manualData.year} onChange={e => setManualData({...manualData, year: parseInt(e.target.value)})} />
-                  <select className="w-full px-6 py-5 bg-slate-50 rounded-2xl text-sm font-bold appearance-none" value={manualData.bodyType} onChange={e => setManualData({...manualData, bodyType: e.target.value as BodyType})}>
-                    <option value="sedan">Sedan</option>
-                    <option value="suv">SUV</option>
-                    <option value="truck">Truck</option>
-                    <option value="van">Van</option>
-                  </select>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Year</label>
+                    <input type="number" required placeholder="Year" className="w-full px-6 py-5 bg-slate-50 rounded-2xl text-sm font-bold border border-slate-100 outline-none focus:border-blue-500" value={manualData.year} onChange={e => setManualData({...manualData, year: parseInt(e.target.value)})} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Body Style</label>
+                    <select className="w-full px-6 py-5 bg-slate-50 rounded-2xl text-sm font-bold appearance-none border border-slate-100 outline-none focus:border-blue-500" value={manualData.bodyType} onChange={e => setManualData({...manualData, bodyType: e.target.value as BodyType})}>
+                      <option value="sedan">Sedan</option>
+                      <option value="suv">SUV</option>
+                      <option value="truck">Truck</option>
+                      <option value="van">Van</option>
+                      <option value="coupe">Coupe</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
                 </div>
-                <input type="number" required placeholder="Current Mileage (km)" className="w-full px-6 py-5 bg-slate-50 rounded-2xl text-sm font-bold" value={manualData.mileage} onChange={e => setManualData({...manualData, mileage: parseInt(e.target.value)})} />
-                <button disabled={isProcessing} className="w-full bg-slate-900 text-white py-8 rounded-[2rem] font-black uppercase text-xs tracking-[0.2em] hover:bg-blue-600 transition-all shadow-2xl">Complete Registration</button>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Current Odometer (KM)</label>
+                  <input type="number" required placeholder="Current Mileage (km)" className="w-full px-6 py-5 bg-slate-50 rounded-2xl text-sm font-bold border border-slate-100 outline-none focus:border-blue-500" value={manualData.mileage} onChange={e => setManualData({...manualData, mileage: parseInt(e.target.value)})} />
+                </div>
+                <div className="pt-4 flex gap-4">
+                   <button type="button" onClick={() => setRegStep('vin')} className="flex-1 py-6 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-slate-400">Back</button>
+                   <button disabled={isProcessing} className="flex-[2] bg-slate-900 text-white py-6 rounded-[2rem] font-black uppercase text-xs tracking-[0.2em] hover:bg-blue-600 transition-all shadow-2xl disabled:opacity-30">
+                     Complete Registration
+                   </button>
+                </div>
               </form>
             )}
           </div>

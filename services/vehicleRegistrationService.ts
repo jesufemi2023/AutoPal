@@ -1,36 +1,27 @@
 
-import { decodeVIN, generateMaintenanceSchedule } from './geminiService.ts';
+import { generateMaintenanceSchedule } from './geminiService.ts';
 import { createVehicle, createMaintenanceTasksBatch } from './vehicleService.ts';
 import { Vehicle, BodyType } from '../shared/types.ts';
 
 /**
  * Vehicle Registration Orchestrator
- * Handles the multi-step flow of creating a "Digital Twin".
+ * Finalizes the creation of a vehicle's digital twin and bootstraps its intelligence.
  */
 export const registerNewVehicle = async (
   userId: string,
   vin: string,
-  manualData?: { make: string; model: string; year: number; bodyType: BodyType; mileage: number }
+  confirmedData: { make: string; model: string; year: number; bodyType: BodyType; mileage: number }
 ): Promise<Vehicle> => {
-  let details: any;
-
-  if (manualData) {
-    details = manualData;
-  } else {
-    // Attempt AI-assisted registration
-    details = await decodeVIN(vin);
-    details.mileage = 0; // Default for new registration
-  }
-
+  
   const payload: Omit<Vehicle, 'id'> = {
     ownerId: userId,
-    make: details.make,
-    model: details.model,
-    year: details.year,
-    vin: vin || 'MANUAL-ENTRY',
-    mileage: details.mileage,
+    make: confirmedData.make,
+    model: confirmedData.model,
+    year: confirmedData.year,
+    vin: vin || `MANUAL-${Date.now()}`,
+    mileage: confirmedData.mileage,
     healthScore: 100,
-    bodyType: details.bodyType,
+    bodyType: confirmedData.bodyType,
     status: 'active',
     imageUrls: [],
     isDirty: false
@@ -38,8 +29,7 @@ export const registerNewVehicle = async (
 
   const savedVehicle = await createVehicle(payload);
 
-  // Background Task: Generate Initial Roadmap
-  // Note: We don't await this to keep registration UI fast
+  // Background Task: Generate Initial Roadmap localized to regional conditions
   generateMaintenanceSchedule(savedVehicle.make, savedVehicle.model, savedVehicle.year, savedVehicle.mileage)
     .then(roadmap => {
       return createMaintenanceTasksBatch(roadmap.tasks.map(t => ({

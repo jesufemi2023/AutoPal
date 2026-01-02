@@ -6,33 +6,43 @@ import { AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
 
 /**
  * VIN Decoding with Fail-Soft Logic
+ * Uses Gemini 3 Flash to extract vehicle metadata from a raw VIN.
  */
-export const decodeVIN = async (vin: string): Promise<any> => {
-  if (ENV.MOCK_AI) return { make: "Toyota", model: "Corolla", year: 2018, bodyType: "sedan" };
+export const decodeVIN = async (vin: string): Promise<{ make: string; model: string; year: number; bodyType: string }> => {
+  if (ENV.MOCK_AI) {
+    return { make: "Toyota", model: "Camry", year: 2022, bodyType: "sedan" };
+  }
 
-  // Fix: Initializing GoogleGenAI right before the API call as per guidelines
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
-    model: ENV.MODEL_FLASH,
-    contents: `VIN: ${vin}`,
+    model: 'gemini-3-flash-preview',
+    contents: `Chassis Number (VIN) to analyze: ${vin}`,
     config: {
       systemInstruction: PROMPTS.VIN_DECODER,
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          make: { type: Type.STRING, nullable: true },
-          model: { type: Type.STRING, nullable: true },
-          year: { type: Type.INTEGER, nullable: true },
-          bodyType: { type: Type.STRING, enum: ["sedan", "suv", "truck", "coupe", "van", "other"], nullable: true }
-        }
+          make: { type: Type.STRING, description: "The vehicle manufacturer (e.g., Honda, Toyota)" },
+          model: { type: Type.STRING, description: "The specific model name (e.g., Civic, Corolla)" },
+          year: { type: Type.INTEGER, description: "The production year" },
+          bodyType: { 
+            type: Type.STRING, 
+            enum: ["sedan", "suv", "truck", "coupe", "van", "other"],
+            description: "Categorization of the vehicle body style"
+          }
+        },
+        required: ["make", "model", "year", "bodyType"]
       }
     }
   });
   
-  // Fix: Accessing text property directly
-  const data = JSON.parse(response.text || "{}");
-  if (!data.make) throw new Error("INCONCLUSIVE_DECODE");
+  const text = response.text;
+  if (!text) throw new Error("EMPTY_AI_RESPONSE");
+  
+  const data = JSON.parse(text);
+  if (!data.make || !data.model) throw new Error("INCONCLUSIVE_VIN_DECODE");
+  
   return data;
 };
 
@@ -55,12 +65,11 @@ export const generateMaintenanceSchedule = async (
     };
   }
 
-  // Fix: Initializing GoogleGenAI right before the API call as per guidelines
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Vehicle: ${year} ${make} ${model}. Odometer: ${mileage}km.`;
 
   const response = await ai.models.generateContent({
-    model: ENV.MODEL_FLASH,
+    model: 'gemini-3-flash-preview',
     contents: prompt,
     config: {
       systemInstruction: PROMPTS.MAINTENANCE_ROADMAP,
@@ -90,7 +99,6 @@ export const generateMaintenanceSchedule = async (
     }
   });
 
-  // Fix: Accessing text property directly
   return JSON.parse(response.text || "{}") as MaintenanceScheduleResponse;
 };
 
@@ -105,9 +113,8 @@ export const getAdvancedDiagnostic = async (
 ): Promise<AIResponse> => {
   if (ENV.MOCK_AI) return { advice: "Checking the auxiliary belt is recommended.", recommendations: ["Inspect belt tension", "Check for cracks"], severity: "warning" };
 
-  // Fix: Initializing GoogleGenAI right before the API call as per guidelines
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const modelId = (isPremium && ENV.ENABLE_PREMIUM_AI) ? ENV.MODEL_PRO : ENV.MODEL_FLASH;
+  const modelId = (isPremium && ENV.ENABLE_PREMIUM_AI) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
   
   const parts: any[] = [
     { text: `Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Problem: ${symptoms}` }
@@ -137,6 +144,5 @@ export const getAdvancedDiagnostic = async (
     }
   });
 
-  // Fix: Accessing text property directly
   return JSON.parse(response.text || "{}") as AIResponse;
 };
