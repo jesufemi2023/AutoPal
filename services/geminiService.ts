@@ -1,56 +1,51 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { AIResponse, MaintenanceScheduleResponse, AppraisalResult } from "../shared/types.ts";
+import { ENV } from "./envService.ts";
+import { PROMPTS } from "./promptService.ts";
+import { AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
 
 /**
- * AutoPal Gemini Service - Optimized for 10k users / $70 budget.
- * Strategy: Heavy use of Gemini 3 Flash + Structured JSON outputs.
+ * AI Client Factory
+ * Fixed: Strictly use process.env.API_KEY directly for initialization as per @google/genai guidelines.
  */
-
 const getAIClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("AI_CONFIG_MISSING");
-  }
-  return new GoogleGenAI({ apiKey });
+  if (!process.env.API_KEY) throw new Error("AI_CONFIG_MISSING");
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 /**
- * Decodes VIN with robust error handling for manual fallback.
+ * Robust Decoder with Local Mock Support
  */
 export const decodeVIN = async (vin: string): Promise<any> => {
+  if (ENV.MOCK_AI) return { make: "Toyota", model: "Camry", year: 2020, bodyType: "sedan" };
+
   const ai = getAIClient();
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Identify vehicle: ${vin}`,
-      config: {
-        systemInstruction: "You are a VIN decoder. Return JSON with make, model, year, and bodyType (sedan, suv, truck, coupe, van, other). If you are unsure or the VIN is invalid, return all fields as null.",
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            make: { type: Type.STRING, nullable: true },
-            model: { type: Type.STRING, nullable: true },
-            year: { type: Type.INTEGER, nullable: true },
-            bodyType: { type: Type.STRING, enum: ["sedan", "suv", "truck", "coupe", "van", "other"], nullable: true }
-          }
+  const response = await ai.models.generateContent({
+    model: ENV.MODEL_FLASH,
+    contents: `VIN: ${vin}`,
+    config: {
+      systemInstruction: PROMPTS.VIN_DECODER,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          make: { type: Type.STRING, nullable: true },
+          model: { type: Type.STRING, nullable: true },
+          year: { type: Type.INTEGER, nullable: true },
+          bodyType: { type: Type.STRING, enum: ["sedan", "suv", "truck", "coupe", "van", "other"], nullable: true }
         }
       }
-    });
-    
-    const data = JSON.parse(response.text || "{}");
-    // If AI couldn't identify, we throw to trigger Manual Fallback in UI
-    if (!data.make || data.make === "null") throw new Error("INCONCLUSIVE");
-    return data;
-  } catch (e) {
-    console.error("AI Decode Error:", e);
-    throw e; // Bubble up to UI
-  }
+    }
+  });
+  
+  // Access the .text property directly from GenerateContentResponse
+  const data = JSON.parse(response.text || "{}");
+  if (!data.make || data.make === "null") throw new Error("INCONCLUSIVE_DECODE");
+  return data;
 };
 
 /**
- * Generates a maintenance roadmap specifically for Nigerian conditions.
+ * Localized Roadmap Generator
  */
 export const generateMaintenanceSchedule = async (
   make: string, 
@@ -59,15 +54,13 @@ export const generateMaintenanceSchedule = async (
   mileage: number
 ): Promise<MaintenanceScheduleResponse> => {
   const ai = getAIClient();
-  const prompt = `Generate a 5-step maintenance roadmap for a ${year} ${make} ${model} at ${mileage}km. 
-  Environment: Nigeria (high dust, extreme heat, stop-and-go traffic). 
-  Include estimated costs in NGN.`;
+  const prompt = `Vehicle: ${year} ${make} ${model}. Odometer: ${mileage}km.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: ENV.MODEL_FLASH,
     contents: prompt,
     config: {
-      systemInstruction: "You are AutoPal Mechanical Intel. Provide specific Nigerian-context maintenance advice in JSON format.",
+      systemInstruction: PROMPTS.MAINTENANCE_ROADMAP,
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -94,11 +87,12 @@ export const generateMaintenanceSchedule = async (
     }
   });
 
+  // Access the .text property directly from GenerateContentResponse
   return JSON.parse(response.text || "{}") as MaintenanceScheduleResponse;
 };
 
 /**
- * Diagnostic tool using Pro model for premium tier users.
+ * Diagnostic service with tiered model selection
  */
 export const getAdvancedDiagnostic = async (
   vehicle: any, 
@@ -107,11 +101,11 @@ export const getAdvancedDiagnostic = async (
   imageBase64?: string
 ): Promise<AIResponse> => {
   const ai = getAIClient();
-  // Budget control: use Pro only for high-value requests
-  const model = isPremium ? "gemini-3-pro-preview" : "gemini-3-flash-preview";
+  const modelId = (isPremium && ENV.ENABLE_PREMIUM_AI) ? ENV.MODEL_PRO : ENV.MODEL_FLASH;
   
-  const parts: any[] = [];
-  parts.push({ text: `Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Symptoms: ${symptoms}` });
+  const parts: any[] = [
+    { text: `Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Problem: ${symptoms}` }
+  ];
   
   if (imageBase64) {
     const data = imageBase64.includes(",") ? imageBase64.split(",")[1] : imageBase64;
@@ -119,10 +113,10 @@ export const getAdvancedDiagnostic = async (
   }
 
   const response = await ai.models.generateContent({
-    model: model,
+    model: modelId,
     contents: { parts },
     config: {
-      systemInstruction: "Expert Mechanic. Analyze symptoms and photos. Provide severity, advice, and specific parts needed in JSON.",
+      systemInstruction: PROMPTS.DIAGNOSTIC_EXPERT,
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
@@ -137,5 +131,6 @@ export const getAdvancedDiagnostic = async (
     }
   });
 
+  // Access the .text property directly from GenerateContentResponse
   return JSON.parse(response.text || "{}") as AIResponse;
 };
