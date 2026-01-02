@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -11,8 +10,7 @@
         window.process = window.process || {};
         window.process.env = window.process.env || {};
         
-        // Define defaults for infrastructure but NOT for API_KEY
-        // Setting API_KEY: "" here can overwrite a valid undefined/null check.
+        // Define defaults for infrastructure
         const defaults = {
           SUPABASE_URL: "https://dojvsourwlvvolvmppxx.supabase.co",
           SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvanZzb3Vyd2x2dm9sdm1wcHh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODM1NjYsImV4cCI6MjA4Mjc1OTU2Nn0.wvwghiH0ADBjQJFLbSXSwV9CEYXdECFq38u_WurKblQ",
@@ -27,9 +25,15 @@
           }
         }
 
-        // Diagnostic log (internal only)
+        // Bridge VITE_ prefixed variables to process.env if available from build tool
+        // Bundlers like Vite/Vercel often inject VITE_API_KEY but not API_KEY directly into the client
+        if (window.process.env.VITE_API_KEY && !window.process.env.API_KEY) {
+          window.process.env.API_KEY = window.process.env.VITE_API_KEY;
+        }
+
+        // Diagnostic log
         if (!window.process.env.API_KEY) {
-          console.log("AutoPal: API_KEY is currently undefined in process.env");
+          console.warn("AutoPal: API_KEY is missing from process.env. If deploying to Vercel, ensure you use the VITE_API_KEY name in your dashboard.");
         }
       })();
     </script>

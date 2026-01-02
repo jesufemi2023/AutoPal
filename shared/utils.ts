@@ -1,4 +1,3 @@
-
 /**
  * Utility functions for formatting and calculations.
  */
@@ -7,12 +6,17 @@
  * Robust environment variable retriever.
  * Checks window.process.env shim (configured in index.html), 
  * native process.env, and global scope.
+ * Automatically tries VITE_ prefix if standard key is missing.
  */
 export const getEnv = (key: string): string | undefined => {
+  const tryKeys = [key, `VITE_${key}`];
+  
   try {
-    if (window.process?.env?.[key]) return window.process.env[key];
-    if (typeof process !== 'undefined' && process.env?.[key]) return process.env[key];
-    if ((window as any)[key]) return (window as any)[key];
+    for (const k of tryKeys) {
+      if (window.process?.env?.[k]) return window.process.env[k];
+      if (typeof process !== 'undefined' && process.env?.[k]) return process.env[k];
+      if ((window as any)[k]) return (window as any)[k];
+    }
   } catch (e) {}
   return undefined;
 };
