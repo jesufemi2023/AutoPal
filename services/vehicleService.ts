@@ -75,6 +75,30 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id'>): Promise<Vehic
   } as Vehicle;
 };
 
+/**
+ * Uploads a vehicle image to Supabase Storage.
+ * To save costs ($70 budget), images must be pre-compressed.
+ */
+export const uploadVehicleImage = async (userId: string, vehicleId: string, file: Blob): Promise<string> => {
+  if (!supabase) throw new Error("Supabase not configured");
+
+  const fileExt = 'jpg';
+  const fileName = `${userId}/${vehicleId}-${Math.random()}.${fileExt}`;
+  const filePath = `vehicle-photos/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('assets') // Ensure this bucket exists in Supabase and is public
+    .upload(filePath, file);
+
+  if (uploadError) throw uploadError;
+
+  const { data } = supabase.storage
+    .from('assets')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+};
+
 export const updateVehicleData = async (id: string, updates: Partial<Vehicle>): Promise<void> => {
   if (!supabase) return;
   
@@ -86,6 +110,7 @@ export const updateVehicleData = async (id: string, updates: Partial<Vehicle>): 
   if (updates.bodyType) dbUpdates.body_type = updates.bodyType;
   if (updates.status) dbUpdates.status = updates.status;
   if (updates.healthScore !== undefined) dbUpdates.health_score = updates.healthScore;
+  if (updates.imageUrls && updates.imageUrls.length > 0) dbUpdates.image_url = updates.imageUrls[0];
 
   const { error } = await supabase
     .from('vehicles')
@@ -143,6 +168,9 @@ export const updateTaskStatus = async (taskId: string, status: string): Promise<
   if (error) throw error;
 };
 
+/**
+ * Creates a batch of maintenance tasks in Supabase
+ */
 export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[]): Promise<void> => {
   if (!supabase) return;
   const { error } = await supabase
@@ -151,9 +179,11 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
       vehicle_id: t.vehicleId,
       title: t.title,
       description: t.description,
+      // Fixed: mapping camelCase property from Omit<MaintenanceTask, 'id'> to snake_case database column
       due_mileage: t.dueMileage,
       priority: t.priority,
       category: t.category,
+      // Fixed: mapping camelCase property from Omit<MaintenanceTask, 'id'> to snake_case database column
       estimated_cost: t.estimatedCost,
       status: t.status
     })));

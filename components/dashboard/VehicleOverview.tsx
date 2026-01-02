@@ -16,7 +16,17 @@ export const VehicleOverview: React.FC<Props> = ({ vehicle, onUpdateOdometer }) 
     </div>
     
     <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center relative z-10">
-      <VehicleBlueprint type={vehicle.bodyType} />
+      {vehicle.imageUrls && vehicle.imageUrls.length > 0 ? (
+        <div className="aspect-[16/9] w-full rounded-[2.5rem] overflow-hidden border-4 border-slate-50 shadow-inner group/img transition-transform hover:scale-[1.02]">
+          <img 
+            src={vehicle.imageUrls[0]} 
+            alt={`${vehicle.make} ${vehicle.model}`}
+            className="w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-110"
+          />
+        </div>
+      ) : (
+        <VehicleBlueprint type={vehicle.bodyType} />
+      )}
       <div className="space-y-8">
         <div className="space-y-2">
           <span className="bg-emerald-50 text-emerald-600 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest">Active Profile</span>

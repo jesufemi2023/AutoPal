@@ -1,14 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { getAdvancedDiagnostic, decodeVIN } from '../services/geminiService.ts';
 import { registerNewVehicle } from '../services/vehicleRegistrationService.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, updateVehicleData, 
-  updateTaskStatus, createServiceLogEntry 
+  updateTaskStatus, createServiceLogEntry, uploadVehicleImage
 } from '../services/vehicleService.ts';
 import { MaintenanceTask, BodyType } from '../shared/types.ts';
-import { isValidVIN } from '../shared/utils.ts';
+import { isValidVIN, compressImage } from '../shared/utils.ts';
 import { OdometerInput } from './OdometerInput.tsx';
 
 // Refactored Sub-components
@@ -19,7 +19,7 @@ import { DiagnosticsPanel } from './dashboard/DiagnosticsPanel.tsx';
 const Dashboard: React.FC = () => {
   const { 
     vehicles, tasks, user, setSuggestedParts,
-    addVehicle, updateMileage, completeTask, setTasks, addServiceLog 
+    addVehicle, updateMileage, completeTask, setTasks, addServiceLog, updateVehicle
   } = useAutoPalStore();
 
   const [activeVehicleId, setActiveVehicleId] = useState<string | null>(null);
@@ -34,6 +34,10 @@ const Dashboard: React.FC = () => {
   const [regStep, setRegStep] = useState<'vin' | 'manual'>('vin');
   const [newVin, setNewVin] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   
   const [manualData, setManualData] = useState({
     make: '', model: '', year: new Date().getFullYear(),
@@ -98,7 +102,22 @@ const Dashboard: React.FC = () => {
     e.preventDefault();
     setIsProcessing(true);
     try {
+      // 1. Create vehicle record
       const vehicle = await registerNewVehicle(user?.id || 'guest', newVin, manualData);
+      
+      // 2. Handle Image Upload if exists
+      let finalImageUrl = '';
+      if (selectedImage && user?.id) {
+        try {
+          const compressed = await compressImage(selectedImage, 800, 0.7);
+          finalImageUrl = await uploadVehicleImage(user.id, vehicle.id, compressed);
+          await updateVehicleData(vehicle.id, { imageUrls: [finalImageUrl] });
+          vehicle.imageUrls = [finalImageUrl];
+        } catch (imgErr) {
+          console.error("Image upload failed:", imgErr);
+        }
+      }
+
       addVehicle(vehicle);
       setActiveVehicleId(vehicle.id);
       closeModal();
@@ -106,6 +125,16 @@ const Dashboard: React.FC = () => {
       alert("Registration failed. Please try again.");
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result as string);
+      reader.readAsDataURL(file);
     }
   };
 
@@ -135,6 +164,8 @@ const Dashboard: React.FC = () => {
     setShowAddModal(false);
     setRegStep('vin');
     setNewVin('');
+    setSelectedImage(null);
+    setImagePreview(null);
     setManualData({ make: '', model: '', year: new Date().getFullYear(), bodyType: 'sedan', mileage: 0 });
   };
 
@@ -225,13 +256,13 @@ const Dashboard: React.FC = () => {
 
       {showAddModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xl animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-xl rounded-[3.5rem] p-10 md:p-16 shadow-2xl relative overflow-hidden">
+          <div className="bg-white w-full max-w-xl rounded-[3.5rem] p-10 md:p-16 shadow-2xl relative overflow-hidden max-h-[90vh] overflow-y-auto scrollbar-hide">
              {isProcessing && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-50 flex flex-col items-center justify-center"><div className="scan-line top-1/2"></div><p className="font-black text-blue-600 animate-pulse text-[10px] tracking-widest uppercase mt-4">{regStep === 'vin' ? 'Decoding Chassis...' : 'Finalizing Digital Twin...'}</p></div>}
             
             <button onClick={closeModal} className="absolute top-10 right-10 text-slate-300 hover:text-slate-900 text-4xl font-black">×</button>
             <h2 className="text-4xl font-black text-slate-900 mb-6 text-center tracking-tighter">Register Asset</h2>
             <p className="text-slate-400 text-center text-xs font-bold uppercase tracking-widest mb-10">
-              {regStep === 'vin' ? 'Provide Chassis Number for AI Identification' : 'Verify Detected Details & Add Mileage'}
+              {regStep === 'vin' ? 'Provide Chassis Number for AI Identification' : 'Verify Detected Details & Add Photo'}
             </p>
 
             {regStep === 'vin' ? (
@@ -250,6 +281,24 @@ const Dashboard: React.FC = () => {
               </form>
             ) : (
               <form onSubmit={handleFinalizeRegistration} className="space-y-6">
+                <div className="flex flex-col items-center mb-6">
+                  <input type="file" hidden ref={imageInputRef} accept="image/*" onChange={handleImageChange} />
+                  <div 
+                    onClick={() => imageInputRef.current?.click()}
+                    className="w-40 h-40 bg-slate-50 rounded-full border-4 border-slate-100 flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-200 transition-all group relative"
+                  >
+                    {imagePreview ? (
+                      <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
+                    ) : (
+                      <span className="text-slate-300 text-4xl group-hover:text-blue-400 transition-colors">📷</span>
+                    )}
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-white text-[10px] font-black uppercase tracking-widest">Add Photo</span>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">Optional Asset Image</p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Make</label>
