@@ -7,24 +7,29 @@
     <title>AutoPal NG | Vehicle Intelligence</title>
     <script>
       (function() {
-        // Ensure process.env is available in the browser context
-        window.process = window.process || { env: {} };
+        // Create the process.env structure if it doesn't exist
+        window.process = window.process || {};
         window.process.env = window.process.env || {};
         
-        // Default configuration values
+        // Define defaults for infrastructure but NOT for API_KEY
+        // Setting API_KEY: "" here can overwrite a valid undefined/null check.
         const defaults = {
           SUPABASE_URL: "https://dojvsourwlvvolvmppxx.supabase.co",
           SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvanZzb3Vyd2x2dm9sdm1wcHh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxODM1NjYsImV4cCI6MjA4Mjc1OTU2Nn0.wvwghiH0ADBjQJFLbSXSwV9CEYXdECFq38u_WurKblQ",
           MOCK_AI: "false",
-          REGIONAL_CONTEXT: "Nigeria (Tropical climate, dusty roads, high stop-and-go urban traffic)",
-          API_KEY: "" // Will be populated by platform environment variables if available
+          REGIONAL_CONTEXT: "Nigeria (Tropical climate, dusty roads, high stop-and-go urban traffic)"
         };
 
-        // Merge defaults with any existing process.env variables (provided by bundler or platform)
+        // Apply defaults only if the key is missing entirely
         for (const key in defaults) {
-          if (window.process.env[key] === undefined || window.process.env[key] === "") {
+          if (window.process.env[key] === undefined) {
             window.process.env[key] = defaults[key];
           }
+        }
+
+        // Diagnostic log (internal only)
+        if (!window.process.env.API_KEY) {
+          console.log("AutoPal: API_KEY is currently undefined in process.env");
         }
       })();
     </script>

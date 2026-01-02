@@ -11,7 +11,7 @@ export const ENV = {
   SUPABASE_ANON_KEY: getEnv('SUPABASE_ANON_KEY') || '',
   
   // Intelligence Config
-  API_KEY: process.env.API_KEY || '',
+  API_KEY: process.env.API_KEY, // Let it be undefined if missing
   MODEL_FLASH: getEnv('AI_MODEL_FLASH') || 'gemini-3-flash-preview',
   MODEL_PRO: getEnv('AI_MODEL_PRO') || 'gemini-3-pro-preview',
   MOCK_AI: getEnv('MOCK_AI') === 'true', // Allows for local testing without API credits
@@ -42,6 +42,6 @@ export const validateEnv = () => {
   }
   
   if (!ENV.API_KEY && !ENV.MOCK_AI) {
-    console.warn("[AutoPal NG] API_KEY is missing. App will fall back to manual modes unless MOCK_AI is enabled.");
+    console.warn("[AutoPal NG] API_KEY is missing from process.env. Ensure it is set in your platform settings.");
   }
 };
