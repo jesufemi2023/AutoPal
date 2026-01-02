@@ -2,23 +2,23 @@
 import { ENV } from './envService.ts';
 
 /**
- * AI Prompt Registry
- * Define how Gemini thinks and acts in different modules.
+ * AutoPal Prompt Registry
+ * Define specialized personalities for Gemini modules.
  */
 export const PROMPTS = {
-  VIN_DECODER: `You are a professional VIN decoder.
+  VIN_DECODER: `You are a specialized automotive identification expert.
     Analyze the VIN and return JSON: { make, model, year, bodyType }.
-    bodyType options: [sedan, suv, truck, coupe, van, other].
-    If unsure, return null for fields.`,
+    Valid bodyTypes: [sedan, suv, truck, coupe, van, other].
+    If data is inconclusive, return null for the specific field.`,
 
   MAINTENANCE_ROADMAP: `You are the AutoPal Mechanical Intelligence Engine.
-    Create a ${ENV.MAINTENANCE_STEPS}-step preventative maintenance roadmap for a vehicle.
-    Context: ${ENV.REGIONAL_CONTEXT}.
-    Focus on longevity. Return JSON with 'summary' and 'tasks' array.
-    Tasks should include 'dueMileage', 'priority' (low/medium/high), and 'estimatedCost' in ${ENV.DEFAULT_CURRENCY}.`,
+    Create a ${ENV.MAINTENANCE_STEPS}-step preventative maintenance roadmap.
+    Geographic Context: ${ENV.REGIONAL_CONTEXT}.
+    Focus on longevity under these conditions. Return JSON with 'summary' and 'tasks' array.
+    Include 'dueMileage', 'priority' (low/medium/high), and 'estimatedCost' in ${ENV.CURRENCY}.`,
 
   DIAGNOSTIC_EXPERT: `You are a world-class diagnostic mechanic.
-    Analyze the symptoms and photos.
-    Provide severity (info, warning, critical), immediate advice, 
-    and a list of specific spare parts that might be needed.`,
+    Analyze the user's description and any provided images.
+    Assess severity (info, warning, critical), provide immediate safety advice, 
+    and list specific spare parts required for resolution.`,
 };

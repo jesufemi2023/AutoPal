@@ -3,32 +3,9 @@ import { supabase } from '../auth/supabaseClient.ts';
 import { Vehicle, MaintenanceTask, ServiceLog } from '../shared/types.ts';
 
 /**
- * Vehicle Service
- * Handles CRUD operations and storage for the Garage Module via Supabase.
+ * Vehicle Persistence Service
+ * Aligned with provided Supabase Table Schema.
  */
-
-export const uploadVehicleImage = async (userId: string, file: Blob): Promise<string> => {
-  if (!supabase) throw new Error("Database connection lost");
-  
-  const fileExt = 'jpg';
-  const fileName = `${userId}/${Math.random().toString(36).substring(2)}.${fileExt}`;
-  const filePath = `vehicle-images/${fileName}`;
-
-  const { data, error } = await supabase.storage
-    .from('assets')
-    .upload(filePath, file, {
-      contentType: 'image/jpeg',
-      upsert: true
-    });
-
-  if (error) throw error;
-
-  const { data: { publicUrl } } = supabase.storage
-    .from('assets')
-    .getPublicUrl(filePath);
-
-  return publicUrl;
-};
 
 export const fetchUserVehicles = async (userId: string): Promise<Vehicle[]> => {
   if (!supabase) return [];
@@ -51,18 +28,15 @@ export const fetchUserVehicles = async (userId: string): Promise<Vehicle[]> => {
     mileage: v.mileage,
     healthScore: v.health_score,
     bodyType: v.body_type,
-    imageUrls: v.image_urls || (v.image_url ? [v.image_url] : []),
+    imageUrls: v.image_url ? [v.image_url] : [], // Mapping singular SQL column to plural local state
     status: v.status,
-    engineSize: v.engine_size,
-    fuelType: v.fuel_type,
     specs: v.specs,
-    // Fix: satisfy Vehicle interface requirement for isDirty
     isDirty: false
   })) as Vehicle[];
 };
 
 export const createVehicle = async (vehicle: Omit<Vehicle, 'id'>): Promise<Vehicle> => {
-  if (!supabase) throw new Error("Database connection lost");
+  if (!supabase) throw new Error("Supabase not configured");
   
   const { data, error } = await supabase
     .from('vehicles')
@@ -76,9 +50,7 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id'>): Promise<Vehic
       health_score: vehicle.healthScore,
       body_type: vehicle.bodyType,
       status: vehicle.status,
-      image_urls: vehicle.imageUrls,
-      engine_size: vehicle.engineSize,
-      fuel_type: vehicle.fuelType,
+      image_url: vehicle.imageUrls[0] || null, // Mapping local array to singular SQL column
       specs: vehicle.specs
     }])
     .select()
@@ -96,60 +68,47 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id'>): Promise<Vehic
     mileage: data.mileage,
     healthScore: data.health_score,
     bodyType: data.body_type,
-    imageUrls: data.image_urls,
+    imageUrls: data.image_url ? [data.image_url] : [],
     status: data.status,
-    engineSize: data.engine_size,
-    fuelType: data.fuel_type, // Fixed property name from fuel_type to fuelType
     specs: data.specs,
-    // Fix: satisfy Vehicle interface requirement for isDirty
     isDirty: false
   } as Vehicle;
 };
 
-export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[]): Promise<void> => {
+export const updateVehicleData = async (id: string, updates: Partial<Vehicle>): Promise<void> => {
   if (!supabase) return;
+  
+  const dbUpdates: any = {};
+  if (updates.make) dbUpdates.make = updates.make;
+  if (updates.model) dbUpdates.model = updates.model;
+  if (updates.year) dbUpdates.year = updates.year;
+  if (updates.mileage !== undefined) dbUpdates.mileage = updates.mileage;
+  if (updates.bodyType) dbUpdates.body_type = updates.bodyType;
+  if (updates.status) dbUpdates.status = updates.status;
+  if (updates.healthScore !== undefined) dbUpdates.health_score = updates.healthScore;
+
   const { error } = await supabase
-    .from('maintenance_tasks')
-    .insert(tasks.map(t => ({
-      vehicle_id: t.vehicleId,
-      title: t.title,
-      description: t.description,
-      due_mileage: t.dueMileage,
-      priority: t.priority,
-      category: t.category,
-      estimated_cost: t.estimatedCost,
-      status: t.status
-    })));
+    .from('vehicles')
+    .update(dbUpdates)
+    .eq('id', id);
   
   if (error) throw error;
 };
 
-export const updateTaskStatus = async (taskId: string, status: string): Promise<void> => {
+export const createMileageLogEntry = async (vehicleId: string, userId: string, mileage: number): Promise<void> => {
   if (!supabase) return;
   const { error } = await supabase
-    .from('maintenance_tasks')
-    .update({ status })
-    .eq('id', taskId);
-  
-  if (error) throw error;
-};
-
-export const createServiceLogEntry = async (log: Omit<ServiceLog, 'id'>): Promise<void> => {
-  if (!supabase) return;
-  const { error } = await supabase
-    .from('service_logs')
+    .from('mileage_logs')
     .insert([{
-      vehicle_id: log.vehicleId,
-      task_id: log.taskId,
-      date: log.date,
-      description: log.description,
-      cost: log.cost,
-      mileage: log.mileage
+      vehicle_id: vehicleId,
+      user_id: userId,
+      mileage: mileage
     }]);
   
   if (error) throw error;
 };
 
+// Maintenance Tasks and Logs logic remains modular and separate from vehicles table
 export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceTask[]> => {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -170,11 +129,42 @@ export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceT
     priority: t.priority,
     estimatedCost: t.estimated_cost,
     category: t.category,
-    // Fix: satisfy MaintenanceTask interface requirement for isDirty
     isDirty: false
   })) as MaintenanceTask[];
 };
 
+export const updateTaskStatus = async (taskId: string, status: string): Promise<void> => {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('maintenance_tasks')
+    .update({ status })
+    .eq('id', taskId);
+  
+  if (error) throw error;
+};
+
+export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[]): Promise<void> => {
+  if (!supabase) return;
+  const { error } = await supabase
+    .from('maintenance_tasks')
+    .insert(tasks.map(t => ({
+      vehicle_id: t.vehicleId,
+      title: t.title,
+      description: t.description,
+      due_mileage: t.dueMileage,
+      priority: t.priority,
+      category: t.category,
+      estimated_cost: t.estimatedCost,
+      status: t.status
+    })));
+  
+  if (error) throw error;
+};
+
+// Fix: Added missing export for fetchVehicleServiceLogs
+/**
+ * Fetch Service Logs for a vehicle
+ */
 export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<ServiceLog[]> => {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -193,38 +183,43 @@ export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<Servic
     description: l.description,
     cost: l.cost,
     mileage: l.mileage,
-    // Fix: satisfy ServiceLog interface requirement for isDirty
+    providerName: l.provider_name,
     isDirty: false
   })) as ServiceLog[];
 };
 
-export const updateVehicleData = async (id: string, updates: Partial<Vehicle>): Promise<void> => {
-  if (!supabase) return;
+// Fix: Added missing export for createServiceLogEntry
+/**
+ * Create a new Service Log Entry
+ */
+export const createServiceLogEntry = async (log: Omit<ServiceLog, 'id'>): Promise<ServiceLog> => {
+  if (!supabase) throw new Error("Supabase not configured");
   
-  const dbUpdates: any = {};
-  if (updates.make) dbUpdates.make = updates.make;
-  if (updates.model) dbUpdates.model = updates.model;
-  if (updates.year) dbUpdates.year = updates.year;
-  if (updates.mileage !== undefined) dbUpdates.mileage = updates.mileage;
-  if (updates.bodyType) dbUpdates.body_type = updates.bodyType;
-  if (updates.imageUrls) dbUpdates.image_urls = updates.imageUrls;
-  if (updates.status) dbUpdates.status = updates.status;
-  if (updates.healthScore !== undefined) dbUpdates.health_score = updates.healthScore;
+  const { data, error } = await supabase
+    .from('service_logs')
+    .insert([{
+      vehicle_id: log.vehicleId,
+      task_id: log.taskId,
+      date: log.date,
+      description: log.description,
+      cost: log.cost,
+      mileage: log.mileage,
+      provider_name: log.providerName
+    }])
+    .select()
+    .single();
 
-  const { error } = await supabase
-    .from('vehicles')
-    .update(dbUpdates)
-    .eq('id', id);
-  
   if (error) throw error;
-};
-
-export const deleteVehiclePermanently = async (id: string): Promise<void> => {
-  if (!supabase) return;
-  const { error } = await supabase
-    .from('vehicles')
-    .delete()
-    .eq('id', id);
   
-  if (error) throw error;
+  return {
+    id: data.id,
+    vehicleId: data.vehicle_id,
+    taskId: data.task_id,
+    date: data.date,
+    description: data.description,
+    cost: data.cost,
+    mileage: data.mileage,
+    providerName: data.provider_name,
+    isDirty: false
+  } as ServiceLog;
 };

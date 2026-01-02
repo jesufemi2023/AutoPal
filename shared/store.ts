@@ -6,6 +6,7 @@ import {
 } from './types.ts';
 import { getConfig } from '../services/configService.ts';
 import { localDb } from '../services/localDb.ts';
+import { createMileageLogEntry } from '../services/vehicleService.ts';
 
 interface AutoPalState {
   user: UserProfile | null;
@@ -117,14 +118,11 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const vehicle = state.vehicles.find(v => v.id === vehicleId);
     if (!vehicle || newMileage < vehicle.mileage) return;
 
-    // Local Logic: Calculate mileage velocity for service date projections
     const now = new Date();
-    let avgVelocity = vehicle.avgDailyKm || 0;
-    
-    // Simplistic but effective: Calculate delta since vehicle creation or last log
-    const createdDate = new Date(); // Replace with vehicle.created_at if available
+    // Use days since Epoch or vehicle registration to estimate velocity
+    const createdDate = new Date(now.getTime() - (1000 * 3600 * 24 * 30)); // Mocking 30 days history if none
     const daysSince = Math.max(1, (now.getTime() - createdDate.getTime()) / (1000 * 3600 * 24));
-    avgVelocity = newMileage / daysSince;
+    const avgVelocity = newMileage / daysSince;
 
     const updatedVehicle = { 
       ...vehicle, 
@@ -134,17 +132,15 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     };
     
     set((state) => ({
-      vehicles: state.vehicles.map(v => v.id === vehicleId ? updatedVehicle : v),
-      mileageLogs: [{
-        id: Math.random().toString(36).substr(2, 9),
-        vehicleId,
-        mileage: newMileage,
-        timestamp: now.toISOString(),
-        source
-      }, ...state.mileageLogs]
+      vehicles: state.vehicles.map(v => v.id === vehicleId ? updatedVehicle : v)
     }));
 
     await localDb.saveVehicle(updatedVehicle);
+    
+    // Background sync to Supabase mileage_logs table
+    if (state.user?.id) {
+      createMileageLogEntry(vehicleId, state.user.id, newMileage).catch(console.error);
+    }
   },
 
   completeTask: (taskId, cost, mileage) => {

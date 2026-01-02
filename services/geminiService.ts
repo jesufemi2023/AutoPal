@@ -5,21 +5,13 @@ import { PROMPTS } from "./promptService.ts";
 import { AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
 
 /**
- * AI Client Factory
- * Fixed: Strictly use process.env.API_KEY directly for initialization as per @google/genai guidelines.
- */
-const getAIClient = () => {
-  if (!process.env.API_KEY) throw new Error("AI_CONFIG_MISSING");
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
-};
-
-/**
- * Robust Decoder with Local Mock Support
+ * VIN Decoding with Fail-Soft Logic
  */
 export const decodeVIN = async (vin: string): Promise<any> => {
-  if (ENV.MOCK_AI) return { make: "Toyota", model: "Camry", year: 2020, bodyType: "sedan" };
+  if (ENV.MOCK_AI) return { make: "Toyota", model: "Corolla", year: 2018, bodyType: "sedan" };
 
-  const ai = getAIClient();
+  // Fix: Initializing GoogleGenAI right before the API call as per guidelines
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: ENV.MODEL_FLASH,
     contents: `VIN: ${vin}`,
@@ -38,14 +30,14 @@ export const decodeVIN = async (vin: string): Promise<any> => {
     }
   });
   
-  // Access the .text property directly from GenerateContentResponse
+  // Fix: Accessing text property directly
   const data = JSON.parse(response.text || "{}");
-  if (!data.make || data.make === "null") throw new Error("INCONCLUSIVE_DECODE");
+  if (!data.make) throw new Error("INCONCLUSIVE_DECODE");
   return data;
 };
 
 /**
- * Localized Roadmap Generator
+ * Localized Roadmap Generation
  */
 export const generateMaintenanceSchedule = async (
   make: string, 
@@ -53,7 +45,18 @@ export const generateMaintenanceSchedule = async (
   year: number, 
   mileage: number
 ): Promise<MaintenanceScheduleResponse> => {
-  const ai = getAIClient();
+  if (ENV.MOCK_AI) {
+    return {
+      summary: "Mock optimized roadmap for local testing.",
+      tasks: [
+        { title: "Synthetic Oil Change", description: "Replace oil filter and 5L 0W-20", dueMileage: mileage + 5000, priority: "high", category: "fluids", estimatedCost: 45000 },
+        { title: "Brake Pad Inspection", description: "Check front pads for wear", dueMileage: mileage + 8000, priority: "medium", category: "brakes", estimatedCost: 5000 }
+      ]
+    };
+  }
+
+  // Fix: Initializing GoogleGenAI right before the API call as per guidelines
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Vehicle: ${year} ${make} ${model}. Odometer: ${mileage}km.`;
 
   const response = await ai.models.generateContent({
@@ -87,12 +90,12 @@ export const generateMaintenanceSchedule = async (
     }
   });
 
-  // Access the .text property directly from GenerateContentResponse
+  // Fix: Accessing text property directly
   return JSON.parse(response.text || "{}") as MaintenanceScheduleResponse;
 };
 
 /**
- * Diagnostic service with tiered model selection
+ * Symptom Diagnosis with Multi-Modal Vision support
  */
 export const getAdvancedDiagnostic = async (
   vehicle: any, 
@@ -100,7 +103,10 @@ export const getAdvancedDiagnostic = async (
   isPremium: boolean,
   imageBase64?: string
 ): Promise<AIResponse> => {
-  const ai = getAIClient();
+  if (ENV.MOCK_AI) return { advice: "Checking the auxiliary belt is recommended.", recommendations: ["Inspect belt tension", "Check for cracks"], severity: "warning" };
+
+  // Fix: Initializing GoogleGenAI right before the API call as per guidelines
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const modelId = (isPremium && ENV.ENABLE_PREMIUM_AI) ? ENV.MODEL_PRO : ENV.MODEL_FLASH;
   
   const parts: any[] = [
@@ -131,6 +137,6 @@ export const getAdvancedDiagnostic = async (
     }
   });
 
-  // Access the .text property directly from GenerateContentResponse
+  // Fix: Accessing text property directly
   return JSON.parse(response.text || "{}") as AIResponse;
 };
