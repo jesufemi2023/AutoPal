@@ -18,6 +18,11 @@ export const registerNewVehicle = async (
     mileage: number;
     fuelType?: string;
     engineSize?: string;
+    specs?: {
+      tireSize?: string;
+      oilGrade?: string;
+      batteryType?: string;
+    }
   }
 ): Promise<Vehicle> => {
   
@@ -34,6 +39,7 @@ export const registerNewVehicle = async (
     bodyType: confirmedData.bodyType,
     status: 'active',
     imageUrls: [],
+    specs: confirmedData.specs || {},
     isDirty: false
   };
 
