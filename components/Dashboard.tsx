@@ -162,7 +162,6 @@ const Dashboard: React.FC = () => {
 
       {activeVehicle ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 lg:gap-12 items-start">
-          {/* Main Content Area */}
           <div className="md:col-span-2 lg:col-span-8 space-y-6 lg:space-y-12">
             <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
             <MaintenanceRoadmap 
@@ -182,7 +181,6 @@ const Dashboard: React.FC = () => {
             />
           </div>
 
-          {/* Sidebar Area (Stacks on Tablet, Sits Side-by-Side on Desktop) */}
           <aside className="md:col-span-2 lg:col-span-4 lg:sticky lg:top-32">
             <DiagnosticsPanel 
               vehicle={activeVehicle} symptom={symptom} setSymptom={setSymptom} 
@@ -207,8 +205,167 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Modal logic preserved and optimized for small screens in previous step */}
-      {/* ... (Modal remains consistent with improved Blueprint UI) */}
+      {/* REFINED MODAL: REGISTER ASSET */}
+      {showAddModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-6 bg-slate-900/70 backdrop-blur-2xl animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-2xl md:rounded-[3rem] shadow-3xl relative flex flex-col h-full md:h-auto md:max-h-[90vh] overflow-hidden border border-white/20">
+            {isProcessing && (
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-md z-[110] flex flex-col items-center justify-center">
+                <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-8 font-black text-slate-900 uppercase tracking-[0.3em] text-[10px]">Syncing Digital Twin...</p>
+              </div>
+            )}
+
+            <div className="p-6 md:p-10 border-b border-slate-100 flex justify-between items-center bg-white shrink-0 z-50">
+              <div className="flex items-center gap-6">
+                <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-xl">A</div>
+                <div>
+                  <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter uppercase leading-none">Registration</h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className={`w-2 h-2 rounded-full ${regStep === 'vin' ? 'bg-blue-600 animate-pulse' : 'bg-emerald-500'}`}></div>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
+                      {regStep === 'vin' ? 'Identification' : 'Blueprint Calibration'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button onClick={closeModal} className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-slate-900 text-3xl font-light">×</button>
+            </div>
+
+            <div className="flex-grow overflow-y-auto scrollbar-hide px-6 md:px-10 py-8 bg-slate-50/40">
+              {regStep === 'vin' ? (
+                <form onSubmit={handleIdentifyAsset} className="space-y-10 max-w-md mx-auto py-10">
+                  <div className="text-center space-y-4">
+                    <div className="w-20 h-20 bg-blue-50 rounded-[2.5rem] flex items-center justify-center text-3xl mx-auto mb-6 shadow-inner ring-4 ring-white">🔍</div>
+                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">Technical Extraction</h3>
+                    <p className="text-slate-400 text-[11px] font-bold leading-relaxed uppercase tracking-wider">
+                      Input the 17-digit Chassis ID (VIN) for real-time factory spec decoding.
+                    </p>
+                  </div>
+                  <div className="space-y-4">
+                    <input 
+                      type="text" required maxLength={17} placeholder="ABC1234567890XYZ"
+                      className={`w-full px-8 py-7 bg-white border-2 ${vinError ? 'border-rose-400 ring-4 ring-rose-50' : 'border-slate-200 shadow-sm'} rounded-[2rem] font-mono text-xl md:text-2xl uppercase tracking-[0.2em] focus:border-blue-600 outline-none text-center transition-all`}
+                      value={newVin} onChange={e => { setNewVin(e.target.value.toUpperCase()); setVinError(null); }}
+                    />
+                    {vinError && <p className="text-rose-500 text-[9px] font-black uppercase tracking-widest text-center animate-bounce">{vinError}</p>}
+                  </div>
+                  <div className="space-y-4 pt-4">
+                    <button disabled={newVin.length < 17} className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[10px] shadow-2xl hover:bg-blue-600 transition-all disabled:opacity-20 active:scale-95">Analyze Chassis ID</button>
+                    <button type="button" onClick={() => setRegStep('manual')} className="w-full text-[10px] font-black text-blue-600 uppercase tracking-[0.2em]">Manual Override (Skip Scan)</button>
+                  </div>
+                </form>
+              ) : (
+                <form onSubmit={handleFinalizeRegistration} className="space-y-8 pb-32">
+                  <div className="bg-white p-6 md:p-8 rounded-[3rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-6 md:gap-10">
+                    <div className="relative group shrink-0">
+                      <input type="file" hidden ref={imageInputRef} accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setSelectedImage(f); const r = new FileReader(); r.onloadend = () => setImagePreview(r.result as string); r.readAsDataURL(f); } }} />
+                      <div onClick={() => imageInputRef.current?.click()} className="w-28 h-28 md:w-32 md:h-32 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden cursor-pointer group-hover:border-blue-500 transition-all ring-4 ring-slate-50 shadow-inner">
+                        {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" alt="V" /> : <span className="text-slate-300 text-4xl">📷</span>}
+                      </div>
+                    </div>
+                    <div className="flex-1 text-center md:text-left">
+                      <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Asset Identity String</div>
+                      <div className="text-xl md:text-2xl font-mono font-bold text-slate-900 tracking-tight break-all uppercase">{newVin || 'MANUAL-ENTRY-ID'}</div>
+                      <div className="flex justify-center md:justify-start gap-2 mt-2">
+                        <span className="bg-emerald-50 text-emerald-600 text-[8px] font-black px-3 py-1 rounded-md border border-emerald-100">PLATFORM_VERIFIED</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                    <div className="md:col-span-2 bg-white p-8 md:p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-8">
+                      <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
+                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 font-black text-xs">01</div>
+                        <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Origin & OEM Branding</h3>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Manufacturer (Make)</label>
+                          <input type="text" required placeholder="e.g. Toyota" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm font-bold focus:border-blue-500 focus:bg-white outline-none transition-all shadow-sm" value={manualData.make} onChange={e => setManualData({...manualData, make: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Model Name</label>
+                          <input type="text" required placeholder="e.g. Camry" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm font-bold focus:border-blue-500 focus:bg-white outline-none transition-all shadow-sm" value={manualData.model} onChange={e => setManualData({...manualData, model: e.target.value})} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-8 md:p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-8">
+                      <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
+                        <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600 font-black text-xs">02</div>
+                        <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Technical Specs</h3>
+                      </div>
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Build Year</label>
+                            <input type="number" required className="w-full px-6 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none" value={manualData.year} onChange={e => setManualData({...manualData, year: parseInt(e.target.value)})} />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Engine (e.g. 2.4L)</label>
+                            <input type="text" placeholder="V6 / 1.8L" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none" value={manualData.engineSize} onChange={e => setManualData({...manualData, engineSize: e.target.value})} />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Body Configuration</label>
+                          <select className="w-full px-6 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none appearance-none" value={manualData.bodyType} onChange={e => setManualData({...manualData, bodyType: e.target.value as BodyType})}>
+                            <option value="sedan">Saloon / Sedan</option><option value="suv">SUV / 4x4</option><option value="truck">Truck / Pickup</option><option value="van">Van</option><option value="coupe">Coupe</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Fuel Type</label>
+                          <select className="w-full px-6 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none appearance-none" value={manualData.fuelType} onChange={e => setManualData({...manualData, fuelType: e.target.value})}>
+                            <option value="petrol">Petrol</option><option value="diesel">Diesel</option><option value="hybrid">Hybrid</option><option value="electric">Electric (EV)</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-8 md:p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-8">
+                      <div className="flex items-center gap-4 border-b border-slate-50 pb-6">
+                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 font-black text-xs">03</div>
+                        <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Maintenance ID</h3>
+                      </div>
+                      <div className="space-y-6">
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Current Odometer (KM)</label>
+                          <input type="number" required placeholder="0" className="w-full px-6 py-5 bg-blue-50 border-2 border-blue-100 rounded-[1.5rem] text-2xl font-mono font-black text-blue-600 focus:bg-white outline-none shadow-sm transition-all" value={manualData.mileage} onChange={e => setManualData({...manualData, mileage: parseInt(e.target.value)})} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Tire Size Spec</label>
+                          <input type="text" placeholder="e.g. 215/60 R16" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none" value={manualData.specs.tireSize} onChange={e => setManualData({...manualData, specs: {...manualData.specs, tireSize: e.target.value}})} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Oil Grade Ref</label>
+                          <input type="text" placeholder="e.g. 0W-20 Synthetic" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none" value={manualData.specs.oilGrade} onChange={e => setManualData({...manualData, specs: {...manualData.specs, oilGrade: e.target.value}})} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Battery Config</label>
+                          <input type="text" placeholder="e.g. 75Ah / 12V" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-100 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none" value={manualData.specs.batteryType} onChange={e => setManualData({...manualData, specs: {...manualData.specs, batteryType: e.target.value}})} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="fixed md:absolute bottom-0 left-0 right-0 p-6 md:p-10 bg-white/95 backdrop-blur-xl border-t border-slate-100 flex gap-4 md:gap-6 z-[60] shadow-[0_-15px_30px_-10px_rgba(0,0,0,0.05)]">
+                    <button type="button" onClick={() => setRegStep('vin')} className="flex-1 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-slate-900 transition-colors">Back</button>
+                    <button disabled={isProcessing} className="flex-[3] bg-blue-600 text-white py-5 rounded-[2rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-2xl shadow-blue-600/30 active:scale-95 transition-all">Finalize Asset Twin</button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showOdometerModal && activeVehicle && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="w-full max-w-sm">
+            <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { await updateMileage(activeVehicle.id, v); await updateVehicleData(activeVehicle.id, { mileage: v }); setShowOdometerModal(false); }} onCancel={() => setShowOdometerModal(false)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
