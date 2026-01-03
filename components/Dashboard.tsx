@@ -79,12 +79,12 @@ const Dashboard: React.FC = () => {
     setVinError(null);
 
     if (newVin.length !== 17) {
-      setVinError("Chassis number must be exactly 17 characters.");
+      setVinError("Chassis ID must be 17 characters.");
       return;
     }
 
     if (!isValidVIN(newVin)) {
-      setVinError("Invalid format. VINs avoid letters I, O, and Q.");
+      setVinError("Invalid VIN format. (Avoid I, O, Q)");
       return;
     }
 
@@ -147,7 +147,7 @@ const Dashboard: React.FC = () => {
       <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
         <div>
           <h1 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none">Garage</h1>
-          <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-4">Fleet Intel v3.5</p>
+          <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-4">Fleet Intel v3.0</p>
         </div>
         <button 
           onClick={() => setShowAddModal(true)}
@@ -218,10 +218,10 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL: REGISTER ASSET - REFINED FOR RESPONSIVENESS AND VISIBILITY */}
+      {/* MODAL: REGISTER ASSET */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-6 bg-slate-900/70 backdrop-blur-2xl animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-2xl md:rounded-[3rem] shadow-3xl relative flex flex-col h-full md:h-auto md:max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xl animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-2xl rounded-[3rem] shadow-3xl relative flex flex-col max-h-[90vh] overflow-hidden border border-white/20">
             {isProcessing && (
               <div className="absolute inset-0 bg-white/80 backdrop-blur-md z-[110] flex flex-col items-center justify-center">
                 <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -229,146 +229,139 @@ const Dashboard: React.FC = () => {
               </div>
             )}
 
-            {/* Fixed Header */}
-            <div className="p-6 md:p-10 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-50">
+            {/* Modal Header */}
+            <div className="p-8 md:p-12 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
               <div>
-                <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter uppercase">Onboarding</h2>
-                <div className="flex items-center gap-3 mt-1">
+                <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Add Asset</h2>
+                <div className="flex items-center gap-3 mt-2">
                   <div className={`w-2 h-2 rounded-full ${regStep === 'vin' ? 'bg-blue-600 animate-pulse' : 'bg-emerald-500'}`}></div>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                    {regStep === 'vin' ? 'Scan & Extraction' : 'Refinement & Specs'}
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    {regStep === 'vin' ? 'Stage 01: Identification' : 'Stage 02: Verification'}
                   </span>
                 </div>
               </div>
-              <button onClick={closeModal} className="w-12 h-12 flex items-center justify-center text-slate-400 hover:text-slate-900 text-4xl font-light">×</button>
+              <button onClick={closeModal} className="w-12 h-12 flex items-center justify-center text-slate-400 hover:text-slate-900 text-3xl font-light">×</button>
             </div>
 
-            {/* Scrollable Body */}
-            <div className="flex-grow overflow-y-auto scrollbar-hide px-6 md:px-10 py-8 bg-slate-50/40">
+            {/* Modal Body */}
+            <div className="flex-grow overflow-y-auto scrollbar-hide p-8 md:p-12 bg-slate-50/30">
               {regStep === 'vin' ? (
-                <form onSubmit={handleIdentifyAsset} className="space-y-10 max-w-md mx-auto py-10">
+                <form onSubmit={handleIdentifyAsset} className="space-y-12 max-w-md mx-auto py-12">
                   <div className="text-center space-y-4">
-                    <div className="w-20 h-20 bg-blue-50 rounded-[2rem] flex items-center justify-center text-3xl mx-auto mb-6">🔍</div>
-                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">System Initialization</h3>
-                    <p className="text-slate-400 text-xs font-bold leading-relaxed">Enter the unique 17-digit Chassis ID (VIN) located on your dashboard or door pillar.</p>
+                    <div className="w-20 h-20 bg-blue-50 rounded-[2rem] flex items-center justify-center text-3xl mx-auto mb-8">🔍</div>
+                    <h3 className="text-xl font-black text-slate-900 uppercase tracking-tight">Extract Fleet Data</h3>
+                    <p className="text-slate-400 text-sm font-medium">Input your 17-digit Chassis ID for instant technical decoding.</p>
                   </div>
-                  <div className="space-y-3">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Identity String (VIN)</label>
+                  <div className="space-y-4">
                     <input 
                       type="text" required maxLength={17} placeholder="ABC1234567890XYZ"
-                      className={`w-full px-8 py-6 bg-white border-2 ${vinError ? 'border-rose-400 ring-4 ring-rose-50' : 'border-slate-200'} rounded-[2rem] font-mono text-xl md:text-2xl uppercase tracking-[0.1em] focus:border-blue-600 outline-none text-center shadow-sm transition-all`}
+                      className={`w-full px-8 py-7 bg-white border-2 ${vinError ? 'border-rose-400' : 'border-slate-200'} rounded-[2rem] font-mono text-2xl uppercase tracking-[0.1em] focus:border-blue-600 outline-none text-center shadow-sm transition-all`}
                       value={newVin} onChange={e => { setNewVin(e.target.value.toUpperCase()); setVinError(null); }}
                     />
-                    {vinError && <p className="text-rose-500 text-[9px] font-black uppercase tracking-widest text-center animate-in fade-in slide-in-from-top-2">{vinError}</p>}
+                    {vinError && <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest text-center">{vinError}</p>}
                   </div>
                   <div className="space-y-4 pt-4">
-                    <button disabled={newVin.length < 17} className="w-full bg-slate-900 text-white py-5 rounded-[2rem] font-black uppercase tracking-widest text-[10px] shadow-2xl hover:bg-blue-600 transition-all disabled:opacity-20 active:scale-95">Analyze Identity</button>
-                    <button type="button" onClick={() => setRegStep('manual')} className="w-full text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">I don't have a VIN</button>
+                    <button disabled={newVin.length < 17} className="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black uppercase tracking-widest text-[10px] shadow-2xl hover:bg-blue-600 transition-all disabled:opacity-20">Analyze Vehicle ID</button>
+                    <button type="button" onClick={() => setRegStep('manual')} className="w-full text-[10px] font-black text-blue-600 uppercase tracking-widest">Manual Setup (Skip Decoding)</button>
                   </div>
                 </form>
               ) : (
-                <form onSubmit={handleFinalizeRegistration} className="space-y-8 pb-32">
+                <form onSubmit={handleFinalizeRegistration} className="space-y-12 pb-24">
                   {/* Photo Hero Section */}
-                  <div className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-6 md:gap-10">
-                    <div className="relative group shrink-0">
+                  <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-8">
+                    <div className="relative group">
                       <input type="file" hidden ref={imageInputRef} accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setSelectedImage(f); const r = new FileReader(); r.onloadend = () => setImagePreview(r.result as string); r.readAsDataURL(f); } }} />
-                      <div onClick={() => imageInputRef.current?.click()} className="w-28 h-28 md:w-32 md:h-32 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden cursor-pointer group-hover:border-blue-500 transition-all ring-4 ring-slate-100">
+                      <div onClick={() => imageInputRef.current?.click()} className="w-32 h-32 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden cursor-pointer group-hover:border-blue-500 transition-all">
                         {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" alt="V" /> : <span className="text-slate-300 text-4xl">📷</span>}
                       </div>
                     </div>
-                    <div className="flex-1 text-center md:text-left space-y-1">
-                      <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Active Chassis ID</div>
-                      <div className="text-xl md:text-2xl font-mono font-bold text-slate-900 tracking-tight break-all">{newVin || 'MANUAL-ENTRY'}</div>
-                      <div className="flex justify-center md:justify-start gap-2 pt-1">
-                        <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[8px] font-black uppercase rounded-lg border border-emerald-100">Verified Format</span>
-                        <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[8px] font-black uppercase rounded-lg border border-blue-100">Cloud Decoded</span>
-                      </div>
+                    <div className="flex-1 text-center md:text-left">
+                      <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Assigned Chassis ID</div>
+                      <div className="text-2xl font-mono font-bold text-slate-900 tracking-tight">{newVin || 'MANUAL-ASSET-01'}</div>
                     </div>
                   </div>
 
-                  {/* Refined Bento Layout for Form Sections */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-                    {/* Identity Module */}
-                    <div className="md:col-span-2 bg-white p-6 md:p-10 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
-                      <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
-                         <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                         <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">01. Origin & Brand</h3>
+                  {/* Bento Grid Form Sections */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Identity Card */}
+                    <div className="md:col-span-2 bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-8">
+                      <div className="flex items-center gap-4 border-b border-slate-100 pb-4">
+                        <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 font-bold text-xs">01</div>
+                        <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em]">Asset Origin</h3>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                         <div className="space-y-2">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Manufacturer</label>
-                          <input type="text" required placeholder="e.g. Toyota" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 focus:bg-white outline-none transition-colors" value={manualData.make} onChange={e => setManualData({...manualData, make: e.target.value})} />
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Make / OEM</label>
+                          <input type="text" required placeholder="e.g. Toyota" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 focus:bg-white outline-none" value={manualData.make} onChange={e => setManualData({...manualData, make: e.target.value})} />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Specific Model</label>
-                          <input type="text" required placeholder="e.g. Corolla" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 focus:bg-white outline-none transition-colors" value={manualData.model} onChange={e => setManualData({...manualData, model: e.target.value})} />
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Model Range</label>
+                          <input type="text" required placeholder="e.g. Land Cruiser" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 focus:bg-white outline-none" value={manualData.model} onChange={e => setManualData({...manualData, model: e.target.value})} />
                         </div>
                       </div>
                     </div>
 
-                    {/* Technical Module */}
-                    <div className="bg-white p-6 md:p-10 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
-                      <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
-                         <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                         <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">02. Engineering</h3>
+                    {/* Performance Card */}
+                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-8">
+                      <div className="flex items-center gap-4 border-b border-slate-100 pb-4">
+                        <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600 font-bold text-xs">02</div>
+                        <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em]">Mechanical Specs</h3>
                       </div>
-                      <div className="space-y-5">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Year</label>
-                            <input type="number" required className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none" value={manualData.year} onChange={e => setManualData({...manualData, year: parseInt(e.target.value)})} />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Engine</label>
-                            <input type="text" placeholder="e.g. V6 / 2.5L" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none" value={manualData.engineSize} onChange={e => setManualData({...manualData, engineSize: e.target.value})} />
-                          </div>
-                        </div>
+                      <div className="space-y-6">
                         <div className="space-y-2">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Body Configuration</label>
-                          <select className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none appearance-none" value={manualData.bodyType} onChange={e => setManualData({...manualData, bodyType: e.target.value as BodyType})}>
-                            <option value="sedan">Saloon / Sedan</option><option value="suv">SUV / 4x4</option><option value="truck">Truck / Pickup</option><option value="van">Commercial Van</option><option value="coupe">Sport Coupe</option>
-                          </select>
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Build Year</label>
+                          <input type="number" required className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 focus:bg-white outline-none" value={manualData.year} onChange={e => setManualData({...manualData, year: parseInt(e.target.value)})} />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Fuel Source</label>
-                          <select className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none appearance-none" value={manualData.fuelType} onChange={e => setManualData({...manualData, fuelType: e.target.value})}>
+                          <select className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 focus:bg-white outline-none appearance-none" value={manualData.fuelType} onChange={e => setManualData({...manualData, fuelType: e.target.value})}>
                             <option value="petrol">Premium Petrol</option><option value="diesel">Diesel</option><option value="hybrid">Hybrid</option><option value="electric">Electric (EV)</option>
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Engine Capacity</label>
+                          <input type="text" placeholder="e.g. V6 / 2.5L" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 focus:bg-white outline-none" value={manualData.engineSize} onChange={e => setManualData({...manualData, engineSize: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Body Configuration</label>
+                          <select className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 focus:bg-white outline-none appearance-none" value={manualData.bodyType} onChange={e => setManualData({...manualData, bodyType: e.target.value as BodyType})}>
+                            <option value="sedan">Saloon / Sedan</option><option value="suv">SUV / 4x4</option><option value="truck">Truck / Pickup</option><option value="van">Commercial Van</option><option value="coupe">Sport Coupe</option>
                           </select>
                         </div>
                       </div>
                     </div>
 
-                    {/* Maintenance Module */}
-                    <div className="bg-white p-6 md:p-10 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-6">
-                      <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
-                         <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                         <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">03. Blueprint</h3>
+                    {/* Consumables/Blueprint Card */}
+                    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-8">
+                      <div className="flex items-center gap-4 border-b border-slate-100 pb-4">
+                        <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 font-bold text-xs">03</div>
+                        <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.2em]">Maintenance Refs</h3>
                       </div>
-                      <div className="space-y-5">
+                      <div className="space-y-6">
                         <div className="space-y-2">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Current Mileage (KM)</label>
-                          <input type="number" required placeholder="0" className="w-full px-6 py-5 bg-blue-50 border-2 border-blue-200 rounded-2xl text-2xl font-mono font-black text-blue-600 focus:bg-white outline-none" value={manualData.mileage} onChange={e => setManualData({...manualData, mileage: parseInt(e.target.value)})} />
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Odometer (Kilometers)</label>
+                          <input type="number" required placeholder="0" className="w-full px-6 py-6 bg-blue-50 border-2 border-blue-200 rounded-[1.5rem] text-2xl font-mono font-black text-blue-600 focus:bg-white outline-none" value={manualData.mileage} onChange={e => setManualData({...manualData, mileage: parseInt(e.target.value)})} />
                         </div>
                         <div className="space-y-2">
                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Tire Dimensions</label>
-                          <input type="text" placeholder="e.g. 215/60 R17" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none" value={manualData.specs.tireSize} onChange={e => setManualData({...manualData, specs: {...manualData.specs, tireSize: e.target.value}})} />
+                          <input type="text" placeholder="e.g. 265/60 R18" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 focus:bg-white outline-none" value={manualData.specs.tireSize} onChange={e => setManualData({...manualData, specs: {...manualData.specs, tireSize: e.target.value}})} />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Oil Grade</label>
-                          <input type="text" placeholder="e.g. 5W-30 Synthetic" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none" value={manualData.specs.oilGrade} onChange={e => setManualData({...manualData, specs: {...manualData.specs, oilGrade: e.target.value}})} />
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Required Oil Grade</label>
+                          <input type="text" placeholder="e.g. 5W-30 Full Synth" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 focus:bg-white outline-none" value={manualData.specs.oilGrade} onChange={e => setManualData({...manualData, specs: {...manualData.specs, oilGrade: e.target.value}})} />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Battery Type</label>
-                          <input type="text" placeholder="e.g. 75Ah / 12V" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none" value={manualData.specs.batteryType} onChange={e => setManualData({...manualData, specs: {...manualData.specs, batteryType: e.target.value}})} />
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-4">Battery Spec</label>
+                          <input type="text" placeholder="e.g. 75Ah / 12V" className="w-full px-6 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl text-sm font-bold focus:border-blue-500 focus:bg-white outline-none" value={manualData.specs.batteryType} onChange={e => setManualData({...manualData, specs: {...manualData.specs, batteryType: e.target.value}})} />
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Fixed Sticky Footer for Mobile/Desktop Visibility */}
-                  <div className="fixed md:absolute bottom-0 left-0 right-0 p-6 md:p-10 bg-white/95 backdrop-blur-xl border-t border-slate-100 flex gap-4 md:gap-6 z-[60] shadow-[0_-20px_40px_-10px_rgba(0,0,0,0.05)]">
+                  {/* Modal Sticky Footer */}
+                  <div className="absolute bottom-0 left-0 right-0 p-8 md:p-12 bg-white/90 backdrop-blur-xl border-t border-slate-100 flex gap-6 shrink-0 z-50">
                     <button type="button" onClick={() => setRegStep('vin')} className="flex-1 py-5 rounded-[2rem] text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors">Back</button>
-                    <button disabled={isProcessing} className="flex-[3] bg-blue-600 text-white py-5 rounded-[2rem] font-black uppercase text-[10px] tracking-widest shadow-2xl shadow-blue-600/30 active:scale-95 transition-all">Finalize Asset</button>
+                    <button disabled={isProcessing} className="flex-[3] bg-blue-600 text-white py-5 rounded-[2rem] font-black uppercase text-[10px] tracking-widest shadow-2xl shadow-blue-600/30 active:scale-95 transition-all">Finalize Digital Twin</button>
                   </div>
                 </form>
               )}
