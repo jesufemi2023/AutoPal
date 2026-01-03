@@ -13,7 +13,8 @@ export const decodeVIN = async (vin: string): Promise<{ make: string; model: str
     return { make: "Toyota", model: "Camry", year: 2022, bodyType: "sedan" };
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Use ENV.API_KEY which resolves VITE_API_KEY correctly
+  const ai = new GoogleGenAI({ apiKey: ENV.API_KEY || "" });
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Chassis Number (VIN) to analyze: ${vin}`,
@@ -65,7 +66,7 @@ export const generateMaintenanceSchedule = async (
     };
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: ENV.API_KEY || "" });
   const prompt = `Vehicle: ${year} ${make} ${model}. Odometer: ${mileage}km.`;
 
   const response = await ai.models.generateContent({
@@ -113,7 +114,7 @@ export const getAdvancedDiagnostic = async (
 ): Promise<AIResponse> => {
   if (ENV.MOCK_AI) return { advice: "Checking the auxiliary belt is recommended.", recommendations: ["Inspect belt tension", "Check for cracks"], severity: "warning" };
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = new GoogleGenAI({ apiKey: ENV.API_KEY || "" });
   const modelId = (isPremium && ENV.ENABLE_PREMIUM_AI) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
   
   const parts: any[] = [

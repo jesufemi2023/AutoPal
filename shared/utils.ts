@@ -1,23 +1,31 @@
+
 /**
  * Utility functions for formatting and calculations.
  */
 
 /**
  * Robust environment variable retriever.
- * Checks window.process.env shim (configured in index.html), 
- * native process.env, and global scope.
- * Automatically tries VITE_ prefix if standard key is missing.
+ * We use literal static references (e.g., process.env.VITE_API_KEY) 
+ * so that bundlers like Vite/Vercel can perform string replacement during build.
  */
 export const getEnv = (key: string): string | undefined => {
-  const tryKeys = [key, `VITE_${key}`];
-  
+  // Static mapping is required for many bundlers to perform replacement
+  const staticEnv: Record<string, string | undefined> = {
+    'API_KEY': process.env.VITE_API_KEY || process.env.API_KEY,
+    'SUPABASE_URL': process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
+    'SUPABASE_ANON_KEY': process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY,
+    'MOCK_AI': process.env.VITE_MOCK_AI || process.env.MOCK_AI,
+    'REGIONAL_CONTEXT': process.env.VITE_REGIONAL_CONTEXT || process.env.REGIONAL_CONTEXT,
+  };
+
+  if (staticEnv[key]) return staticEnv[key];
+
   try {
-    for (const k of tryKeys) {
-      if (window.process?.env?.[k]) return window.process.env[k];
-      if (typeof process !== 'undefined' && process.env?.[k]) return process.env[k];
-      if ((window as any)[k]) return (window as any)[k];
-    }
+    // Fallback for runtime injection or shim
+    if (window.process?.env?.[key]) return window.process.env[key];
+    if (window.process?.env?.[`VITE_${key}`]) return window.process.env[`VITE_${key}`];
   } catch (e) {}
+  
   return undefined;
 };
 
@@ -40,9 +48,6 @@ export const isValidVIN = (vin: string): boolean => {
 /**
  * Aggressive Image Compression for $70 budget.
  * Targets <150KB files to stay within Supabase Free Tier.
- * 
- * Note: Default parameters are used instead of importing from configService
- * to prevent circular module dependencies that cause initialization errors.
  */
 export const compressImage = async (
   file: File | Blob, 

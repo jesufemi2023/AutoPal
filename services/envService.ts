@@ -1,3 +1,4 @@
+
 import { getEnv } from '../shared/utils.ts';
 
 /**
@@ -10,6 +11,7 @@ export const ENV = {
   SUPABASE_ANON_KEY: getEnv('SUPABASE_ANON_KEY') || '',
   
   // Intelligence Config
+  // This will check VITE_API_KEY then API_KEY
   API_KEY: getEnv('API_KEY'), 
   MODEL_FLASH: getEnv('AI_MODEL_FLASH') || 'gemini-3-flash-preview',
   MODEL_PRO: getEnv('AI_MODEL_PRO') || 'gemini-3-pro-preview',
@@ -41,6 +43,6 @@ export const validateEnv = () => {
   }
   
   if (!ENV.API_KEY && !ENV.MOCK_AI) {
-    console.warn("[AutoPal NG] API_KEY is missing from process.env. Ensure it is set in your platform settings as VITE_API_KEY.");
+    console.warn("[AutoPal NG] API_KEY is missing. Ensure VITE_API_KEY is set in Vercel and you have redeployed.");
   }
 };
