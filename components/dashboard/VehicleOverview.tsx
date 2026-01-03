@@ -9,58 +9,88 @@ interface Props {
   onUpdateOdometer: () => void;
 }
 
-export const VehicleOverview: React.FC<Props> = ({ vehicle, onUpdateOdometer }) => (
-  <section className="bg-white card-radius p-6 md:p-12 border border-slate-100 shadow-sm relative overflow-hidden group">
-    <div className="absolute top-0 right-0 p-12 opacity-[0.02] font-black text-9xl pointer-events-none select-none uppercase tracking-tighter leading-none transition-opacity group-hover:opacity-[0.04]">
-      {vehicle.make}
+const HealthRing: React.FC<{ score: number }> = ({ score }) => {
+  const radius = 36;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (score / 100) * circumference;
+  
+  return (
+    <div className="relative w-full aspect-square max-w-[120px] lg:max-w-[140px] flex items-center justify-center">
+      <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 100 100">
+        <circle
+          cx="50" cy="50" r={radius}
+          className="fill-none stroke-slate-100"
+          strokeWidth="8"
+        />
+        <circle
+          cx="50" cy="50" r={radius}
+          className={`fill-none transition-all duration-1000 ease-out stroke-current ${getHealthColor(score)}`}
+          strokeWidth="8"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-2xl lg:text-3xl font-black tracking-tighter leading-none">{score}%</span>
+        <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest mt-1">Health</span>
+      </div>
     </div>
-    
-    <div className="flex flex-col lg:flex-row gap-10 md:gap-16 items-center relative z-10">
-      <div className="w-full lg:w-1/2">
+  );
+};
+
+export const VehicleOverview: React.FC<Props> = ({ vehicle, onUpdateOdometer }) => (
+  <section className="bg-white card-radius p-6 lg:p-12 border border-slate-100 shadow-sm overflow-hidden animate-slide-up">
+    <div className="flex flex-col md:grid md:grid-cols-12 gap-8 lg:gap-16 items-center">
+      
+      {/* Visual Asset Area */}
+      <div className="w-full md:col-span-5 lg:col-span-6 order-2 md:order-1">
         {vehicle.imageUrls && vehicle.imageUrls.length > 0 ? (
-          <div className="aspect-[16/10] w-full rounded-[2.5rem] overflow-hidden border-4 border-slate-50 shadow-2xl relative">
+          <div className="aspect-[16/10] w-full rounded-[2rem] lg:rounded-[3rem] overflow-hidden border border-slate-100 shadow-lg bg-slate-50">
             <img 
               src={vehicle.imageUrls[0]} 
               alt={vehicle.model}
+              loading="lazy"
               className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent"></div>
           </div>
         ) : (
-          <VehicleBlueprint type={vehicle.bodyType} className="shadow-2xl shadow-slate-200/50" />
+          <VehicleBlueprint type={vehicle.bodyType} className="shadow-lg" />
         )}
       </div>
 
-      <div className="w-full lg:w-1/2 space-y-10">
-        <div>
-          <span className="bg-blue-600 text-white px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.2em] shadow-lg shadow-blue-500/20">Operational Digital Twin</span>
-          <h2 className="text-4xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none mt-6">
-            {vehicle.year} {vehicle.model}
-          </h2>
-          <p className="text-slate-400 font-mono text-[10px] mt-2 uppercase tracking-widest">Chassis ID: {vehicle.vin}</p>
+      {/* Content Area */}
+      <div className="w-full md:col-span-7 lg:col-span-6 order-1 md:order-2 space-y-8">
+        <div className="flex justify-between items-start gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Digital Twin Active</span>
+            </div>
+            <h2 className="text-3xl lg:text-5xl font-black text-slate-900 tracking-tighter leading-none">
+              {vehicle.year} {vehicle.model}
+            </h2>
+            <p className="text-slate-400 font-mono text-[9px] uppercase tracking-widest">VIN: {vehicle.vin.slice(-8)}</p>
+          </div>
+          <HealthRing score={vehicle.healthScore} />
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3 lg:gap-6">
           <button 
             onClick={onUpdateOdometer}
-            className="glass-card rounded-[2rem] p-6 text-left hover:border-blue-400 transition-all active:scale-[0.98] border-slate-100 flex flex-col justify-between h-40"
+            className="bg-slate-50 rounded-2xl lg:rounded-3xl p-5 lg:p-8 text-left hover:bg-white hover:ring-2 hover:ring-blue-100 transition-all border border-slate-100"
           >
-            <div>
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Distance</div>
-              <div className="text-3xl font-black text-slate-900 leading-none">{vehicle.mileage.toLocaleString()}</div>
-              <div className="text-[9px] font-black text-blue-600 uppercase mt-1">Kilometers</div>
-            </div>
-            <div className="text-[9px] font-black text-blue-600 uppercase tracking-widest mt-auto group-hover:translate-x-1 transition-transform">Update Odometer →</div>
+            <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Odometer</div>
+            <div className="text-xl lg:text-2xl font-black text-slate-900 leading-none">{vehicle.mileage.toLocaleString()}</div>
+            <div className="text-[8px] font-black text-blue-600 uppercase mt-2 tracking-widest">Update →</div>
           </button>
           
-          <div className="glass-card rounded-[2rem] p-6 text-left border-slate-100 flex flex-col justify-between h-40">
-            <div>
-              <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">System Health</div>
-              <div className={`text-4xl font-black ${getHealthColor(vehicle.healthScore)} leading-none`}>{vehicle.healthScore}%</div>
-            </div>
-            <div className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100 mt-auto">
-              <div className="text-[9px] font-black uppercase text-slate-400 leading-none mb-1">Risk Assessment</div>
-              <div className="text-[11px] font-black uppercase text-slate-900">{getHealthStatusText(vehicle.healthScore)}</div>
+          <div className="bg-slate-900 text-white rounded-2xl lg:rounded-3xl p-5 lg:p-8">
+            <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Status</div>
+            <div className="text-lg lg:text-xl font-black tracking-tight leading-none truncate">{getHealthStatusText(vehicle.healthScore)}</div>
+            <div className="flex items-center gap-1.5 mt-2">
+               <div className={`w-1.5 h-1.5 rounded-full ${vehicle.healthScore > 80 ? 'bg-emerald-400' : 'bg-amber-400'}`}></div>
+               <span className="text-[8px] font-black uppercase tracking-widest opacity-60">Real-time Intel</span>
             </div>
           </div>
         </div>
