@@ -5,25 +5,37 @@
 
 /**
  * Robust environment variable retriever.
- * We use literal static references (e.g., process.env.VITE_API_KEY) 
- * so that bundlers like Vite/Vercel can perform string replacement during build.
+ * Checks multiple common locations where bundlers and platforms (Vercel, Vite, Node)
+ * store environment variables.
  */
 export const getEnv = (key: string): string | undefined => {
-  // Static mapping is required for many bundlers to perform replacement
-  const staticEnv: Record<string, string | undefined> = {
-    'API_KEY': process.env.VITE_API_KEY || process.env.API_KEY,
-    'SUPABASE_URL': process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
-    'SUPABASE_ANON_KEY': process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY,
-    'MOCK_AI': process.env.VITE_MOCK_AI || process.env.MOCK_AI,
-    'REGIONAL_CONTEXT': process.env.VITE_REGIONAL_CONTEXT || process.env.REGIONAL_CONTEXT,
-  };
-
-  if (staticEnv[key]) return staticEnv[key];
-
+  const viteKey = `VITE_${key}`;
+  
+  // 1. Try static process.env (Standard Node/Webpack/Vercel)
   try {
-    // Fallback for runtime injection or shim
-    if (window.process?.env?.[key]) return window.process.env[key];
-    if (window.process?.env?.[`VITE_${key}`]) return window.process.env[`VITE_${key}`];
+    if (typeof process !== 'undefined' && process.env) {
+      if (process.env[viteKey]) return process.env[viteKey];
+      if (process.env[key]) return process.env[key];
+    }
+  } catch (e) {}
+
+  // 2. Try import.meta.env (Vite/ESM Standard)
+  try {
+    // @ts-ignore
+    const metaEnv = import.meta.env;
+    if (metaEnv) {
+      if (metaEnv[viteKey]) return metaEnv[viteKey];
+      if (metaEnv[key]) return metaEnv[key];
+    }
+  } catch (e) {}
+
+  // 3. Try window properties or shim (Setup in index.html)
+  try {
+    const winProcess = (window as any).process;
+    if (winProcess?.env) {
+      if (winProcess.env[viteKey]) return winProcess.env[viteKey];
+      if (winProcess.env[key]) return winProcess.env[key];
+    }
   } catch (e) {}
   
   return undefined;

@@ -4,8 +4,14 @@ import { Vehicle, MaintenanceTask, ServiceLog } from '../shared/types.ts';
 
 /**
  * Vehicle Persistence Service
- * Aligned with provided Supabase Table Schema.
  */
+
+const handleSupabaseError = (error: any, context: string) => {
+  if (error.code === 'PGRST116' || error.status === 404) {
+    console.error(`[Supabase 404] Table missing for ${context}. Ensure you have run the database migrations in your Supabase SQL Editor.`);
+  }
+  throw error;
+};
 
 export const fetchUserVehicles = async (userId: string): Promise<Vehicle[]> => {
   if (!supabase) return [];
@@ -16,7 +22,7 @@ export const fetchUserVehicles = async (userId: string): Promise<Vehicle[]> => {
     .neq('status', 'archived')
     .order('created_at', { ascending: false });
 
-  if (error) throw error;
+  if (error) return handleSupabaseError(error, 'fetchUserVehicles');
   
   return (data || []).map(v => ({
     id: v.id,
@@ -28,7 +34,7 @@ export const fetchUserVehicles = async (userId: string): Promise<Vehicle[]> => {
     mileage: v.mileage,
     healthScore: v.health_score,
     bodyType: v.body_type,
-    imageUrls: v.image_url ? [v.image_url] : [], // Mapping singular SQL column to plural local state
+    imageUrls: v.image_url ? [v.image_url] : [],
     status: v.status,
     specs: v.specs,
     isDirty: false
@@ -50,13 +56,13 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id'>): Promise<Vehic
       health_score: vehicle.healthScore,
       body_type: vehicle.bodyType,
       status: vehicle.status,
-      image_url: vehicle.imageUrls[0] || null, // Mapping local array to singular SQL column
+      image_url: vehicle.imageUrls[0] || null,
       specs: vehicle.specs
     }])
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) return handleSupabaseError(error, 'createVehicle');
   
   return {
     id: data.id,
@@ -75,10 +81,6 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id'>): Promise<Vehic
   } as Vehicle;
 };
 
-/**
- * Uploads a vehicle image to Supabase Storage.
- * To save costs ($70 budget), images must be pre-compressed.
- */
 export const uploadVehicleImage = async (userId: string, vehicleId: string, file: Blob): Promise<string> => {
   if (!supabase) throw new Error("Supabase not configured");
 
@@ -87,7 +89,7 @@ export const uploadVehicleImage = async (userId: string, vehicleId: string, file
   const filePath = `vehicle-photos/${fileName}`;
 
   const { error: uploadError } = await supabase.storage
-    .from('assets') // Ensure this bucket exists in Supabase and is public
+    .from('assets')
     .upload(filePath, file);
 
   if (uploadError) throw uploadError;
@@ -117,7 +119,7 @@ export const updateVehicleData = async (id: string, updates: Partial<Vehicle>): 
     .update(dbUpdates)
     .eq('id', id);
   
-  if (error) throw error;
+  if (error) return handleSupabaseError(error, 'updateVehicleData');
 };
 
 export const createMileageLogEntry = async (vehicleId: string, userId: string, mileage: number): Promise<void> => {
@@ -130,10 +132,9 @@ export const createMileageLogEntry = async (vehicleId: string, userId: string, m
       mileage: mileage
     }]);
   
-  if (error) throw error;
+  if (error) return handleSupabaseError(error, 'createMileageLogEntry');
 };
 
-// Maintenance Tasks and Logs logic remains modular and separate from vehicles table
 export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceTask[]> => {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -142,7 +143,7 @@ export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceT
     .eq('vehicle_id', vehicleId)
     .order('due_mileage', { ascending: true });
 
-  if (error) throw error;
+  if (error) return handleSupabaseError(error, 'fetchVehicleTasks');
   
   return (data || []).map(t => ({
     id: t.id,
@@ -165,12 +166,9 @@ export const updateTaskStatus = async (taskId: string, status: string): Promise<
     .update({ status })
     .eq('id', taskId);
   
-  if (error) throw error;
+  if (error) return handleSupabaseError(error, 'updateTaskStatus');
 };
 
-/**
- * Creates a batch of maintenance tasks in Supabase
- */
 export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[]): Promise<void> => {
   if (!supabase) return;
   const { error } = await supabase
@@ -179,22 +177,16 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
       vehicle_id: t.vehicleId,
       title: t.title,
       description: t.description,
-      // Fixed: mapping camelCase property from Omit<MaintenanceTask, 'id'> to snake_case database column
       due_mileage: t.dueMileage,
       priority: t.priority,
       category: t.category,
-      // Fixed: mapping camelCase property from Omit<MaintenanceTask, 'id'> to snake_case database column
       estimated_cost: t.estimatedCost,
       status: t.status
     })));
   
-  if (error) throw error;
+  if (error) return handleSupabaseError(error, 'createMaintenanceTasksBatch');
 };
 
-// Fix: Added missing export for fetchVehicleServiceLogs
-/**
- * Fetch Service Logs for a vehicle
- */
 export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<ServiceLog[]> => {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -203,7 +195,7 @@ export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<Servic
     .eq('vehicle_id', vehicleId)
     .order('date', { ascending: false });
 
-  if (error) throw error;
+  if (error) return handleSupabaseError(error, 'fetchVehicleServiceLogs');
   
   return (data || []).map(l => ({
     id: l.id,
@@ -218,10 +210,6 @@ export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<Servic
   })) as ServiceLog[];
 };
 
-// Fix: Added missing export for createServiceLogEntry
-/**
- * Create a new Service Log Entry
- */
 export const createServiceLogEntry = async (log: Omit<ServiceLog, 'id'>): Promise<ServiceLog> => {
   if (!supabase) throw new Error("Supabase not configured");
   
@@ -239,7 +227,7 @@ export const createServiceLogEntry = async (log: Omit<ServiceLog, 'id'>): Promis
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) return handleSupabaseError(error, 'createServiceLogEntry');
   
   return {
     id: data.id,
