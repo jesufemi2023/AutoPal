@@ -10,7 +10,15 @@ import { Vehicle, BodyType } from '../shared/types.ts';
 export const registerNewVehicle = async (
   userId: string,
   vin: string,
-  confirmedData: { make: string; model: string; year: number; bodyType: BodyType; mileage: number }
+  confirmedData: { 
+    make: string; 
+    model: string; 
+    year: number; 
+    bodyType: BodyType; 
+    mileage: number;
+    fuelType?: string;
+    engineSize?: string;
+  }
 ): Promise<Vehicle> => {
   
   const payload: Omit<Vehicle, 'id'> = {
@@ -20,6 +28,8 @@ export const registerNewVehicle = async (
     year: confirmedData.year,
     vin: vin || `MANUAL-${Date.now()}`,
     mileage: confirmedData.mileage,
+    fuelType: confirmedData.fuelType,
+    engineSize: confirmedData.engineSize,
     healthScore: 100,
     bodyType: confirmedData.bodyType,
     status: 'active',
