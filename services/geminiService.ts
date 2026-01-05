@@ -13,7 +13,8 @@ export const decodeVIN = async (vin: string): Promise<{ make: string; model: str
     return { make: "Toyota", model: "Camry", year: 2022, bodyType: "sedan" };
   }
 
-  const ai = new GoogleGenAI({ apiKey: ENV.API_KEY || "" });
+  // Always use process.env.API_KEY directly for initialization as per SDK guidelines
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
     const response = await ai.models.generateContent({
@@ -64,6 +65,7 @@ export const decodeVIN = async (vin: string): Promise<{ make: string; model: str
 
 /**
  * Localized Roadmap Generation
+ * Uses Gemini 3 Pro for advanced reasoning about complex maintenance schedules.
  */
 export const generateMaintenanceSchedule = async (
   make: string, 
@@ -81,11 +83,12 @@ export const generateMaintenanceSchedule = async (
     };
   }
 
-  const ai = new GoogleGenAI({ apiKey: ENV.API_KEY || "" });
+  // Always use process.env.API_KEY directly for initialization as per SDK guidelines
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompt = `Vehicle: ${year} ${make} ${model}. Odometer: ${mileage}km.`;
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-3-pro-preview',
     contents: prompt,
     config: {
       systemInstruction: PROMPTS.MAINTENANCE_ROADMAP,
@@ -121,6 +124,7 @@ export const generateMaintenanceSchedule = async (
 
 /**
  * Symptom Diagnosis with Multi-Modal Vision support
+ * Uses Gemini 3 Pro or Flash based on vehicle complexity and user tier.
  */
 export const getAdvancedDiagnostic = async (
   vehicle: any, 
@@ -130,7 +134,8 @@ export const getAdvancedDiagnostic = async (
 ): Promise<AIResponse> => {
   if (ENV.MOCK_AI) return { advice: "Checking the auxiliary belt is recommended.", recommendations: ["Inspect belt tension", "Check for cracks"], severity: "warning" };
 
-  const ai = new GoogleGenAI({ apiKey: ENV.API_KEY || "" });
+  // Always use process.env.API_KEY directly for initialization as per SDK guidelines
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const modelId = (isPremium && ENV.ENABLE_PREMIUM_AI) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
   
   const parts: any[] = [

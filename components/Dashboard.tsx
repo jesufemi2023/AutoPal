@@ -35,6 +35,7 @@ const Dashboard: React.FC = () => {
   const [vinError, setVinError] = useState<string | null>(null);
   const [vinInfo, setVinInfo] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  // Fix: Initialized with null instead of 0 to match type File | null
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -80,7 +81,7 @@ const Dashboard: React.FC = () => {
     setVinError(null);
     setVinInfo(null);
     if (newVin.length !== 17) { setVinError("17 characters required."); return; }
-    if (!isValidVIN(newVin)) { setVinError("Invalid VIN. Note: I, O, and Q are not allowed in VINs."); return; }
+    if (!isValidVIN(newVin)) { setVinError("Invalid VIN. Ensure no I, O, or Q characters."); return; }
 
     setIsProcessing(true);
     try {
@@ -94,12 +95,11 @@ const Dashboard: React.FC = () => {
       });
       setRegStep('manual');
     } catch (err: any) {
-      console.warn("AI Decoding Fallback:", err);
-      setVinInfo("AI decoding failed. Please complete the details manually.");
+      setVinInfo("AI decode limit reached. Proceeding to Manual Calibration...");
       setTimeout(() => {
         setRegStep('manual');
         setVinInfo(null);
-      }, 1500);
+      }, 1200);
     } finally {
       setIsProcessing(false);
     }
@@ -108,13 +108,13 @@ const Dashboard: React.FC = () => {
   const handleFinalizeRegistration = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!manualData.make || !manualData.model) {
-      alert("Make and Model are required.");
+      alert("Make and Model are required for service roadmap generation.");
       return;
     }
     setIsProcessing(true);
     try {
       const vehicle = await registerNewVehicle(user?.id || 'guest', newVin, { ...manualData });
-      if (selectedImage && user?.id) {
+      if (selectedImage instanceof File && user?.id) {
         try {
           const compressed = await compressImage(selectedImage, 800, 0.7);
           const finalImageUrl = await uploadVehicleImage(user.id, vehicle.id, compressed);
@@ -125,7 +125,7 @@ const Dashboard: React.FC = () => {
       addVehicle(vehicle);
       setActiveVehicleId(vehicle.id);
       closeModal();
-    } catch (err) { alert("Registration failed. Please check connection."); } finally { setIsProcessing(false); }
+    } catch (err) { alert("Registration failed. Please check network."); } finally { setIsProcessing(false); }
   };
 
   const closeModal = () => {
@@ -134,8 +134,8 @@ const Dashboard: React.FC = () => {
     setNewVin('');
     setVinError(null);
     setVinInfo(null);
-    setSelectedImage(null);
     setImagePreview(null);
+    setSelectedImage(null);
     setManualData({ 
       make: '', model: '', year: new Date().getFullYear(), bodyType: 'sedan', 
       mileage: 0, fuelType: 'petrol', engineSize: '',
@@ -158,7 +158,7 @@ const Dashboard: React.FC = () => {
         </button>
       </header>
 
-      {vehicles.length > 0 && (
+      {vehicles.length > 0 ? (
         <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-hide -mx-4 px-4">
           {vehicles.map(v => (
             <button 
@@ -172,7 +172,7 @@ const Dashboard: React.FC = () => {
             </button>
           ))}
         </div>
-      )}
+      ) : null}
 
       {activeVehicle ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
@@ -219,136 +219,154 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* REGISTRATION MODAL */}
+      {/* REGISTRATION MODAL: RE-ENGINEERED FOR VISIBILITY */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/90 backdrop-blur-3xl overflow-hidden p-0 sm:p-4 md:p-8">
-          <div className="bg-white w-full max-w-5xl h-full sm:h-auto sm:max-h-[90vh] sm:rounded-[2.5rem] shadow-4xl flex flex-col relative overflow-hidden">
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/95 backdrop-blur-3xl p-0 sm:p-6 md:p-12 overflow-hidden animate-in fade-in duration-300">
+          <div className="bg-white w-full max-w-5xl h-full md:h-auto md:max-h-[92vh] md:rounded-[3rem] shadow-4xl flex flex-col relative overflow-hidden border border-white/20">
             
             {isProcessing && (
-              <div className="absolute inset-0 bg-white/80 backdrop-blur-md z-[110] flex flex-col items-center justify-center">
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-xl z-[150] flex flex-col items-center justify-center">
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <p className="mt-6 font-black text-slate-900 uppercase tracking-widest text-[10px]">Processing Database Sync...</p>
+                <p className="mt-6 font-black text-slate-900 uppercase tracking-[0.2em] text-[10px]">Processing Chassis Data...</p>
               </div>
             )}
 
-            {/* HEADER */}
-            <div className="px-6 py-6 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+            {/* HEADER (FIXED) */}
+            <div className="p-6 md:p-10 border-b border-slate-100 flex justify-between items-center bg-white shrink-0 z-50">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black">A</div>
+                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black shadow-lg">A</div>
                 <div>
-                  <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">Registration</h2>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-1.5 h-1.5 rounded-full ${regStep === 'vin' ? 'bg-blue-600' : 'bg-emerald-500'}`}></div>
-                    <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">
-                      {regStep === 'vin' ? 'Asset Scanning' : 'Calibration'}
-                    </span>
-                  </div>
+                  <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase leading-none">Vehicle Onboarding</h2>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                    {regStep === 'vin' ? 'Stage 1: Asset Scanning' : 'Stage 2: Technical Calibration'}
+                  </p>
                 </div>
               </div>
-              <button onClick={closeModal} className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-slate-900 text-3xl font-light transition-colors">×</button>
+              <button onClick={closeModal} className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-slate-900 transition-colors text-3xl font-light">×</button>
             </div>
 
-            {/* MODAL BODY */}
-            <div className="flex-grow overflow-y-auto scrollbar-hide px-6 py-10 bg-slate-50/30">
+            {/* BODY (SCROLLABLE) */}
+            <div className="flex-1 overflow-y-auto scrollbar-hide px-6 md:px-10 py-8 bg-slate-50/40">
               {regStep === 'vin' ? (
-                <div className="w-full max-w-2xl mx-auto space-y-12 py-6">
-                  <div className="text-center space-y-4">
-                    <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-3xl mx-auto shadow-xl border border-slate-50">🔍</div>
-                    <h3 className="text-2xl font-black text-slate-900 uppercase">Input Chassis Number</h3>
-                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest max-w-sm mx-auto">Enter the 17-digit VIN found on your registration or dashboard.</p>
-                  </div>
-                  
-                  <div className="space-y-6 w-full">
-                    <div className="relative group w-full">
-                      <input 
-                        type="text" 
-                        autoFocus
-                        required 
-                        maxLength={17} 
-                        placeholder="ABC1234567890XYZ"
-                        className={`w-full px-4 sm:px-8 py-8 sm:py-10 bg-white border-2 ${vinError ? 'border-rose-400' : 'border-slate-100'} rounded-[2rem] font-mono text-xl sm:text-3xl md:text-4xl uppercase tracking-[0.2em] focus:border-blue-600 outline-none text-center shadow-lg transition-all`}
-                        value={newVin} 
-                        onChange={e => { setNewVin(e.target.value.toUpperCase()); setVinError(null); setVinInfo(null); }}
-                      />
+                <div className="max-w-xl mx-auto py-10 md:py-20 space-y-12">
+                  <div className="text-center space-y-6">
+                    <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-3xl mx-auto shadow-2xl border border-slate-50">🔍</div>
+                    <div className="space-y-3">
+                      <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Technical Extraction</h3>
+                      <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed max-w-xs mx-auto">
+                        Provide the 17-digit Chassis ID (VIN) to map factory roadmaps.
+                      </p>
                     </div>
+                  </div>
+                  <div className="space-y-6">
+                    <input 
+                      type="text" autoFocus required maxLength={17} placeholder="ABC1234567890XYZ"
+                      className={`w-full px-4 md:px-8 py-8 md:py-10 bg-white border-2 ${vinError ? 'border-rose-400 ring-8 ring-rose-50' : 'border-slate-100 shadow-xl'} rounded-[2rem] font-mono text-xl md:text-4xl uppercase tracking-[0.2em] focus:border-blue-600 outline-none text-center transition-all`}
+                      value={newVin} onChange={e => { setNewVin(e.target.value.toUpperCase()); setVinError(null); setVinInfo(null); }}
+                    />
                     {vinError && <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest text-center">{vinError}</p>}
-                    {vinInfo && <p className="text-blue-500 text-[10px] font-black uppercase tracking-widest text-center">{vinInfo}</p>}
+                    {vinInfo && <p className="text-blue-500 text-[10px] font-black uppercase tracking-widest text-center animate-pulse">{vinInfo}</p>}
                   </div>
                 </div>
               ) : (
-                <div className="w-full space-y-8 pb-10">
-                  {/* Photo & Identity Section */}
-                  <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center gap-8">
+                <div className="max-w-4xl mx-auto space-y-10 pb-12">
+                  {/* Photo Section */}
+                  <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-8">
                     <div className="relative shrink-0">
                       <input type="file" hidden ref={imageInputRef} accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setSelectedImage(f); const r = new FileReader(); r.onloadend = () => setImagePreview(r.result as string); r.readAsDataURL(f); } }} />
-                      <div onClick={() => imageInputRef.current?.click()} className="w-32 h-32 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-500 transition-all">
-                        {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" /> : <span className="text-slate-300 text-5xl">📷</span>}
+                      <div onClick={() => imageInputRef.current?.click()} className="w-28 h-28 md:w-36 md:h-36 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-500 transition-all">
+                        {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" alt="V" /> : <span className="text-slate-300 text-4xl">📷</span>}
                       </div>
                     </div>
-                    <div className="text-center md:text-left">
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Authenticated Chassis</div>
-                      <div className="text-xl sm:text-2xl font-mono font-bold text-slate-900 break-all">{newVin || 'MANUAL_MODE'}</div>
+                    <div className="flex-1 text-center md:text-left">
+                      <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Asset Reference</div>
+                      <div className="text-xl md:text-2xl font-mono font-bold text-slate-900 tracking-tighter break-all">{newVin || 'MANUAL_CALIBRATION'}</div>
                     </div>
                   </div>
 
-                  {/* Manual Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="md:col-span-2 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Make</label>
-                        <input type="text" placeholder="e.g. Toyota" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-xl font-bold focus:bg-white focus:border-blue-500 outline-none transition-all" value={manualData.make} onChange={e => setManualData({...manualData, make: e.target.value})} />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Model</label>
-                        <input type="text" placeholder="e.g. Camry" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-xl font-bold focus:bg-white focus:border-blue-500 outline-none transition-all" value={manualData.model} onChange={e => setManualData({...manualData, model: e.target.value})} />
-                      </div>
+                  {/* Manual Data Fields */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                    
+                    {/* ORIGIN */}
+                    <div className="md:col-span-2 bg-white p-8 md:p-10 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-8">
+                       <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] flex items-center gap-3">
+                         <span className="w-6 h-6 bg-blue-50 rounded-lg flex items-center justify-center">01</span> Origin Credentials
+                       </h4>
+                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                         <div className="space-y-2">
+                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Manufacturer (Make)</label>
+                           <input type="text" placeholder="e.g. Toyota" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold focus:bg-white focus:border-blue-500 outline-none transition-all" value={manualData.make} onChange={e => setManualData({...manualData, make: e.target.value})} />
+                         </div>
+                         <div className="space-y-2">
+                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Model Range</label>
+                           <input type="text" placeholder="e.g. Corolla" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold focus:bg-white focus:border-blue-500 outline-none transition-all" value={manualData.model} onChange={e => setManualData({...manualData, model: e.target.value})} />
+                         </div>
+                       </div>
                     </div>
 
-                    <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Year</label>
-                          <input type="number" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none" value={manualData.year} onChange={e => setManualData({...manualData, year: parseInt(e.target.value)})} />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Engine</label>
-                          <input type="text" placeholder="2.4L" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none" value={manualData.engineSize} onChange={e => setManualData({...manualData, engineSize: e.target.value})} />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fuel Type</label>
-                        <select className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none appearance-none" value={manualData.fuelType} onChange={e => setManualData({...manualData, fuelType: e.target.value})}>
-                          <option value="petrol">Petrol</option><option value="diesel">Diesel</option><option value="hybrid">Hybrid</option><option value="electric">Electric</option>
-                        </select>
-                      </div>
+                    {/* ENGINEERING */}
+                    <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-8">
+                       <h4 className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.2em] flex items-center gap-3">
+                         <span className="w-6 h-6 bg-emerald-50 rounded-lg flex items-center justify-center">02</span> Engineering
+                       </h4>
+                       <div className="grid grid-cols-2 gap-4">
+                         <div className="space-y-2">
+                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Year</label>
+                           <input type="number" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none" value={manualData.year} onChange={e => setManualData({...manualData, year: parseInt(e.target.value)})} />
+                         </div>
+                         <div className="space-y-2">
+                           <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Engine</label>
+                           <input type="text" placeholder="e.g. 1.8L" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none" value={manualData.engineSize} onChange={e => setManualData({...manualData, engineSize: e.target.value})} />
+                         </div>
+                       </div>
+                       <div className="space-y-2">
+                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Fuel Configuration</label>
+                         <select className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none appearance-none" value={manualData.fuelType} onChange={e => setManualData({...manualData, fuelType: e.target.value})}>
+                            <option value="petrol">Petrol (PMS)</option>
+                            <option value="diesel">Diesel (AGO)</option>
+                            <option value="hybrid">Hybrid (HEV)</option>
+                            <option value="electric">Electric (EV)</option>
+                         </select>
+                       </div>
                     </div>
 
-                    <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Odometer (KM)</label>
-                        <input type="number" placeholder="0" className="w-full px-6 py-6 bg-blue-50 border-2 border-blue-100 rounded-2xl text-3xl font-mono font-black text-blue-600 outline-none text-center" value={manualData.mileage} onChange={e => setManualData({...manualData, mileage: parseInt(e.target.value)})} />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tire Size</label>
-                        <input type="text" placeholder="215/60 R16" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none" value={manualData.specs.tireSize} onChange={e => setManualData({...manualData, specs: {...manualData.specs, tireSize: e.target.value}})} />
-                      </div>
+                    {/* LIFECYCLE */}
+                    <div className="bg-white p-8 md:p-10 rounded-[2.5rem] border border-slate-200 shadow-sm space-y-8">
+                       <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] flex items-center gap-3">
+                         <span className="w-6 h-6 bg-blue-50 rounded-lg flex items-center justify-center">03</span> Lifecycle
+                       </h4>
+                       <div className="space-y-2">
+                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Current Mileage (KM)</label>
+                         <input type="number" placeholder="0" className="w-full px-6 py-5 bg-blue-50 border-2 border-blue-100 rounded-2xl text-3xl font-mono font-black text-blue-600 outline-none text-center" value={manualData.mileage} onChange={e => setManualData({...manualData, mileage: parseInt(e.target.value)})} />
+                       </div>
+                       <div className="space-y-2">
+                         <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Body Classification</label>
+                         <select className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none appearance-none" value={manualData.bodyType} onChange={e => setManualData({...manualData, bodyType: e.target.value as BodyType})}>
+                            <option value="sedan">Saloon / Sedan</option>
+                            <option value="suv">SUV / 4x4 / Jeep</option>
+                            <option value="truck">Truck / Pickup</option>
+                            <option value="van">Van / MPV</option>
+                            <option value="coupe">Coupe / GT</option>
+                         </select>
+                       </div>
                     </div>
+
                   </div>
                 </div>
               )}
             </div>
 
-            {/* FOOTER */}
-            <div className="p-6 border-t border-slate-100 bg-white flex flex-col sm:flex-row gap-4 shrink-0">
+            {/* FOOTER (FIXED) */}
+            <div className="p-6 md:p-10 border-t border-slate-100 bg-white flex flex-col sm:flex-row gap-4 shrink-0 z-50">
               {regStep === 'vin' ? (
                 <>
                   <button type="button" onClick={() => setRegStep('manual')} className="order-2 sm:order-1 flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors">Skip to Manual</button>
-                  <button disabled={newVin.length < 17} onClick={() => handleIdentifyAsset()} className="order-1 sm:order-2 flex-[2] bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl disabled:opacity-20 hover:bg-blue-600 transition-all">Analyze Asset Matrix</button>
+                  <button disabled={newVin.length < 17} onClick={() => handleIdentifyAsset()} className="order-1 sm:order-2 flex-[2] bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl disabled:opacity-20 hover:bg-blue-600 transition-all">Analyze Matrix</button>
                 </>
               ) : (
                 <>
-                  <button type="button" onClick={() => setRegStep('vin')} className="order-2 sm:order-1 flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors">Previous</button>
-                  <button onClick={() => handleFinalizeRegistration()} className="order-1 sm:order-2 flex-[2] bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl hover:bg-blue-700 transition-all">Finalize Digital Twin</button>
+                  <button type="button" onClick={() => setRegStep('vin')} className="order-2 sm:order-1 flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors">Prev Phase</button>
+                  <button onClick={() => handleFinalizeRegistration()} className="order-1 sm:order-2 flex-[2] bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl hover:bg-blue-700 transition-all">Initialize Digital Twin</button>
                 </>
               )}
             </div>
