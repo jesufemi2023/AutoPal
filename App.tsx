@@ -97,21 +97,21 @@ const App: React.FC = () => {
   const NavButton = ({ tab, icon, label }: { tab: typeof activeTab, icon: string, label: string }) => (
     <button 
       onClick={() => setActiveTab(tab)}
-      className={`flex flex-col md:flex-row items-center gap-1 md:gap-4 px-4 md:px-6 py-2 md:py-4 rounded-2xl transition-all w-full md:w-auto ${
+      className={`flex flex-col lg:flex-row items-center gap-1 lg:gap-4 px-4 lg:px-6 py-2 lg:py-4 rounded-2xl transition-all w-full lg:w-auto ${
         activeTab === tab 
-          ? 'text-blue-600 bg-blue-50 md:bg-blue-600 md:text-white shadow-lg md:shadow-blue-500/10' 
-          : 'text-slate-400 hover:text-slate-600 md:hover:bg-slate-50'
+          ? 'text-blue-600 bg-blue-50 lg:bg-blue-600 lg:text-white shadow-lg shadow-blue-500/10' 
+          : 'text-slate-400 hover:text-slate-600 lg:hover:bg-slate-50'
       }`}
     >
-      <span className="text-xl md:text-base">{icon}</span>
-      <span className="text-[10px] md:text-sm font-black uppercase tracking-widest md:normal-case md:tracking-normal">{label}</span>
+      <span className="text-xl lg:text-base">{icon}</span>
+      <span className="text-[10px] lg:text-sm font-black uppercase tracking-widest lg:normal-case lg:tracking-normal">{label}</span>
     </button>
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 md:flex overflow-x-hidden">
-      {/* Sidebar: Visible on Tablet/Laptop */}
-      <aside className="hidden md:flex flex-col w-64 lg:w-72 bg-white border-r border-slate-100 sticky top-0 h-screen p-6 lg:p-8 shrink-0">
+    <div className="min-h-screen bg-slate-50 lg:flex overflow-x-hidden">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex flex-col w-72 bg-white border-r border-slate-100 sticky top-0 h-screen p-8 shrink-0">
         <div className="flex items-center gap-3 mb-12">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-xl">A</div>
           <span className="text-2xl font-black tracking-tighter">AutoPal</span>
@@ -127,15 +127,15 @@ const App: React.FC = () => {
               <img src={`https://api.dicebear.com/7.x/shapes/svg?seed=${session.user.email}`} alt="User" />
             </div>
             <div className="overflow-hidden">
-              <p className="text-[10px] font-black truncate text-slate-900">{session.user.email}</p>
+              <p className="text-xs font-black truncate">{session.user.email}</p>
               <button onClick={() => supabase?.auth.signOut()} className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors">Logout</button>
             </div>
           </div>
         </div>
       </aside>
 
-      {/* Mobile Top Header: Hidden on Tablet/Laptop */}
-      <header className="md:hidden sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100 h-16 px-6 flex justify-between items-center">
+      {/* Mobile Top Header */}
+      <header className="lg:hidden sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-slate-100 h-16 px-6 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black">A</div>
           <span className="font-black tracking-tighter">AutoPal</span>
@@ -145,17 +145,17 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Content Area: Responsive Padding and Max-Width */}
+      {/* Main Content Area */}
       <main className="flex-grow min-w-0">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-12 py-6 md:py-10 lg:py-12 pb-28 md:pb-12">
+        <div className="max-w-6xl mx-auto px-4 lg:px-12 py-8 lg:py-12 pb-28 lg:pb-12">
           {activeTab === 'dashboard' && <Dashboard />}
           {activeTab === 'marketplace' && <Marketplace />}
           {activeTab === 'admin' && <AdminPanel />}
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation: Hidden on Tablet/Laptop */}
-      <nav className="md:hidden fixed bottom-6 left-6 right-6 z-50">
+      {/* Mobile Bottom Navigation */}
+      <nav className="lg:hidden fixed bottom-6 left-6 right-6 z-50">
         <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] border border-slate-100 shadow-2xl p-2 flex justify-around items-center ring-1 ring-black/5">
           <NavigationItems />
         </div>

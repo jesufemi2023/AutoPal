@@ -128,16 +128,16 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 md:space-y-8 lg:space-y-12">
+    <div className="space-y-6 lg:space-y-12">
       {/* Header with Adaptive Layout */}
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 px-2">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 px-2">
         <div>
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none">Garage</h1>
+          <h1 className="text-4xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none">Garage</h1>
           <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[9px] mt-4">Intelligence Platform v3.5</p>
         </div>
         <button 
           onClick={() => setShowAddModal(true)}
-          className="w-full sm:w-auto bg-blue-600 text-white px-8 py-4 md:py-5 rounded-2xl lg:rounded-3xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
+          className="w-full md:w-auto bg-blue-600 text-white px-8 py-5 rounded-2xl lg:rounded-3xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
         >
           + Add New Asset
         </button>
@@ -150,7 +150,7 @@ const Dashboard: React.FC = () => {
             <button 
               key={v.id}
               onClick={() => setActiveVehicleId(v.id)}
-              className={`flex-shrink-0 px-6 py-5 rounded-[2rem] border-2 transition-all min-w-[160px] md:min-w-[180px] lg:min-w-[200px] text-left ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
+              className={`flex-shrink-0 px-6 py-5 rounded-[2rem] border-2 transition-all min-w-[160px] lg:min-w-[200px] text-left ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
             >
               <div className="text-[8px] font-black uppercase opacity-40 mb-1 tracking-widest truncate">{v.make}</div>
               <div className="text-base lg:text-lg font-black tracking-tight truncate">{v.model}</div>
@@ -161,8 +161,8 @@ const Dashboard: React.FC = () => {
       )}
 
       {activeVehicle ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 lg:gap-10 items-start">
-          <div className="md:col-span-2 lg:col-span-8 space-y-6 md:space-y-8 lg:space-y-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 lg:gap-12 items-start">
+          <div className="md:col-span-2 lg:col-span-8 space-y-6 lg:space-y-12">
             <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
             <MaintenanceRoadmap 
               vehicle={activeVehicle} 
@@ -181,7 +181,7 @@ const Dashboard: React.FC = () => {
             />
           </div>
 
-          <aside className="md:col-span-2 lg:col-span-4 lg:sticky lg:top-32 space-y-6">
+          <aside className="md:col-span-2 lg:col-span-4 lg:sticky lg:top-32">
             <DiagnosticsPanel 
               vehicle={activeVehicle} symptom={symptom} setSymptom={setSymptom} 
               diagImage={diagImage} setDiagImage={setDiagImage} isAskingAI={isAskingAI} 
