@@ -8,12 +8,15 @@ import { getConfig } from '../services/configService.ts';
 import { localDb } from '../services/localDb.ts';
 import { createMileageLogEntry } from '../services/vehicleService.ts';
 
+type AppView = 'garage' | 'marketplace' | 'admin' | 'onboarding';
+
 interface AutoPalState {
   user: UserProfile | null;
   session: any | null;
   isInitialized: boolean;
   isRecovering: boolean;
   isLoading: boolean;
+  currentView: AppView;
   vehicles: Vehicle[];
   tasks: MaintenanceTask[];
   serviceLogs: ServiceLog[];
@@ -27,6 +30,7 @@ interface AutoPalState {
   setUser: (user: UserProfile | null) => void;
   setInitialized: (initialized: boolean) => void;
   setRecovering: (isRecovering: boolean) => void;
+  setCurrentView: (view: AppView) => void;
   setVehicles: (vehicles: Vehicle[]) => void;
   setMarketplace: (products: MarketplaceProduct[]) => void;
   setSuggestedParts: (parts: string[]) => void;
@@ -47,6 +51,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   isInitialized: false,
   isRecovering: false,
   isLoading: false,
+  currentView: 'garage',
   vehicles: [],
   tasks: [],
   serviceLogs: [],
@@ -86,6 +91,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   setUser: (user) => set({ user }),
   setInitialized: (initialized) => set({ isInitialized: initialized }),
   setRecovering: (isRecovering) => set({ isRecovering }),
+  setCurrentView: (view) => set({ currentView: view }),
   setVehicles: (vehicles) => set({ vehicles }),
   setMarketplace: (marketplace) => set({ marketplace }),
   setSuggestedParts: (suggestedPartNames) => set({ suggestedPartNames }),
@@ -176,5 +182,5 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     return { vehicles: state.vehicles.filter(v => v.id !== id) };
   }),
   setLoading: (loading) => set({ isLoading: loading }),
-  reset: () => set({ user: null, session: null, vehicles: [], tasks: [], mileageLogs: [], serviceLogs: [], isRecovering: false }),
+  reset: () => set({ user: null, session: null, vehicles: [], tasks: [], mileageLogs: [], serviceLogs: [], isRecovering: false, currentView: 'garage' }),
 }));

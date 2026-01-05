@@ -7,15 +7,15 @@ import AuthScreen from './components/AuthScreen.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import Marketplace from './components/Marketplace.tsx';
 import AdminPanel from './components/AdminPanel.tsx';
+import OnboardingCommandCenter from './components/OnboardingCommandCenter.tsx';
 import { validateEnv } from './services/envService.ts';
 
 const App: React.FC = () => {
   const { 
     session, setSession, isInitialized, setInitialized, 
-    setVehicles, hydrateFromLocal 
+    setVehicles, hydrateFromLocal, currentView, setCurrentView 
   } = useAutoPalStore();
   
-  const [activeTab, setActiveTab] = React.useState<'dashboard' | 'marketplace' | 'admin'>('dashboard');
   const [initError, setInitError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -84,9 +84,14 @@ const App: React.FC = () => {
 
   if (!session) return <AuthScreen />;
 
+  // Full-screen view for onboarding
+  if (currentView === 'onboarding') {
+    return <OnboardingCommandCenter />;
+  }
+
   const NavigationItems = () => (
     <>
-      <NavButton tab="dashboard" icon="🏠" label="Garage" />
+      <NavButton tab="garage" icon="🏠" label="Garage" />
       <NavButton tab="marketplace" icon="🛒" label="Spares" />
       {useAutoPalStore.getState().user?.role === 'admin' && (
         <NavButton tab="admin" icon="🛡️" label="Admin" />
@@ -94,11 +99,11 @@ const App: React.FC = () => {
     </>
   );
 
-  const NavButton = ({ tab, icon, label }: { tab: typeof activeTab, icon: string, label: string }) => (
+  const NavButton = ({ tab, icon, label }: { tab: any, icon: string, label: string }) => (
     <button 
-      onClick={() => setActiveTab(tab)}
+      onClick={() => setCurrentView(tab)}
       className={`flex flex-col md:flex-row items-center gap-1 md:gap-4 px-4 md:px-6 py-2 md:py-4 rounded-2xl transition-all w-full md:w-auto ${
-        activeTab === tab 
+        currentView === tab 
           ? 'text-blue-600 bg-blue-50 md:bg-slate-900 md:text-white shadow-lg md:shadow-slate-900/10' 
           : 'text-slate-400 hover:text-slate-600 md:hover:bg-slate-50'
       }`}
@@ -148,9 +153,9 @@ const App: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-grow min-w-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-12 py-6 md:py-10 lg:py-12 pb-28 md:pb-12">
-          {activeTab === 'dashboard' && <Dashboard />}
-          {activeTab === 'marketplace' && <Marketplace />}
-          {activeTab === 'admin' && <AdminPanel />}
+          {currentView === 'garage' && <Dashboard />}
+          {currentView === 'marketplace' && <Marketplace />}
+          {currentView === 'admin' && <AdminPanel />}
         </div>
       </main>
 
