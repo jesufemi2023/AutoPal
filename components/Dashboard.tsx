@@ -80,7 +80,7 @@ const Dashboard: React.FC = () => {
     setVinError(null);
     setVinInfo(null);
     if (newVin.length !== 17) { setVinError("17 characters required."); return; }
-    if (!isValidVIN(newVin)) { setVinError("Invalid VIN format."); return; }
+    if (!isValidVIN(newVin)) { setVinError("Invalid VIN. Note: I, O, and Q are not allowed in VINs."); return; }
 
     setIsProcessing(true);
     try {
@@ -95,11 +95,11 @@ const Dashboard: React.FC = () => {
       setRegStep('manual');
     } catch (err: any) {
       console.warn("AI Decoding Fallback:", err);
-      setVinInfo("AI decoding limited for this chassis. Transitioning to Manual Calibration...");
+      setVinInfo("AI decoding failed. Please complete the details manually.");
       setTimeout(() => {
         setRegStep('manual');
         setVinInfo(null);
-      }, 1800);
+      }, 1500);
     } finally {
       setIsProcessing(false);
     }
@@ -108,7 +108,7 @@ const Dashboard: React.FC = () => {
   const handleFinalizeRegistration = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!manualData.make || !manualData.model) {
-      alert("Please ensure Make and Model are defined.");
+      alert("Make and Model are required.");
       return;
     }
     setIsProcessing(true);
@@ -125,7 +125,7 @@ const Dashboard: React.FC = () => {
       addVehicle(vehicle);
       setActiveVehicleId(vehicle.id);
       closeModal();
-    } catch (err) { alert("Registration failed. Please check your connection."); } finally { setIsProcessing(false); }
+    } catch (err) { alert("Registration failed. Please check connection."); } finally { setIsProcessing(false); }
   };
 
   const closeModal = () => {
@@ -219,190 +219,136 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
-      {/* RE-ENGINEERED REGISTRATION MODAL */}
+      {/* REGISTRATION MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-6 lg:p-12 bg-slate-900/95 backdrop-blur-3xl animate-in fade-in duration-300">
-          <div className="bg-white w-full max-w-5xl h-full md:h-auto md:max-h-[92vh] md:rounded-[3rem] shadow-4xl flex flex-col relative overflow-hidden border border-white/20">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/90 backdrop-blur-3xl overflow-hidden p-0 sm:p-4 md:p-8">
+          <div className="bg-white w-full max-w-5xl h-full sm:h-auto sm:max-h-[90vh] sm:rounded-[2.5rem] shadow-4xl flex flex-col relative overflow-hidden">
+            
             {isProcessing && (
-              <div className="absolute inset-0 bg-white/80 backdrop-blur-xl z-[110] flex flex-col items-center justify-center">
-                <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                <p className="mt-8 font-black text-slate-900 uppercase tracking-[0.3em] text-[10px]">Syncing Chassis Matrix...</p>
+              <div className="absolute inset-0 bg-white/80 backdrop-blur-md z-[110] flex flex-col items-center justify-center">
+                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="mt-6 font-black text-slate-900 uppercase tracking-widest text-[10px]">Processing Database Sync...</p>
               </div>
             )}
 
-            {/* STICKY HEADER */}
-            <div className="p-6 md:p-10 border-b border-slate-100 flex justify-between items-center bg-white shrink-0 z-50">
-              <div className="flex items-center gap-6">
-                <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-xl shadow-xl shadow-blue-500/30">A</div>
+            {/* HEADER */}
+            <div className="px-6 py-6 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black">A</div>
                 <div>
-                  <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tighter uppercase leading-none">Vehicle Onboarding</h2>
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className={`w-2 h-2 rounded-full ${regStep === 'vin' ? 'bg-blue-600 animate-pulse' : 'bg-emerald-500'}`}></div>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
-                      {regStep === 'vin' ? 'Stage 1: Identity Scanning' : 'Stage 2: Technical Calibration'}
+                  <h2 className="text-lg font-black text-slate-900 tracking-tight uppercase">Registration</h2>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${regStep === 'vin' ? 'bg-blue-600' : 'bg-emerald-500'}`}></div>
+                    <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">
+                      {regStep === 'vin' ? 'Asset Scanning' : 'Calibration'}
                     </span>
                   </div>
                 </div>
               </div>
-              <button onClick={closeModal} className="w-12 h-12 flex items-center justify-center text-slate-300 hover:text-slate-900 transition-colors text-4xl font-light">×</button>
+              <button onClick={closeModal} className="w-10 h-10 flex items-center justify-center text-slate-300 hover:text-slate-900 text-3xl font-light transition-colors">×</button>
             </div>
 
-            {/* SCROLLABLE FORM BODY */}
-            <div className="flex-grow overflow-y-auto scrollbar-hide px-6 md:px-10 py-8 bg-slate-50/40">
+            {/* MODAL BODY */}
+            <div className="flex-grow overflow-y-auto scrollbar-hide px-6 py-10 bg-slate-50/30">
               {regStep === 'vin' ? (
-                <div className="max-w-xl mx-auto py-12 md:py-20 space-y-12">
-                  <div className="text-center space-y-6">
-                    <div className="w-24 h-24 bg-white rounded-[2.5rem] flex items-center justify-center text-4xl mx-auto shadow-2xl ring-1 ring-slate-100 border border-slate-50">🔍</div>
-                    <div className="space-y-3">
-                      <h3 className="text-2xl font-black text-slate-900 uppercase tracking-tight">Technical Extraction</h3>
-                      <p className="text-slate-400 text-[11px] font-bold leading-relaxed uppercase tracking-wider px-6">
-                        Provide the 17-character VIN. AutoPal will automatically map factory roadmaps and engine specifications.
-                      </p>
-                    </div>
+                <div className="w-full max-w-2xl mx-auto space-y-12 py-6">
+                  <div className="text-center space-y-4">
+                    <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center text-3xl mx-auto shadow-xl border border-slate-50">🔍</div>
+                    <h3 className="text-2xl font-black text-slate-900 uppercase">Input Chassis Number</h3>
+                    <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest max-w-sm mx-auto">Enter the 17-digit VIN found on your registration or dashboard.</p>
                   </div>
-                  <div className="space-y-6">
-                    <div className="relative group">
-                       <input 
-                        type="text" required maxLength={17} placeholder="ABC1234567890XYZ"
-                        className={`w-full px-8 py-8 bg-white border-2 ${vinError ? 'border-rose-400 ring-8 ring-rose-50' : 'border-slate-100 shadow-sm'} rounded-[2.5rem] font-mono text-2xl md:text-4xl uppercase tracking-[0.3em] focus:border-blue-600 outline-none text-center transition-all`}
-                        value={newVin} onChange={e => { setNewVin(e.target.value.toUpperCase()); setVinError(null); setVinInfo(null); }}
+                  
+                  <div className="space-y-6 w-full">
+                    <div className="relative group w-full">
+                      <input 
+                        type="text" 
+                        autoFocus
+                        required 
+                        maxLength={17} 
+                        placeholder="ABC1234567890XYZ"
+                        className={`w-full px-4 sm:px-8 py-8 sm:py-10 bg-white border-2 ${vinError ? 'border-rose-400' : 'border-slate-100'} rounded-[2rem] font-mono text-xl sm:text-3xl md:text-4xl uppercase tracking-[0.2em] focus:border-blue-600 outline-none text-center shadow-lg transition-all`}
+                        value={newVin} 
+                        onChange={e => { setNewVin(e.target.value.toUpperCase()); setVinError(null); setVinInfo(null); }}
                       />
-                      <div className="absolute top-2 right-8 flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-                        <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Scanner Active</span>
-                      </div>
                     </div>
-                    {vinError && <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest text-center animate-bounce">{vinError}</p>}
-                    {vinInfo && <p className="text-blue-500 text-[10px] font-black uppercase tracking-widest text-center animate-pulse">{vinInfo}</p>}
+                    {vinError && <p className="text-rose-500 text-[10px] font-black uppercase tracking-widest text-center">{vinError}</p>}
+                    {vinInfo && <p className="text-blue-500 text-[10px] font-black uppercase tracking-widest text-center">{vinInfo}</p>}
                   </div>
                 </div>
               ) : (
-                <div className="space-y-10 pb-12">
-                  {/* Identity Preview Card */}
-                  <div className="bg-white p-6 md:p-10 rounded-[3rem] border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center gap-8">
-                    <div className="relative group shrink-0">
+                <div className="w-full space-y-8 pb-10">
+                  {/* Photo & Identity Section */}
+                  <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex flex-col md:flex-row items-center gap-8">
+                    <div className="relative shrink-0">
                       <input type="file" hidden ref={imageInputRef} accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setSelectedImage(f); const r = new FileReader(); r.onloadend = () => setImagePreview(r.result as string); r.readAsDataURL(f); } }} />
-                      <div onClick={() => imageInputRef.current?.click()} className="w-32 h-32 md:w-44 md:h-44 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden cursor-pointer group-hover:border-blue-500 transition-all ring-4 ring-slate-50 shadow-inner">
-                        {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" alt="V" /> : <span className="text-slate-300 text-6xl">📷</span>}
+                      <div onClick={() => imageInputRef.current?.click()} className="w-32 h-32 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-500 transition-all">
+                        {imagePreview ? <img src={imagePreview} className="w-full h-full object-cover" /> : <span className="text-slate-300 text-5xl">📷</span>}
                       </div>
                     </div>
-                    <div className="flex-1 text-center sm:text-left min-w-0">
-                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Authenticated Asset String</div>
-                      <div className="text-2xl md:text-3xl font-mono font-bold text-slate-900 tracking-tighter break-all uppercase leading-none">{newVin || 'MANUAL_ENTRY_MODE'}</div>
-                      <div className="flex flex-wrap justify-center sm:justify-start gap-3 mt-5">
-                        <span className="bg-blue-50 text-blue-600 text-[9px] font-black px-5 py-2 rounded-xl border border-blue-100 uppercase tracking-widest">Digital Twin Mapping</span>
-                        <span className="bg-emerald-50 text-emerald-600 text-[9px] font-black px-5 py-2 rounded-xl border border-emerald-100 uppercase tracking-widest">Cloud Sync Ready</span>
-                      </div>
+                    <div className="text-center md:text-left">
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Authenticated Chassis</div>
+                      <div className="text-xl sm:text-2xl font-mono font-bold text-slate-900 break-all">{newVin || 'MANUAL_MODE'}</div>
                     </div>
                   </div>
 
-                  {/* FORM SECTIONS */}
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    
-                    {/* SECTION 01: ORIGIN */}
-                    <div className="lg:col-span-12 bg-white p-8 md:p-12 rounded-[3rem] border border-slate-200 shadow-sm space-y-10">
-                      <div className="flex items-center gap-6 border-b border-slate-50 pb-8">
-                        <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-xs shadow-xl shadow-blue-500/20">01</div>
-                        <div>
-                          <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.3em] leading-none">Manufacturer Credentials</h3>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2">Required for factory roadmap generation</p>
-                        </div>
+                  {/* Manual Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="md:col-span-2 bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Make</label>
+                        <input type="text" placeholder="e.g. Toyota" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-xl font-bold focus:bg-white focus:border-blue-500 outline-none transition-all" value={manualData.make} onChange={e => setManualData({...manualData, make: e.target.value})} />
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-3">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Make / OEM Brand</label>
-                          <input type="text" required placeholder="e.g. Mercedes-Benz" className="w-full px-8 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-base font-bold focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner" value={manualData.make} onChange={e => setManualData({...manualData, make: e.target.value})} />
-                        </div>
-                        <div className="space-y-3">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Model Range</label>
-                          <input type="text" required placeholder="e.g. GLE 450" className="w-full px-8 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-base font-bold focus:border-blue-500 focus:bg-white outline-none transition-all shadow-inner" value={manualData.model} onChange={e => setManualData({...manualData, model: e.target.value})} />
-                        </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Model</label>
+                        <input type="text" placeholder="e.g. Camry" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-xl font-bold focus:bg-white focus:border-blue-500 outline-none transition-all" value={manualData.model} onChange={e => setManualData({...manualData, model: e.target.value})} />
                       </div>
                     </div>
 
-                    {/* SECTION 02: ENGINEERING */}
-                    <div className="lg:col-span-6 bg-white p-8 md:p-12 rounded-[3rem] border border-slate-200 shadow-sm space-y-10">
-                      <div className="flex items-center gap-6 border-b border-slate-50 pb-8">
-                        <div className="w-12 h-12 bg-emerald-500 rounded-2xl flex items-center justify-center text-white font-black text-xs shadow-lg shadow-emerald-500/20">02</div>
-                        <div>
-                          <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.3em] leading-none">Engineering Spec</h3>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2">Technical performance baseline</p>
+                    <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Year</label>
+                          <input type="number" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none" value={manualData.year} onChange={e => setManualData({...manualData, year: parseInt(e.target.value)})} />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Engine</label>
+                          <input type="text" placeholder="2.4L" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none" value={manualData.engineSize} onChange={e => setManualData({...manualData, engineSize: e.target.value})} />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-3">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Production Year</label>
-                          <input type="number" required className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none" value={manualData.year} onChange={e => setManualData({...manualData, year: parseInt(e.target.value)})} />
-                        </div>
-                        <div className="space-y-3">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Engine Capacity</label>
-                          <input type="text" placeholder="e.g. 3.0L V6" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none" value={manualData.engineSize} onChange={e => setManualData({...manualData, engineSize: e.target.value})} />
-                        </div>
-                        <div className="col-span-2 space-y-3">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Fuel Configuration</label>
-                          <select className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none appearance-none" value={manualData.fuelType} onChange={e => setManualData({...manualData, fuelType: e.target.value})}>
-                            <option value="petrol">Petrol (PMS)</option>
-                            <option value="diesel">Diesel (AGO)</option>
-                            <option value="hybrid">Hybrid (HEV)</option>
-                            <option value="electric">Electric (EV)</option>
-                          </select>
-                        </div>
-                        <div className="col-span-2 space-y-3">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Body Classification</label>
-                          <select className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:border-blue-500 outline-none appearance-none" value={manualData.bodyType} onChange={e => setManualData({...manualData, bodyType: e.target.value as BodyType})}>
-                            <option value="sedan">Saloon / Sedan</option>
-                            <option value="suv">SUV / 4x4 / Jeep</option>
-                            <option value="truck">Truck / Pickup</option>
-                            <option value="van">Van / Mini-bus</option>
-                            <option value="coupe">Coupe / Sports</option>
-                          </select>
-                        </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Fuel Type</label>
+                        <select className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none appearance-none" value={manualData.fuelType} onChange={e => setManualData({...manualData, fuelType: e.target.value})}>
+                          <option value="petrol">Petrol</option><option value="diesel">Diesel</option><option value="hybrid">Hybrid</option><option value="electric">Electric</option>
+                        </select>
                       </div>
                     </div>
 
-                    {/* SECTION 03: MAINTENANCE */}
-                    <div className="lg:col-span-6 bg-white p-8 md:p-12 rounded-[3rem] border border-slate-200 shadow-sm space-y-10">
-                      <div className="flex items-center gap-6 border-b border-slate-50 pb-8">
-                        <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-xs shadow-lg shadow-blue-500/20">03</div>
-                        <div>
-                          <h3 className="text-xs font-black text-slate-900 uppercase tracking-[0.3em] leading-none">Lifecycle State</h3>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-2">Just-in-time service triggers</p>
-                        </div>
+                    <div className="bg-white p-8 rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Odometer (KM)</label>
+                        <input type="number" placeholder="0" className="w-full px-6 py-6 bg-blue-50 border-2 border-blue-100 rounded-2xl text-3xl font-mono font-black text-blue-600 outline-none text-center" value={manualData.mileage} onChange={e => setManualData({...manualData, mileage: parseInt(e.target.value)})} />
                       </div>
-                      <div className="space-y-8">
-                        <div className="space-y-3">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Current Odometer (KM)</label>
-                          <input type="number" required placeholder="0" className="w-full px-8 py-8 bg-blue-50 border-2 border-blue-100 rounded-[2rem] text-4xl font-mono font-black text-blue-600 focus:bg-white focus:border-blue-500 outline-none shadow-sm transition-all text-center" value={manualData.mileage} onChange={e => setManualData({...manualData, mileage: parseInt(e.target.value)})} />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-3">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Tire Spec</label>
-                            <input type="text" placeholder="265/60 R18" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:border-blue-500 outline-none" value={manualData.specs.tireSize} onChange={e => setManualData({...manualData, specs: {...manualData.specs, tireSize: e.target.value}})} />
-                          </div>
-                          <div className="space-y-3">
-                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Oil Grade</label>
-                            <input type="text" placeholder="5W-30 SN" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold focus:border-blue-500 outline-none" value={manualData.specs.oilGrade} onChange={e => setManualData({...manualData, specs: {...manualData.specs, oilGrade: e.target.value}})} />
-                          </div>
-                        </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Tire Size</label>
+                        <input type="text" placeholder="215/60 R16" className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl font-bold outline-none" value={manualData.specs.tireSize} onChange={e => setManualData({...manualData, specs: {...manualData.specs, tireSize: e.target.value}})} />
                       </div>
                     </div>
-
                   </div>
                 </div>
               )}
             </div>
 
-            {/* STICKY FOOTER - PERSISTENT ACTIONS */}
-            <div className="p-6 md:p-10 bg-white border-t border-slate-100 flex flex-col sm:flex-row gap-4 md:gap-8 shrink-0 z-[100] shadow-[0_-20px_60px_-15px_rgba(0,0,0,0.08)]">
+            {/* FOOTER */}
+            <div className="p-6 border-t border-slate-100 bg-white flex flex-col sm:flex-row gap-4 shrink-0">
               {regStep === 'vin' ? (
                 <>
-                  <button type="button" onClick={() => setRegStep('manual')} className="order-2 sm:order-1 flex-1 py-5 md:py-8 rounded-2xl md:rounded-[2.5rem] text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-slate-900 transition-all">Manual Calibration</button>
-                  <button disabled={newVin.length < 17} onClick={() => handleIdentifyAsset()} className="order-1 sm:order-2 flex-[2] bg-slate-900 text-white py-5 md:py-8 rounded-2xl md:rounded-[2.5rem] font-black uppercase text-[11px] tracking-[0.4em] shadow-2xl shadow-slate-900/30 hover:bg-blue-600 disabled:opacity-20 active:scale-[0.98] transition-all">Analyze Asset Matrix</button>
+                  <button type="button" onClick={() => setRegStep('manual')} className="order-2 sm:order-1 flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors">Skip to Manual</button>
+                  <button disabled={newVin.length < 17} onClick={() => handleIdentifyAsset()} className="order-1 sm:order-2 flex-[2] bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl disabled:opacity-20 hover:bg-blue-600 transition-all">Analyze Asset Matrix</button>
                 </>
               ) : (
                 <>
-                  <button type="button" onClick={() => setRegStep('vin')} className="order-2 sm:order-1 flex-1 py-5 md:py-8 rounded-2xl md:rounded-[2.5rem] text-[11px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-slate-900 transition-all">Previous Phase</button>
-                  <button onClick={() => handleFinalizeRegistration()} className="order-1 sm:order-2 flex-[2] bg-blue-600 text-white py-5 md:py-8 rounded-2xl md:rounded-[2.5rem] font-black uppercase text-[11px] tracking-[0.4em] shadow-2xl shadow-blue-600/30 hover:bg-blue-700 active:scale-[0.98] transition-all">Initialize Digital Twin</button>
+                  <button type="button" onClick={() => setRegStep('vin')} className="order-2 sm:order-1 flex-1 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors">Previous</button>
+                  <button onClick={() => handleFinalizeRegistration()} className="order-1 sm:order-2 flex-[2] bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl hover:bg-blue-700 transition-all">Finalize Digital Twin</button>
                 </>
               )}
             </div>
