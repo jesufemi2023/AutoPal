@@ -43,8 +43,9 @@ export const localDb = {
     return { vehicles, tasks, logs };
   },
   
+  // Fix: Cast table to any to correctly call update on different entity types
   clearDirtyFlag: async (id: string, table: 'vehicles' | 'tasks' | 'serviceLogs') => {
-    return db[table].update(id, { isDirty: false, lastSyncedAt: new Date().toISOString() });
+    return (db[table] as any).update(id, { isDirty: false, lastSyncedAt: new Date().toISOString() });
   }
 };
 

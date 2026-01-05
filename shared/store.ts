@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog } from './types.ts';
 
@@ -77,6 +78,8 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
         tier: user.user_metadata?.tier || 'free',
         role: user.user_metadata?.role || 'user',
         onboarded: user.user_metadata?.onboarded || false,
+        // Fix: Map createdAt from session user data
+        createdAt: user.created_at || new Date().toISOString(),
       } 
     });
   },

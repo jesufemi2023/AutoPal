@@ -6,9 +6,13 @@
 - [x] Established Zustand store placeholders for all core features.
 - [x] Setup `.env.example` for local and production parity.
 
-## Phase 2: Core Intelligence (Logic Engine)
-- [ ] Implement deterministic maintenance calculators.
-- [ ] Setup Supabase RLS policies and table schemas.
+## Phase 2: Core Intelligence (Logic Engine) [COMPLETED]
+- [x] Implemented Core SQL Schema (Vehicles, Fuel Logs, Service Logs).
+- [x] Enabled Row-Level Security (RLS) for data isolation.
+- [x] Defined TypeScript interfaces for database synchronization.
+- [x] **New: Created Supabase Deployment Guide (`SUPABASE_GUIDE.md`)**.
+- [x] Applied SQL Migrations to Supabase instance.
+- [ ] Implement deterministic maintenance calculators (mileage-based rules).
 - [ ] Offline-first persistence via Dexie.
 
 ## Phase 3: AI Orchestration

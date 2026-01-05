@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { getAdvancedDiagnostic } from '../services/geminiService.ts';
@@ -90,9 +89,16 @@ const Dashboard: React.FC = () => {
                 updateTaskStatus(t.id, 'completed')
                   .then(() => {
                     completeTask(t.id, t.estimatedCost || 0, activeVehicle.mileage);
+                    // Fix: Ensure passed object matches ServiceLog interface property names
                     createServiceLogEntry({
-                      vehicleId: activeVehicle.id, taskId: t.id, date: new Date().toISOString(),
-                      description: t.title, cost: t.estimatedCost || 0, mileage: activeVehicle.mileage, isDirty: false
+                      vehicleId: activeVehicle.id, 
+                      taskId: t.id, 
+                      serviceDate: new Date().toISOString(),
+                      serviceType: t.title, 
+                      cost: t.estimatedCost || 0, 
+                      mileageAtService: activeVehicle.mileage, 
+                      status: 'completed',
+                      isDirty: false
                     });
                   });
               }} 
