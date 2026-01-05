@@ -1,18 +1,21 @@
-# AutoPal NG - Production Readiness Roadmap
+# AutoPal NG - Production Roadmap
 
-## 1. Design Principles
-- **Maintainability**: Clear JSDoc comments on all services and stores.
-- **Scalability**: Stateless React components coupled with Supabase for real-time data.
-- **Cost-Efficiency**: JIT AI calls (Flash 3.0) to stay within the $70 annual budget.
-- **Security**: OAuth 2.0 via Supabase with strict URL fragment validation.
+## Phase 1: Modular Scaffolding [COMPLETED]
+- [x] Defined strict domain folder structure.
+- [x] Implemented environment-driven configuration via `envService`.
+- [x] Established Zustand store placeholders for all core features.
+- [x] Setup `.env.example` for local and production parity.
 
-## 2. Technical Decisions
-- **Zustand**: Used for globally reactive UI state (session, vehicles, tasks).
-- **Supabase**: Primary source of truth for Auth and persistence.
-- **Gemini**: Event-driven diagnostic engine (Just-in-Time execution).
-- **Tailwind**: Utility-first CSS for high-fidelity, responsive UI.
+## Phase 2: Core Intelligence (Logic Engine)
+- [ ] Implement deterministic maintenance calculators.
+- [ ] Setup Supabase RLS policies and table schemas.
+- [ ] Offline-first persistence via Dexie.
 
-## 3. Maintenance Guide
-- To update AI models, modify `services/geminiService.ts`.
-- To adjust branding colors, update the `tailwind.config` (simulated via CDN in index.html).
-- To manage permissions, update `metadata.json`.
+## Phase 3: AI Orchestration
+- [ ] Gemini 3 Flash/Pro integration for JIT diagnostics.
+- [ ] Multi-modal vision support for part identification.
+
+## Phase 4: UI/UX & Lifecycle
+- [ ] Onboarding flows and vehicle digital twin initialization.
+- [ ] Marketplace integration and WhatsApp routing.
+- [ ] Payment gateway stubs for premium tiers.

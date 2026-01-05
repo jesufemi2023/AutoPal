@@ -1,7 +1,8 @@
-
 export type Tier = 'free' | 'standard' | 'premium';
 export type UserRole = 'user' | 'admin';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'other';
+export type TaskStatus = 'pending' | 'completed' | 'skipped';
+export type Priority = 'low' | 'medium' | 'high';
 
 export interface UserProfile {
   id: string;
@@ -9,12 +10,6 @@ export interface UserProfile {
   tier: Tier;
   role: UserRole;
   onboarded: boolean;
-}
-
-export interface SyncMetadata {
-  isDirty: boolean;
-  lastSyncedAt?: string;
-  localId?: string;
 }
 
 /**
@@ -28,6 +23,22 @@ export interface AIResponse {
 }
 
 /**
+ * AI Maintenance Schedule Schema
+ * Fix: Added missing export member required by geminiService.ts
+ */
+export interface MaintenanceScheduleResponse {
+  summary: string;
+  tasks: Array<{
+    title: string;
+    description: string;
+    dueMileage: number;
+    priority: Priority;
+    category: 'engine' | 'tires' | 'brakes' | 'fluids' | 'other';
+    estimatedCost?: number;
+  }>;
+}
+
+/**
  * Maintenance Task Definition
  */
 export interface MaintenanceTask {
@@ -36,19 +47,13 @@ export interface MaintenanceTask {
   title: string;
   description: string;
   dueMileage: number;
-  status: 'pending' | 'completed';
-  priority: 'low' | 'medium' | 'high';
+  status: TaskStatus;
+  priority: Priority;
   category: 'engine' | 'tires' | 'brakes' | 'fluids' | 'other';
   estimatedCost?: number;
   isDirty: boolean;
-}
-
-/**
- * AI Generated Maintenance Plan
- */
-export interface MaintenanceScheduleResponse {
-  summary: string;
-  tasks: Omit<MaintenanceTask, 'id' | 'vehicleId' | 'status' | 'isDirty'>[];
+  // Fix: Added lastSyncedAt for localDb synchronization logic
+  lastSyncedAt?: string;
 }
 
 /**
@@ -62,15 +67,18 @@ export interface Vehicle {
   year: number;
   vin: string;
   mileage: number;
+  // Fix: Added avgDailyKm for maintenance projection calculations
+  avgDailyKm?: number;
   healthScore: number;
   bodyType: BodyType;
   imageUrls: string[];
-  status: string;
+  status: 'active' | 'archived' | 'sold';
   specs: any;
   fuelType?: string;
   engineSize?: string;
-  avgDailyKm?: number;
   isDirty: boolean;
+  // Fix: Added lastSyncedAt for localDb synchronization logic
+  lastSyncedAt?: string;
 }
 
 /**
@@ -86,6 +94,8 @@ export interface ServiceLog {
   mileage: number;
   providerName?: string;
   isDirty: boolean;
+  // Fix: Added lastSyncedAt for localDb synchronization logic
+  lastSyncedAt?: string;
 }
 
 /**
