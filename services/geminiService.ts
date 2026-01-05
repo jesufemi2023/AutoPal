@@ -5,7 +5,7 @@ import { PROMPTS } from "./promptService.ts";
 import { AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
 
 /**
- * VIN Decoding with Fail-Soft Logic
+ * VIN Decoding with Robust Error Handling
  * Uses Gemini 3 Flash to extract vehicle metadata from a raw VIN.
  */
 export const decodeVIN = async (vin: string): Promise<{ make: string; model: string; year: number; bodyType: string }> => {
@@ -13,38 +13,53 @@ export const decodeVIN = async (vin: string): Promise<{ make: string; model: str
     return { make: "Toyota", model: "Camry", year: 2022, bodyType: "sedan" };
   }
 
-  // Use ENV.API_KEY which resolves VITE_API_KEY correctly
   const ai = new GoogleGenAI({ apiKey: ENV.API_KEY || "" });
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
-    contents: `Chassis Number (VIN) to analyze: ${vin}`,
-    config: {
-      systemInstruction: PROMPTS.VIN_DECODER,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          make: { type: Type.STRING, description: "The vehicle manufacturer (e.g., Honda, Toyota)" },
-          model: { type: Type.STRING, description: "The specific model name (e.g., Civic, Corolla)" },
-          year: { type: Type.INTEGER, description: "The production year" },
-          bodyType: { 
-            type: Type.STRING, 
-            enum: ["sedan", "suv", "truck", "coupe", "van", "other"],
-            description: "Categorization of the vehicle body style"
-          }
-        },
-        required: ["make", "model", "year", "bodyType"]
+  
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: `Chassis Number (VIN) to analyze: ${vin}`,
+      config: {
+        systemInstruction: PROMPTS.VIN_DECODER,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            make: { type: Type.STRING, description: "The vehicle manufacturer (e.g., Honda, Toyota)" },
+            model: { type: Type.STRING, description: "The specific model name (e.g., Civic, Corolla)" },
+            year: { type: Type.INTEGER, description: "The production year" },
+            bodyType: { 
+              type: Type.STRING, 
+              enum: ["sedan", "suv", "truck", "coupe", "van", "other"],
+              description: "Categorization of the vehicle body style"
+            }
+          },
+          required: ["make", "model", "year", "bodyType"]
+        }
       }
+    });
+    
+    let text = response.text;
+    if (!text) throw new Error("EMPTY_AI_RESPONSE");
+
+    // Handle potential markdown code blocks in response
+    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    
+    const data = JSON.parse(text);
+    
+    // Validate essential fields
+    if (!data.make || !data.model) {
+      throw new Error("INCONCLUSIVE_VIN_DECODE");
     }
-  });
-  
-  const text = response.text;
-  if (!text) throw new Error("EMPTY_AI_RESPONSE");
-  
-  const data = JSON.parse(text);
-  if (!data.make || !data.model) throw new Error("INCONCLUSIVE_VIN_DECODE");
-  
-  return data;
+    
+    return data;
+  } catch (error: any) {
+    console.error("VIN Decode Service Error:", error);
+    if (error instanceof SyntaxError) {
+      throw new Error("MALFORMED_AI_RESPONSE");
+    }
+    throw error;
+  }
 };
 
 /**
@@ -100,7 +115,8 @@ export const generateMaintenanceSchedule = async (
     }
   });
 
-  return JSON.parse(response.text || "{}") as MaintenanceScheduleResponse;
+  let text = response.text?.replace(/```json/g, "").replace(/```/g, "").trim() || "{}";
+  return JSON.parse(text) as MaintenanceScheduleResponse;
 };
 
 /**
@@ -145,5 +161,6 @@ export const getAdvancedDiagnostic = async (
     }
   });
 
-  return JSON.parse(response.text || "{}") as AIResponse;
+  let text = response.text?.replace(/```json/g, "").replace(/```/g, "").trim() || "{}";
+  return JSON.parse(text) as AIResponse;
 };
