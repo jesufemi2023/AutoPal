@@ -190,7 +190,7 @@ const Dashboard: React.FC = () => {
       )}
 
       {showOdometerModal && activeVehicle && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-2xl animate-in fade-in duration-500">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-2xl animate-in fade-in duration-500">
           <div className="w-full max-w-md">
             <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { 
               await updateMileage(activeVehicle.id, v); 
@@ -202,8 +202,8 @@ const Dashboard: React.FC = () => {
       )}
 
       {showEditModal && activeVehicle && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-2xl animate-in fade-in duration-500 overflow-y-auto">
-          <div className="my-auto">
+        <div className="fixed inset-0 z-[1000] flex items-start sm:items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-2xl animate-in fade-in duration-500 overflow-y-auto">
+          <div className="w-full max-w-5xl py-4 sm:py-8">
             <VehicleForm 
               title="Calibration"
               initialData={activeVehicle}
