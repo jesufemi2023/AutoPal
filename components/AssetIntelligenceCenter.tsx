@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { registerNewVehicle } from '../services/vehicleRegistrationService.ts';
-import { uploadVehicleImage, updateVehicle } from '../services/vehicleService.ts';
+import { uploadVehicleImage, updateVehicle, archiveVehicle } from '../services/vehicleService.ts';
 import { BodyType, Vehicle } from '../shared/types.ts';
 import { compressImage } from '../shared/utils.ts';
 import { VehicleBlueprint } from './VehicleBlueprint.tsx';
@@ -12,7 +12,7 @@ interface AssetIntelligenceCenterProps {
 }
 
 const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode }) => {
-  const { user, addVehicle, updateVehicleStore, setCurrentView, vehicles, editingVehicleId, setEditingVehicle } = useAutoPalStore();
+  const { user, addVehicle, updateVehicleStore, removeVehicleStore, setCurrentView, vehicles, editingVehicleId, setEditingVehicle } = useAutoPalStore();
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -82,6 +82,27 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
       alert("Neural sync failure. Check node connectivity.");
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleDecommission = async () => {
+    if (!editingVehicleId) return;
+    
+    const confirmed = window.confirm(
+      "CAUTION: You are about to decommission this digital twin. All historical intelligence and service logs will be archived and removed from your active garage. This action cannot be undone from the client interface. Proceed?"
+    );
+
+    if (confirmed) {
+      setIsProcessing(true);
+      try {
+        await archiveVehicle(editingVehicleId);
+        removeVehicleStore(editingVehicleId);
+        handleClose();
+      } catch (err: any) {
+        alert("Archive Protocol Failed: " + (err.message || "Network Error"));
+      } finally {
+        setIsProcessing(false);
+      }
     }
   };
 
@@ -269,6 +290,25 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
                 </div>
               </div>
             </section>
+
+            {/* Danger Zone - Only show in Edit Mode */}
+            {mode === 'edit' && (
+              <section className="mt-20 pt-16 border-t-2 border-slate-100 space-y-8 pb-12">
+                <div className="space-y-2">
+                  <h4 className="text-[10px] font-black text-rose-600 uppercase tracking-[0.4em] ml-2">Danger Zone</h4>
+                  <p className="text-[11px] font-medium text-slate-400 ml-2 max-w-lg">
+                    Decommissioning an asset will archive its digital twin. You will no longer receive maintenance alerts or neural diagnostics for this vehicle.
+                  </p>
+                </div>
+                <button 
+                  onClick={handleDecommission}
+                  disabled={isProcessing}
+                  className="w-full sm:w-auto px-10 py-5 bg-rose-50 border-2 border-rose-100 text-rose-600 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-rose-600 hover:text-white hover:border-rose-600 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isProcessing ? "Executing Decommission..." : "Decommission Asset"}
+                </button>
+              </section>
+            )}
           </div>
         </div>
 
