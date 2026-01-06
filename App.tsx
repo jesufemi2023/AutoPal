@@ -51,7 +51,6 @@ const App: React.FC = () => {
     initAuth();
   }, [setSession, setInitialized]);
 
-  // Fetch initial data when session becomes active
   useEffect(() => {
     if (session && user) {
       fetchUserVehicles()
@@ -88,38 +87,36 @@ const App: React.FC = () => {
 
   if (!session) return <AuthScreen />;
 
-  // Full-screen flows
   if (currentView === 'onboarding' || currentView === 'edit') {
     return <AssetIntelligenceCenter mode={currentView} />;
   }
 
   return (
-    <div className="min-h-screen bg-[#fcfcfd] pb-32">
-      {/* Navigation Top Bar */}
-      <nav className="sticky top-0 z-[50] bg-white/80 backdrop-blur-xl border-b border-slate-100 px-6 py-4">
+    <div className="min-h-screen bg-[#fcfcfd] pb-24 sm:pb-32">
+      <nav className="sticky top-0 z-[50] bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 sm:px-6 py-4">
         <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 blue-gradient rounded-lg flex items-center justify-center text-white font-black text-sm">A</div>
-            <span className="font-black tracking-tighter text-slate-900">AutoPal NG</span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 blue-gradient rounded-lg flex items-center justify-center text-white font-black text-xs sm:text-sm">A</div>
+            <span className="font-black tracking-tighter text-slate-900 text-sm sm:text-base">AutoPal NG</span>
           </div>
           
           <div className="flex items-center gap-2 md:gap-6">
             <button 
               onClick={() => setCurrentView('garage')}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'garage' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
+              className={`px-3 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'garage' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
             >
               Garage
             </button>
             <button 
               onClick={() => setCurrentView('marketplace')}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'marketplace' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
+              className={`px-3 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'marketplace' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
             >
               Market
             </button>
             {user?.role === 'admin' && (
               <button 
                 onClick={() => setCurrentView('admin')}
-                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'admin' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-400 hover:text-rose-600'}`}
+                className={`hidden sm:block px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'admin' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-400 hover:text-rose-600'}`}
               >
                 Admin
               </button>
@@ -135,26 +132,24 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      {/* Main Content View Switcher */}
-      <main className="max-w-7xl mx-auto px-6 pt-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 sm:pt-12">
         {currentView === 'garage' && <Dashboard />}
         {currentView === 'marketplace' && <Marketplace />}
         {currentView === 'admin' && <AdminPanel />}
       </main>
 
-      {/* Mobile Bottom Navigation */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-sm glass-card border-slate-200 rounded-[2.5rem] p-3 shadow-2xl z-[100] md:hidden">
+      <div className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 w-[92%] max-w-sm glass-card border-slate-200 rounded-[2rem] sm:rounded-[2.5rem] p-2 sm:p-3 shadow-2xl z-[100] md:hidden">
         <div className="flex justify-around items-center">
-          <button onClick={() => setCurrentView('garage')} className={`p-4 rounded-2xl transition-all ${currentView === 'garage' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>
+          <button onClick={() => setCurrentView('garage')} className={`p-4 rounded-xl transition-all ${currentView === 'garage' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>
             🏠
           </button>
-          <button onClick={() => setCurrentView('marketplace')} className={`p-4 rounded-2xl transition-all ${currentView === 'marketplace' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>
+          <button onClick={() => setCurrentView('marketplace')} className={`p-4 rounded-xl transition-all ${currentView === 'marketplace' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>
             🛒
           </button>
-          <button onClick={() => setCurrentView('onboarding')} className="p-4 rounded-2xl text-slate-400">
+          <button onClick={() => setCurrentView('onboarding')} className="p-4 rounded-xl text-slate-400">
             ➕
           </button>
-          <button onClick={() => supabase?.auth.signOut()} className="p-4 rounded-2xl text-rose-500">
+          <button onClick={() => supabase?.auth.signOut()} className="p-4 rounded-xl text-rose-500">
             🚪
           </button>
         </div>
