@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -5,7 +6,7 @@ import AuthScreen from './components/AuthScreen.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import Marketplace from './components/Marketplace.tsx';
 import AdminPanel from './components/AdminPanel.tsx';
-import OnboardingCommandCenter from './components/OnboardingCommandCenter.tsx';
+import AssetIntelligenceCenter from './components/AssetIntelligenceCenter.tsx';
 import { validateEnv } from './services/envService.ts';
 import { fetchUserVehicles } from './services/vehicleService.ts';
 
@@ -87,9 +88,9 @@ const App: React.FC = () => {
 
   if (!session) return <AuthScreen />;
 
-  // Full-screen onboarding view
-  if (currentView === 'onboarding') {
-    return <OnboardingCommandCenter />;
+  // Full-screen flows
+  if (currentView === 'onboarding' || currentView === 'edit') {
+    return <AssetIntelligenceCenter mode={currentView} />;
   }
 
   return (

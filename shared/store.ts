@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog } from './types.ts';
 
@@ -14,7 +15,8 @@ interface AutoPalState {
   isLoading: boolean;
   
   // Navigation & UI
-  currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings';
+  currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit';
+  editingVehicleId: string | null;
   
   // Data Slices
   vehicles: Vehicle[];
@@ -31,7 +33,8 @@ interface AutoPalState {
   setLoading: (loading: boolean) => void;
   
   // Actions: UI
-  setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings') => void;
+  setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit') => void;
+  setEditingVehicle: (id: string | null) => void;
   
   // Actions: Data
   setVehicles: (vehicles: Vehicle[]) => void;
@@ -56,6 +59,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   isRecovering: false,
   isLoading: false,
   currentView: 'garage',
+  editingVehicleId: null,
   vehicles: [],
   tasks: [],
   serviceLogs: [],
@@ -86,6 +90,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   setRecovering: (isRecovering) => set({ isRecovering }),
   setLoading: (loading) => set({ isLoading: loading }),
   setCurrentView: (currentView) => set({ currentView }),
+  setEditingVehicle: (editingVehicleId) => set({ editingVehicleId }),
   
   setVehicles: (vehicles) => set({ vehicles }),
   addVehicle: (vehicle) => set((state) => ({ vehicles: [vehicle, ...state.vehicles] })),
