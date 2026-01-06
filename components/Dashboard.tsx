@@ -83,6 +83,12 @@ const Dashboard: React.FC = () => {
         </div>
         <div className="flex gap-3 sm:gap-4 w-full sm:w-auto">
           <button 
+            onClick={() => setCurrentView('fuel')}
+            className="flex-1 sm:flex-none bg-emerald-600 text-white px-6 sm:px-10 py-4 sm:py-6 rounded-2xl sm:rounded-[2rem] font-black uppercase tracking-widest text-[10px] sm:text-[11px] shadow-2xl shadow-emerald-500/20 active:scale-95 transition-all"
+          >
+            ⛽ Fuel Logic
+          </button>
+          <button 
             onClick={() => setCurrentView('onboarding')}
             className="flex-1 sm:flex-none bg-blue-600 text-white px-6 sm:px-10 py-4 sm:py-6 rounded-2xl sm:rounded-[2rem] font-black uppercase tracking-widest text-[10px] sm:text-[11px] shadow-2xl shadow-blue-500/20 active:scale-95 transition-all"
           >

@@ -1,6 +1,6 @@
 
 import Dexie, { type EntityTable } from 'dexie';
-import { Vehicle, MaintenanceTask, ServiceLog } from '../shared/types.ts';
+import { Vehicle, MaintenanceTask, ServiceLog, FuelLog } from '../shared/types.ts';
 
 /**
  * AutoPal Local Persistence Engine (IndexedDB)
@@ -11,12 +11,14 @@ const db = new Dexie('AutoPalGarage') as Dexie & {
   vehicles: EntityTable<Vehicle, 'id'>;
   tasks: EntityTable<MaintenanceTask, 'id'>;
   serviceLogs: EntityTable<ServiceLog, 'id'>;
+  fuelLogs: EntityTable<FuelLog, 'id'>;
 };
 
 db.version(1).stores({
   vehicles: 'id, ownerId, vin, isDirty',
   tasks: 'id, vehicleId, status, isDirty',
-  serviceLogs: 'id, vehicleId, isDirty'
+  serviceLogs: 'id, vehicleId, isDirty',
+  fuelLogs: 'id, vehicleId, isDirty'
 });
 
 export const localDb = {
@@ -34,17 +36,22 @@ export const localDb = {
   // Service Logs
   saveLog: (l: ServiceLog) => db.serviceLogs.put(l),
   getLogs: (vehicleId: string) => db.serviceLogs.where('vehicleId').equals(vehicleId).toArray(),
+
+  // Fuel Logs
+  saveFuelLog: (l: FuelLog) => db.fuelLogs.put(l),
+  getFuelLogs: (vehicleId: string) => db.fuelLogs.where('vehicleId').equals(vehicleId).toArray(),
   
   // Dirty Records (for Sync Engine)
   getDirtyRecords: async () => {
     const vehicles = await db.vehicles.where('isDirty').equals(1).toArray();
     const tasks = await db.tasks.where('isDirty').equals(1).toArray();
     const logs = await db.serviceLogs.where('isDirty').equals(1).toArray();
-    return { vehicles, tasks, logs };
+    const fuel = await db.fuelLogs.where('isDirty').equals(1).toArray();
+    return { vehicles, tasks, logs, fuel };
   },
   
   // Fix: Cast table to any to correctly call update on different entity types
-  clearDirtyFlag: async (id: string, table: 'vehicles' | 'tasks' | 'serviceLogs') => {
+  clearDirtyFlag: async (id: string, table: 'vehicles' | 'tasks' | 'serviceLogs' | 'fuelLogs') => {
     return (db[table] as any).update(id, { isDirty: false, lastSyncedAt: new Date().toISOString() });
   }
 };

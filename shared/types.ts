@@ -1,3 +1,4 @@
+
 export type Tier = 'free' | 'standard' | 'premium';
 export type UserRole = 'user' | 'admin';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback' | 'other';
@@ -51,8 +52,10 @@ export interface FuelLog {
   id: string;
   vehicleId: string;
   liters: number;
-  cost: number;
+  totalCost: number;
   odometerKm: number;
+  isFullTank: boolean;
+  vendor?: string;
   createdAt: string;
 }
 

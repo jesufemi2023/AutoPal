@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import { UserProfile, Vehicle, MaintenanceTask, ServiceLog } from './types.ts';
+import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog } from './types.ts';
 
 /**
  * AutoPal NG Unified State Engine
@@ -15,13 +15,14 @@ interface AutoPalState {
   isLoading: boolean;
   
   // Navigation & UI
-  currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit';
+  currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel';
   editingVehicleId: string | null;
   
   // Data Slices
   vehicles: Vehicle[];
   tasks: MaintenanceTask[];
   serviceLogs: ServiceLog[];
+  fuelLogs: FuelLog[];
   suggestedPartNames: string[];
   marketplace: any[];
 
@@ -33,7 +34,7 @@ interface AutoPalState {
   setLoading: (loading: boolean) => void;
   
   // Actions: UI
-  setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit') => void;
+  setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel') => void;
   setEditingVehicle: (id: string | null) => void;
   
   // Actions: Data
@@ -45,6 +46,8 @@ interface AutoPalState {
   completeTask: (taskId: string, cost: number, currentMileage: number) => void;
   setTasks: (tasks: MaintenanceTask[]) => void;
   addServiceLog: (log: ServiceLog) => void;
+  setFuelLogs: (logs: FuelLog[]) => void;
+  addFuelLogStore: (log: FuelLog) => void;
   setMarketplace: (items: any[]) => void;
   setSuggestedParts: (parts: string[]) => void;
   
@@ -63,6 +66,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   vehicles: [],
   tasks: [],
   serviceLogs: [],
+  fuelLogs: [],
   suggestedPartNames: [],
   marketplace: [],
 
@@ -108,6 +112,8 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   })),
   setTasks: (tasks) => set({ tasks }),
   addServiceLog: (log) => set((state) => ({ serviceLogs: [log, ...state.serviceLogs] })),
+  setFuelLogs: (fuelLogs) => set({ fuelLogs }),
+  addFuelLogStore: (log) => set((state) => ({ fuelLogs: [log, ...state.fuelLogs] })),
   setMarketplace: (marketplace) => set({ marketplace }),
   setSuggestedParts: (suggestedPartNames) => set({ suggestedPartNames }),
 
@@ -117,6 +123,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
     vehicles: [], 
     tasks: [], 
     serviceLogs: [],
+    fuelLogs: [],
     isRecovering: false 
   }),
 }));

@@ -6,6 +6,7 @@ import AuthScreen from './components/AuthScreen.tsx';
 import Dashboard from './components/Dashboard.tsx';
 import Marketplace from './components/Marketplace.tsx';
 import AdminPanel from './components/AdminPanel.tsx';
+import FuelIntelligenceCenter from './components/FuelIntelligenceCenter.tsx';
 import AssetIntelligenceCenter from './components/AssetIntelligenceCenter.tsx';
 import { validateEnv } from './services/envService.ts';
 import { fetchUserVehicles } from './services/vehicleService.ts';
@@ -94,8 +95,8 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#fcfcfd] pb-24 sm:pb-32">
       <nav className="sticky top-0 z-[50] bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 sm:px-6 py-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-2 sm:gap-3">
+        <div className="max-w-page mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-2 sm:gap-3 cursor-pointer" onClick={() => setCurrentView('garage')}>
             <div className="w-7 h-7 sm:w-8 sm:h-8 blue-gradient rounded-lg flex items-center justify-center text-white font-black text-xs sm:text-sm">A</div>
             <span className="font-black tracking-tighter text-slate-900 text-sm sm:text-base">AutoPal NG</span>
           </div>
@@ -106,6 +107,12 @@ const App: React.FC = () => {
               className={`px-3 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'garage' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
             >
               Garage
+            </button>
+            <button 
+              onClick={() => setCurrentView('fuel')}
+              className={`px-3 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'fuel' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-emerald-600'}`}
+            >
+              Fuel
             </button>
             <button 
               onClick={() => setCurrentView('marketplace')}
@@ -132,8 +139,9 @@ const App: React.FC = () => {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 sm:pt-12">
+      <main className="max-w-page mx-auto px-4 sm:px-6 pt-6 sm:pt-12">
         {currentView === 'garage' && <Dashboard />}
+        {currentView === 'fuel' && <FuelIntelligenceCenter />}
         {currentView === 'marketplace' && <Marketplace />}
         {currentView === 'admin' && <AdminPanel />}
       </main>
@@ -143,14 +151,14 @@ const App: React.FC = () => {
           <button onClick={() => setCurrentView('garage')} className={`p-4 rounded-xl transition-all ${currentView === 'garage' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>
             🏠
           </button>
+          <button onClick={() => setCurrentView('fuel')} className={`p-4 rounded-xl transition-all ${currentView === 'fuel' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>
+            ⛽
+          </button>
           <button onClick={() => setCurrentView('marketplace')} className={`p-4 rounded-xl transition-all ${currentView === 'marketplace' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>
             🛒
           </button>
           <button onClick={() => setCurrentView('onboarding')} className="p-4 rounded-xl text-slate-400">
             ➕
-          </button>
-          <button onClick={() => supabase?.auth.signOut()} className="p-4 rounded-xl text-rose-500">
-            🚪
           </button>
         </div>
       </div>
