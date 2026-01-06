@@ -189,6 +189,7 @@ const Dashboard: React.FC = () => {
         )
       )}
 
+      {/* MODALS: Fixed positioning with scrolling for small viewports */}
       {showOdometerModal && activeVehicle && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-2xl animate-in fade-in duration-500">
           <div className="w-full max-w-md">
@@ -202,8 +203,8 @@ const Dashboard: React.FC = () => {
       )}
 
       {showEditModal && activeVehicle && (
-        <div className="fixed inset-0 z-[1000] flex items-start sm:items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-2xl animate-in fade-in duration-500 overflow-y-auto">
-          <div className="w-full max-w-5xl py-4 sm:py-8">
+        <div className="fixed inset-0 z-[1000] flex items-start sm:items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-2xl animate-in fade-in duration-500 overflow-y-auto overflow-x-hidden">
+          <div className="w-full max-w-5xl py-6 sm:py-12">
             <VehicleForm 
               title="Calibration"
               initialData={activeVehicle}
