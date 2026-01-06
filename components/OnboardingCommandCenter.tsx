@@ -1,9 +1,9 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { decodeVIN } from '../services/geminiService.ts';
 import { registerNewVehicle } from '../services/vehicleRegistrationService.ts';
-import { uploadVehicleImage, updateVehicleData } from '../services/vehicleService.ts';
+// Replaced updateVehicleData with updateVehicle
+import { uploadVehicleImage, updateVehicle } from '../services/vehicleService.ts';
 import { BodyType } from '../shared/types.ts';
 import { isValidVIN, compressImage } from '../shared/utils.ts';
 import { VehicleBlueprint } from './VehicleBlueprint.tsx';
@@ -83,7 +83,8 @@ const OnboardingCommandCenter: React.FC = () => {
         try {
           const compressed = await compressImage(imageFile, 800, 0.7);
           const url = await uploadVehicleImage(user.id, vehicle.id, compressed);
-          await updateVehicleData(vehicle.id, { imageUrls: [url] });
+          // Replaced updateVehicleData with updateVehicle
+          await updateVehicle(vehicle.id, { imageUrls: [url] });
           vehicle.imageUrls = [url];
         } catch (e) { console.error("Image upload failed", e); }
       }

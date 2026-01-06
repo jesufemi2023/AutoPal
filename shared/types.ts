@@ -20,6 +20,8 @@ export interface VehicleSpecs {
   batteryType?: string;
   engineType?: 'petrol' | 'diesel' | 'hybrid' | 'electric';
   transmission?: 'manual' | 'automatic';
+  recommendedFuel?: string;
+  sparkPlugGap?: string;
   [key: string]: any;
 }
 
@@ -32,16 +34,15 @@ export interface Vehicle {
   vin?: string;
   mileage: number; // Mapping to current_mileage
   healthScore: number;
-  bodyType?: BodyType;
+  bodyType: BodyType;
   imageUrl?: string;
-  imageUrls?: string[];
+  imageUrls: string[];
   status: 'active' | 'archived' | 'sold';
   specs: VehicleSpecs;
-  createdAt?: string;
-  updatedAt?: string;
-  // Missing fields for TS support
   fuelType?: string;
   engineSize?: string;
+  createdAt?: string;
+  updatedAt?: string;
   avgDailyKm?: number;
   isDirty?: boolean;
 }
@@ -67,7 +68,6 @@ export interface ServiceLog {
   status: LogStatus;
   createdAt?: string;
   updatedAt?: string;
-  // Missing fields for TS support
   taskId?: string;
   isDirty?: boolean;
 }

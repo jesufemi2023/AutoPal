@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { getAdvancedDiagnostic } from '../services/geminiService.ts';
+// Removed updateVehicleData which was not exported from vehicleService
 import { 
-  fetchVehicleTasks, fetchVehicleServiceLogs, updateVehicleData, 
-  updateTaskStatus, createServiceLogEntry
+  fetchVehicleTasks, fetchVehicleServiceLogs, 
+  updateTaskStatus, createServiceLogEntry, archiveVehicle, updateVehicle
 } from '../services/vehicleService.ts';
 import { OdometerInput } from './OdometerInput.tsx';
+import VehicleForm from './garage/VehicleForm.tsx';
+import { Vehicle } from '../shared/types.ts';
 
 import { VehicleOverview } from './dashboard/VehicleOverview.tsx';
 import { MaintenanceRoadmap } from './dashboard/MaintenanceRoadmap.tsx';
@@ -14,7 +17,8 @@ import { DiagnosticsPanel } from './dashboard/DiagnosticsPanel.tsx';
 const Dashboard: React.FC = () => {
   const { 
     vehicles, tasks, user, setSuggestedParts,
-    updateMileage, completeTask, setTasks, addServiceLog, setCurrentView
+    updateMileage, completeTask, setTasks, addServiceLog, setCurrentView,
+    updateVehicleStore, removeVehicleStore
   } = useAutoPalStore();
 
   const [activeVehicleId, setActiveVehicleId] = useState<string | null>(null);
@@ -22,7 +26,12 @@ const Dashboard: React.FC = () => {
   const [symptom, setSymptom] = useState('');
   const [diagImage, setDiagImage] = useState<string | null>(null);
   const [aiAdvice, setAiAdvice] = useState<any>(null);
+  
+  // Modal states
   const [showOdometerModal, setShowOdometerModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [isProcessingEdit, setIsProcessingEdit] = useState(false);
+  
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
@@ -54,6 +63,26 @@ const Dashboard: React.FC = () => {
     }
   }, [activeVehicleId, setTasks, addServiceLog]);
 
+  const handleArchive = async () => {
+    if (!activeVehicleId || !confirm("Are you sure? This will archive the vehicle and its history.")) return;
+    try {
+      await archiveVehicle(activeVehicleId);
+      removeVehicleStore(activeVehicleId);
+      setActiveVehicleId(null);
+    } catch (e: any) { alert(e.message); }
+  };
+
+  const handleEdit = async (data: Partial<Vehicle>) => {
+    if (!activeVehicleId) return;
+    setIsProcessingEdit(true);
+    try {
+      const updated = await updateVehicle(activeVehicleId, data);
+      updateVehicleStore(updated);
+      setShowEditModal(false);
+    } catch (e: any) { alert(e.message); }
+    finally { setIsProcessingEdit(false); }
+  };
+
   return (
     <div className="space-y-6 md:space-y-10 lg:space-y-16">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 px-2">
@@ -61,12 +90,22 @@ const Dashboard: React.FC = () => {
           <h1 className="text-4xl md:text-5xl lg:text-7xl font-black text-slate-900 tracking-tighter leading-none">Garage</h1>
           <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] mt-4">Intelligence Platform v3.5</p>
         </div>
-        <button 
-          onClick={() => setCurrentView('onboarding')}
-          className="w-full sm:w-auto bg-blue-600 text-white px-8 py-4 md:py-6 rounded-2xl lg:rounded-3xl font-black uppercase tracking-widest text-[11px] shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
-        >
-          + Add New Asset
-        </button>
+        <div className="flex gap-4">
+          <button 
+            onClick={() => setCurrentView('onboarding')}
+            className="flex-1 sm:flex-none bg-blue-600 text-white px-8 py-4 md:py-6 rounded-2xl lg:rounded-3xl font-black uppercase tracking-widest text-[11px] shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
+          >
+            + New Asset
+          </button>
+          {activeVehicle && (
+            <button 
+              onClick={() => setShowEditModal(true)}
+              className="bg-white border border-slate-100 text-slate-900 px-8 py-4 md:py-6 rounded-2xl lg:rounded-3xl font-black uppercase tracking-widest text-[11px] shadow-sm active:scale-95 transition-all"
+            >
+              ⚙ Edit
+            </button>
+          )}
+        </div>
       </header>
 
       {globalError && (
@@ -96,6 +135,7 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           <div className="md:col-span-2 lg:col-span-8 space-y-8 lg:space-y-12">
             <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
+            
             <MaintenanceRoadmap 
               vehicle={activeVehicle} 
               tasks={pendingTasks} 
@@ -116,6 +156,12 @@ const Dashboard: React.FC = () => {
                   });
               }} 
             />
+
+            <div className="pt-12 border-t border-slate-100 flex justify-center">
+               <button onClick={handleArchive} className="text-rose-400 text-[9px] font-black uppercase tracking-[0.3em] hover:text-rose-600 transition-colors">
+                 Destroy Link / Archive Digital Twin
+               </button>
+            </div>
           </div>
 
           <aside className="md:col-span-2 lg:col-span-4 lg:sticky lg:top-32">
@@ -147,8 +193,25 @@ const Dashboard: React.FC = () => {
       {showOdometerModal && activeVehicle && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="w-full max-w-sm">
-            <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { await updateMileage(activeVehicle.id, v); await updateVehicleData(activeVehicle.id, { current_mileage: v } as any); setShowOdometerModal(false); }} onCancel={() => setShowOdometerModal(false)} />
+            <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { 
+              await updateMileage(activeVehicle.id, v); 
+              // Replaced updateVehicleData with updateVehicle API call
+              await updateVehicle(activeVehicle.id, { mileage: v }); 
+              setShowOdometerModal(false); 
+            }} onCancel={() => setShowOdometerModal(false)} />
           </div>
+        </div>
+      )}
+
+      {showEditModal && activeVehicle && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-xl animate-in fade-in duration-300">
+          <VehicleForm 
+            title="Edit Asset"
+            initialData={activeVehicle}
+            isProcessing={isProcessingEdit}
+            onCancel={() => setShowEditModal(false)}
+            onSubmit={handleEdit}
+          />
         </div>
       )}
     </div>

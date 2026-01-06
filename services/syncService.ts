@@ -1,6 +1,6 @@
-
 import { localDb } from './localDb.ts';
-import { updateVehicleData, createVehicle, createMaintenanceTasksBatch, updateTaskStatus } from './vehicleService.ts';
+// Replaced updateVehicleData with updateVehicle
+import { updateVehicle, createVehicle, createMaintenanceTasksBatch, updateTaskStatus } from './vehicleService.ts';
 import { getConfig } from './configService.ts';
 import { Tier } from '../shared/types.ts';
 
@@ -18,8 +18,8 @@ export const performSync = async (userTier: Tier = 'free') => {
   // 1. Sync Vehicles
   for (const v of vehicles) {
     try {
-      // In a real app, check if V exists in Supabase. For MVP, assume update if has ID.
-      await updateVehicleData(v.id, v);
+      // Replaced updateVehicleData with updateVehicle
+      await updateVehicle(v.id, v);
       await localDb.clearDirtyFlag(v.id, 'vehicles');
     } catch (e) {
       console.warn(`Sync failed for vehicle ${v.id}`, e);

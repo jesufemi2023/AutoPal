@@ -1,10 +1,8 @@
-
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog } from './types.ts';
 
 /**
  * AutoPal NG Unified State Engine
- * Manages reactive UI state and synchronizes with local/cloud persistence.
  */
 
 interface AutoPalState {
@@ -18,7 +16,7 @@ interface AutoPalState {
   // Navigation & UI
   currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings';
   
-  // Data Slices (Placeholders for Phase 2)
+  // Data Slices
   vehicles: Vehicle[];
   tasks: MaintenanceTask[];
   serviceLogs: ServiceLog[];
@@ -38,9 +36,9 @@ interface AutoPalState {
   // Actions: Data
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
-  // Fix: Added updateMileage action used in Dashboard.tsx
+  updateVehicleStore: (vehicle: Vehicle) => void;
+  removeVehicleStore: (vehicleId: string) => void;
   updateMileage: (vehicleId: string, mileage: number) => void;
-  // Fix: Added completeTask action used in Dashboard.tsx
   completeTask: (taskId: string, cost: number, currentMileage: number) => void;
   setTasks: (tasks: MaintenanceTask[]) => void;
   addServiceLog: (log: ServiceLog) => void;
@@ -78,7 +76,6 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
         tier: user.user_metadata?.tier || 'free',
         role: user.user_metadata?.role || 'user',
         onboarded: user.user_metadata?.onboarded || false,
-        // Fix: Map createdAt from session user data
         createdAt: user.created_at || new Date().toISOString(),
       } 
     });
@@ -92,11 +89,15 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   
   setVehicles: (vehicles) => set({ vehicles }),
   addVehicle: (vehicle) => set((state) => ({ vehicles: [vehicle, ...state.vehicles] })),
-  // Fix: Implemented updateMileage to sync store state with UI updates
+  updateVehicleStore: (vehicle) => set((state) => ({
+    vehicles: state.vehicles.map(v => v.id === vehicle.id ? vehicle : v)
+  })),
+  removeVehicleStore: (vehicleId) => set((state) => ({
+    vehicles: state.vehicles.filter(v => v.id !== vehicleId)
+  })),
   updateMileage: (vehicleId, mileage) => set((state) => ({
     vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, mileage } : v)
   })),
-  // Fix: Implemented completeTask to update task status in reactive store
   completeTask: (taskId, cost, currentMileage) => set((state) => ({
     tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'completed' } : t)
   })),
