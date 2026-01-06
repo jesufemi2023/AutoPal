@@ -1,75 +1,78 @@
-# Supabase Infrastructure Guide for AutoPal NG
+# Supabase Infrastructure Deployment Guide
 
-This guide provides step-by-step instructions to configure your Supabase backend to support the AutoPal NG vehicle intelligence platform.
+This document outlines the professional workflow for deploying the **AutoPal NG** backend infrastructure.
 
-## 1. Local CLI Setup
+## 1. Local CLI Environment Setup
 
-The most robust way to manage your schema is via the Supabase CLI.
+The Supabase CLI is the industry standard for managing schema migrations version-controlled in your repository.
 
 ### Installation
 ```bash
 # Using npm
 npm install -g supabase
 
-# Or using Homebrew (macOS)
-brew install supabase/tap/supabase
+# Verify installation
+supabase --version
 ```
 
-### Authentication
+### Initialization
+Log into your Supabase account and link your local repository to your cloud project.
 ```bash
+# Authenticate
 supabase login
-```
-This will open your browser to authorize the CLI.
 
-## 2. Initialize and Link Project
-
-In the root of your project directory:
-
-```bash
-# Initialize Supabase configuration
+# Initialize local configuration
 supabase init
 
-# Link to your remote project (get reference ID from project settings)
-supabase link --project-ref your-project-ref-id
+# Link to remote project
+# You can find the reference ID in your project dashboard URL: 
+# https://supabase.com/dashboard/project/<PROJECT_REF_ID>
+supabase link --project-ref <PROJECT_REF_ID>
 ```
 
-## 3. Applying the Schema
+## 2. Deploying the Schema Migration
 
-You have two options to apply the database structure.
+We use a declarative migration approach. The migration file is located at `supabase/migrations/20240521_core_schema.sql`.
 
-### Option A: Via Dashboard (Recommended for MVP)
-1. Go to your [Supabase Dashboard](https://supabase.com).
-2. Navigate to **SQL Editor**.
-3. Create a **New Query**.
-4. Paste the contents of `supabase/migrations/20240521_core_schema.sql`.
-5. Click **Run**.
-
-### Option B: Via CLI
+### Option A: Local CLI Push (Automated)
+This is the preferred method for production environments.
 ```bash
-# Push your local migrations to the remote database
+# Push migrations to your linked project
 supabase db push
 ```
 
-## 4. Storage Configuration
+### Option B: SQL Editor (Manual)
+If you do not have CLI access, use the web dashboard:
+1. Open the [Supabase Dashboard](https://supabase.com/dashboard).
+2. Go to **SQL Editor** (icon on the left sidebar).
+3. Click **New Query**.
+4. Copy the entire content of `supabase/migrations/20240521_core_schema.sql`.
+5. Paste and click **Run**.
 
-For vehicle images, you need to create a storage bucket:
+## 3. Row Level Security (RLS) Configuration
 
-1. Go to **Storage** in the Supabase Dashboard.
-2. Click **New Bucket**.
-3. Name it `vehicle-images`.
-4. Set it to **Public** (or configure specific RLS policies if you prefer private buckets with signed URLs).
+Security is baked into the migration script, but here is how it works:
+
+- **Isolation**: Every table has `ENABLE ROW LEVEL SECURITY` applied.
+- **Ownership**: The `vehicles` table checks `auth.uid() = owner_id`.
+- **Relational Integrity**: `fuel_logs`, `service_logs`, and `maintenance_tasks` use a subquery check:
+  ```sql
+  USING (vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.uid()))
+  ```
+  This ensures that even if someone knows a UUID for a vehicle they don't own, they cannot read its logs.
+
+## 4. Storage Bucket Setup
+
+To store vehicle images (Chassis photos or diagnostics):
+
+1. Go to **Storage** in your Supabase Dashboard.
+2. Create a new bucket named `vehicle-images`.
+3. **Important**: While the bucket can be "Public" for easy access, the app is designed to work with individual RLS policies on the `objects` table if you require strict privacy. For MVP, keeping it Public is sufficient as filenames are randomized UUIDs.
 
 ## 5. Environment Synchronization
 
-Ensure the following variables in `index.html` (or your `.env` file) match your new project:
+Update your `index.html` or `.env` file with the following keys from **Project Settings > API**:
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
 
-- `SUPABASE_URL`: Found in Project Settings > API.
-- `SUPABASE_ANON_KEY`: Found in Project Settings > API (use the `anon` `public` key).
-
-## 6. Understanding RLS
-
-Row Level Security (RLS) is enabled for all tables.
-- **Vehicles**: Restricted by the `owner_id` column matching `auth.uid()`.
-- **Logs & Tasks**: Restricted by a subquery that checks if the parent `vehicle_id` belongs to the authenticated user.
-
-This ensures that even in a multi-tenant environment, users can never see each other's data.
+Once completed, the application will automatically synchronize your garage data to the cloud whenever you are online.

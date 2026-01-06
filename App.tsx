@@ -1,13 +1,18 @@
-
 import React, { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
 import AuthScreen from './components/AuthScreen.tsx';
+import Dashboard from './components/Dashboard.tsx';
+import Marketplace from './components/Marketplace.tsx';
+import AdminPanel from './components/AdminPanel.tsx';
+import OnboardingCommandCenter from './components/OnboardingCommandCenter.tsx';
 import { validateEnv } from './services/envService.ts';
+import { fetchUserVehicles } from './services/vehicleService.ts';
 
 const App: React.FC = () => {
   const { 
-    session, setSession, isInitialized, setInitialized, user
+    session, setSession, isInitialized, setInitialized, 
+    user, currentView, setCurrentView, setVehicles
   } = useAutoPalStore();
   
   const [initError, setInitError] = useState<string | null>(null);
@@ -45,11 +50,20 @@ const App: React.FC = () => {
     initAuth();
   }, [setSession, setInitialized]);
 
+  // Fetch initial data when session becomes active
+  useEffect(() => {
+    if (session && user) {
+      fetchUserVehicles()
+        .then(setVehicles)
+        .catch(err => console.error("Initial load failed", err));
+    }
+  }, [session, user, setVehicles]);
+
   if (!isInitialized) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
         <div className="relative animate-pulse-slow">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl rotate-12 flex items-center justify-center shadow-xl">
+          <div className="w-16 h-16 blue-gradient rounded-2xl rotate-12 flex items-center justify-center shadow-xl">
             <span className="text-white font-black text-2xl -rotate-12">A</span>
           </div>
         </div>
@@ -73,46 +87,76 @@ const App: React.FC = () => {
 
   if (!session) return <AuthScreen />;
 
+  // Full-screen onboarding view
+  if (currentView === 'onboarding') {
+    return <OnboardingCommandCenter />;
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-      <div className="max-w-md w-full animate-slide-up">
-        <div className="bg-white card-radius p-10 md:p-14 shadow-2xl border border-slate-100 text-center space-y-8">
-          <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-[2rem] flex items-center justify-center text-3xl mx-auto shadow-inner">
-            👤
+    <div className="min-h-screen bg-[#fcfcfd] pb-32">
+      {/* Navigation Top Bar */}
+      <nav className="sticky top-0 z-[50] bg-white/80 backdrop-blur-xl border-b border-slate-100 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 blue-gradient rounded-lg flex items-center justify-center text-white font-black text-sm">A</div>
+            <span className="font-black tracking-tighter text-slate-900">AutoPal NG</span>
           </div>
           
-          <div className="space-y-2">
-            <h2 className="text-3xl font-black text-slate-900 tracking-tighter">Identity Verified</h2>
-            <p className="text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px]">Session Key: Active</p>
+          <div className="flex items-center gap-2 md:gap-6">
+            <button 
+              onClick={() => setCurrentView('garage')}
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'garage' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
+            >
+              Garage
+            </button>
+            <button 
+              onClick={() => setCurrentView('marketplace')}
+              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'marketplace' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
+            >
+              Market
+            </button>
+            {user?.role === 'admin' && (
+              <button 
+                onClick={() => setCurrentView('admin')}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'admin' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-400 hover:text-rose-600'}`}
+              >
+                Admin
+              </button>
+            )}
+            <div className="h-6 w-px bg-slate-100 hidden md:block"></div>
+            <button 
+              onClick={() => supabase?.auth.signOut()}
+              className="hidden md:block text-[10px] font-black text-rose-500 uppercase tracking-widest hover:underline"
+            >
+              Sign Out
+            </button>
           </div>
+        </div>
+      </nav>
 
-          <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-left">
-            <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Authenticated Account</div>
-            <div className="text-sm font-bold text-slate-900 truncate">{user?.email}</div>
-          </div>
+      {/* Main Content View Switcher */}
+      <main className="max-w-7xl mx-auto px-6 pt-12">
+        {currentView === 'garage' && <Dashboard />}
+        {currentView === 'marketplace' && <Marketplace />}
+        {currentView === 'admin' && <AdminPanel />}
+      </main>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-white border border-slate-100 rounded-xl">
-              <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Tier</div>
-              <div className="text-xs font-black text-blue-600 uppercase tracking-wider">{user?.tier || 'Free'}</div>
-            </div>
-            <div className="p-4 bg-white border border-slate-100 rounded-xl">
-              <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</div>
-              <div className="text-xs font-black text-emerald-600 uppercase tracking-wider">Online</div>
-            </div>
-          </div>
-
-          <button 
-            onClick={() => supabase?.auth.signOut()}
-            className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-rose-600 transition-all active:scale-95"
-          >
-            Sign Out of Instance
+      {/* Mobile Bottom Navigation */}
+      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-sm glass-card border-slate-200 rounded-[2.5rem] p-3 shadow-2xl z-[100] md:hidden">
+        <div className="flex justify-around items-center">
+          <button onClick={() => setCurrentView('garage')} className={`p-4 rounded-2xl transition-all ${currentView === 'garage' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>
+            🏠
+          </button>
+          <button onClick={() => setCurrentView('marketplace')} className={`p-4 rounded-2xl transition-all ${currentView === 'marketplace' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>
+            🛒
+          </button>
+          <button onClick={() => setCurrentView('onboarding')} className="p-4 rounded-2xl text-slate-400">
+            ➕
+          </button>
+          <button onClick={() => supabase?.auth.signOut()} className="p-4 rounded-2xl text-rose-500">
+            🚪
           </button>
         </div>
-
-        <footer className="mt-8 text-center">
-          <p className="text-[8px] font-black text-slate-300 uppercase tracking-[0.4em]">AutoPal NG Kernel v4.0.0-Stable</p>
-        </footer>
       </div>
     </div>
   );

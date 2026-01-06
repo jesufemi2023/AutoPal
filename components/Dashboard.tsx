@@ -24,6 +24,7 @@ const Dashboard: React.FC = () => {
   const [aiAdvice, setAiAdvice] = useState<any>(null);
   const [showOdometerModal, setShowOdometerModal] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
   const pendingTasks = tasks.filter(t => t.vehicleId === activeVehicleId && t.status === 'pending');
@@ -35,12 +36,19 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (activeVehicleId) {
       setIsLoadingDetails(true);
+      setGlobalError(null);
       Promise.all([
         fetchVehicleTasks(activeVehicleId),
         fetchVehicleServiceLogs(activeVehicleId)
-      ]).then(([taskList, logList]) => {
+      ])
+      .then(([taskList, logList]) => {
         setTasks(taskList);
         logList.forEach(addServiceLog);
+      })
+      .catch((err) => {
+        setGlobalError(err.message || "Failed to sync vehicle intelligence.");
+      })
+      .finally(() => {
         setIsLoadingDetails(false);
       });
     }
@@ -60,6 +68,13 @@ const Dashboard: React.FC = () => {
           + Add New Asset
         </button>
       </header>
+
+      {globalError && (
+        <div className="bg-rose-50 border border-rose-100 p-6 rounded-[2rem] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-rose-600 text-xs font-black uppercase tracking-widest">{globalError}</p>
+          <button onClick={() => window.location.reload()} className="text-[10px] font-black uppercase tracking-widest bg-rose-600 text-white px-6 py-3 rounded-xl shadow-lg shadow-rose-500/20">Restart Engine</button>
+        </div>
+      )}
 
       {vehicles.length > 0 ? (
         <div className="flex gap-4 overflow-x-auto pb-6 scrollbar-hide -mx-4 px-4">
@@ -89,7 +104,6 @@ const Dashboard: React.FC = () => {
                 updateTaskStatus(t.id, 'completed')
                   .then(() => {
                     completeTask(t.id, t.estimatedCost || 0, activeVehicle.mileage);
-                    // Fix: Ensure passed object matches ServiceLog interface property names
                     createServiceLogEntry({
                       vehicleId: activeVehicle.id, 
                       taskId: t.id, 
@@ -97,8 +111,7 @@ const Dashboard: React.FC = () => {
                       serviceType: t.title, 
                       cost: t.estimatedCost || 0, 
                       mileageAtService: activeVehicle.mileage, 
-                      status: 'completed',
-                      isDirty: false
+                      status: 'completed'
                     });
                   });
               }} 
@@ -121,18 +134,20 @@ const Dashboard: React.FC = () => {
           </aside>
         </div>
       ) : (
-        <div className="py-32 text-center bg-white card-radius border-2 border-dashed border-slate-100 p-12">
-           <div className="w-24 h-24 bg-blue-50 rounded-[2.5rem] flex items-center justify-center text-4xl mx-auto mb-8 shadow-inner">🏎️</div>
-           <h3 className="text-3xl font-black text-slate-900 mb-2">Garage Offline</h3>
-           <p className="text-slate-400 mb-12 text-sm font-bold uppercase tracking-widest">Connect an asset to initialize digital twin</p>
-           <button onClick={() => setCurrentView('onboarding')} className="bg-slate-900 text-white px-12 py-6 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl hover:bg-blue-600 transition-all">Start Onboarding</button>
-        </div>
+        !isLoadingDetails && (
+          <div className="py-32 text-center bg-white card-radius border-2 border-dashed border-slate-100 p-12">
+             <div className="w-24 h-24 bg-blue-50 rounded-[2.5rem] flex items-center justify-center text-4xl mx-auto mb-8 shadow-inner">🏎️</div>
+             <h3 className="text-3xl font-black text-slate-900 mb-2">Garage Offline</h3>
+             <p className="text-slate-400 mb-12 text-sm font-bold uppercase tracking-widest">Connect an asset to initialize digital twin</p>
+             <button onClick={() => setCurrentView('onboarding')} className="bg-slate-900 text-white px-12 py-6 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl hover:bg-blue-600 transition-all">Start Onboarding</button>
+          </div>
+        )
       )}
 
       {showOdometerModal && activeVehicle && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-xl animate-in fade-in duration-300">
           <div className="w-full max-w-sm">
-            <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { await updateMileage(activeVehicle.id, v); await updateVehicleData(activeVehicle.id, { mileage: v }); setShowOdometerModal(false); }} onCancel={() => setShowOdometerModal(false)} />
+            <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { await updateMileage(activeVehicle.id, v); await updateVehicleData(activeVehicle.id, { current_mileage: v } as any); setShowOdometerModal(false); }} onCancel={() => setShowOdometerModal(false)} />
           </div>
         </div>
       )}

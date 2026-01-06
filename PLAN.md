@@ -10,10 +10,11 @@
 - [x] Implemented Core SQL Schema (Vehicles, Fuel Logs, Service Logs).
 - [x] Enabled Row-Level Security (RLS) for data isolation.
 - [x] Defined TypeScript interfaces for database synchronization.
-- [x] **New: Created Supabase Deployment Guide (`SUPABASE_GUIDE.md`)**.
+- [x] Created Supabase Deployment Guide (`SUPABASE_GUIDE.md`).
+- [x] Verified SQL Migration Script (`20240521_core_schema.sql`).
 - [x] Applied SQL Migrations to Supabase instance.
-- [ ] Implement deterministic maintenance calculators (mileage-based rules).
-- [ ] Offline-first persistence via Dexie.
+- [x] Implement deterministic maintenance calculators (mileage-based rules).
+- [x] Establish child table relationships and cascading deletes.
 
 ## Phase 3: AI Orchestration
 - [ ] Gemini 3 Flash/Pro integration for JIT diagnostics.
