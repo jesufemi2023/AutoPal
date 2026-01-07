@@ -38,6 +38,7 @@ const FuelIntelligenceCenter: React.FC = () => {
   }, [activeVehicleId, setFuelLogs]);
 
   // Comprehensive Logic Engine for Efficiency and Cost Analytics
+  // Implementing "Full-to-Full Cumulative Block" Logic
   const logsWithAnalytics = useMemo(() => {
     const sorted = [...fuelLogs].sort((a, b) => b.odometerKm - a.odometerKm);
     return sorted.map((log, index) => {
@@ -46,14 +47,22 @@ const FuelIntelligenceCenter: React.FC = () => {
       const costPerLiter = log.liters > 0 ? log.totalCost / log.liters : 0;
       
       if (log.isFullTank) {
-        // Distance is calculated from previous full tank to this one
-        const prevFull = sorted.slice(index + 1).find(l => l.isFullTank);
-        if (prevFull) {
+        // Find the previous "Full" log to close the block
+        const prevFullIndex = sorted.slice(index + 1).findIndex(l => l.isFullTank);
+        if (prevFullIndex !== -1) {
+          const actualPrevIndex = prevFullIndex + index + 1;
+          const prevFull = sorted[actualPrevIndex];
           const dist = log.odometerKm - prevFull.odometerKm;
+          
           if (dist > 0) {
             tripDistance = dist;
-            if (log.liters > 0) {
-              tripKml = dist / log.liters;
+            // The fuel consumed for this distance is the sum of liters from this Full log 
+            // and all partial logs that happened after the previous Full log.
+            const blockLogs = sorted.slice(index, actualPrevIndex);
+            const totalLiters = blockLogs.reduce((acc, l) => acc + l.liters, 0);
+            
+            if (totalLiters > 0) {
+              tripKml = dist / totalLiters;
             }
           }
         }
@@ -69,7 +78,7 @@ const FuelIntelligenceCenter: React.FC = () => {
 
   const currentEffKml = efficienciesKml[0] || null;
   const previousEffKml = efficienciesKml[1] || null;
-  const avgEfficiencyKml = calculateAverageEfficiency(fuelLogs);
+  const avgEfficiencyKml = useMemo(() => calculateAverageEfficiency(fuelLogs), [fuelLogs]);
   
   const avgPricePerLiter = useMemo(() => {
     const validLogs = fuelLogs.filter(l => l.liters > 0 && l.totalCost > 0);
@@ -77,19 +86,15 @@ const FuelIntelligenceCenter: React.FC = () => {
     return validLogs.reduce((acc, l) => acc + (l.totalCost / l.liters), 0) / validLogs.length;
   }, [fuelLogs]);
   
-  const currentEffMpg = kmlToMpg(currentEffKml);
-  const avgEfficiencyMpg = kmlToMpg(avgEfficiencyKml);
-
   const efficiencyDelta = useMemo(() => {
     if (currentEffKml === null || previousEffKml === null) return null;
     return ((currentEffKml - previousEffKml) / previousEffKml) * 100;
   }, [currentEffKml, previousEffKml]);
 
-  // Chart Data Pipeline with Moving Average for Price Smoothing
+  // Chart Data Pipeline
   const chartData = useMemo(() => {
     const data = [...logsWithAnalytics].reverse();
     return data.map((l, idx) => {
-      // Calculate a 3-point moving average for the price trend
       const slice = data.slice(Math.max(0, idx - 2), idx + 1);
       const movingAvg = slice.reduce((acc, curr) => acc + curr.costPerLiter, 0) / slice.length;
 
@@ -170,7 +175,7 @@ const FuelIntelligenceCenter: React.FC = () => {
         <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] relative overflow-hidden group shadow-sm hover:shadow-md transition-all">
           <div className="absolute top-0 right-0 p-4 text-blue-500/5 font-black text-6xl pointer-events-none select-none uppercase">Now</div>
           <div className="relative z-10 space-y-4">
-            <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Efficiency</h3>
+            <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Last Efficiency</h3>
             <div className="space-y-2">
               <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
                 {currentEffKml ? currentEffKml.toFixed(1) : '--.-'}
@@ -194,7 +199,7 @@ const FuelIntelligenceCenter: React.FC = () => {
               <span className="text-xs text-slate-200 ml-2 font-sans font-bold">KM/L</span>
             </div>
             <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest">
-              {previousEffKml ? "Calibrated" : "Data Pending"}
+              {previousEffKml ? "Calibrated" : "Waiting for Anchor"}
             </div>
           </div>
         </div>
@@ -213,12 +218,12 @@ const FuelIntelligenceCenter: React.FC = () => {
         <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] relative overflow-hidden group shadow-xl">
           <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-blue-600/10 rounded-full blur-2xl"></div>
           <div className="relative z-10 space-y-4">
-            <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Network Avg.</h3>
+            <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Fleet Average</h3>
             <div className="text-4xl font-black tracking-tighter flex items-baseline">
               {avgEfficiencyKml ? avgEfficiencyKml.toFixed(1) : '--.-'}
               <span className="text-xs text-slate-600 ml-2 font-sans font-bold">KM/L</span>
             </div>
-            <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Lifetime Pulse</div>
+            <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Lifetime Precision</div>
           </div>
         </div>
       </div>
@@ -230,7 +235,7 @@ const FuelIntelligenceCenter: React.FC = () => {
           <header className="flex items-center justify-between">
             <div className="space-y-1">
               <h3 className="text-xl font-black text-slate-900 tracking-tight">Performance Curve</h3>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Efficiency over time</p>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Efficiency over time (Full Tank Anchors)</p>
             </div>
             <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
               <button onClick={() => setMetric('KML')} className={`px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${metric === 'KML' ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400'}`}>KM/L</button>
@@ -259,7 +264,7 @@ const FuelIntelligenceCenter: React.FC = () => {
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4">
                 <div className="text-3xl">📊</div>
-                <p className="text-[9px] font-black uppercase tracking-widest">Calibration Pending</p>
+                <p className="text-[9px] font-black uppercase tracking-widest">Awaiting Two Full Refills</p>
               </div>
             )}
           </div>
@@ -331,7 +336,7 @@ const FuelIntelligenceCenter: React.FC = () => {
 
               <div className="flex items-center gap-6 w-full lg:w-auto relative z-10">
                 <div className="relative">
-                  <div className="w-16 h-16 bg-slate-900 rounded-2xl flex flex-col items-center justify-center text-white font-black group-hover:bg-blue-600 transition-colors duration-500">
+                  <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-white font-black transition-colors duration-500 ${log.isFullTank ? 'bg-slate-900 group-hover:bg-blue-600' : 'bg-slate-100 group-hover:bg-slate-200 !text-slate-400'}`}>
                     <span className="text-[7px] opacity-40 uppercase tracking-widest mb-0.5 font-sans">Node</span>
                     <span className="text-lg leading-none">{fuelLogs.length - idx}</span>
                   </div>
@@ -349,7 +354,7 @@ const FuelIntelligenceCenter: React.FC = () => {
                   </h4>
                   {log.tripDistance && (
                     <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
-                      +{log.tripDistance.toLocaleString()} KM since refill
+                      +{log.tripDistance.toLocaleString()} KM block
                     </div>
                   )}
                   <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{log.vendor || 'Station Node'}</div>
@@ -364,7 +369,9 @@ const FuelIntelligenceCenter: React.FC = () => {
                       {log.tripKml.toFixed(1)} <span className="text-[8px] opacity-60">KM/L</span>
                     </div>
                   ) : (
-                    <div className="text-lg font-black text-slate-100 italic tracking-tighter leading-none">PENDING</div>
+                    <div className={`text-[10px] font-black tracking-widest leading-none py-1.5 ${log.isFullTank ? 'text-slate-200 italic' : 'text-blue-400 animate-pulse'}`}>
+                      {log.isFullTank ? 'ANCHOR' : 'ACCUMULATING...'}
+                    </div>
                   )}
                 </div>
                 <div className="space-y-1">

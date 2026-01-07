@@ -109,48 +109,62 @@ export const deleteFuelLog = async (logId: string): Promise<void> => {
 
 /**
  * Client-Side JIT Calculation
- * Uses the "Full-to-Full" method for high accuracy.
- * Efficiency (KM/L) = Distance since last full tank / Liters added now
+ * Uses the "Full-to-Full" method with Cumulative Refill support.
+ * We find the most recent Full Tank log and the one before it,
+ * then sum all liters filled in between.
  */
 export const calculateLastEfficiency = (logs: FuelLog[]): number | null => {
   if (logs.length < 2) return null;
 
-  // We need the most recent log (the one that filled the tank)
-  // and the previous log that also filled the tank.
-  const sortedLogs = [...logs].sort((a, b) => b.odometerKm - a.odometerKm);
+  const sorted = [...logs].sort((a, b) => b.odometerKm - a.odometerKm);
   
-  const currentRefill = sortedLogs[0];
-  if (!currentRefill.isFullTank) return null;
+  // Find current Full refill
+  const currentFullIndex = sorted.findIndex(l => l.isFullTank);
+  if (currentFullIndex === -1) return null;
 
-  // Find the previous "Full" log
-  const previousFull = sortedLogs.slice(1).find(l => l.isFullTank);
-  if (!previousFull) return null;
+  // Find previous Full refill
+  const prevFullIndex = sorted.slice(currentFullIndex + 1).findIndex(l => l.isFullTank);
+  if (prevFullIndex === -1) return null;
 
-  const distance = currentRefill.odometerKm - previousFull.odometerKm;
+  const actualPrevFullIndex = prevFullIndex + currentFullIndex + 1;
+  const currentFull = sorted[currentFullIndex];
+  const prevFull = sorted[actualPrevFullIndex];
+
+  const distance = currentFull.odometerKm - prevFull.odometerKm;
   if (distance <= 0) return null;
 
-  // Consumption for this distance is what we just put in to make it full again
-  return distance / currentRefill.liters;
+  // Sum all liters added from currentFull back to (but not including) prevFull
+  const logsInBlock = sorted.slice(currentFullIndex, actualPrevFullIndex);
+  const totalLiters = logsInBlock.reduce((acc, l) => acc + l.liters, 0);
+
+  return totalLiters > 0 ? distance / totalLiters : null;
 };
 
 /**
- * Average Efficiency across historical logs
+ * Average Efficiency across historical logs using the Global Anchor method.
  */
 export const calculateAverageEfficiency = (logs: FuelLog[]): number | null => {
+  if (logs.length < 2) return null;
+
   const sorted = [...logs].sort((a, b) => b.odometerKm - a.odometerKm);
   const fullLogs = sorted.filter(l => l.isFullTank);
   
   if (fullLogs.length < 2) return null;
 
-  const newest = fullLogs[0];
-  const oldest = fullLogs[fullLogs.length - 1];
+  const newestFull = fullLogs[0];
+  const oldestFull = fullLogs[fullLogs.length - 1];
   
-  const totalDistance = newest.odometerKm - oldest.odometerKm;
+  const totalDistance = newestFull.odometerKm - oldestFull.odometerKm;
   if (totalDistance <= 0) return null;
 
-  // Total liters consumed between the first and last full tank
-  // (We don't include the oldest refill's liters because those were for a previous trip)
-  const totalLiters = fullLogs.slice(0, -1).reduce((acc, l) => acc + l.liters, 0);
+  // Sum all liters added between the oldest FULL and newest FULL
+  // This includes the newestFull liters but excludes the oldestFull liters 
+  // (since oldestFull liters were consumed *before* that odometer reading).
+  const startIndex = sorted.indexOf(newestFull);
+  const endIndex = sorted.indexOf(oldestFull);
   
-  return totalDistance / totalLiters;
+  const logsInGlobalBlock = sorted.slice(startIndex, endIndex);
+  const totalLiters = logsInGlobalBlock.reduce((acc, l) => acc + l.liters, 0);
+  
+  return totalLiters > 0 ? totalDistance / totalLiters : null;
 };
