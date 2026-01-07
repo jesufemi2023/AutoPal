@@ -5,13 +5,10 @@
 
 /**
  * Robust environment variable retriever.
- * Checks multiple common locations where bundlers and platforms (Vercel, Vite, Node)
- * store environment variables.
  */
 export const getEnv = (key: string): string | undefined => {
   const viteKey = `VITE_${key}`;
   
-  // 1. Try static process.env (Standard Node/Webpack/Vercel)
   try {
     if (typeof process !== 'undefined' && process.env) {
       if (process.env[viteKey]) return process.env[viteKey];
@@ -19,7 +16,6 @@ export const getEnv = (key: string): string | undefined => {
     }
   } catch (e) {}
 
-  // 2. Try import.meta.env (Vite/ESM Standard)
   try {
     // @ts-ignore
     const metaEnv = import.meta.env;
@@ -29,7 +25,6 @@ export const getEnv = (key: string): string | undefined => {
     }
   } catch (e) {}
 
-  // 3. Try window properties or shim (Setup in index.html)
   try {
     const winProcess = (window as any).process;
     if (winProcess?.env) {
@@ -58,8 +53,16 @@ export const isValidVIN = (vin: string): boolean => {
 };
 
 /**
- * Aggressive Image Compression for $70 budget.
- * Targets <150KB files to stay within Supabase Free Tier.
+ * Conversion utility: KM/L to MPG (US)
+ * Factor: 1 KM/L = 2.35215 MPG
+ */
+export const kmlToMpg = (kml: number | null): number | null => {
+  if (kml === null) return null;
+  return kml * 2.35215;
+};
+
+/**
+ * Aggressive Image Compression
  */
 export const compressImage = async (
   file: File | Blob, 

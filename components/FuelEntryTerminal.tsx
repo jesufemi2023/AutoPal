@@ -1,27 +1,29 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
-import { addFuelLog } from '../services/fuelService.ts';
+import { addFuelLog, updateFuelLog } from '../services/fuelService.ts';
 import { updateVehicle } from '../services/vehicleService.ts';
 import { formatCurrency } from '../shared/utils.ts';
 import { ENV } from '../services/envService.ts';
+import { FuelLog } from '../shared/types.ts';
 
 interface FuelEntryTerminalProps {
   vehicleId: string;
   currentOdo: number;
+  initialLog?: FuelLog;
   onClose: () => void;
 }
 
-const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, currentOdo, onClose }) => {
-  const { addFuelLogStore, updateMileage } = useAutoPalStore();
+const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, currentOdo, initialLog, onClose }) => {
+  const { addFuelLogStore, updateFuelLogStore, updateMileage } = useAutoPalStore();
   const [isProcessing, setIsProcessing] = useState(false);
   
   const [form, setForm] = useState({
-    liters: '',
-    cost: '',
-    odometer: (currentOdo + 1).toString(), // Default to just above current
-    isFull: true,
-    vendor: ''
+    liters: initialLog?.liters.toString() || '',
+    cost: initialLog?.totalCost.toString() || '',
+    odometer: initialLog?.odometerKm.toString() || (currentOdo + 1).toString(),
+    isFull: initialLog ? initialLog.isFullTank : true,
+    vendor: initialLog?.vendor || ''
   });
 
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +33,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
     const lit = parseFloat(form.liters);
     const cost = parseFloat(form.cost);
 
-    if (isNaN(odo) || odo < currentOdo) {
+    if (isNaN(odo) || odo < (initialLog ? 0 : currentOdo)) {
       setError(`Odometer must be at least ${currentOdo} KM.`);
       return;
     }
@@ -39,26 +41,49 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
       setError("Please specify fuel volume.");
       return;
     }
+    if (!form.vendor.trim()) {
+      setError("Please specify the fuel station brand.");
+      return;
+    }
 
     setIsProcessing(true);
     setError(null);
 
     try {
-      const log = await addFuelLog({
-        vehicleId,
-        liters: lit,
-        totalCost: isNaN(cost) ? 0 : cost,
-        odometerKm: odo,
-        isFullTank: form.isFull,
-        vendor: form.vendor
-      });
+      if (initialLog) {
+        // Edit Mode
+        const updated = await updateFuelLog(initialLog.id, {
+          liters: lit,
+          totalCost: isNaN(cost) ? 0 : cost,
+          odometerKm: odo,
+          isFullTank: form.isFull,
+          vendor: form.vendor.trim()
+        });
+        updateFuelLogStore(updated);
+        
+        // If this was the most recent log, update vehicle odometer
+        if (odo >= currentOdo) {
+           await updateVehicle(vehicleId, { mileage: odo });
+           updateMileage(vehicleId, odo);
+        }
+      } else {
+        // Create Mode
+        const log = await addFuelLog({
+          vehicleId,
+          liters: lit,
+          totalCost: isNaN(cost) ? 0 : cost,
+          odometerKm: odo,
+          isFullTank: form.isFull,
+          vendor: form.vendor.trim()
+        });
 
-      // Synchronize Stores
-      addFuelLogStore(log);
-      
-      // Update the master vehicle mileage truth
-      await updateVehicle(vehicleId, { mileage: odo });
-      updateMileage(vehicleId, odo);
+        // Synchronize Stores
+        addFuelLogStore(log);
+        
+        // Update the master vehicle mileage truth
+        await updateVehicle(vehicleId, { mileage: odo });
+        updateMileage(vehicleId, odo);
+      }
 
       onClose();
     } catch (err: any) {
@@ -74,7 +99,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black">⛽</div>
           <div>
-            <h2 className="text-white text-xl font-black tracking-tighter uppercase">Refill Terminal</h2>
+            <h2 className="text-white text-xl font-black tracking-tighter uppercase">{initialLog ? "Edit Record" : "Refill Terminal"}</h2>
             <p className="text-slate-500 text-[8px] font-black uppercase tracking-widest">Pump Telemetry v1.0.4</p>
           </div>
         </div>
@@ -154,7 +179,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
            >
              {isProcessing ? (
                <div className="w-5 h-5 border-4 border-slate-900/20 border-t-slate-900 rounded-full animate-spin"></div>
-             ) : "Commit Telemetry"}
+             ) : (initialLog ? "Update Telemetry" : "Commit Telemetry")}
            </button>
         </div>
       </div>

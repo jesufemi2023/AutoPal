@@ -65,6 +65,37 @@ export const addFuelLog = async (log: Omit<FuelLog, 'id' | 'createdAt'>): Promis
   };
 };
 
+export const updateFuelLog = async (logId: string, log: Partial<FuelLog>): Promise<FuelLog> => {
+  if (!supabase) throw new Error("Cloud infrastructure not connected.");
+
+  const payload: any = {};
+  if (log.liters !== undefined) payload.liters = log.liters;
+  if (log.totalCost !== undefined) payload.total_cost = log.totalCost;
+  if (log.odometerKm !== undefined) payload.odometer_km = log.odometerKm;
+  if (log.isFullTank !== undefined) payload.is_full_tank = log.isFullTank;
+  if (log.vendor !== undefined) payload.vendor_brand = log.vendor;
+
+  const { data, error } = await supabase
+    .from('fuel_logs')
+    .update(payload)
+    .eq('id', logId)
+    .select()
+    .single();
+
+  if (error) handleSupabaseError(error, 'updateFuelLog');
+
+  return {
+    id: data.id,
+    vehicleId: data.vehicle_id,
+    liters: parseFloat(data.liters),
+    totalCost: parseFloat(data.total_cost),
+    odometerKm: parseInt(data.odometer_km),
+    isFullTank: data.is_full_tank,
+    vendor: data.vendor_brand,
+    createdAt: data.captured_at || data.created_at
+  };
+};
+
 /**
  * Client-Side JIT Calculation
  * Uses the "Full-to-Full" method for high accuracy.
