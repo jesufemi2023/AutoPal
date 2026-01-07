@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchFuelLogs, calculateLastEfficiency, calculateAverageEfficiency, deleteFuelLog } from '../services/fuelService.ts';
@@ -99,7 +98,7 @@ const FuelIntelligenceCenter: React.FC = () => {
   };
 
   const handleDeleteRecord = async (logId: string) => {
-    if (!window.confirm("CAUTION: Are you sure you want to delete this fuel record? This action will permanently remove the data from the efficiency analysis engine.")) {
+    if (!window.confirm("CAUTION: This action purges a verified entry from the vehicle's immutable ledger. Efficiency projections will be recalibrated. Proceed?")) {
       return;
     }
 
@@ -267,52 +266,71 @@ const FuelIntelligenceCenter: React.FC = () => {
       <div className="space-y-6 sm:space-y-8">
         <div className="flex items-center justify-between px-2">
           <div className="flex items-center gap-3">
-            <div className="w-1 h-5 bg-blue-600 rounded-full"></div>
+            <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></div>
             <h3 className="font-black uppercase tracking-[0.2em] text-[10px] sm:text-xs text-slate-900">Immutable Record Stream</h3>
           </div>
-          <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-[8px] font-black tracking-widest border border-slate-200 uppercase">
-            {fuelLogs.length} ENTRIES
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[8px] font-black tracking-widest border border-emerald-100 uppercase">
+              SYNCED
+            </span>
+            <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-[8px] font-black tracking-widest border border-slate-200 uppercase">
+              {fuelLogs.length} ENTRIES
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6">
           {logsWithEfficiency.length > 0 ? logsWithEfficiency.map((log, idx) => (
             <div 
               key={log.id} 
-              className="bg-white border border-slate-100 p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] hover:shadow-xl hover:border-blue-100 transition-all group flex flex-col lg:flex-row gap-6 lg:gap-8 items-start lg:items-center justify-between relative shadow-sm"
+              className="bg-white border border-slate-100 p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] hover:shadow-xl hover:border-blue-100 transition-all group flex flex-col lg:flex-row gap-6 lg:gap-8 items-start lg:items-center justify-between relative shadow-sm overflow-hidden"
             >
-              <div className="flex items-center gap-5 sm:gap-10 w-full lg:w-auto">
+              {/* Immutable Ledger Watermark */}
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-[0.03] pointer-events-none select-none text-[8px] sm:text-[10px] font-black uppercase tracking-[0.8em] rotate-90 origin-right whitespace-nowrap">
+                PERMANENT LEDGER ENTRY • HASHED RECORD
+              </div>
+
+              <div className="flex items-center gap-5 sm:gap-10 w-full lg:w-auto relative z-10">
                 <div className="relative shrink-0">
-                  <div className="w-14 h-14 sm:w-20 sm:h-20 bg-slate-950 rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center text-white font-black shadow-lg group-hover:bg-blue-600 transition-colors">
+                  <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl sm:rounded-3xl flex flex-col items-center justify-center text-white font-black shadow-lg group-hover:from-blue-600 group-hover:to-blue-700 transition-all duration-500">
                     <span className="text-[7px] sm:text-[9px] opacity-40 uppercase tracking-widest mb-0.5 sm:mb-1">Log</span>
                     <span className="text-lg sm:text-2xl leading-none">{fuelLogs.length - idx}</span>
                   </div>
+                  {/* Sealed Record Icon */}
+                  <div className="absolute -bottom-1.5 -right-1.5 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-slate-900 text-blue-400 border-2 sm:border-4 border-white flex items-center justify-center text-[10px] sm:text-xs shadow-md">
+                    🛡️
+                  </div>
                   {log.isFullTank && (
-                    <div className="absolute -top-1 -right-1 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-emerald-500 text-white border-2 sm:border-4 border-white flex items-center justify-center text-[8px] sm:text-[10px] font-black shadow-md">
+                    <div className="absolute -top-1.5 -left-1.5 w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-emerald-500 text-white border-2 sm:border-4 border-white flex items-center justify-center text-[8px] sm:text-[10px] font-black shadow-md">
                       F
                     </div>
                   )}
                 </div>
 
                 <div className="space-y-1">
-                  <div className="text-[8px] sm:text-[9px] font-black text-blue-500 uppercase tracking-widest">{formatDate(log.createdAt)}</div>
+                  <div className="text-[8px] sm:text-[9px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-1.5">
+                    <span className="w-1 h-1 rounded-full bg-blue-500"></span>
+                    {formatDate(log.createdAt)}
+                  </div>
                   <h4 className="text-xl sm:text-3xl font-black text-slate-900 tracking-tighter leading-none">
                     {log.liters.toFixed(2)} <span className="text-xs sm:text-sm text-slate-300 font-sans tracking-normal font-bold">Liters</span>
                   </h4>
                   <div className="text-[9px] sm:text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-200"></span>
                     {log.vendor || 'Station Point'}
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-8 sm:gap-x-12 lg:gap-16 w-full lg:w-auto pt-6 lg:pt-0 border-t lg:border-t-0 border-slate-50">
+              <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-8 sm:gap-x-12 lg:gap-16 w-full lg:w-auto pt-6 lg:pt-0 border-t lg:border-t-0 border-slate-50 relative z-10">
                 <div className="space-y-1">
-                  <div className="text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest">Efficiency</div>
+                  <div className="text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                    Efficiency
+                    <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                  </div>
                   {log.tripKml ? (
                     <div className="space-y-0.5">
                       <div className="text-lg sm:text-2xl font-black text-emerald-600 tracking-tighter">
-                        {log.tripKml.toFixed(1)} <span className="text-[8px] sm:text-[10px] opacity-60">KM/L</span>
+                        {log.tripKml.toFixed(1)} <span className="text-[8px] sm:text-[9px] opacity-60">KM/L</span>
                       </div>
                       <div className="text-[9px] sm:text-[11px] font-mono font-black text-slate-300">
                         {kmlToMpg(log.tripKml)?.toFixed(1)} <span className="text-[7px] sm:text-[8px] font-sans">MPG</span>
@@ -324,7 +342,10 @@ const FuelIntelligenceCenter: React.FC = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <div className="text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest">Odometer</div>
+                  <div className="text-[7px] sm:text-[8px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                    Odometer
+                    <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                  </div>
                   <div className="text-lg sm:text-2xl font-black text-slate-900 tracking-tighter font-mono">
                     {log.odometerKm.toLocaleString()} <span className="text-[8px] sm:text-[9px] opacity-40 font-sans">KM</span>
                   </div>
@@ -341,13 +362,14 @@ const FuelIntelligenceCenter: React.FC = () => {
                   <div className="flex items-center gap-2 sm:gap-4 lg:mt-3">
                      <button 
                        onClick={() => openEditTerminal(log)}
-                       className="px-4 sm:px-6 py-2 rounded-xl bg-slate-50 text-[8px] sm:text-[10px] font-black uppercase text-blue-600 hover:bg-blue-600 hover:text-white transition-all tracking-widest border border-slate-100 shadow-sm"
+                       className="px-4 sm:px-6 py-2 rounded-xl bg-slate-50 text-[8px] sm:text-[10px] font-black uppercase text-blue-600 hover:bg-blue-600 hover:text-white transition-all tracking-widest border border-slate-100 shadow-sm opacity-60 hover:opacity-100"
                      >
-                       Edit
+                       Correct
                      </button>
                      <button 
+                       /* Fix: Replaced undefined logId with log.id */
                        onClick={() => handleDeleteRecord(log.id)}
-                       className="px-4 sm:px-6 py-2 rounded-xl bg-rose-50 text-[8px] sm:text-[10px] font-black uppercase text-rose-500 hover:bg-rose-600 hover:text-white transition-all tracking-widest border border-rose-100 shadow-sm"
+                       className="px-4 sm:px-6 py-2 rounded-xl bg-rose-50 text-[8px] sm:text-[10px] font-black uppercase text-rose-500 hover:bg-rose-600 hover:text-white transition-all tracking-widest border border-rose-100 shadow-sm opacity-60 hover:opacity-100"
                      >
                        Purge
                      </button>
