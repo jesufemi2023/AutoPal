@@ -49,6 +49,7 @@ interface AutoPalState {
   setFuelLogs: (logs: FuelLog[]) => void;
   addFuelLogStore: (log: FuelLog) => void;
   updateFuelLogStore: (log: FuelLog) => void;
+  removeFuelLogStore: (logId: string) => void;
   setMarketplace: (items: any[]) => void;
   setSuggestedParts: (parts: string[]) => void;
   
@@ -117,6 +118,9 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   addFuelLogStore: (log) => set((state) => ({ fuelLogs: [log, ...state.fuelLogs] })),
   updateFuelLogStore: (log) => set((state) => ({
     fuelLogs: state.fuelLogs.map(l => l.id === log.id ? log : l)
+  })),
+  removeFuelLogStore: (logId) => set((state) => ({
+    fuelLogs: state.fuelLogs.filter(l => l.id !== logId)
   })),
   setMarketplace: (marketplace) => set({ marketplace }),
   setSuggestedParts: (suggestedPartNames) => set({ suggestedPartNames }),

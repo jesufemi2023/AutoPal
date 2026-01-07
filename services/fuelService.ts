@@ -96,6 +96,17 @@ export const updateFuelLog = async (logId: string, log: Partial<FuelLog>): Promi
   };
 };
 
+export const deleteFuelLog = async (logId: string): Promise<void> => {
+  if (!supabase) throw new Error("Cloud infrastructure not connected.");
+  
+  const { error } = await supabase
+    .from('fuel_logs')
+    .delete()
+    .eq('id', logId);
+
+  if (error) handleSupabaseError(error, 'deleteFuelLog');
+};
+
 /**
  * Client-Side JIT Calculation
  * Uses the "Full-to-Full" method for high accuracy.
