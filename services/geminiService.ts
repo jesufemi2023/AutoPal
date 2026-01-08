@@ -2,18 +2,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ENV } from "./envService.ts";
 import { PROMPTS } from "./promptService.ts";
-import { AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
+import { AIResponse, MaintenanceScheduleResponse, ReceiptData } from "../shared/types.ts";
 
-/**
- * VIN Decoding with Robust Error Handling
- * Uses Gemini 3 Flash to extract vehicle metadata from a raw VIN.
- */
 export const decodeVIN = async (vin: string): Promise<{ make: string; model: string; year: number; bodyType: string }> => {
   if (ENV.MOCK_AI) {
     return { make: "Toyota", model: "Camry", year: 2022, bodyType: "sedan" };
   }
 
-  // Always use process.env.API_KEY directly for initialization as per SDK guidelines
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
@@ -26,70 +21,81 @@ export const decodeVIN = async (vin: string): Promise<{ make: string; model: str
         responseSchema: {
           type: Type.OBJECT,
           properties: {
-            make: { type: Type.STRING, description: "The vehicle manufacturer (e.g., Honda, Toyota)" },
-            model: { type: Type.STRING, description: "The specific model name (e.g., Civic, Corolla)" },
-            year: { type: Type.INTEGER, description: "The production year" },
-            bodyType: { 
-              type: Type.STRING, 
-              enum: ["sedan", "suv", "truck", "coupe", "van", "other"],
-              description: "Categorization of the vehicle body style"
-            }
+            make: { type: Type.STRING },
+            model: { type: Type.STRING },
+            year: { type: Type.INTEGER },
+            bodyType: { type: Type.STRING, enum: ["sedan", "suv", "truck", "coupe", "van", "other"] }
           },
           required: ["make", "model", "year", "bodyType"]
         }
       }
     });
     
-    let text = response.text;
-    if (!text) throw new Error("EMPTY_AI_RESPONSE");
-
-    // Handle potential markdown code blocks in response
-    text = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    
-    const data = JSON.parse(text);
-    
-    // Validate essential fields
-    if (!data.make || !data.model) {
-      throw new Error("INCONCLUSIVE_VIN_DECODE");
-    }
-    
-    return data;
-  } catch (error: any) {
-    console.error("VIN Decode Service Error:", error);
-    if (error instanceof SyntaxError) {
-      throw new Error("MALFORMED_AI_RESPONSE");
-    }
+    let text = response.text?.replace(/```json/g, "").replace(/```/g, "").trim() || "{}";
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("VIN Decode Error:", error);
     throw error;
   }
 };
 
-/**
- * Localized Roadmap Generation
- * Uses Gemini 3 Pro for advanced reasoning about complex maintenance schedules.
- */
+export const extractReceiptData = async (imageBase64: string): Promise<ReceiptData> => {
+  if (ENV.MOCK_AI) {
+    return { vendor: "TotalEnergies Service Center", totalAmount: 25000, date: new Date().toISOString().split('T')[0] };
+  }
+
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const data = imageBase64.includes(",") ? imageBase64.split(",")[1] : imageBase64;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: {
+        parts: [
+          { inlineData: { mimeType: "image/jpeg", data: data } },
+          { text: "Extract receipt details: vendor name, total amount, and date." }
+        ]
+      },
+      config: {
+        systemInstruction: "You are a specialized receipt scanner. Extract data precisely. Return JSON.",
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            vendor: { type: Type.STRING },
+            totalAmount: { type: Type.NUMBER },
+            date: { type: Type.STRING, description: "ISO 8601 date YYYY-MM-DD" },
+            items: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["vendor", "totalAmount"]
+        }
+      }
+    });
+
+    let text = response.text?.replace(/```json/g, "").replace(/```/g, "").trim() || "{}";
+    return JSON.parse(text);
+  } catch (error) {
+    console.error("Receipt AI Error:", error);
+    throw error;
+  }
+};
+
 export const generateMaintenanceSchedule = async (
-  make: string, 
-  model: string, 
-  year: number, 
-  mileage: number
+  make: string, model: string, year: number, mileage: number
 ): Promise<MaintenanceScheduleResponse> => {
   if (ENV.MOCK_AI) {
     return {
-      summary: "Mock optimized roadmap for local testing.",
+      summary: "Mock roadmap.",
       tasks: [
-        { title: "Synthetic Oil Change", description: "Replace oil filter and 5L 0W-20", dueMileage: mileage + 5000, priority: "high", category: "fluids", estimatedCost: 45000 },
-        { title: "Brake Pad Inspection", description: "Check front pads for wear", dueMileage: mileage + 8000, priority: "medium", category: "brakes", estimatedCost: 5000 }
+        { title: "Oil Change", description: "Standard service", dueMileage: mileage + 5000, priority: "high", category: "fluids", estimatedCost: 45000 }
       ]
     };
   }
 
-  // Always use process.env.API_KEY directly for initialization as per SDK guidelines
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const prompt = `Vehicle: ${year} ${make} ${model}. Odometer: ${mileage}km.`;
-
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: prompt,
+    contents: `Vehicle: ${year} ${make} ${model}. Odometer: ${mileage}km.`,
     config: {
       systemInstruction: PROMPTS.MAINTENANCE_ROADMAP,
       responseMimeType: "application/json",
@@ -122,26 +128,13 @@ export const generateMaintenanceSchedule = async (
   return JSON.parse(text) as MaintenanceScheduleResponse;
 };
 
-/**
- * Symptom Diagnosis with Multi-Modal Vision support
- * Uses Gemini 3 Pro or Flash based on vehicle complexity and user tier.
- */
 export const getAdvancedDiagnostic = async (
-  vehicle: any, 
-  symptoms: string, 
-  isPremium: boolean,
-  imageBase64?: string
+  vehicle: any, symptoms: string, isPremium: boolean, imageBase64?: string
 ): Promise<AIResponse> => {
-  if (ENV.MOCK_AI) return { advice: "Checking the auxiliary belt is recommended.", recommendations: ["Inspect belt tension", "Check for cracks"], severity: "warning" };
-
-  // Always use process.env.API_KEY directly for initialization as per SDK guidelines
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const modelId = (isPremium && ENV.ENABLE_PREMIUM_AI) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
   
-  const parts: any[] = [
-    { text: `Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Problem: ${symptoms}` }
-  ];
-  
+  const parts: any[] = [{ text: `Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Problem: ${symptoms}` }];
   if (imageBase64) {
     const data = imageBase64.includes(",") ? imageBase64.split(",")[1] : imageBase64;
     parts.push({ inlineData: { mimeType: "image/jpeg", data: data } });

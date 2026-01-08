@@ -2,42 +2,29 @@
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog } from './types.ts';
 
-/**
- * AutoPal NG Unified State Engine
- */
-
 interface AutoPalState {
-  // Identity & Session
   user: UserProfile | null;
   session: any | null;
   isInitialized: boolean;
   isRecovering: boolean;
   isLoading: boolean;
-  
-  // Navigation & UI
   currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel';
   editingVehicleId: string | null;
-  
-  // Data Slices
   vehicles: Vehicle[];
   tasks: MaintenanceTask[];
   serviceLogs: ServiceLog[];
   fuelLogs: FuelLog[];
   suggestedPartNames: string[];
   marketplace: any[];
+  marketplaceFilter: string;
 
-  // Actions: Session
   setSession: (session: any) => void;
   setUser: (user: UserProfile | null) => void;
   setInitialized: (initialized: boolean) => void;
   setRecovering: (isRecovering: boolean) => void;
   setLoading: (loading: boolean) => void;
-  
-  // Actions: UI
   setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel') => void;
   setEditingVehicle: (id: string | null) => void;
-  
-  // Actions: Data
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
   updateVehicleStore: (vehicle: Vehicle) => void;
@@ -45,6 +32,7 @@ interface AutoPalState {
   updateMileage: (vehicleId: string, mileage: number) => void;
   completeTask: (taskId: string, cost: number, currentMileage: number) => void;
   setTasks: (tasks: MaintenanceTask[]) => void;
+  setServiceLogs: (logs: ServiceLog[]) => void;
   addServiceLog: (log: ServiceLog) => void;
   setFuelLogs: (logs: FuelLog[]) => void;
   addFuelLogStore: (log: FuelLog) => void;
@@ -52,8 +40,7 @@ interface AutoPalState {
   removeFuelLogStore: (logId: string) => void;
   setMarketplace: (items: any[]) => void;
   setSuggestedParts: (parts: string[]) => void;
-  
-  // System
+  setMarketplaceFilter: (filter: string) => void;
   reset: () => void;
 }
 
@@ -71,6 +58,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   fuelLogs: [],
   suggestedPartNames: [],
   marketplace: [],
+  marketplaceFilter: '',
 
   setSession: (session) => {
     if (!session) {
@@ -97,7 +85,6 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   setCurrentView: (currentView) => set({ currentView }),
   setEditingVehicle: (editingVehicleId) => set({ editingVehicleId }),
-  
   setVehicles: (vehicles) => set({ vehicles }),
   addVehicle: (vehicle) => set((state) => ({ vehicles: [vehicle, ...state.vehicles] })),
   updateVehicleStore: (vehicle) => set((state) => ({
@@ -113,6 +100,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
     tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'completed' } : t)
   })),
   setTasks: (tasks) => set({ tasks }),
+  setServiceLogs: (serviceLogs) => set({ serviceLogs }),
   addServiceLog: (log) => set((state) => ({ serviceLogs: [log, ...state.serviceLogs] })),
   setFuelLogs: (fuelLogs) => set({ fuelLogs }),
   addFuelLogStore: (log) => set((state) => ({ fuelLogs: [log, ...state.fuelLogs] })),
@@ -124,6 +112,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   })),
   setMarketplace: (marketplace) => set({ marketplace }),
   setSuggestedParts: (suggestedPartNames) => set({ suggestedPartNames }),
+  setMarketplaceFilter: (marketplaceFilter) => set({ marketplaceFilter }),
 
   reset: () => set({ 
     user: null, 
@@ -132,6 +121,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
     tasks: [], 
     serviceLogs: [],
     fuelLogs: [],
-    isRecovering: false 
+    isRecovering: false,
+    marketplaceFilter: ''
   }),
 }));

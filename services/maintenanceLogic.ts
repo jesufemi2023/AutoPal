@@ -1,8 +1,8 @@
 
-import { Vehicle, MaintenanceTask, ServiceLog, Priority, ServiceCategory } from '../shared/types.ts';
+import { Vehicle, MaintenanceTask, ServiceLog, Priority, ServiceCategory, FuelLog } from '../shared/types.ts';
 
 const CATEGORY_WEIGHTS: Record<ServiceCategory, number> = {
-  brakes: 2.5, // Safety Critical
+  brakes: 2.5, 
   suspension: 1.5,
   engine: 1.2,
   tires: 1.0,
@@ -17,9 +17,78 @@ const PRIORITY_MULTIPLIER: Record<Priority, number> = {
 };
 
 /**
- * The Vitality Engine
- * Calculates a 0-100 health score based on weighted maintenance status.
+ * Velocity Engine: Average Daily Kilometers (ADD)
+ * Calculates how much the car is driven per day based on historical logs.
  */
+export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: ServiceLog[]): number => {
+  const allLogs = [
+    ...fuelLogs.map(l => ({ odo: l.odometerKm, date: new Date(l.createdAt) })),
+    ...serviceLogs.map(l => ({ odo: l.mileageAtService, date: new Date(l.serviceDate) }))
+  ].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  if (allLogs.length < 2) return 30; // Default fallback for Nigeria urban commute
+
+  const oldest = allLogs[0];
+  const newest = allLogs[allLogs.length - 1];
+  
+  const distance = newest.odo - oldest.odo;
+  const timeDiff = newest.date.getTime() - oldest.date.getTime();
+  const days = Math.max(1, timeDiff / (1000 * 60 * 60 * 24));
+
+  const add = distance / days;
+  return add > 0 ? add : 30;
+};
+
+/**
+ * Predicts the date a service will be due based on velocity.
+ */
+export const predictServiceDate = (vehicle: Vehicle, task: MaintenanceTask, add: number): string | undefined => {
+  const kmRemaining = task.dueMileage - vehicle.mileage;
+  if (kmRemaining <= 0) return undefined;
+
+  const daysUntil = Math.ceil(kmRemaining / add);
+  const prediction = new Date();
+  prediction.setDate(prediction.getDate() + daysUntil);
+  
+  return prediction.toISOString();
+};
+
+export const calculateNextMilestone = (
+  baseMileage: number,
+  baseDate: string,
+  intervalKm: number = 5000,
+  intervalMonths?: number
+) => {
+  const nextMileage = baseMileage + intervalKm;
+  let nextDate = undefined;
+
+  if (intervalMonths && intervalMonths > 0) {
+    const d = new Date(baseDate);
+    d.setMonth(d.getMonth() + intervalMonths);
+    nextDate = d.toISOString();
+  }
+
+  return { nextMileage, nextDate };
+};
+
+export const getTaskMaintenanceStatus = (vehicle: Vehicle, task: MaintenanceTask): 'optimal' | 'upcoming' | 'overdue' => {
+  const currentMileage = vehicle.mileage;
+  const currentDate = new Date();
+
+  const kmRemaining = task.dueMileage - currentMileage;
+  
+  let daysRemaining = Infinity;
+  if (task.dueDate) {
+    const dueTime = new Date(task.dueDate).getTime();
+    daysRemaining = Math.ceil((dueTime - currentDate.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  if (kmRemaining <= 0 || daysRemaining <= 0) return 'overdue';
+  if (kmRemaining <= 500 || daysRemaining <= 14) return 'upcoming';
+
+  return 'optimal';
+};
+
 export const calculateVitalityScore = (vehicle: Vehicle, tasks: MaintenanceTask[]): number => {
   if (tasks.length === 0) return 100;
 
@@ -32,13 +101,12 @@ export const calculateVitalityScore = (vehicle: Vehicle, tasks: MaintenanceTask[
     const weight = CATEGORY_WEIGHTS[task.category] * PRIORITY_MULTIPLIER[task.priority];
     totalPossibleDebt += weight;
 
-    const kmOverdue = vehicle.mileage - task.dueMileage;
-    if (kmOverdue > 0) {
-      // Debt increases as mileage goes past due, capped at full weight
-      // A safety-critical item reaches max debt severity faster (1000km vs 5000km)
-      const cap = task.priority === 'high' ? 1000 : 3000;
-      const debtSeverity = Math.min(1, kmOverdue / cap); 
-      currentDebt += weight * debtSeverity;
+    const status = getTaskMaintenanceStatus(vehicle, task);
+
+    if (status === 'overdue') {
+      currentDebt += weight;
+    } else if (status === 'upcoming') {
+      currentDebt += weight * 0.4;
     }
   });
 
@@ -46,38 +114,27 @@ export const calculateVitalityScore = (vehicle: Vehicle, tasks: MaintenanceTask[
   return Math.max(0, Math.round(score));
 };
 
-/**
- * Maintenance Discipline Score
- * Measures consistency of logging vs intervals.
- */
 export const calculateDisciplineScore = (logs: ServiceLog[], tasks: MaintenanceTask[]): number => {
   if (logs.length === 0) return 0;
   
   const completedCount = logs.length;
-  // Count tasks that are currently overdue
   const overdueCount = tasks.filter(t => t.status === 'pending' && t.dueMileage < 0).length;
   
-  // Discipline also considers the verification level of logs
   const verificationBonus = logs.reduce((acc, l) => {
-    if (l.verificationLevel === 'receipt_verified') return acc + 2;
-    if (l.verificationLevel === 'mechanic_verified') return acc + 5;
+    if (l.verificationLevel === 'receipt_verified') return acc + 5;
+    if (l.verificationLevel === 'mechanic_verified') return acc + 10;
     return acc;
   }, 0);
   
-  const rawScore = (completedCount / (completedCount + overdueCount)) * 100;
-  const score = rawScore + (verificationBonus / logs.length);
+  const baseScore = (completedCount / (completedCount + overdueCount)) * 80; 
+  const finalScore = baseScore + (verificationBonus / logs.length);
   
-  return Math.min(100, Math.round(score));
+  return Math.min(100, Math.round(finalScore));
 };
 
-/**
- * Pattern Detection
- * Detects if a service is happening too frequently (Anomaly detection).
- */
 export const detectAnomalies = (logs: ServiceLog[]) => {
   const anomalies: Array<{ type: string; severity: 'low' | 'high'; message: string }> = [];
   
-  // 1. Excessive Oil/Fluid Consumption
   const engineLogs = logs.filter(l => l.category === 'engine' || l.category === 'fluids').sort((a,b) => b.mileageAtService - a.mileageAtService);
   if (engineLogs.length >= 2) {
     const delta = engineLogs[0].mileageAtService - engineLogs[1].mileageAtService;
@@ -85,38 +142,14 @@ export const detectAnomalies = (logs: ServiceLog[]) => {
       anomalies.push({
         type: 'consumption',
         severity: 'high',
-        message: "Excessive Engine/Fluid Maintenance frequency detected. Potential leak or burning."
+        message: "Excessive maintenance frequency detected. Potential engine leak or burn-off."
       });
     }
   }
-
-  // 2. Cost Drift
-  const categoryCosts: Record<string, number[]> = {};
-  logs.forEach(l => {
-    if (!categoryCosts[l.category]) categoryCosts[l.category] = [];
-    categoryCosts[l.category].push(l.cost);
-  });
-
-  Object.entries(categoryCosts).forEach(([cat, costs]) => {
-    if (costs.length < 3) return;
-    const last = costs[0];
-    const avg = costs.slice(1).reduce((a,b) => a+b, 0) / (costs.length - 1);
-    if (last > avg * 1.5) {
-      anomalies.push({
-        type: 'cost',
-        severity: 'low',
-        message: `Surge in ${cat} costs (+50%) vs historical average.`
-      });
-    }
-  });
   
   return anomalies;
 };
 
-/**
- * Financial Intelligence
- * Aggregates spend by category.
- */
 export const getSpendByCategory = (logs: ServiceLog[]) => {
   const totals: Record<string, number> = {};
   logs.forEach(log => {

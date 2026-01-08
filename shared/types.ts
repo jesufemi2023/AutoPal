@@ -25,6 +25,7 @@ export interface VehicleSpecs {
   transmission?: 'manual' | 'automatic';
   recommendedFuel?: string;
   sparkPlugGap?: string;
+  currency?: string;
   [key: string]: any;
 }
 
@@ -46,7 +47,7 @@ export interface Vehicle {
   engineSize?: string;
   createdAt?: string;
   updatedAt?: string;
-  avgDailyKm?: number;
+  avgDailyKm?: number; // Phase 4: Velocity Engine
   isDirty?: boolean;
 }
 
@@ -76,6 +77,7 @@ export interface ServiceLog {
   status?: string;
   taskId?: string;
   verificationLevel?: VerificationLevel;
+  receiptUrl?: string;
 }
 
 export interface MaintenanceTask {
@@ -84,10 +86,15 @@ export interface MaintenanceTask {
   title: string;
   description: string;
   dueMileage: number;
+  dueDate?: string; 
   status: TaskStatus;
   priority: Priority;
   category: ServiceCategory;
   estimatedCost?: number;
+  lastCompletedAt?: string; 
+  intervalKm?: number; 
+  intervalMonths?: number; 
+  projectedDate?: string; // Phase 4: Calculated by Velocity Engine
 }
 
 export interface AIResponse {
@@ -95,6 +102,13 @@ export interface AIResponse {
   recommendations: string[];
   severity: 'info' | 'warning' | 'critical';
   partsIdentified?: string[];
+}
+
+export interface ReceiptData {
+  vendor?: string;
+  totalAmount?: number;
+  date?: string;
+  items?: string[];
 }
 
 export interface MaintenanceScheduleResponse {
@@ -106,6 +120,8 @@ export interface MaintenanceScheduleResponse {
     priority: Priority;
     category: ServiceCategory;
     estimatedCost?: number;
+    intervalKm?: number;
+    intervalMonths?: number;
   }>;
 }
 

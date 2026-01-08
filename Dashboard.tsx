@@ -3,22 +3,23 @@ import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { getAdvancedDiagnostic } from '../services/geminiService.ts';
 import { 
-  fetchVehicleTasks, fetchVehicleServiceLogs, archiveVehicle, updateVehicle, updateMileage
+  fetchVehicleTasks, fetchVehicleServiceLogs, archiveVehicle, updateMileage, updateVehicle
 } from '../services/vehicleService.ts';
 import { OdometerInput } from './OdometerInput.tsx';
-import { ServiceLogTerminal } from './ServiceLogTerminal.tsx';
-import { MaintenanceTask } from '../shared/types.ts';
+import { MaintenanceTask, ServiceLog } from '../shared/types.ts';
 
 import { VehicleOverview } from './dashboard/VehicleOverview.tsx';
 import { MaintenanceRoadmap } from './dashboard/MaintenanceRoadmap.tsx';
 import { DiagnosticsPanel } from './dashboard/DiagnosticsPanel.tsx';
 import { VitalityDashboard } from './dashboard/VitalityDashboard.tsx';
+import { calculateVitalityScore } from './services/maintenanceLogic.ts';
+import { ServiceLogTerminal } from './components/ServiceLogTerminal.tsx';
 
 const Dashboard: React.FC = () => {
   const { 
     vehicles, tasks, serviceLogs, user, setSuggestedParts,
-    completeTask, setTasks, addServiceLog, setCurrentView,
-    removeVehicleStore, updateMileage: updateStoreMileage
+    setTasks, setServiceLogs, setCurrentView,
+    removeVehicleStore, updateMileage: updateStoreMileage, updateVehicleStore
   } = useAutoPalStore();
 
   const [activeVehicleId, setActiveVehicleId] = useState<string | null>(null);
@@ -29,8 +30,7 @@ const Dashboard: React.FC = () => {
   
   const [showOdometerModal, setShowOdometerModal] = useState(false);
   const [showLogTerminal, setShowLogTerminal] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<MaintenanceTask | undefined>();
-  
+  const [selectedTaskForLog, setSelectedTaskForLog] = useState<MaintenanceTask | undefined>();
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
@@ -52,10 +52,7 @@ const Dashboard: React.FC = () => {
       ])
       .then(([taskList, logList]) => {
         setTasks(taskList);
-        // Ensure store matches DB
-        logList.forEach(log => {
-           if (!serviceLogs.find(sl => sl.id === log.id)) addServiceLog(log);
-        });
+        setServiceLogs(logList);
       })
       .catch((err) => {
         setGlobalError(err.message || "Intelligence synchronization failure.");
@@ -64,7 +61,18 @@ const Dashboard: React.FC = () => {
         setIsLoadingDetails(false);
       });
     }
-  }, [activeVehicleId, setTasks, addServiceLog]);
+  }, [activeVehicleId, setTasks, setServiceLogs]);
+
+  // Recalculate health score whenever tasks or vehicle changes
+  useEffect(() => {
+    if (activeVehicle && tasks.length > 0) {
+      const newScore = calculateVitalityScore(activeVehicle, tasks);
+      if (newScore !== activeVehicle.healthScore) {
+        updateVehicle(activeVehicle.id, { healthScore: newScore });
+        updateVehicleStore({ ...activeVehicle, healthScore: newScore });
+      }
+    }
+  }, [tasks, activeVehicle?.mileage]);
 
   const handleArchive = async () => {
     if (!activeVehicleId || !confirm("Are you sure? This will archive the vehicle and its history.")) return;
@@ -75,12 +83,17 @@ const Dashboard: React.FC = () => {
     } catch (e: any) { alert(e.message); }
   };
 
+  const handleOpenLogTerminal = (task: MaintenanceTask) => {
+    setSelectedTaskForLog(task);
+    setShowLogTerminal(true);
+  };
+
   return (
     <div className="space-y-12 md:space-y-24">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-10 px-2">
         <div className="space-y-2">
           <h1 className="text-6xl md:text-8xl font-black text-slate-900 tracking-tighter leading-[0.85]">Garage</h1>
-          <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] ml-2">Digital Twin Control v4.5.0</p>
+          <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] ml-2">Intelligence Dashboard v5.0.0</p>
         </div>
         <div className="flex gap-4">
           <button 
@@ -113,17 +126,13 @@ const Dashboard: React.FC = () => {
           <div className="md:col-span-2 lg:col-span-8 space-y-12 lg:space-y-20">
             <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
             
-            <VitalityDashboard vehicle={activeVehicle} tasks={tasks.filter(t => t.vehicleId === activeVehicle.id)} logs={activeLogs} />
+            <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeLogs} />
 
             <MaintenanceRoadmap 
               vehicle={activeVehicle} 
               tasks={pendingTasks} 
-              logs={activeLogs}
               isLoading={isLoadingDetails}
-              onLog={t => {
-                setSelectedTask(t);
-                setShowLogTerminal(true);
-              }} 
+              onLog={handleOpenLogTerminal} 
             />
 
             <div className="pt-16 border-t border-slate-100 flex justify-center">
@@ -173,13 +182,9 @@ const Dashboard: React.FC = () => {
 
       {showLogTerminal && activeVehicle && (
         <ServiceLogTerminal 
-          vehicleId={activeVehicle.id} 
-          currentMileage={activeVehicle.mileage} 
-          preselectedTask={selectedTask}
-          onClose={() => {
-            setShowLogTerminal(false);
-            setSelectedTask(undefined);
-          }}
+          vehicle={activeVehicle} 
+          preselectedTask={selectedTaskForLog} 
+          onClose={() => { setShowLogTerminal(false); setSelectedTaskForLog(undefined); }} 
         />
       )}
     </div>

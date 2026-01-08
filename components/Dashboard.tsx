@@ -136,11 +136,10 @@ const Dashboard: React.FC = () => {
           <div className="lg:col-span-8 space-y-12 lg:space-y-20">
             <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
             
+            {/* Fix: Removed non-existent 'logs' prop from MaintenanceRoadmap */}
             <MaintenanceRoadmap 
               vehicle={activeVehicle} 
               tasks={pendingTasks} 
-              // Pass activeLogs to satisfy required 'logs' prop in MaintenanceRoadmap
-              logs={activeLogs}
               isLoading={isLoadingDetails}
               // Fixed: renamed onComplete to onLog to match MaintenanceRoadmap Props
               onLog={t => {

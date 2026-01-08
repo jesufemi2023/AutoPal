@@ -5,8 +5,8 @@ import { fetchMarketplaceProducts, generateWhatsAppLink } from '../services/mark
 import { MarketplaceProduct } from '../shared/types.ts';
 
 const Marketplace: React.FC = () => {
-  const { marketplace, setMarketplace, suggestedPartNames, vehicles } = useAutoPalStore();
-  const [filter, setFilter] = useState('');
+  const { marketplace, setMarketplace, suggestedPartNames, marketplaceFilter, setMarketplaceFilter, vehicles } = useAutoPalStore();
+  const [filter, setFilter] = useState(marketplaceFilter);
   const [loading, setLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('all');
 
@@ -27,8 +27,16 @@ const Marketplace: React.FC = () => {
     loadMarketplace();
   }, [setMarketplace]);
 
+  // Sync internal filter with store filter
+  useEffect(() => {
+    if (marketplaceFilter) {
+      setFilter(marketplaceFilter);
+    }
+  }, [marketplaceFilter]);
+
   const filteredItems = marketplace.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(filter.toLowerCase()) || item.category.toLowerCase().includes(filter.toLowerCase());
+    const matchesSearch = item.name.toLowerCase().includes(filter.toLowerCase()) || 
+                          item.category.toLowerCase().includes(filter.toLowerCase());
     const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
     return matchesSearch && matchesCategory;
   });
@@ -48,7 +56,7 @@ const Marketplace: React.FC = () => {
       <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 sm:gap-8 px-2">
         <div>
           <h2 className="text-4xl sm:text-6xl lg:text-7xl font-black text-slate-900 tracking-tighter">Marketplace</h2>
-          <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] sm:text-[10px] mt-2 sm:mt-4">Verified Supply Chain Network v1.2</p>
+          <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] sm:text-[10px] mt-2 sm:mt-4">Supply Chain v1.3</p>
         </div>
         
         <div className="relative group w-full lg:w-96">
@@ -57,30 +65,21 @@ const Marketplace: React.FC = () => {
             placeholder="Search components..."
             className="w-full bg-white border border-slate-100 rounded-xl sm:rounded-2xl py-4 sm:py-5 pl-12 sm:pl-14 pr-6 text-sm font-bold focus:border-blue-600 outline-none transition-all shadow-sm"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={(e) => {
+              setFilter(e.target.value);
+              setMarketplaceFilter(e.target.value);
+            }}
           />
           <span className="absolute left-5 sm:left-6 top-1/2 -translate-y-1/2 text-slate-300 text-sm">🔍</span>
         </div>
       </header>
 
-      {suggestedPartNames.length > 0 && (
-        <div className="bg-slate-900 card-radius p-6 sm:p-10 md:p-14 text-white relative overflow-hidden shadow-3xl">
-          <div className="absolute top-0 right-0 w-64 h-64 sm:w-80 sm:h-80 bg-blue-600/10 rounded-full blur-[60px] sm:blur-[100px] -translate-y-1/2 translate-x-1/2"></div>
-          <div className="relative z-10 flex flex-col md:flex-row items-center gap-6 sm:gap-10">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-blue-600 rounded-xl sm:rounded-[1.5rem] flex items-center justify-center text-xl sm:text-2xl shadow-xl shadow-blue-500/20 shrink-0">✧</div>
-            <div className="flex-1 text-center md:text-left space-y-1">
-              <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight">Predictive Procurement</h3>
-              <p className="text-slate-400 text-xs sm:text-sm md:text-base font-medium max-w-xl">
-                AI prioritized <span className="text-white font-black underline underline-offset-4 decoration-2">{suggestedPartNames.join(', ')}</span> for your asset.
-              </p>
-            </div>
-            <button 
-              onClick={() => { setFilter(suggestedPartNames[0]); setActiveCategory('all'); }}
-              className="w-full md:w-auto bg-white text-slate-900 px-8 py-4 sm:py-5 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[9px] sm:text-[10px] shadow-xl hover:scale-105 transition-transform"
-            >
-              Apply Filter
-            </button>
-          </div>
+      {marketplaceFilter && (
+        <div className="flex justify-between items-center bg-blue-50 p-4 rounded-2xl border border-blue-100">
+          <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">
+            Filtered for Task: <span className="text-blue-800">{marketplaceFilter}</span>
+          </p>
+          <button onClick={() => {setFilter(''); setMarketplaceFilter('');}} className="text-blue-600 text-[10px] font-black">CLEAR X</button>
         </div>
       )}
 
@@ -97,73 +96,36 @@ const Marketplace: React.FC = () => {
         ))}
       </div>
 
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
-          {[1,2,3,4].map(i => <div key={i} className="h-64 sm:h-96 bg-white card-radius animate-pulse"></div>)}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8 md:gap-10">
-          {sortedItems.length > 0 ? sortedItems.map((item, idx) => {
-            const isMatch = activeVehicle && item.compatibility.some(c => item.name.toLowerCase().includes(activeVehicle.model.toLowerCase()) || c.toLowerCase().includes(activeVehicle.make.toLowerCase()));
-
-            return (
-              <div key={item.id} className={`bg-white card-radius p-6 sm:p-8 border transition-all hover:shadow-2xl flex flex-col group relative animate-slide-up`} style={{ animationDelay: `${idx * 0.05}s` }}>
-                <div className="flex justify-between items-start mb-6 sm:mb-8">
-                  <div className="flex flex-col gap-1.5">
-                    <span className="bg-slate-50 text-slate-400 text-[7px] sm:text-[8px] font-black px-3 py-1 rounded-lg uppercase tracking-widest border border-slate-100 self-start">
-                      {item.category}
-                    </span>
-                    {isMatch && (
-                       <span className="bg-blue-600 text-white text-[7px] sm:text-[8px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest shadow-lg shadow-blue-500/20 self-start">
-                        Match
-                       </span>
-                    )}
-                  </div>
-                  {item.isVerified && <div className="w-6 h-6 sm:w-8 sm:h-8 bg-emerald-50 text-emerald-600 rounded-lg sm:rounded-xl flex items-center justify-center text-[10px] font-black">✓</div>}
-                </div>
-                
-                <h3 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight mb-3 sm:mb-4 group-hover:text-blue-600 transition-colors">{item.name}</h3>
-                <p className="text-slate-400 text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-6 sm:mb-10 flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-200"></span>
-                  {item.vendorName}
-                </p>
-                
-                <div className="flex flex-wrap gap-1.5 mb-6 sm:mb-10">
-                  {item.compatibility.slice(0, 2).map(car => (
-                    <span key={car} className="text-[8px] sm:text-[9px] font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100">
-                      {car}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
-                  <div>
-                    <div className="text-[7px] sm:text-[8px] font-black text-slate-300 uppercase tracking-widest mb-1">Price</div>
-                    <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter leading-none">₦{item.price.toLocaleString()}</div>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      const vInfo = activeVehicle ? `${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}` : 'Generic';
-                      window.open(generateWhatsAppLink(item, vInfo), '_blank');
-                    }}
-                    className="bg-slate-900 text-white w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center hover:bg-emerald-600 transition-all shadow-xl active:scale-90"
-                  >
-                    <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
-                  </button>
-                </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8 md:gap-10">
+        {sortedItems.map((item, idx) => {
+          const isMatch = activeVehicle && item.compatibility.some(c => item.name.toLowerCase().includes(activeVehicle.model.toLowerCase()) || c.toLowerCase().includes(activeVehicle.make.toLowerCase()));
+          return (
+            <div key={item.id} className="bg-white card-radius p-6 sm:p-8 border transition-all hover:shadow-2xl flex flex-col group relative">
+              <div className="flex justify-between items-start mb-6">
+                <span className="bg-slate-50 text-slate-400 text-[7px] font-black px-3 py-1 rounded-lg uppercase tracking-widest border border-slate-100">{item.category}</span>
+                {isMatch && <span className="bg-blue-600 text-white text-[7px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest">Match</span>}
               </div>
-            );
-          }) : (
-            <div className="col-span-full py-24 sm:py-40 text-center bg-white card-radius border-2 border-dashed border-slate-100">
-              <div className="w-16 h-16 sm:w-24 sm:h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8 text-slate-200 text-2xl sm:text-3xl">📦</div>
-              <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-2 tracking-tight">Supply Chain Empty</h3>
-              <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] sm:text-[10px]">No matches found for filters</p>
+              <h3 className="text-xl font-black text-slate-900 mb-3 group-hover:text-blue-600 transition-colors">{item.name}</h3>
+              <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest mb-6">{item.vendorName}</p>
+              <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
+                <div>
+                  <div className="text-[7px] font-black text-slate-300 uppercase tracking-widest mb-1">Price</div>
+                  <div className="text-xl font-black text-slate-900 leading-none">₦{item.price.toLocaleString()}</div>
+                </div>
+                <button 
+                  onClick={() => window.open(generateWhatsAppLink(item, activeVehicle ? `${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}` : 'Generic'), '_blank')}
+                  className="bg-slate-900 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-emerald-600 transition-all"
+                >
+                  🛒
+                </button>
+              </div>
             </div>
-          )}
-        </div>
-      )}
+          );
+        })}
+      </div>
     </div>
   );
 };
 
+// Fix: Added missing default export
 export default Marketplace;
