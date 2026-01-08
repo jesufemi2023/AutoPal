@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../services/fuelService.ts';
@@ -14,7 +15,8 @@ import {
   AreaChart,
   ReferenceLine,
   Line,
-  ComposedChart
+  ComposedChart,
+  Scatter
 } from 'recharts';
 
 /**
@@ -58,7 +60,6 @@ const FuelIntelligenceCenter: React.FC = () => {
       const costPerLiter = log.liters > 0 ? log.totalCost / log.liters : 0;
       
       if (log.isFullTank) {
-        // Find the next full tank log that happened before this one (higher index in descending sort)
         const prevFullIndex = sorted.slice(index + 1).findIndex(l => l.isFullTank);
         if (prevFullIndex !== -1) {
           const actualPrevIndex = prevFullIndex + index + 1;
@@ -67,7 +68,6 @@ const FuelIntelligenceCenter: React.FC = () => {
           
           if (dist > 0) {
             tripDistance = dist;
-            // Sum all liters added since the last full tank
             const blockLogs = sorted.slice(index, actualPrevIndex);
             const totalLiters = blockLogs.reduce((acc, l) => acc + l.liters, 0);
             
@@ -104,7 +104,6 @@ const FuelIntelligenceCenter: React.FC = () => {
   }, [currentEffKml, previousEffKml]);
 
   const chartData = useMemo(() => {
-    // Recharts MUST be sorted by X-axis (Odometer) ascending
     const data = [...logsWithAnalytics].sort((a, b) => a.odometerKm - b.odometerKm);
     return data.map((l, idx) => {
       const slice = data.slice(Math.max(0, idx - 2), idx + 1);
@@ -159,6 +158,18 @@ const FuelIntelligenceCenter: React.FC = () => {
       alert("System Error: " + (err.message || "Failed to purge record."));
     }
   };
+
+  // Buffer Odometer range to ensure axis is visible even with one point
+  const odoDomain = useMemo(() => {
+    if (chartData.length === 0) return [0, 100];
+    const odos = chartData.map(d => d.odo);
+    const min = Math.min(...odos);
+    const max = Math.max(...odos);
+    if (min === max) return [min - 100, max + 100];
+    return [min, max];
+  }, [chartData]);
+
+  const efficiencyData = useMemo(() => chartData.filter(d => d.kml !== null), [chartData]);
 
   return (
     <div className="space-y-8 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
@@ -269,9 +280,9 @@ const FuelIntelligenceCenter: React.FC = () => {
             </div>
           </header>
           <div className="h-64 sm:h-80 w-full relative">
-            {efficienciesKml.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData.filter(d => d.kml !== null)} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            {efficiencyData.length > 0 ? (
+              <ResponsiveContainer key={`eff-chart-${fuelLogs.length}`} width="100%" height="100%">
+                <ComposedChart data={efficiencyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorEff" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
@@ -281,12 +292,12 @@ const FuelIntelligenceCenter: React.FC = () => {
                   <XAxis 
                     dataKey="odo" 
                     type="number"
-                    domain={['dataMin', 'dataMax']}
+                    domain={odoDomain}
                     axisLine={false} 
                     tickLine={false} 
                     tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} 
                     dy={10} 
-                    tickFormatter={(val) => chartData.find(d => d.odo === val)?.dateStr || val} 
+                    tickFormatter={(val) => efficiencyData.find(d => d.odo === val)?.dateStr || ""} 
                   />
                   <YAxis 
                     axisLine={false} 
@@ -304,13 +315,19 @@ const FuelIntelligenceCenter: React.FC = () => {
                     fillOpacity={1} 
                     fill="url(#colorEff)" 
                     isAnimationActive={false}
-                    dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
-                    activeDot={{ r: 6 }}
+                    connectNulls
+                  />
+                  <Scatter 
+                    dataKey={metric === 'KML' ? 'kml' : 'mpg'} 
+                    fill="#3b82f6"
+                    stroke="#fff"
+                    strokeWidth={2}
+                    r={6}
                   />
                   {avgEfficiencyKml && (
                     <ReferenceLine y={metric === 'KML' ? avgEfficiencyKml : kmlToMpg(avgEfficiencyKml) || 0} stroke="#cbd5e1" strokeDasharray="4 4" />
                   )}
-                </AreaChart>
+                </ComposedChart>
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4">
@@ -333,8 +350,8 @@ const FuelIntelligenceCenter: React.FC = () => {
             </div>
           </header>
           <div className="h-64 sm:h-80 w-full relative">
-            {fuelLogs.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+            {chartData.length > 0 ? (
+              <ResponsiveContainer key={`cost-chart-${fuelLogs.length}`} width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
@@ -345,12 +362,12 @@ const FuelIntelligenceCenter: React.FC = () => {
                   <XAxis 
                     dataKey="odo" 
                     type="number"
-                    domain={['dataMin', 'dataMax']}
+                    domain={odoDomain}
                     axisLine={false} 
                     tickLine={false} 
                     tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} 
                     dy={10} 
-                    tickFormatter={(val) => chartData.find(d => d.odo === val)?.dateStr || val} 
+                    tickFormatter={(val) => chartData.find(d => d.odo === val)?.dateStr || ""} 
                   />
                   <YAxis 
                     axisLine={false} 
@@ -368,7 +385,13 @@ const FuelIntelligenceCenter: React.FC = () => {
                     fillOpacity={1} 
                     fill="url(#colorCost)" 
                     isAnimationActive={false}
-                    dot={{ r: 3, fill: '#10b981', strokeWidth: 1, stroke: '#fff' }}
+                  />
+                  <Scatter 
+                    dataKey="cost" 
+                    fill="#10b981" 
+                    stroke="#fff"
+                    strokeWidth={2}
+                    r={4}
                   />
                   <Line 
                     type="monotone" 
