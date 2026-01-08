@@ -8,7 +8,7 @@ interface AutoPalState {
   isInitialized: boolean;
   isRecovering: boolean;
   isLoading: boolean;
-  currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel';
+  currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service';
   editingVehicleId: string | null;
   vehicles: Vehicle[];
   tasks: MaintenanceTask[];
@@ -23,7 +23,7 @@ interface AutoPalState {
   setInitialized: (initialized: boolean) => void;
   setRecovering: (isRecovering: boolean) => void;
   setLoading: (loading: boolean) => void;
-  setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel') => void;
+  setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service') => void;
   setEditingVehicle: (id: string | null) => void;
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;

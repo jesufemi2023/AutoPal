@@ -1,17 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
-import { useAutoPalStore } from '../shared/store.ts';
-import { getAdvancedDiagnostic } from '../services/geminiService.ts';
+import { useAutoPalStore } from './shared/store.ts';
+import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, archiveVehicle, updateMileage, updateVehicle
-} from '../services/vehicleService.ts';
+} from './services/vehicleService.ts';
 import { OdometerInput } from './OdometerInput.tsx';
-import { MaintenanceTask, ServiceLog } from '../shared/types.ts';
+import { MaintenanceTask, ServiceLog } from './shared/types.ts';
 
-import { VehicleOverview } from './dashboard/VehicleOverview.tsx';
-import { MaintenanceRoadmap } from './dashboard/MaintenanceRoadmap.tsx';
-import { DiagnosticsPanel } from './dashboard/DiagnosticsPanel.tsx';
-import { VitalityDashboard } from './dashboard/VitalityDashboard.tsx';
+import { VehicleOverview } from './components/dashboard/VehicleOverview.tsx';
+import { MaintenanceRoadmap } from './components/dashboard/MaintenanceRoadmap.tsx';
+import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
+import { VitalityDashboard } from './components/dashboard/VitalityDashboard.tsx';
 import { calculateVitalityScore } from './services/maintenanceLogic.ts';
 import { ServiceLogTerminal } from './components/ServiceLogTerminal.tsx';
 
@@ -93,17 +93,15 @@ const Dashboard: React.FC = () => {
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-10 px-2">
         <div className="space-y-2">
           <h1 className="text-6xl md:text-8xl font-black text-slate-900 tracking-tighter leading-[0.85]">Garage</h1>
-          <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] ml-2">Intelligence Dashboard v5.0.0</p>
+          <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] ml-2">Intelligence Dashboard v5.1.0</p>
         </div>
         <div className="flex gap-4">
-          {activeVehicle && (
-            <button 
-              onClick={() => handleOpenLogTerminal()}
-              className="flex-1 sm:flex-none bg-slate-100 text-slate-900 px-10 py-6 rounded-[2rem] font-black uppercase tracking-widest text-[11px] hover:bg-slate-200 transition-all active:scale-95"
-            >
-              Log Protocol
-            </button>
-          )}
+          <button 
+            onClick={() => setCurrentView('service')}
+            className="flex-1 sm:flex-none bg-blue-50 text-blue-600 px-10 py-6 rounded-[2rem] font-black uppercase tracking-widest text-[11px] hover:bg-blue-100 transition-all active:scale-95"
+          >
+            Service Hub
+          </button>
           <button 
             onClick={() => setCurrentView('onboarding')}
             className="flex-1 sm:flex-none bg-blue-600 text-white px-10 py-6 rounded-[2rem] font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-blue-500/20 active:scale-95 transition-all"

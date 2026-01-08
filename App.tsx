@@ -3,10 +3,12 @@ import React, { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
 import AuthScreen from './components/AuthScreen.tsx';
-import Dashboard from './components/Dashboard.tsx';
+import Dashboard from './Dashboard.tsx';
 import Marketplace from './components/Marketplace.tsx';
 import AdminPanel from './components/AdminPanel.tsx';
 import FuelIntelligenceCenter from './components/FuelIntelligenceCenter.tsx';
+import ServiceIntelligenceCenter from './components/ServiceIntelligenceCenter.tsx';
+// Fixed: Path was missing 'components/' and ensured no '@/' alias is used
 import AssetIntelligenceCenter from './components/AssetIntelligenceCenter.tsx';
 import { validateEnv } from './services/envService.ts';
 import { fetchUserVehicles } from './services/vehicleService.ts';
@@ -109,6 +111,12 @@ const App: React.FC = () => {
               Garage
             </button>
             <button 
+              onClick={() => setCurrentView('service')}
+              className={`px-3 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'service' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-blue-600'}`}
+            >
+              Service
+            </button>
+            <button 
               onClick={() => setCurrentView('fuel')}
               className={`px-3 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'fuel' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-emerald-600'}`}
             >
@@ -141,6 +149,7 @@ const App: React.FC = () => {
 
       <main className="max-w-page mx-auto px-4 sm:px-6 pt-6 sm:pt-12">
         {currentView === 'garage' && <Dashboard />}
+        {currentView === 'service' && <ServiceIntelligenceCenter />}
         {currentView === 'fuel' && <FuelIntelligenceCenter />}
         {currentView === 'marketplace' && <Marketplace />}
         {currentView === 'admin' && <AdminPanel />}
@@ -151,14 +160,14 @@ const App: React.FC = () => {
           <button onClick={() => setCurrentView('garage')} className={`p-4 rounded-xl transition-all ${currentView === 'garage' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>
             🏠
           </button>
+          <button onClick={() => setCurrentView('service')} className={`p-4 rounded-xl transition-all ${currentView === 'service' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>
+            🛠️
+          </button>
           <button onClick={() => setCurrentView('fuel')} className={`p-4 rounded-xl transition-all ${currentView === 'fuel' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>
             ⛽
           </button>
           <button onClick={() => setCurrentView('marketplace')} className={`p-4 rounded-xl transition-all ${currentView === 'marketplace' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>
             🛒
-          </button>
-          <button onClick={() => setCurrentView('onboarding')} className="p-4 rounded-xl text-slate-400">
-            ➕
           </button>
         </div>
       </div>

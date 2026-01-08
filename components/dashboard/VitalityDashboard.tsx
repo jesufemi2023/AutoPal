@@ -59,7 +59,8 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs }) => 
             {Object.entries(categorySpend).length > 0 ? Object.entries(categorySpend).slice(0, 3).map(([cat, amount]) => (
                <div key={cat} className="flex justify-between items-center text-[10px] font-bold">
                  <span className="text-slate-500 uppercase tracking-widest">{cat}</span>
-                 <span className="text-blue-400">{formatCurrency(amount)}</span>
+                 {/* Fixed: Cast amount to number to ensure compatibility with formatCurrency signature */}
+                 <span className="text-blue-400">{formatCurrency(amount as number)}</span>
                </div>
             )) : <div className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">No service data recorded</div>}
           </div>
