@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../services/fuelService.ts';
@@ -276,10 +275,33 @@ const FuelIntelligenceCenter: React.FC = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="odo" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} dy={10} tickFormatter={(val) => chartData.find(d => d.odo === val)?.dateStr || val} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} domain={['auto - 1', 'auto + 1']} />
+                  <XAxis 
+                    dataKey="odo" 
+                    type="number"
+                    domain={['dataMin', 'dataMax']}
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} 
+                    dy={10} 
+                    tickFormatter={(val) => chartData.find(d => d.odo === val)?.dateStr || val} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} 
+                    domain={['dataMin - 1', 'dataMax + 1']} 
+                  />
                   <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#3b82f6', strokeWidth: 1 }} />
-                  <Area type="monotone" dataKey={metric === 'KML' ? 'kml' : 'mpg'} stroke="#3b82f6" strokeWidth={4} fillOpacity={1} fill="url(#colorEff)" />
+                  <Area 
+                    type="monotone" 
+                    dataKey={metric === 'KML' ? 'kml' : 'mpg'} 
+                    stroke="#3b82f6" 
+                    strokeWidth={4} 
+                    fillOpacity={1} 
+                    fill="url(#colorEff)" 
+                    dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
+                    activeDot={{ r: 6 }}
+                  />
                   {avgEfficiencyKml && (
                     <ReferenceLine y={metric === 'KML' ? avgEfficiencyKml : kmlToMpg(avgEfficiencyKml) || 0} stroke="#cbd5e1" strokeDasharray="4 4" />
                   )}
@@ -315,11 +337,40 @@ const FuelIntelligenceCenter: React.FC = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="odo" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} dy={10} tickFormatter={(val) => chartData.find(d => d.odo === val)?.dateStr || val} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} domain={['auto - 1', 'auto + 1']} />
+                  <XAxis 
+                    dataKey="odo" 
+                    type="number"
+                    domain={['dataMin', 'dataMax']}
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} 
+                    dy={10} 
+                    tickFormatter={(val) => chartData.find(d => d.odo === val)?.dateStr || val} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} 
+                    domain={['dataMin - 1', 'dataMax + 1']} 
+                  />
                   <Tooltip content={<CustomTooltip mode="cost" />} cursor={{ stroke: '#10b981', strokeWidth: 1 }} />
-                  <Area type="monotone" dataKey="cost" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorCost)" />
-                  <Line type="monotone" dataKey="avgCostTrend" stroke="#047857" strokeWidth={4} dot={false} strokeDasharray="none" />
+                  <Area 
+                    type="monotone" 
+                    dataKey="cost" 
+                    stroke="#10b981" 
+                    strokeWidth={2} 
+                    fillOpacity={1} 
+                    fill="url(#colorCost)" 
+                    dot={{ r: 3, fill: '#10b981', strokeWidth: 1, stroke: '#fff' }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="avgCostTrend" 
+                    stroke="#047857" 
+                    strokeWidth={4} 
+                    dot={false} 
+                    strokeDasharray="none" 
+                  />
                   {avgPricePerLiter > 0 && (
                     <ReferenceLine y={avgPricePerLiter} stroke="#cbd5e1" strokeDasharray="4 4" />
                   )}
