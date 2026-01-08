@@ -1,9 +1,16 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../services/fuelService.ts';
 import { formatCurrency, formatDate, kmlToMpg } from '../shared/utils.ts';
 import FuelEntryTerminal from './FuelEntryTerminal.tsx';
 import { FuelLog } from '../shared/types.ts';
+// Add missing ENV import to resolve currency display logic
+import { ENV } from '../services/envService.ts';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  AreaChart, Area, ReferenceLine 
+} from 'recharts';
 
 /**
  * Fuel Intelligence Center
@@ -47,7 +54,7 @@ const FuelIntelligenceCenter: React.FC = () => {
   }, [activeVehicleId, setFuelLogs]);
 
   const logsWithAnalytics = useMemo(() => {
-    // Robust sorting: newest first by odometer
+    // Robust sorting: newest first by odometer for list display
     const sorted = [...fuelLogs].sort((a, b) => (b.odometerKm || 0) - (a.odometerKm || 0));
     
     return sorted.map((log, index) => {
@@ -58,17 +65,14 @@ const FuelIntelligenceCenter: React.FC = () => {
       const costPerLiter = liters > 0 ? totalCost / liters : 0;
       
       if (log.isFullTank && log.odometerKm) {
-        // Find the previous full tank log in the sorted list (which is chronologically earlier)
         const prevFullIndex = sorted.slice(index + 1).findIndex(l => l.isFullTank && l.odometerKm);
         if (prevFullIndex !== -1) {
           const actualPrevIndex = prevFullIndex + index + 1;
           const prevFull = sorted[actualPrevIndex];
           const dist = log.odometerKm - (prevFull.odometerKm || 0);
           
-          // Only calculate if odometer reading makes sense (increased)
           if (dist > 0) {
             tripDistance = dist;
-            // Sum all liters added between these two full tanks (inclusive of current fill)
             const blockLogs = sorted.slice(index, actualPrevIndex);
             const totalLitersInBlock = blockLogs.reduce((acc, l) => acc + (l.liters || 0), 0);
             
@@ -82,6 +86,18 @@ const FuelIntelligenceCenter: React.FC = () => {
     });
   }, [fuelLogs]);
 
+  // Chart Data: Chronological (Oldest to Newest)
+  const chartData = useMemo(() => {
+    return [...logsWithAnalytics]
+      .reverse()
+      .map(log => ({
+        date: new Date(log.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        efficiency: log.tripKml ? (metric === 'KML' ? log.tripKml : kmlToMpg(log.tripKml)) : null,
+        price: log.costPerLiter,
+        vendor: log.vendor
+      }));
+  }, [logsWithAnalytics, metric]);
+
   const efficienciesKml = useMemo(() => 
     logsWithAnalytics
       .filter(l => l.tripKml !== null && !isNaN(l.tripKml) && isFinite(l.tripKml))
@@ -91,12 +107,6 @@ const FuelIntelligenceCenter: React.FC = () => {
 
   const currentEff = useMemo(() => {
     const val = efficienciesKml[0] || null;
-    if (val === null) return null;
-    return metric === 'KML' ? val : kmlToMpg(val);
-  }, [efficienciesKml, metric]);
-
-  const previousEff = useMemo(() => {
-    const val = efficienciesKml[1] || null;
     if (val === null) return null;
     return metric === 'KML' ? val : kmlToMpg(val);
   }, [efficienciesKml, metric]);
@@ -130,6 +140,33 @@ const FuelIntelligenceCenter: React.FC = () => {
     }
   };
 
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-slate-900/90 backdrop-blur-md p-4 border border-slate-700 rounded-2xl shadow-2xl">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{label}</p>
+          {payload.map((entry: any, index: number) => (
+            <div key={index} className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
+              <p className="text-sm font-black text-white">
+                {entry.name}: {entry.value?.toFixed(2)} 
+                <span className="text-[10px] opacity-50 ml-1 font-sans font-bold">
+                  {entry.name === 'Efficiency' ? metric : '₦/L'}
+                </span>
+              </p>
+            </div>
+          ))}
+          {payload[0].payload.vendor && (
+             <p className="mt-2 text-[9px] font-bold text-blue-400 uppercase tracking-widest border-t border-slate-800 pt-2 italic">
+               📍 {payload[0].payload.vendor}
+             </p>
+          )}
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <div className="space-y-8 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2">
@@ -161,18 +198,6 @@ const FuelIntelligenceCenter: React.FC = () => {
             </button>
           </div>
 
-          {vehicles.length > 1 && (
-            <select 
-              className="bg-white border-2 border-slate-100 px-6 py-5 rounded-[1.5rem] font-black uppercase tracking-widest text-[10px] outline-none focus:border-blue-600 transition-all shadow-sm"
-              value={activeVehicleId || ''}
-              onChange={(e) => setActiveVehicleId(e.target.value)}
-            >
-              {vehicles.map(v => (
-                <option key={v.id} value={v.id}>{v.year} {v.make} {v.model}</option>
-              ))}
-            </select>
-          )}
-
           <button 
             onClick={() => { setEditingLog(null); setShowTerminal(true); }}
             className="bg-slate-900 text-white px-8 sm:px-12 py-5 sm:py-6 rounded-[1.5rem] sm:rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] sm:text-[11px] shadow-3xl hover:bg-blue-600 transition-all active:scale-95 group flex items-center justify-center gap-3"
@@ -183,28 +208,9 @@ const FuelIntelligenceCenter: React.FC = () => {
         </div>
       </header>
 
-      {fetchError && (
-        <div className="bg-rose-50 border-2 border-rose-100 p-6 sm:p-10 rounded-[2.5rem] flex flex-col sm:flex-row items-center justify-between gap-6 mx-2 animate-slide-up">
-          <div className="flex items-center gap-6">
-            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center text-xl">⚠️</div>
-            <div className="space-y-1 text-center sm:text-left">
-              <h4 className="text-sm font-black text-rose-600 uppercase tracking-widest">Logic Interface Offline</h4>
-              <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest leading-relaxed">{fetchError}</p>
-            </div>
-          </div>
-          <button 
-            onClick={loadLogs}
-            className="w-full sm:w-auto bg-rose-600 text-white px-8 py-4 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-rose-600/20 active:scale-95 transition-all"
-          >
-            Retry Synchronization
-          </button>
-        </div>
-      )}
-
       {/* KPI GRID */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] relative overflow-hidden group shadow-sm hover:shadow-md transition-all">
-          <div className="absolute top-0 right-0 p-4 text-blue-500/5 font-black text-6xl pointer-events-none select-none uppercase">Now</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-2">
+        <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] relative overflow-hidden group shadow-sm">
           <div className="relative z-10 space-y-4">
             <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Last Efficiency</h3>
             <div className="space-y-2">
@@ -221,22 +227,7 @@ const FuelIntelligenceCenter: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] relative overflow-hidden group shadow-sm hover:shadow-md transition-all">
-          <div className="absolute top-0 right-0 p-4 text-slate-200/40 font-black text-6xl pointer-events-none select-none uppercase">Prev</div>
-          <div className="relative z-10 space-y-4">
-            <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Previous Run</h3>
-            <div className="text-4xl font-black text-slate-500 tracking-tighter flex items-baseline">
-              {previousEff ? previousEff.toFixed(1) : '--.-'}
-              <span className="text-xs text-slate-200 ml-2 font-sans font-bold">{metric}</span>
-            </div>
-            <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest">
-              {previousEff ? "Calibrated" : "Waiting for Anchor"}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] relative overflow-hidden group shadow-sm hover:shadow-md transition-all">
-          <div className="absolute top-0 right-0 p-4 text-emerald-500/5 font-black text-6xl pointer-events-none select-none uppercase">Price</div>
+        <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] relative overflow-hidden group shadow-sm">
           <div className="relative z-10 space-y-4">
             <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Avg. Price / L</h3>
             <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
@@ -246,25 +237,140 @@ const FuelIntelligenceCenter: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] relative overflow-hidden group shadow-xl">
-          <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-blue-600/10 rounded-full blur-2xl"></div>
+        <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] relative overflow-hidden group shadow-xl col-span-1 sm:col-span-2">
+          <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-blue-600/20 rounded-full blur-3xl"></div>
           <div className="relative z-10 space-y-4">
             <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Fleet Average</h3>
-            <div className="text-4xl font-black tracking-tighter flex items-baseline">
+            <div className="text-5xl font-black tracking-tighter flex items-baseline">
               {avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}
               <span className="text-xs text-slate-600 ml-2 font-sans font-bold">{metric}</span>
             </div>
-            <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Lifetime Precision</div>
+            <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Lifetime Precision Statistics</div>
           </div>
         </div>
       </div>
 
+      {/* VISUAL INTELLIGENCE SECTION */}
+      <section className="px-2 space-y-8">
+        <div className="flex items-center gap-3">
+          <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></div>
+          <h3 className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-900">Visual Intelligence Trend</h3>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Efficiency Progression */}
+          <div className="bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm flex flex-col h-[400px]">
+            <header className="mb-8 flex justify-between items-start">
+              <div className="space-y-1">
+                <h4 className="text-sm font-black text-slate-900 tracking-tight uppercase">Efficiency Progression</h4>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{metric} per Anchor Point</p>
+              </div>
+            </header>
+            <div className="flex-grow w-full">
+              {chartData.filter(d => d.efficiency !== null).length > 1 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="colorEff" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis 
+                      dataKey="date" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }}
+                      dy={10}
+                    />
+                    <YAxis 
+                      hide={true}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area 
+                      name="Efficiency"
+                      type="monotone" 
+                      dataKey="efficiency" 
+                      stroke="#2563eb" 
+                      strokeWidth={4}
+                      fillOpacity={1} 
+                      fill="url(#colorEff)" 
+                      connectNulls={true}
+                      dot={{ r: 4, strokeWidth: 2, fill: '#fff' }}
+                      activeDot={{ r: 6, strokeWidth: 0, fill: '#2563eb' }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-slate-50 rounded-3xl">
+                   <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Accumulating Telemetry Data...</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Market Price Trend */}
+          <div className="bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm flex flex-col h-[400px]">
+            <header className="mb-8 flex justify-between items-start">
+              <div className="space-y-1">
+                <h4 className="text-sm font-black text-slate-900 tracking-tight uppercase">Fuel Market Trend</h4>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Price in {ENV.CURRENCY} per Liter</p>
+              </div>
+            </header>
+            <div className="flex-grow w-full">
+              {chartData.length > 1 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis 
+                      dataKey="date" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }}
+                      dy={10}
+                    />
+                    <YAxis 
+                      hide={true}
+                      domain={['auto', 'auto']}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area 
+                      name="Price"
+                      type="stepAfter" 
+                      dataKey="price" 
+                      stroke="#10b981" 
+                      strokeWidth={4}
+                      fillOpacity={1} 
+                      fill="url(#colorPrice)" 
+                      dot={{ r: 3, fill: '#10b981' }}
+                    />
+                    <ReferenceLine y={avgPricePerLiter} stroke="#10b981" strokeDasharray="3 3" opacity={0.3} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-slate-50 rounded-3xl">
+                   <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Awaiting Initial Pricing Logs...</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* RECORD STREAM */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between px-2">
+      <div className="space-y-6 px-2">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></div>
-            <h3 className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-900">Immutable Record Stream</h3>
+            <h3 className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-900">Immutable Ledger Records</h3>
           </div>
         </div>
 
@@ -273,7 +379,7 @@ const FuelIntelligenceCenter: React.FC = () => {
             {logsWithAnalytics.map((log, idx) => (
               <div key={log.id} className="bg-white border border-slate-100 p-6 sm:p-8 rounded-[2rem] hover:shadow-xl transition-all group flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between relative shadow-sm overflow-hidden">
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-[0.02] pointer-events-none select-none text-[8px] font-black uppercase tracking-[0.8em] rotate-90 origin-right whitespace-nowrap">
-                  AUTOPAL_LEDGER_NODE_{log.id.slice(0, 8)}
+                  LEDGER_NODE_{log.id.slice(0, 8)}
                 </div>
 
                 <div className="flex items-center gap-6 w-full lg:w-auto relative z-10">
