@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../services/fuelService.ts';
@@ -24,14 +25,12 @@ import {
 const FuelIntelligenceCenter: React.FC = () => {
   const { vehicles, fuelLogs, setFuelLogs, removeFuelLogStore } = useAutoPalStore();
   
-  // FIX: Initialize with null and use an effect to sync once vehicles load from store
   const [activeVehicleId, setActiveVehicleId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const [editingLog, setEditingLog] = useState<FuelLog | null>(null);
   const [metric, setMetric] = useState<'KML' | 'MPG'>('KML');
 
-  // Sync activeVehicleId when vehicles array becomes available
   useEffect(() => {
     if (vehicles.length > 0 && !activeVehicleId) {
       setActiveVehicleId(vehicles[0].id);
@@ -50,9 +49,7 @@ const FuelIntelligenceCenter: React.FC = () => {
     }
   }, [activeVehicleId, setFuelLogs]);
 
-  // Comprehensive Logic Engine for Efficiency and Cost Analytics
   const logsWithAnalytics = useMemo(() => {
-    // Ensure logs are sorted by odometer for block calculation
     const sorted = [...fuelLogs].sort((a, b) => b.odometerKm - a.odometerKm);
     
     return sorted.map((log, index) => {
@@ -61,7 +58,6 @@ const FuelIntelligenceCenter: React.FC = () => {
       const costPerLiter = log.liters > 0 ? log.totalCost / log.liters : 0;
       
       if (log.isFullTank) {
-        // Find the previous "Full" log to close the calculation block
         const prevFullIndex = sorted.slice(index + 1).findIndex(l => l.isFullTank);
         if (prevFullIndex !== -1) {
           const actualPrevIndex = prevFullIndex + index + 1;
@@ -70,7 +66,6 @@ const FuelIntelligenceCenter: React.FC = () => {
           
           if (dist > 0) {
             tripDistance = dist;
-            // Consumption = Sum of liters in the block (current full + intermediate partials)
             const blockLogs = sorted.slice(index, actualPrevIndex);
             const totalLiters = blockLogs.reduce((acc, l) => acc + l.liters, 0);
             
@@ -106,33 +101,30 @@ const FuelIntelligenceCenter: React.FC = () => {
     return ((currentEffKml - previousEffKml) / previousEffKml) * 100;
   }, [currentEffKml, previousEffKml]);
 
-  // Chart Data Pipeline
   const chartData = useMemo(() => {
-    const data = [...logsWithAnalytics].reverse();
+    // Recharts MUST be sorted by X-axis (Odometer) ascending
+    const data = [...logsWithAnalytics].sort((a, b) => a.odometerKm - b.odometerKm);
     return data.map((l, idx) => {
       const slice = data.slice(Math.max(0, idx - 2), idx + 1);
       const movingAvg = slice.reduce((acc, curr) => acc + curr.costPerLiter, 0) / slice.length;
 
       return {
-        // FIX: Add a unique identifier to date to prevent Recharts from collapsing points on same-day entries
-        date: formatDate(l.createdAt),
-        displayDate: formatDate(l.createdAt),
-        key: `${l.id}-${idx}`, 
+        dateStr: formatDate(l.createdAt),
+        odo: l.odometerKm,
         kml: (l.tripKml !== null && isFinite(l.tripKml)) ? parseFloat(l.tripKml.toFixed(2)) : null,
         mpg: (l.tripKml !== null && isFinite(l.tripKml)) ? parseFloat(kmlToMpg(l.tripKml)!.toFixed(2)) : null,
         cost: parseFloat(l.costPerLiter.toFixed(2)),
         avgCostTrend: parseFloat(movingAvg.toFixed(2)),
-        odo: l.odometerKm
       };
     });
   }, [logsWithAnalytics]);
 
-  const CustomTooltip = ({ active, payload, label, mode }: any) => {
+  const CustomTooltip = ({ active, payload, mode }: any) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-2xl z-[100]">
           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-            {payload[0].payload.displayDate || label}
+            {payload[0].payload.dateStr}
           </p>
           <div className="space-y-2">
             {payload.map((p: any, i: number) => (
@@ -144,9 +136,6 @@ const FuelIntelligenceCenter: React.FC = () => {
                     {mode === 'cost' ? '/ L' : metric}
                   </span>
                 </p>
-                {p.name === 'avgCostTrend' && (
-                  <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest -mt-1">Rolling Average</span>
-                )}
               </div>
             ))}
             <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest pt-1 border-t border-slate-800">
@@ -287,8 +276,8 @@ const FuelIntelligenceCenter: React.FC = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="key" axisLine={false} tickLine={false} minTickGap={30} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} dy={10} hide={false} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} hide={false} domain={['auto', 'auto']} />
+                  <XAxis dataKey="odo" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} dy={10} tickFormatter={(val) => chartData.find(d => d.odo === val)?.dateStr || val} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} domain={['auto - 1', 'auto + 1']} />
                   <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#3b82f6', strokeWidth: 1 }} />
                   <Area type="monotone" dataKey={metric === 'KML' ? 'kml' : 'mpg'} stroke="#3b82f6" strokeWidth={4} fillOpacity={1} fill="url(#colorEff)" />
                   {avgEfficiencyKml && (
@@ -326,8 +315,8 @@ const FuelIntelligenceCenter: React.FC = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="key" axisLine={false} tickLine={false} minTickGap={30} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} dy={10} hide={false} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} hide={false} domain={['auto', 'auto']} />
+                  <XAxis dataKey="odo" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} dy={10} tickFormatter={(val) => chartData.find(d => d.odo === val)?.dateStr || val} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} domain={['auto - 1', 'auto + 1']} />
                   <Tooltip content={<CustomTooltip mode="cost" />} cursor={{ stroke: '#10b981', strokeWidth: 1 }} />
                   <Area type="monotone" dataKey="cost" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorCost)" />
                   <Line type="monotone" dataKey="avgCostTrend" stroke="#047857" strokeWidth={4} dot={false} strokeDasharray="none" />
