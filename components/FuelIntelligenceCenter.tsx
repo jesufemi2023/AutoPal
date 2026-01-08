@@ -1,27 +1,14 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../services/fuelService.ts';
 import { formatCurrency, formatDate, kmlToMpg } from '../shared/utils.ts';
 import FuelEntryTerminal from './FuelEntryTerminal.tsx';
 import { FuelLog } from '../shared/types.ts';
-import { 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  Area, 
-  AreaChart,
-  ReferenceLine,
-  Line,
-  ComposedChart,
-  Scatter
-} from 'recharts';
 
 /**
  * Fuel Intelligence Center
  * Immersive dashboard for fuel efficiency tracking and cost analysis.
+ * (Charts removed for streamlined telemetry focus)
  */
 const FuelIntelligenceCenter: React.FC = () => {
   const { vehicles, fuelLogs, setFuelLogs, removeFuelLogStore } = useAutoPalStore();
@@ -51,7 +38,6 @@ const FuelIntelligenceCenter: React.FC = () => {
   }, [activeVehicleId, setFuelLogs]);
 
   const logsWithAnalytics = useMemo(() => {
-    // Analytics are calculated based on chronological order (odometer)
     const sorted = [...fuelLogs].sort((a, b) => b.odometerKm - a.odometerKm);
     
     return sorted.map((log, index) => {
@@ -88,9 +74,23 @@ const FuelIntelligenceCenter: React.FC = () => {
     [logsWithAnalytics]
   );
 
-  const currentEffKml = efficienciesKml[0] || null;
-  const previousEffKml = efficienciesKml[1] || null;
-  const avgEfficiencyKml = useMemo(() => calculateAverageEfficiency(fuelLogs), [fuelLogs]);
+  const currentEff = useMemo(() => {
+    const val = efficienciesKml[0] || null;
+    if (val === null) return null;
+    return metric === 'KML' ? val : kmlToMpg(val);
+  }, [efficienciesKml, metric]);
+
+  const previousEff = useMemo(() => {
+    const val = efficienciesKml[1] || null;
+    if (val === null) return null;
+    return metric === 'KML' ? val : kmlToMpg(val);
+  }, [efficienciesKml, metric]);
+
+  const avgEfficiency = useMemo(() => {
+    const val = calculateAverageEfficiency(fuelLogs);
+    if (val === null) return null;
+    return metric === 'KML' ? val : kmlToMpg(val);
+  }, [fuelLogs, metric]);
   
   const avgPricePerLiter = useMemo(() => {
     const validLogs = fuelLogs.filter(l => l.liters > 0 && l.totalCost > 0);
@@ -99,55 +99,11 @@ const FuelIntelligenceCenter: React.FC = () => {
   }, [fuelLogs]);
   
   const efficiencyDelta = useMemo(() => {
-    if (currentEffKml === null || previousEffKml === null) return null;
-    return ((currentEffKml - previousEffKml) / previousEffKml) * 100;
-  }, [currentEffKml, previousEffKml]);
-
-  const chartData = useMemo(() => {
-    const data = [...logsWithAnalytics].sort((a, b) => a.odometerKm - b.odometerKm);
-    return data.map((l, idx) => {
-      const slice = data.slice(Math.max(0, idx - 2), idx + 1);
-      const movingAvg = slice.reduce((acc, curr) => acc + curr.costPerLiter, 0) / slice.length;
-
-      return {
-        dateStr: formatDate(l.createdAt),
-        odo: l.odometerKm,
-        kml: (l.tripKml !== null && isFinite(l.tripKml)) ? parseFloat(l.tripKml.toFixed(2)) : null,
-        mpg: (l.tripKml !== null && isFinite(l.tripKml)) ? parseFloat(kmlToMpg(l.tripKml)!.toFixed(2)) : null,
-        cost: parseFloat(l.costPerLiter.toFixed(2)),
-        avgCostTrend: parseFloat(movingAvg.toFixed(2)),
-      };
-    });
-  }, [logsWithAnalytics]);
-
-  const CustomTooltip = ({ active, payload, mode }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-2xl z-[100]">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
-            {payload[0].payload.dateStr}
-          </p>
-          <div className="space-y-2">
-            {payload.map((p: any, i: number) => (
-              <div key={i} className="flex flex-col">
-                <p className="text-white text-xl font-black tracking-tighter">
-                  {p.name === 'avgCostTrend' ? 'Trend: ' : ''}
-                  {mode === 'cost' ? formatCurrency(p.value) : p.value} 
-                  <span className="text-[10px] text-slate-500 uppercase ml-1">
-                    {mode === 'cost' ? '/ L' : metric}
-                  </span>
-                </p>
-              </div>
-            ))}
-            <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest pt-1 border-t border-slate-800">
-              Odo: {payload[0].payload.odo?.toLocaleString()} KM
-            </p>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
+    const cur = efficienciesKml[0] || null;
+    const prev = efficienciesKml[1] || null;
+    if (cur === null || prev === null) return null;
+    return ((cur - prev) / prev) * 100;
+  }, [efficienciesKml]);
 
   const handleDeleteRecord = async (logId: string) => {
     if (!window.confirm("CAUTION: Purging this record will permanently alter efficiency telemetry. Proceed?")) return;
@@ -158,18 +114,6 @@ const FuelIntelligenceCenter: React.FC = () => {
       alert("System Error: " + (err.message || "Failed to purge record."));
     }
   };
-
-  // Buffer Odometer range to ensure axis is visible even with one point
-  const odoDomain = useMemo(() => {
-    if (chartData.length === 0) return [0, 100];
-    const odos = chartData.map(d => d.odo);
-    const min = Math.min(...odos);
-    const max = Math.max(...odos);
-    if (min === max) return [min - 100, max + 100];
-    return [min, max];
-  }, [chartData]);
-
-  const efficiencyData = useMemo(() => chartData.filter(d => d.kml !== null), [chartData]);
 
   return (
     <div className="space-y-8 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
@@ -185,7 +129,24 @@ const FuelIntelligenceCenter: React.FC = () => {
             Fuel <br/><span className="text-blue-600">Logic</span>
           </h2>
         </div>
-        <div className="flex flex-col sm:flex-row gap-4">
+        
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+          {/* Unit Toggle relocated to header */}
+          <div className="flex bg-white border-2 border-slate-100 p-1 rounded-2xl shadow-sm">
+            <button 
+              onClick={() => setMetric('KML')} 
+              className={`flex-1 sm:flex-none px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${metric === 'KML' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
+            >
+              KM/L
+            </button>
+            <button 
+              onClick={() => setMetric('MPG')} 
+              className={`flex-1 sm:flex-none px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${metric === 'MPG' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
+            >
+              MPG
+            </button>
+          </div>
+
           {vehicles.length > 1 && (
             <select 
               className="bg-white border-2 border-slate-100 px-6 py-5 rounded-[1.5rem] font-black uppercase tracking-widest text-[10px] outline-none focus:border-blue-600 transition-all shadow-sm"
@@ -197,6 +158,7 @@ const FuelIntelligenceCenter: React.FC = () => {
               ))}
             </select>
           )}
+
           <button 
             onClick={() => { setEditingLog(null); setShowTerminal(true); }}
             className="bg-slate-900 text-white px-8 sm:px-12 py-5 sm:py-6 rounded-[1.5rem] sm:rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] sm:text-[11px] shadow-3xl hover:bg-blue-600 transition-all active:scale-95 group flex items-center justify-center gap-3"
@@ -215,7 +177,7 @@ const FuelIntelligenceCenter: React.FC = () => {
             <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Last Efficiency</h3>
             <div className="space-y-2">
               <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
-                {currentEffKml ? currentEffKml.toFixed(1) : '--.-'}
+                {currentEff ? currentEff.toFixed(1) : '--.-'}
                 <span className="text-xs text-slate-300 ml-2 font-sans font-bold">{metric}</span>
               </div>
               {efficiencyDelta !== null && (
@@ -232,11 +194,11 @@ const FuelIntelligenceCenter: React.FC = () => {
           <div className="relative z-10 space-y-4">
             <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Previous Run</h3>
             <div className="text-4xl font-black text-slate-500 tracking-tighter flex items-baseline">
-              {previousEffKml ? previousEffKml.toFixed(1) : '--.-'}
+              {previousEff ? previousEff.toFixed(1) : '--.-'}
               <span className="text-xs text-slate-200 ml-2 font-sans font-bold">{metric}</span>
             </div>
             <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest">
-              {previousEffKml ? "Calibrated" : "Waiting for Anchor"}
+              {previousEff ? "Calibrated" : "Waiting for Anchor"}
             </div>
           </div>
         </div>
@@ -257,164 +219,12 @@ const FuelIntelligenceCenter: React.FC = () => {
           <div className="relative z-10 space-y-4">
             <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Fleet Average</h3>
             <div className="text-4xl font-black tracking-tighter flex items-baseline">
-              {avgEfficiencyKml ? avgEfficiencyKml.toFixed(1) : '--.-'}
+              {avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}
               <span className="text-xs text-slate-600 ml-2 font-sans font-bold">{metric}</span>
             </div>
             <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Lifetime Precision</div>
           </div>
         </div>
-      </div>
-
-      {/* DUAL CHART VISUALIZATION */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-12">
-        {/* EFFICIENCY CURVE */}
-        <section className="bg-white border border-slate-100 card-radius p-6 sm:p-10 space-y-8 shadow-sm overflow-hidden min-h-[450px]">
-          <header className="flex items-center justify-between">
-            <div className="space-y-1">
-              <h3 className="text-xl font-black text-slate-900 tracking-tight">Performance Curve</h3>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Efficiency over time (Full Tank Anchors)</p>
-            </div>
-            <div className="flex bg-slate-50 p-1 rounded-xl border border-slate-100">
-              <button onClick={() => setMetric('KML')} className={`px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${metric === 'KML' ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400'}`}>KM/L</button>
-              <button onClick={() => setMetric('MPG')} className={`px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${metric === 'MPG' ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400'}`}>MPG</button>
-            </div>
-          </header>
-          <div className="h-64 sm:h-80 w-full relative">
-            {efficiencyData.length > 0 ? (
-              <ResponsiveContainer key={`eff-chart-${fuelLogs.length}`} width="100%" height="100%">
-                <ComposedChart data={efficiencyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorEff" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25}/><stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis 
-                    dataKey="odo" 
-                    type="number"
-                    domain={odoDomain}
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} 
-                    dy={10} 
-                    tickFormatter={(val) => efficiencyData.find(d => d.odo === val)?.dateStr || ""} 
-                  />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} 
-                    domain={['auto', 'auto']}
-                    padding={{ top: 20, bottom: 20 }}
-                  />
-                  <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#3b82f6', strokeWidth: 1 }} />
-                  <Area 
-                    type="monotone" 
-                    dataKey={metric === 'KML' ? 'kml' : 'mpg'} 
-                    stroke="#3b82f6" 
-                    strokeWidth={4} 
-                    fillOpacity={1} 
-                    fill="url(#colorEff)" 
-                    isAnimationActive={false}
-                    connectNulls
-                  />
-                  <Scatter 
-                    dataKey={metric === 'KML' ? 'kml' : 'mpg'} 
-                    fill="#3b82f6"
-                    stroke="#fff"
-                    strokeWidth={2}
-                    r={6}
-                  />
-                  {avgEfficiencyKml && (
-                    <ReferenceLine y={metric === 'KML' ? avgEfficiencyKml : kmlToMpg(avgEfficiencyKml) || 0} stroke="#cbd5e1" strokeDasharray="4 4" />
-                  )}
-                </ComposedChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4">
-                <div className="text-3xl animate-bounce">📊</div>
-                <div className="text-center">
-                  <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Calibration Pending</p>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Requires 2 consecutive 'Full Tank' entries</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* COST DYNAMICS */}
-        <section className="bg-white border border-slate-100 card-radius p-6 sm:p-10 space-y-8 shadow-sm overflow-hidden min-h-[450px]">
-          <header className="flex items-center justify-between">
-            <div className="space-y-1">
-              <h3 className="text-xl font-black text-slate-900 tracking-tight">Cost Dynamics</h3>
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Price per liter trend</p>
-            </div>
-          </header>
-          <div className="h-64 sm:h-80 w-full relative">
-            {chartData.length > 0 ? (
-              <ResponsiveContainer key={`cost-chart-${fuelLogs.length}`} width="100%" height="100%">
-                <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.15}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis 
-                    dataKey="odo" 
-                    type="number"
-                    domain={odoDomain}
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} 
-                    dy={10} 
-                    tickFormatter={(val) => chartData.find(d => d.odo === val)?.dateStr || ""} 
-                  />
-                  <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} 
-                    domain={['auto', 'auto']}
-                    padding={{ top: 20, bottom: 20 }}
-                  />
-                  <Tooltip content={<CustomTooltip mode="cost" />} cursor={{ stroke: '#10b981', strokeWidth: 1 }} />
-                  <Area 
-                    type="monotone" 
-                    dataKey="cost" 
-                    stroke="#10b981" 
-                    strokeWidth={2} 
-                    fillOpacity={1} 
-                    fill="url(#colorCost)" 
-                    isAnimationActive={false}
-                  />
-                  <Scatter 
-                    dataKey="cost" 
-                    fill="#10b981" 
-                    stroke="#fff"
-                    strokeWidth={2}
-                    r={4}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="avgCostTrend" 
-                    stroke="#047857" 
-                    strokeWidth={4} 
-                    dot={false} 
-                    isAnimationActive={false}
-                    strokeDasharray="none" 
-                  />
-                  {avgPricePerLiter > 0 && (
-                    <ReferenceLine y={avgPricePerLiter} stroke="#cbd5e1" strokeDasharray="4 4" />
-                  )}
-                </ComposedChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4">
-                <div className="text-3xl">💸</div>
-                <p className="text-[9px] font-black uppercase tracking-widest">Awaiting Logs</p>
-              </div>
-            )}
-          </div>
-        </section>
       </div>
 
       {/* RECORD STREAM */}
@@ -465,7 +275,7 @@ const FuelIntelligenceCenter: React.FC = () => {
                   <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Efficiency</div>
                   {log.tripKml ? (
                     <div className="text-lg font-black text-emerald-600 tracking-tighter leading-none">
-                      {log.tripKml.toFixed(1)} <span className="text-[8px] opacity-60">{metric}</span>
+                      {(metric === 'KML' ? log.tripKml : kmlToMpg(log.tripKml))?.toFixed(1)} <span className="text-[8px] opacity-60">{metric}</span>
                     </div>
                   ) : (
                     <div className={`text-[10px] font-black tracking-widest leading-none py-1.5 ${log.isFullTank ? 'text-slate-200 italic' : 'text-blue-400 animate-pulse'}`}>
