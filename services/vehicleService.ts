@@ -66,7 +66,7 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
 
   const dbPayload: any = { ...data };
   if (data.mileage !== undefined) dbPayload.current_mileage = data.mileage;
-  if (data.ownerId !== undefined) dbPayload.owner_id = data.ownerId;
+  if (data.ownerId !== undefined) dbPayload.owner_id = data.owner_id;
   if (data.bodyType !== undefined) dbPayload.body_type = data.bodyType;
   if (data.fuelType !== undefined) dbPayload.fuel_type = data.fuelType;
   if (data.engineSize !== undefined) dbPayload.engine_size = data.engineSize;
@@ -101,8 +101,8 @@ export const updateMileage = async (vehicleId: string, mileage: number): Promise
 };
 
 /**
- * PHASE 3: THE TRIPLE-SYNC LOGIC
- * Atomic-like operation to handle maintenance completion.
+ * PHASE 4: RECURSION CUSTOMIZATION
+ * Finalizes maintenance completion with optional interval overrides.
  */
 export const finalizeMaintenanceCompletion = async (
   vehicle: Vehicle, 
@@ -115,16 +115,22 @@ export const finalizeMaintenanceCompletion = async (
     notes: string;
     verificationLevel: VerificationLevel;
     receiptUrl?: string;
+    intervalKm?: number;
+    intervalMonths?: number;
   }
 ): Promise<{ log: ServiceLog; updatedTask: MaintenanceTask }> => {
   if (!supabase) throw new Error("Supabase client missing.");
+
+  // Use task defaults if overrides aren't provided
+  const targetIntervalKm = completionData.intervalKm ?? task.intervalKm ?? 5000;
+  const targetIntervalMonths = completionData.intervalMonths ?? task.intervalMonths ?? 6;
 
   // 1. Calculate the next recursive milestone
   const { nextMileage, nextDate } = calculateNextMilestone(
     completionData.mileageAtService, 
     completionData.serviceDate, 
-    task.intervalKm, 
-    task.intervalMonths
+    targetIntervalKm, 
+    targetIntervalMonths
   );
 
   // 2. Perform the Triple-Sync (Update Rules, Insert Records, Sync Telemetry)
@@ -143,7 +149,7 @@ export const finalizeMaintenanceCompletion = async (
       notes: completionData.notes,
       category: task.category,
       verification_level: completionData.verificationLevel,
-      receipt_url: completionData.receipt_url,
+      receipt_url: completionData.receiptUrl,
       status: 'completed'
     }])
     .select()
@@ -158,7 +164,11 @@ export const finalizeMaintenanceCompletion = async (
       due_mileage: nextMileage,
       due_date: nextDate,
       last_completed_at: completionData.serviceDate,
-      status: 'pending' // Reset to pending for future
+      verification_level: completionData.verificationLevel,
+      receipt_url: completionData.receipt_url,
+      interval_km: targetIntervalKm,
+      interval_months: targetIntervalMonths,
+      status: 'pending' 
     })
     .eq('id', task.id)
     .select()
@@ -204,7 +214,9 @@ export const finalizeMaintenanceCompletion = async (
       estimatedCost: parseFloat(ruleData.estimated_cost),
       lastCompletedAt: ruleData.last_completed_at,
       intervalKm: ruleData.interval_km,
-      intervalMonths: ruleData.interval_months
+      intervalMonths: ruleData.interval_months,
+      lastVerificationLevel: ruleData.verification_level,
+      lastReceiptUrl: ruleData.receipt_url
     }
   };
 };
@@ -230,7 +242,9 @@ export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceT
     estimatedCost: parseFloat(t.estimated_cost || '0'),
     lastCompletedAt: t.last_completed_at,
     intervalKm: t.interval_km,
-    intervalMonths: t.interval_months
+    intervalMonths: t.interval_months,
+    lastVerificationLevel: t.verification_level,
+    lastReceiptUrl: t.receipt_url
   }));
 };
 
@@ -247,7 +261,7 @@ export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<Servic
   return (data || []).map(l => ({
     id: l.id,
     vehicleId: l.vehicle_id,
-    taskId: l.task_id,
+    taskId: l.task_id, 
     serviceType: l.service_type,
     serviceDate: l.service_date,
     mileageAtService: parseFloat(l.mileage_at_service || '0'),
@@ -289,7 +303,6 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
       specs: vehicle.specs,
       status: 'active',
       fuel_type: vehicle.fuelType,
-      // Fix: Property 'engine_size' does not exist on type 'Omit<Vehicle, "id" | "healthScore" | "createdAt" | "updatedAt">'. Did you mean 'engineSize'?
       engine_size: vehicle.engineSize
     }])
     .select()
@@ -311,8 +324,10 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
     status: t.status,
     priority: t.priority,
     category: t.category,
+    // Fix: access t.estimatedCost instead of t.estimated_cost
     estimated_cost: t.estimatedCost,
     interval_km: t.intervalKm || 5000,
+    // Fix: access t.intervalMonths instead of t.interval_months
     interval_months: t.intervalMonths || 6
   }));
 
@@ -332,7 +347,6 @@ export const uploadVehicleImage = async (userId: string, vehicleId: string, blob
   return publicUrl;
 };
 
-// Fixed: Added updateTaskStatus to satisfy Dashboard and SyncEngine dependencies
 export const updateTaskStatus = async (taskId: string, status: string): Promise<void> => {
   if (!supabase) return;
   const { error } = await supabase
@@ -342,7 +356,6 @@ export const updateTaskStatus = async (taskId: string, status: string): Promise<
   if (error) handleSupabaseError(error, 'updateTaskStatus');
 };
 
-// Fixed: Added createServiceLogEntry to satisfy Dashboard dependency
 export const createServiceLogEntry = async (log: any): Promise<void> => {
   if (!supabase) return;
   const { error } = await supabase

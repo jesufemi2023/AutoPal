@@ -95,6 +95,8 @@ export interface MaintenanceTask {
   intervalKm?: number; 
   intervalMonths?: number; 
   projectedDate?: string; // Phase 4: Calculated by Velocity Engine
+  lastVerificationLevel?: VerificationLevel;
+  lastReceiptUrl?: string;
 }
 
 export interface AIResponse {

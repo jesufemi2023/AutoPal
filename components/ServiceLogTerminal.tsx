@@ -28,7 +28,9 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     provider: '',
     notes: '',
     verificationLevel: 'self_declared' as VerificationLevel,
-    receiptUrl: ''
+    receiptUrl: '',
+    intervalKm: preselectedTask?.intervalKm || 5000,
+    intervalMonths: preselectedTask?.intervalMonths || 6
   });
 
   const handleScanReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,7 +49,8 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
           cost: data.totalAmount?.toString() || prev.cost,
           provider: data.vendor || prev.provider,
           date: data.date || prev.date,
-          verificationLevel: 'receipt_verified'
+          verificationLevel: 'receipt_verified',
+          receiptUrl: 'CLOUD_VERIFIED_BLOB' 
         }));
         setStep(4);
       };
@@ -70,7 +73,9 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         provider: form.provider,
         notes: form.notes,
         verificationLevel: form.verificationLevel,
-        receiptUrl: form.receiptUrl
+        receiptUrl: form.receiptUrl,
+        intervalKm: form.intervalKm,
+        intervalMonths: form.intervalMonths
       });
       
       addServiceLog(log);
@@ -210,13 +215,57 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 onChange={e => setForm({...form, provider: e.target.value})}
               />
               <button 
+                onClick={() => setStep(5)} 
+                className="w-full bg-slate-800 text-slate-300 py-6 rounded-2xl font-black uppercase tracking-widest text-xs border border-slate-700"
+              >
+                Configure Recurrence →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!isScanning && step === 5 && (
+          <div className="space-y-8 animate-slide-up text-center">
+             <div className="space-y-6">
+                <h4 className="text-slate-400 text-xs font-bold uppercase tracking-widest">Recurrence Optimization</h4>
+                <div className="grid grid-cols-2 gap-6">
+                   <div className="space-y-2">
+                      <label className="text-slate-500 text-[8px] font-black uppercase tracking-widest">Interval (KM)</label>
+                      <input 
+                        type="number" 
+                        className="w-full bg-slate-900 border-2 border-slate-800 rounded-xl p-4 text-xl font-mono font-black text-blue-500 outline-none text-center"
+                        value={form.intervalKm}
+                        onChange={e => setForm({...form, intervalKm: parseInt(e.target.value) || 0})}
+                      />
+                   </div>
+                   <div className="space-y-2">
+                      <label className="text-slate-500 text-[8px] font-black uppercase tracking-widest">Months</label>
+                      <input 
+                        type="number" 
+                        className="w-full bg-slate-900 border-2 border-slate-800 rounded-xl p-4 text-xl font-mono font-black text-blue-500 outline-none text-center"
+                        value={form.intervalMonths}
+                        onChange={e => setForm({...form, intervalMonths: parseInt(e.target.value) || 0})}
+                      />
+                   </div>
+                </div>
+                <p className="text-slate-500 text-[9px] font-medium leading-relaxed px-4">
+                  Adjust these values to fine-tune the JIT prediction for the next {form.type || 'service'}. 
+                  The Velocity Engine will recalibrate based on these inputs.
+                </p>
+             </div>
+             <button 
                 onClick={handleSave} 
                 disabled={isSaving}
                 className="w-full bg-emerald-600 text-white py-8 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[12px] shadow-3xl shadow-emerald-500/20"
               >
-                {isSaving ? "Recursive Syncing..." : "Finalize Record"}
+                {isSaving ? "Recursive Syncing..." : "Finalize Protocol"}
               </button>
-            </div>
+              <button 
+                onClick={() => setStep(4)} 
+                className="text-slate-500 text-[9px] font-black uppercase tracking-widest"
+              >
+                ← Back to Financials
+              </button>
           </div>
         )}
       </div>
