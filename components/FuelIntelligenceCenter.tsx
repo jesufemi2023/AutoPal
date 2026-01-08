@@ -49,6 +49,7 @@ const FuelIntelligenceCenter: React.FC = () => {
   }, [activeVehicleId, setFuelLogs]);
 
   const logsWithAnalytics = useMemo(() => {
+    // Analytics are calculated based on chronological order (odometer)
     const sorted = [...fuelLogs].sort((a, b) => b.odometerKm - a.odometerKm);
     
     return sorted.map((log, index) => {
@@ -57,6 +58,7 @@ const FuelIntelligenceCenter: React.FC = () => {
       const costPerLiter = log.liters > 0 ? log.totalCost / log.liters : 0;
       
       if (log.isFullTank) {
+        // Find the next full tank log that happened before this one (higher index in descending sort)
         const prevFullIndex = sorted.slice(index + 1).findIndex(l => l.isFullTank);
         if (prevFullIndex !== -1) {
           const actualPrevIndex = prevFullIndex + index + 1;
@@ -65,6 +67,7 @@ const FuelIntelligenceCenter: React.FC = () => {
           
           if (dist > 0) {
             tripDistance = dist;
+            // Sum all liters added since the last full tank
             const blockLogs = sorted.slice(index, actualPrevIndex);
             const totalLiters = blockLogs.reduce((acc, l) => acc + l.liters, 0);
             
@@ -289,7 +292,8 @@ const FuelIntelligenceCenter: React.FC = () => {
                     axisLine={false} 
                     tickLine={false} 
                     tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} 
-                    domain={['dataMin - 1', 'dataMax + 1']} 
+                    domain={['auto', 'auto']}
+                    padding={{ top: 20, bottom: 20 }}
                   />
                   <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#3b82f6', strokeWidth: 1 }} />
                   <Area 
@@ -299,6 +303,7 @@ const FuelIntelligenceCenter: React.FC = () => {
                     strokeWidth={4} 
                     fillOpacity={1} 
                     fill="url(#colorEff)" 
+                    isAnimationActive={false}
                     dot={{ r: 4, fill: '#3b82f6', strokeWidth: 2, stroke: '#fff' }}
                     activeDot={{ r: 6 }}
                   />
@@ -351,7 +356,8 @@ const FuelIntelligenceCenter: React.FC = () => {
                     axisLine={false} 
                     tickLine={false} 
                     tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} 
-                    domain={['dataMin - 1', 'dataMax + 1']} 
+                    domain={['auto', 'auto']}
+                    padding={{ top: 20, bottom: 20 }}
                   />
                   <Tooltip content={<CustomTooltip mode="cost" />} cursor={{ stroke: '#10b981', strokeWidth: 1 }} />
                   <Area 
@@ -361,6 +367,7 @@ const FuelIntelligenceCenter: React.FC = () => {
                     strokeWidth={2} 
                     fillOpacity={1} 
                     fill="url(#colorCost)" 
+                    isAnimationActive={false}
                     dot={{ r: 3, fill: '#10b981', strokeWidth: 1, stroke: '#fff' }}
                   />
                   <Line 
@@ -369,6 +376,7 @@ const FuelIntelligenceCenter: React.FC = () => {
                     stroke="#047857" 
                     strokeWidth={4} 
                     dot={false} 
+                    isAnimationActive={false}
                     strokeDasharray="none" 
                   />
                   {avgPricePerLiter > 0 && (
