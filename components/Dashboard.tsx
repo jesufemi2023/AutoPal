@@ -4,8 +4,10 @@ import { useAutoPalStore } from '../shared/store.ts';
 import { getAdvancedDiagnostic } from '../services/geminiService.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, 
-  updateTaskStatus, createServiceLogEntry, archiveVehicle, updateVehicle
+  updateTaskStatus, archiveVehicle, updateVehicle
 } from '../services/vehicleService.ts';
+// Fixed: Imported createServiceLog from logService as createServiceLogEntry
+import { createServiceLog as createServiceLogEntry } from '../services/logService.ts';
 import { OdometerInput } from './OdometerInput.tsx';
 import { Vehicle } from '../shared/types.ts';
 
@@ -136,17 +138,15 @@ const Dashboard: React.FC = () => {
           <div className="lg:col-span-8 space-y-12 lg:space-y-20">
             <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
             
-            {/* Fix: Removed non-existent 'logs' prop from MaintenanceRoadmap */}
             <MaintenanceRoadmap 
               vehicle={activeVehicle} 
               tasks={pendingTasks} 
               isLoading={isLoadingDetails}
-              // Fixed: renamed onComplete to onLog to match MaintenanceRoadmap Props
               onLog={t => {
                 updateTaskStatus(t.id, 'completed')
                   .then(() => {
                     completeTask(t.id, t.estimatedCost || 0, activeVehicle.mileage);
-                    // Fixed: added category and ensured taskId/status are valid for ServiceLog
+                    // Fixed: used createServiceLogEntry from logService
                     createServiceLogEntry({
                       vehicleId: activeVehicle.id, 
                       taskId: t.id, 

@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
-import { finalizeMaintenanceCompletion } from '../services/vehicleService.ts';
+import { finalizeMaintenanceCompletion, createManualServiceLog } from '../services/vehicleService.ts';
 import { extractReceiptData } from '../services/geminiService.ts';
 import { MaintenanceTask, ServiceCategory, VerificationLevel, Vehicle } from '../shared/types.ts';
 import { compressImage } from '../shared/utils.ts';
@@ -63,24 +63,42 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
   };
 
   const handleSave = async () => {
-    if (!preselectedTask) return;
     setIsSaving(true);
     try {
-      const { log, updatedTask } = await finalizeMaintenanceCompletion(vehicle, preselectedTask, {
-        mileageAtService: form.mileage,
-        serviceDate: form.date,
-        cost: parseFloat(form.cost) || 0,
-        provider: form.provider,
-        notes: form.notes,
-        verificationLevel: form.verificationLevel,
-        receiptUrl: form.receiptUrl,
-        intervalKm: form.intervalKm,
-        intervalMonths: form.intervalMonths
-      });
-      
-      addServiceLog(log);
-      const updatedTasks = tasks.map(t => t.id === updatedTask.id ? updatedTask : t);
-      setTasks(updatedTasks);
+      if (preselectedTask) {
+        // Recursive Task flow
+        const { log, updatedTask } = await finalizeMaintenanceCompletion(vehicle, preselectedTask, {
+          mileageAtService: form.mileage,
+          serviceDate: form.date,
+          cost: parseFloat(form.cost) || 0,
+          provider: form.provider,
+          notes: form.notes,
+          verificationLevel: form.verificationLevel,
+          receiptUrl: form.receiptUrl,
+          intervalKm: form.intervalKm,
+          intervalMonths: form.intervalMonths
+        });
+        
+        addServiceLog(log);
+        const updatedTasks = tasks.map(t => t.id === updatedTask.id ? updatedTask : t);
+        setTasks(updatedTasks);
+      } else {
+        // Ad-hoc History flow
+        const log = await createManualServiceLog(vehicle, {
+          vehicleId: vehicle.id,
+          serviceType: form.type || "Unscheduled Maintenance",
+          serviceDate: form.date,
+          mileageAtService: form.mileage,
+          cost: parseFloat(form.cost) || 0,
+          provider: form.provider,
+          notes: form.notes,
+          category: form.category,
+          verificationLevel: form.verificationLevel,
+          receiptUrl: form.receiptUrl,
+          status: 'completed'
+        });
+        addServiceLog(log);
+      }
       
       if (form.mileage > vehicle.mileage) {
         updateMileage(vehicle.id, form.mileage);
@@ -88,6 +106,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
       
       onClose();
     } catch (e) {
+      console.error(e);
       alert("Terminal Sync Error.");
     } finally {
       setIsSaving(false);
@@ -106,7 +125,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
       <div className="w-full max-w-lg space-y-10">
         <header className="flex justify-between items-center text-white">
           <div className="space-y-1">
-             <h3 className="text-xl font-black uppercase tracking-tighter">Terminal Execution</h3>
+             <h3 className="text-xl font-black uppercase tracking-tighter">{preselectedTask ? 'Terminal Execution' : 'Ad-hoc Log'}</h3>
              <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest">
                Step {step} • {isScanning ? 'AI Optical Scanning...' : 'Node Verification'}
              </p>
@@ -152,7 +171,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
             <div className="space-y-4">
               <input 
                 type="text" 
-                placeholder="Task Description" 
+                placeholder="Task Description (e.g. Brake Repair)" 
                 className="w-full bg-slate-900 text-white p-6 rounded-2xl border border-slate-800 font-bold text-center outline-none"
                 value={form.type}
                 onChange={e => setForm({...form, type: e.target.value})}
@@ -215,16 +234,19 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 onChange={e => setForm({...form, provider: e.target.value})}
               />
               <button 
-                onClick={() => setStep(5)} 
-                className="w-full bg-slate-800 text-slate-300 py-6 rounded-2xl font-black uppercase tracking-widest text-xs border border-slate-700"
+                onClick={() => {
+                  if (preselectedTask) setStep(5);
+                  else handleSave();
+                }} 
+                className={`w-full ${preselectedTask ? 'bg-slate-800 text-slate-300' : 'bg-emerald-600 text-white shadow-3xl shadow-emerald-500/20'} py-6 rounded-2xl font-black uppercase tracking-widest text-xs border border-slate-700`}
               >
-                Configure Recurrence →
+                {preselectedTask ? 'Configure Recurrence →' : (isSaving ? 'Syncing...' : 'Finalize Ad-hoc Log')}
               </button>
             </div>
           </div>
         )}
 
-        {!isScanning && step === 5 && (
+        {!isScanning && step === 5 && preselectedTask && (
           <div className="space-y-8 animate-slide-up text-center">
              <div className="space-y-6">
                 <h4 className="text-slate-400 text-xs font-bold uppercase tracking-widest">Recurrence Optimization</h4>

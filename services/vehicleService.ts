@@ -14,8 +14,8 @@ import { calculateNextMilestone } from './maintenanceLogic.ts';
 
 const DB_TABLES = {
   VEHICLES: 'vehicles',
-  RULES: 'maintenance_tasks', // Corrected: maintenance_tasks stores the schedule/rules
-  RECORDS: 'service_logs'     // Corrected: service_logs stores the history/records
+  RULES: 'maintenance_tasks', // maintenance_tasks stores the schedule/rules
+  RECORDS: 'service_logs'     // service_logs stores the history/records
 };
 
 const handleSupabaseError = (error: any, context: string) => {
@@ -48,6 +48,23 @@ const mapVehicleFromDb = (v: any): Vehicle => ({
   engineSize: v.engine_size,
   createdAt: v.created_at,
   updatedAt: v.updated_at
+});
+
+const mapLogFromDb = (l: any): ServiceLog => ({
+  id: l.id,
+  vehicleId: l.vehicle_id,
+  taskId: l.task_id, 
+  serviceType: l.service_type,
+  serviceDate: l.service_date,
+  mileageAtService: parseFloat(l.mileage_at_service || '0'),
+  cost: parseFloat(l.cost || '0'),
+  provider: l.provider,
+  notes: l.notes,
+  status: l.status,
+  category: l.category,
+  verificationLevel: l.verification_level,
+  receiptUrl: l.receipt_url,
+  createdAt: l.created_at
 });
 
 export const fetchUserVehicles = async (): Promise<Vehicle[]> => {
@@ -149,7 +166,7 @@ export const finalizeMaintenanceCompletion = async (
       notes: completionData.notes,
       category: task.category,
       verification_level: completionData.verificationLevel,
-      receipt_url: completionData.receipt_url,
+      receipt_url: completionData.receiptUrl,
       status: 'completed'
     }])
     .select()
@@ -184,21 +201,7 @@ export const finalizeMaintenanceCompletion = async (
   }
 
   return {
-    log: {
-      id: logData.id,
-      vehicleId: logData.vehicle_id,
-      taskId: logData.task_id,
-      serviceType: logData.service_type,
-      serviceDate: logData.service_date,
-      mileageAtService: parseFloat(logData.mileage_at_service),
-      cost: parseFloat(logData.cost),
-      provider: logData.provider,
-      notes: logData.notes,
-      category: logData.category,
-      verificationLevel: logData.verification_level,
-      receiptUrl: logData.receipt_url,
-      createdAt: logData.created_at
-    },
+    log: mapLogFromDb(logData),
     updatedTask: {
       id: ruleData.id,
       taskId: ruleData.task_id,
@@ -216,6 +219,44 @@ export const finalizeMaintenanceCompletion = async (
       intervalMonths: ruleData.interval_months
     }
   };
+};
+
+/**
+ * Manual/Ad-hoc Service Log creation.
+ * Only inserts a history record, does not update any recurring rules.
+ */
+export const createManualServiceLog = async (
+  vehicle: Vehicle,
+  data: Omit<ServiceLog, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<ServiceLog> => {
+  if (!supabase) throw new Error("Supabase client missing.");
+
+  const { data: logData, error } = await supabase
+    .from(DB_TABLES.RECORDS)
+    .insert([{
+      vehicle_id: vehicle.id,
+      service_type: data.serviceType,
+      service_date: data.serviceDate,
+      mileage_at_service: data.mileageAtService,
+      cost: data.cost,
+      provider: data.provider,
+      notes: data.notes,
+      category: data.category,
+      verification_level: data.verificationLevel,
+      receipt_url: data.receiptUrl,
+      status: 'completed'
+    }])
+    .select()
+    .single();
+
+  if (error) handleSupabaseError(error, 'createManualServiceLog');
+
+  // Sync odometer if applicable
+  if (data.mileageAtService > vehicle.mileage) {
+    await updateMileage(vehicle.id, data.mileageAtService);
+  }
+
+  return mapLogFromDb(logData);
 };
 
 export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceTask[]> => {
@@ -254,22 +295,7 @@ export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<Servic
     
   if (error) handleSupabaseError(error, 'fetchVehicleServiceLogs');
   
-  return (data || []).map(l => ({
-    id: l.id,
-    vehicleId: l.vehicle_id,
-    taskId: l.task_id, 
-    serviceType: l.service_type,
-    serviceDate: l.service_date,
-    mileageAtService: parseFloat(l.mileage_at_service || '0'),
-    cost: parseFloat(l.cost || '0'),
-    provider: l.provider,
-    notes: l.notes,
-    status: l.status,
-    category: l.category,
-    verificationLevel: l.verification_level,
-    receiptUrl: l.receipt_url,
-    createdAt: l.created_at
-  }));
+  return (data || []).map(mapLogFromDb);
 };
 
 export const archiveVehicle = async (vehicleId: string): Promise<void> => {
@@ -293,13 +319,13 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
       year: vehicle.year,
       vin: vehicle.vin,
       current_mileage: vehicle.mileage,
-      body_type: vehicle.body_type,
-      image_url: vehicle.image_url,
-      image_urls: vehicle.image_urls,
+      body_type: vehicle.bodyType,
+      image_url: vehicle.imageUrl,
+      image_urls: vehicle.imageUrls,
       specs: vehicle.specs,
       status: 'active',
-      fuel_type: vehicle.fuel_type,
-      engine_size: vehicle.engine_size
+      fuel_type: vehicle.fuelType,
+      engine_size: vehicle.engineSize
     }])
     .select()
     .single();
@@ -323,7 +349,6 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
     category: t.category,
     estimated_cost: t.estimatedCost,
     interval_km: t.intervalKm || 5000,
-    // Fixed: change t.interval_months to t.intervalMonths to match MaintenanceTask interface
     interval_months: t.intervalMonths || 6
   }));
 
@@ -350,21 +375,4 @@ export const updateTaskStatus = async (taskId: string, status: string): Promise<
     .update({ status })
     .eq('id', taskId);
   if (error) handleSupabaseError(error, 'updateTaskStatus');
-};
-
-export const createServiceLogEntry = async (log: any): Promise<void> => {
-  if (!supabase) return;
-  const { error } = await supabase
-    .from(DB_TABLES.RECORDS)
-    .insert([{
-      vehicle_id: log.vehicleId,
-      task_id: log.taskId,
-      service_type: log.serviceType,
-      service_date: log.serviceDate,
-      mileage_at_service: log.mileageAtService,
-      cost: log.cost,
-      category: log.category,
-      status: log.status
-    }]);
-  if (error) handleSupabaseError(error, 'createServiceLogEntry');
 };
