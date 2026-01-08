@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../services/fuelService.ts';
@@ -18,13 +17,26 @@ import {
   ComposedChart
 } from 'recharts';
 
+/**
+ * Fuel Intelligence Center
+ * Immersive dashboard for fuel efficiency tracking and cost analysis.
+ */
 const FuelIntelligenceCenter: React.FC = () => {
   const { vehicles, fuelLogs, setFuelLogs, removeFuelLogStore } = useAutoPalStore();
-  const [activeVehicleId, setActiveVehicleId] = useState<string | null>(vehicles[0]?.id || null);
+  
+  // FIX: Initialize with null and use an effect to sync once vehicles load from store
+  const [activeVehicleId, setActiveVehicleId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showTerminal, setShowTerminal] = useState(false);
   const [editingLog, setEditingLog] = useState<FuelLog | null>(null);
   const [metric, setMetric] = useState<'KML' | 'MPG'>('KML');
+
+  // Sync activeVehicleId when vehicles array becomes available
+  useEffect(() => {
+    if (vehicles.length > 0 && !activeVehicleId) {
+      setActiveVehicleId(vehicles[0].id);
+    }
+  }, [vehicles, activeVehicleId]);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
@@ -33,21 +45,23 @@ const FuelIntelligenceCenter: React.FC = () => {
       setIsLoading(true);
       fetchFuelLogs(activeVehicleId)
         .then(setFuelLogs)
+        .catch(err => console.error("Telemetry fetch failure", err))
         .finally(() => setIsLoading(false));
     }
   }, [activeVehicleId, setFuelLogs]);
 
   // Comprehensive Logic Engine for Efficiency and Cost Analytics
-  // Implementing "Full-to-Full Cumulative Block" Logic
   const logsWithAnalytics = useMemo(() => {
+    // Ensure logs are sorted by odometer for block calculation
     const sorted = [...fuelLogs].sort((a, b) => b.odometerKm - a.odometerKm);
+    
     return sorted.map((log, index) => {
       let tripKml: number | null = null;
       let tripDistance: number | null = null;
       const costPerLiter = log.liters > 0 ? log.totalCost / log.liters : 0;
       
       if (log.isFullTank) {
-        // Find the previous "Full" log to close the block
+        // Find the previous "Full" log to close the calculation block
         const prevFullIndex = sorted.slice(index + 1).findIndex(l => l.isFullTank);
         if (prevFullIndex !== -1) {
           const actualPrevIndex = prevFullIndex + index + 1;
@@ -56,8 +70,7 @@ const FuelIntelligenceCenter: React.FC = () => {
           
           if (dist > 0) {
             tripDistance = dist;
-            // The fuel consumed for this distance is the sum of liters from this Full log 
-            // and all partial logs that happened after the previous Full log.
+            // Consumption = Sum of liters in the block (current full + intermediate partials)
             const blockLogs = sorted.slice(index, actualPrevIndex);
             const totalLiters = blockLogs.reduce((acc, l) => acc + l.liters, 0);
             
@@ -72,7 +85,9 @@ const FuelIntelligenceCenter: React.FC = () => {
   }, [fuelLogs]);
 
   const efficienciesKml = useMemo(() => 
-    logsWithAnalytics.filter(l => l.tripKml !== null && !isNaN(l.tripKml)).map(l => l.tripKml as number),
+    logsWithAnalytics
+      .filter(l => l.tripKml !== null && !isNaN(l.tripKml) && isFinite(l.tripKml))
+      .map(l => l.tripKml as number),
     [logsWithAnalytics]
   );
 
@@ -99,9 +114,12 @@ const FuelIntelligenceCenter: React.FC = () => {
       const movingAvg = slice.reduce((acc, curr) => acc + curr.costPerLiter, 0) / slice.length;
 
       return {
+        // FIX: Add a unique identifier to date to prevent Recharts from collapsing points on same-day entries
         date: formatDate(l.createdAt),
-        kml: l.tripKml ? parseFloat(l.tripKml.toFixed(2)) : null,
-        mpg: l.tripKml ? parseFloat(kmlToMpg(l.tripKml)!.toFixed(2)) : null,
+        displayDate: formatDate(l.createdAt),
+        key: `${l.id}-${idx}`, 
+        kml: (l.tripKml !== null && isFinite(l.tripKml)) ? parseFloat(l.tripKml.toFixed(2)) : null,
+        mpg: (l.tripKml !== null && isFinite(l.tripKml)) ? parseFloat(kmlToMpg(l.tripKml)!.toFixed(2)) : null,
         cost: parseFloat(l.costPerLiter.toFixed(2)),
         avgCostTrend: parseFloat(movingAvg.toFixed(2)),
         odo: l.odometerKm
@@ -113,7 +131,9 @@ const FuelIntelligenceCenter: React.FC = () => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-2xl z-[100]">
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">{label}</p>
+          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">
+            {payload[0].payload.displayDate || label}
+          </p>
           <div className="space-y-2">
             {payload.map((p: any, i: number) => (
               <div key={i} className="flex flex-col">
@@ -154,20 +174,35 @@ const FuelIntelligenceCenter: React.FC = () => {
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">Neural Telemetry Active</span>
+            <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-spin' : 'bg-emerald-500 animate-pulse'}`}></div>
+            <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">
+              {isLoading ? 'Synchronizing Sensors...' : 'Neural Telemetry Active'}
+            </span>
           </div>
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8] transition-all">
             Fuel <br/><span className="text-blue-600">Logic</span>
           </h2>
         </div>
-        <button 
-          onClick={() => { setEditingLog(null); setShowTerminal(true); }}
-          className="w-full md:w-auto bg-slate-900 text-white px-8 sm:px-12 py-5 sm:py-6 rounded-[1.5rem] sm:rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] sm:text-[11px] shadow-3xl hover:bg-blue-600 transition-all active:scale-95 group flex items-center justify-center gap-3"
-        >
-          <span className="text-lg sm:text-xl group-hover:rotate-90 transition-transform">⛽</span>
-          Log Refill
-        </button>
+        <div className="flex flex-col sm:flex-row gap-4">
+          {vehicles.length > 1 && (
+            <select 
+              className="bg-white border-2 border-slate-100 px-6 py-5 rounded-[1.5rem] font-black uppercase tracking-widest text-[10px] outline-none focus:border-blue-600 transition-all shadow-sm"
+              value={activeVehicleId || ''}
+              onChange={(e) => setActiveVehicleId(e.target.value)}
+            >
+              {vehicles.map(v => (
+                <option key={v.id} value={v.id}>{v.year} {v.make} {v.model}</option>
+              ))}
+            </select>
+          )}
+          <button 
+            onClick={() => { setEditingLog(null); setShowTerminal(true); }}
+            className="bg-slate-900 text-white px-8 sm:px-12 py-5 sm:py-6 rounded-[1.5rem] sm:rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] sm:text-[11px] shadow-3xl hover:bg-blue-600 transition-all active:scale-95 group flex items-center justify-center gap-3"
+          >
+            <span className="text-lg sm:text-xl group-hover:rotate-90 transition-transform">⛽</span>
+            Log Refill
+          </button>
+        </div>
       </header>
 
       {/* KPI GRID */}
@@ -179,7 +214,7 @@ const FuelIntelligenceCenter: React.FC = () => {
             <div className="space-y-2">
               <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
                 {currentEffKml ? currentEffKml.toFixed(1) : '--.-'}
-                <span className="text-xs text-slate-300 ml-2 font-sans font-bold">KM/L</span>
+                <span className="text-xs text-slate-300 ml-2 font-sans font-bold">{metric}</span>
               </div>
               {efficiencyDelta !== null && (
                 <div className={`text-[8px] font-black uppercase tracking-widest flex items-center gap-1 ${efficiencyDelta >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
@@ -196,7 +231,7 @@ const FuelIntelligenceCenter: React.FC = () => {
             <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Previous Run</h3>
             <div className="text-4xl font-black text-slate-500 tracking-tighter flex items-baseline">
               {previousEffKml ? previousEffKml.toFixed(1) : '--.-'}
-              <span className="text-xs text-slate-200 ml-2 font-sans font-bold">KM/L</span>
+              <span className="text-xs text-slate-200 ml-2 font-sans font-bold">{metric}</span>
             </div>
             <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest">
               {previousEffKml ? "Calibrated" : "Waiting for Anchor"}
@@ -221,7 +256,7 @@ const FuelIntelligenceCenter: React.FC = () => {
             <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Fleet Average</h3>
             <div className="text-4xl font-black tracking-tighter flex items-baseline">
               {avgEfficiencyKml ? avgEfficiencyKml.toFixed(1) : '--.-'}
-              <span className="text-xs text-slate-600 ml-2 font-sans font-bold">KM/L</span>
+              <span className="text-xs text-slate-600 ml-2 font-sans font-bold">{metric}</span>
             </div>
             <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Lifetime Precision</div>
           </div>
@@ -242,7 +277,7 @@ const FuelIntelligenceCenter: React.FC = () => {
               <button onClick={() => setMetric('MPG')} className={`px-4 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${metric === 'MPG' ? 'bg-white text-slate-900 shadow-sm border border-slate-100' : 'text-slate-400'}`}>MPG</button>
             </div>
           </header>
-          <div className="h-64 sm:h-80 w-full relative" key={`eff-chart-${activeVehicleId}`}>
+          <div className="h-64 sm:h-80 w-full relative">
             {efficienciesKml.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData.filter(d => d.kml !== null)} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -252,8 +287,8 @@ const FuelIntelligenceCenter: React.FC = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="date" axisLine={false} tickLine={false} minTickGap={30} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} />
+                  <XAxis dataKey="key" axisLine={false} tickLine={false} minTickGap={30} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} dy={10} hide={false} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} hide={false} domain={['auto', 'auto']} />
                   <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#3b82f6', strokeWidth: 1 }} />
                   <Area type="monotone" dataKey={metric === 'KML' ? 'kml' : 'mpg'} stroke="#3b82f6" strokeWidth={4} fillOpacity={1} fill="url(#colorEff)" />
                   {avgEfficiencyKml && (
@@ -263,8 +298,11 @@ const FuelIntelligenceCenter: React.FC = () => {
               </ResponsiveContainer>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-slate-300 space-y-4">
-                <div className="text-3xl">📊</div>
-                <p className="text-[9px] font-black uppercase tracking-widest">Awaiting Two Full Refills</p>
+                <div className="text-3xl animate-bounce">📊</div>
+                <div className="text-center">
+                  <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Calibration Pending</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mt-1">Requires 2 consecutive 'Full Tank' entries</p>
+                </div>
               </div>
             )}
           </div>
@@ -277,18 +315,8 @@ const FuelIntelligenceCenter: React.FC = () => {
               <h3 className="text-xl font-black text-slate-900 tracking-tight">Cost Dynamics</h3>
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Price per liter trend</p>
             </div>
-            <div className="hidden sm:flex items-center gap-4">
-               <div className="flex items-center gap-2">
-                 <div className="w-2 h-0.5 bg-emerald-500"></div>
-                 <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Spot Price</span>
-               </div>
-               <div className="flex items-center gap-2">
-                 <div className="w-2 h-0.5 bg-emerald-700"></div>
-                 <span className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Rolling Avg</span>
-               </div>
-            </div>
           </header>
-          <div className="h-64 sm:h-80 w-full relative" key={`cost-chart-${activeVehicleId}`}>
+          <div className="h-64 sm:h-80 w-full relative">
             {fuelLogs.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -298,8 +326,8 @@ const FuelIntelligenceCenter: React.FC = () => {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="date" axisLine={false} tickLine={false} minTickGap={30} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} />
+                  <XAxis dataKey="key" axisLine={false} tickLine={false} minTickGap={30} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} dy={10} hide={false} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }} hide={false} domain={['auto', 'auto']} />
                   <Tooltip content={<CustomTooltip mode="cost" />} cursor={{ stroke: '#10b981', strokeWidth: 1 }} />
                   <Area type="monotone" dataKey="cost" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorCost)" />
                   <Line type="monotone" dataKey="avgCostTrend" stroke="#047857" strokeWidth={4} dot={false} strokeDasharray="none" />
@@ -366,7 +394,7 @@ const FuelIntelligenceCenter: React.FC = () => {
                   <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Efficiency</div>
                   {log.tripKml ? (
                     <div className="text-lg font-black text-emerald-600 tracking-tighter leading-none">
-                      {log.tripKml.toFixed(1)} <span className="text-[8px] opacity-60">KM/L</span>
+                      {log.tripKml.toFixed(1)} <span className="text-[8px] opacity-60">{metric}</span>
                     </div>
                   ) : (
                     <div className={`text-[10px] font-black tracking-widest leading-none py-1.5 ${log.isFullTank ? 'text-slate-200 italic' : 'text-blue-400 animate-pulse'}`}>
