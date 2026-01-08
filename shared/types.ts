@@ -82,6 +82,7 @@ export interface ServiceLog {
 
 export interface MaintenanceTask {
   id: string;
+  taskId?: string; // Phase 3 refined: Field for specific task categorization
   vehicleId: string;
   title: string;
   description: string;
