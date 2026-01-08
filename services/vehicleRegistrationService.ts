@@ -40,6 +40,7 @@ export const registerNewVehicle = async (
     status: 'active',
     imageUrls: [],
     specs: confirmedData.specs || {},
+    // Fix: isDirty is now part of the Vehicle type
     isDirty: false
   };
 

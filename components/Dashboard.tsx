@@ -16,8 +16,9 @@ import { DiagnosticsPanel } from './dashboard/DiagnosticsPanel.tsx';
 const Dashboard: React.FC = () => {
   const { 
     vehicles, tasks, user, setSuggestedParts,
+    // Add serviceLogs to destructuring from the store
     updateMileage, completeTask, setTasks, addServiceLog, setCurrentView,
-    updateVehicleStore, removeVehicleStore, setEditingVehicle
+    updateVehicleStore, removeVehicleStore, setEditingVehicle, serviceLogs
   } = useAutoPalStore();
 
   const [activeVehicleId, setActiveVehicleId] = useState<string | null>(null);
@@ -33,6 +34,8 @@ const Dashboard: React.FC = () => {
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
   const pendingTasks = tasks.filter(t => t.vehicleId === activeVehicleId && t.status === 'pending');
+  // Compute activeLogs for the selected vehicle to pass to sub-components
+  const activeLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
 
   useEffect(() => {
     if (vehicles.length > 0 && !activeVehicleId) setActiveVehicleId(vehicles[0].id);
@@ -136,11 +139,15 @@ const Dashboard: React.FC = () => {
             <MaintenanceRoadmap 
               vehicle={activeVehicle} 
               tasks={pendingTasks} 
+              // Pass activeLogs to satisfy required 'logs' prop in MaintenanceRoadmap
+              logs={activeLogs}
               isLoading={isLoadingDetails}
-              onComplete={t => {
+              // Fixed: renamed onComplete to onLog to match MaintenanceRoadmap Props
+              onLog={t => {
                 updateTaskStatus(t.id, 'completed')
                   .then(() => {
                     completeTask(t.id, t.estimatedCost || 0, activeVehicle.mileage);
+                    // Fixed: added category and ensured taskId/status are valid for ServiceLog
                     createServiceLogEntry({
                       vehicleId: activeVehicle.id, 
                       taskId: t.id, 
@@ -148,7 +155,8 @@ const Dashboard: React.FC = () => {
                       serviceType: t.title, 
                       cost: t.estimatedCost || 0, 
                       mileageAtService: activeVehicle.mileage, 
-                      status: 'completed'
+                      status: 'completed',
+                      category: t.category
                     });
                   });
               }} 

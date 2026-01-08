@@ -5,6 +5,8 @@ export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback'
 export type TaskStatus = 'pending' | 'completed' | 'skipped';
 export type Priority = 'low' | 'medium' | 'high';
 export type LogStatus = 'upcoming' | 'overdue' | 'completed';
+export type ServiceCategory = 'engine' | 'tires' | 'brakes' | 'fluids' | 'suspension' | 'other';
+export type VerificationLevel = 'self_declared' | 'receipt_verified' | 'mechanic_verified';
 
 export interface UserProfile {
   id: string;
@@ -33,7 +35,7 @@ export interface Vehicle {
   model: string;
   year: number;
   vin?: string;
-  mileage: number; // Mapping to current_mileage
+  mileage: number; 
   healthScore: number;
   bodyType: BodyType;
   imageUrl?: string;
@@ -68,11 +70,12 @@ export interface ServiceLog {
   cost: number;
   provider?: string;
   notes?: string;
-  status: LogStatus;
+  category: ServiceCategory;
   createdAt?: string;
   updatedAt?: string;
+  status?: string;
   taskId?: string;
-  isDirty?: boolean;
+  verificationLevel?: VerificationLevel;
 }
 
 export interface MaintenanceTask {
@@ -83,7 +86,7 @@ export interface MaintenanceTask {
   dueMileage: number;
   status: TaskStatus;
   priority: Priority;
-  category: 'engine' | 'tires' | 'brakes' | 'fluids' | 'other';
+  category: ServiceCategory;
   estimatedCost?: number;
 }
 
@@ -101,7 +104,7 @@ export interface MaintenanceScheduleResponse {
     description: string;
     dueMileage: number;
     priority: Priority;
-    category: MaintenanceTask['category'];
+    category: ServiceCategory;
     estimatedCost?: number;
   }>;
 }
