@@ -16,9 +16,12 @@ const PRIORITY_MULTIPLIER: Record<Priority, number> = {
   low: 0.8
 };
 
+// Tropical Context Multiplier (1.0 = Standard, 1.2 = Severe Conditions)
+const REGIONAL_SEVERITY = 1.2;
+
 /**
  * Velocity Engine: Average Daily Kilometers (ADD)
- * Calculates a weighted average of daily driving distance based on the last 5 records.
+ * Calculates a weighted average of daily driving distance based on combined telemetry.
  */
 export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: ServiceLog[]): number => {
   const allLogs = [
@@ -26,10 +29,10 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
     ...serviceLogs.map(l => ({ odo: l.mileageAtService, date: new Date(l.serviceDate) }))
   ].sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  // Use only the most recent 5 records for velocity to account for recent lifestyle changes
-  const recentLogs = allLogs.slice(-5);
+  // Use only the most recent 10 records for high-fidelity velocity
+  const recentLogs = allLogs.slice(-10);
   
-  if (recentLogs.length < 2) return 30; // Default for Nigerian urban traffic
+  if (recentLogs.length < 2) return 30; // Standard for urban Nigerian usage
 
   const oldest = recentLogs[0];
   const newest = recentLogs[recentLogs.length - 1];
@@ -39,7 +42,6 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
   const days = Math.max(1, timeDiff / (1000 * 60 * 60 * 24));
 
   const add = distance / days;
-  // Cap velocity to realistic bounds (5km to 500km per day)
   return Math.max(5, Math.min(500, add));
 };
 
@@ -57,18 +59,24 @@ export const predictServiceDate = (vehicle: Vehicle, task: MaintenanceTask, add:
   return prediction.toISOString();
 };
 
+/**
+ * Calculates next milestone with regional severity compensation.
+ */
 export const calculateNextMilestone = (
   baseMileage: number,
   baseDate: string,
   intervalKm: number = 5000,
   intervalMonths?: number
 ) => {
-  const nextMileage = baseMileage + intervalKm;
+  // Apply severity reduction (e.g., if severe, service happens sooner)
+  const adjustedInterval = Math.round(intervalKm / REGIONAL_SEVERITY);
+  const nextMileage = baseMileage + adjustedInterval;
+  
   let nextDate = undefined;
-
   if (intervalMonths && intervalMonths > 0) {
     const d = new Date(baseDate);
-    d.setMonth(d.getMonth() + intervalMonths);
+    const adjustedMonths = Math.max(1, Math.round(intervalMonths / REGIONAL_SEVERITY));
+    d.setMonth(d.getMonth() + adjustedMonths);
     nextDate = d.toISOString();
   }
 
@@ -88,8 +96,9 @@ export const getTaskMaintenanceStatus = (vehicle: Vehicle, task: MaintenanceTask
   }
 
   if (kmRemaining <= 0 || daysRemaining <= 0) return 'overdue';
+  
   // Warning triggers at 10% of interval or 14 days
-  const warningKm = Math.min(500, (task.intervalKm || 5000) * 0.1);
+  const warningKm = Math.min(1000, (task.intervalKm || 5000) * 0.15);
   if (kmRemaining <= warningKm || daysRemaining <= 14) return 'upcoming';
 
   return 'optimal';
@@ -97,7 +106,7 @@ export const getTaskMaintenanceStatus = (vehicle: Vehicle, task: MaintenanceTask
 
 /**
  * Precision Vitality Score
- * Factors in maintenance status and rewards high-verification levels.
+ * Factors in maintenance debt and rewards authenticated service records.
  */
 export const calculateVitalityScore = (vehicle: Vehicle, tasks: MaintenanceTask[]): number => {
   if (tasks.length === 0) return 100;
@@ -115,24 +124,24 @@ export const calculateVitalityScore = (vehicle: Vehicle, tasks: MaintenanceTask[
       if (status === 'overdue') {
         currentDebt += weight;
       } else if (status === 'upcoming') {
-        currentDebt += weight * 0.4;
+        currentDebt += weight * 0.5;
       }
     }
 
-    // Reward historical verification levels stored on the task
+    // Historical trust multiplier
     if (task.lastVerificationLevel === 'receipt_verified') verificationBonus += 2;
     if (task.lastVerificationLevel === 'mechanic_verified') verificationBonus += 5;
   });
 
   const baseScore = 100 - (totalPossibleDebt > 0 ? (currentDebt / totalPossibleDebt) * 100 : 0);
-  return Math.min(100, Math.max(0, Math.round(baseScore + (verificationBonus / tasks.length))));
+  const bonus = (verificationBonus / tasks.length);
+  return Math.min(100, Math.max(0, Math.round(baseScore + bonus)));
 };
 
 export const calculateDisciplineScore = (logs: ServiceLog[], tasks: MaintenanceTask[]): number => {
   if (logs.length === 0) return 0;
   
   const completedCount = logs.length;
-  const pendingCount = tasks.filter(t => t.status === 'pending').length;
   const overdueCount = tasks.filter(t => t.status === 'pending' && getTaskMaintenanceStatus({mileage: 999999} as any, t) === 'overdue').length;
   
   const verificationBonus = logs.reduce((acc, l) => {
@@ -153,12 +162,11 @@ export const detectAnomalies = (logs: ServiceLog[]) => {
   const engineLogs = logs.filter(l => l.category === 'engine' || l.category === 'fluids').sort((a,b) => b.mileageAtService - a.mileageAtService);
   if (engineLogs.length >= 2) {
     const delta = engineLogs[0].mileageAtService - engineLogs[1].mileageAtService;
-    // If oil is changed every 2,000km, something is wrong
     if (delta > 0 && delta < 2000) {
       anomalies.push({
         type: 'consumption',
         severity: 'high',
-        message: "Hyper-frequent service detected. Potential fluid leak or burn-off identified."
+        message: "Hyper-frequent engine service detected. Potential fluid leak or thermal distress identified."
       });
     }
   }

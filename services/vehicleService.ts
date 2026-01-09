@@ -1,21 +1,18 @@
 
 import { supabase } from '../auth/supabaseClient.ts';
-import { Vehicle, MaintenanceTask, ServiceLog, VerificationLevel } from '../shared/types.ts';
-import { calculateNextMilestone } from './maintenanceLogic.ts';
+import { Vehicle, MaintenanceTask, ServiceLog, VerificationLevel, FuelLog } from '../shared/types.ts';
+import { calculateNextMilestone, calculateAverageDailyKm, calculateVitalityScore } from './maintenanceLogic.ts';
+import { fetchFuelLogs } from './fuelService.ts';
 
 /**
  * Vehicle Lifecycle Service
  * Manages the "Digital Twin" state in Supabase.
- * 
- * DESIGN REFINEMENT:
- * - 'maintenance_tasks' table: Stores Rules/Intervals (Master Schedule)
- * - 'service_logs' table: Stores Records/History (Actual Completed Services)
  */
 
 const DB_TABLES = {
   VEHICLES: 'vehicles',
-  RULES: 'maintenance_tasks', // maintenance_tasks stores the schedule/rules
-  RECORDS: 'service_logs'     // service_logs stores the history/records
+  RULES: 'maintenance_tasks',
+  RECORDS: 'service_logs'
 };
 
 const handleSupabaseError = (error: any, context: string) => {
@@ -46,6 +43,7 @@ const mapVehicleFromDb = (v: any): Vehicle => ({
   specs: v.specs || {},
   fuelType: v.fuel_type,
   engineSize: v.engine_size,
+  avgDailyKm: v.avg_daily_km || 30,
   createdAt: v.created_at,
   updatedAt: v.updated_at
 });
@@ -88,6 +86,8 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   if (data.bodyType !== undefined) dbPayload.body_type = data.bodyType;
   if (data.fuelType !== undefined) dbPayload.fuel_type = data.fuelType;
   if (data.engineSize !== undefined) dbPayload.engine_size = data.engineSize;
+  if (data.avgDailyKm !== undefined) dbPayload.avg_daily_km = data.avgDailyKm;
+  if (data.healthScore !== undefined) dbPayload.health_score = data.healthScore;
 
   delete dbPayload.id;
   delete dbPayload.mileage;
@@ -95,6 +95,8 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   delete dbPayload.bodyType;
   delete dbPayload.fuelType;
   delete dbPayload.engineSize;
+  delete dbPayload.avgDailyKm;
+  delete dbPayload.healthScore;
   delete dbPayload.createdAt;
   delete dbPayload.updatedAt;
 
@@ -119,8 +121,8 @@ export const updateMileage = async (vehicleId: string, mileage: number): Promise
 };
 
 /**
- * PHASE 4: RECURSION CUSTOMIZATION
- * Finalizes maintenance completion with correct table mapping.
+ * Precision Execution: Syncs telemetry, updates rules recursively, 
+ * and recalculates asset velocity in one flow.
  */
 export const finalizeMaintenanceCompletion = async (
   vehicle: Vehicle, 
@@ -136,13 +138,13 @@ export const finalizeMaintenanceCompletion = async (
     intervalKm?: number;
     intervalMonths?: number;
   }
-): Promise<{ log: ServiceLog; updatedTask: MaintenanceTask }> => {
+): Promise<{ log: ServiceLog; updatedTask: MaintenanceTask; updatedVehicle: Vehicle }> => {
   if (!supabase) throw new Error("Supabase client missing.");
 
   const targetIntervalKm = completionData.intervalKm ?? task.intervalKm ?? 5000;
   const targetIntervalMonths = completionData.intervalMonths ?? task.intervalMonths ?? 6;
 
-  // 1. Calculate the next recursive milestone
+  // 1. Calculate the next recursive milestone (The "Floating" logic)
   const { nextMileage, nextDate } = calculateNextMilestone(
     completionData.mileageAtService, 
     completionData.serviceDate, 
@@ -150,9 +152,9 @@ export const finalizeMaintenanceCompletion = async (
     targetIntervalMonths
   );
 
-  // 2. Perform the Triple-Sync (Update Rules, Insert Records, Sync Telemetry)
+  // 2. Perform Atomic Multi-Sync
   
-  // A. Create History Record (service_logs table)
+  // A. Log History
   const { data: logData, error: logError } = await supabase
     .from(DB_TABLES.RECORDS)
     .insert([{
@@ -171,10 +173,9 @@ export const finalizeMaintenanceCompletion = async (
     }])
     .select()
     .single();
+  if (logError) handleSupabaseError(logError, 'Sync-Log');
 
-  if (logError) handleSupabaseError(logError, 'TripleSync-Record');
-
-  // B. Update the Task Rule (maintenance_tasks table) for next time
+  // B. Update Recurring Rule
   const { data: ruleData, error: ruleError } = await supabase
     .from(DB_TABLES.RULES)
     .update({
@@ -183,22 +184,36 @@ export const finalizeMaintenanceCompletion = async (
       last_completed_at: completionData.serviceDate,
       interval_km: targetIntervalKm,
       interval_months: targetIntervalMonths,
+      last_verification_level: completionData.verificationLevel,
       status: 'pending' 
     })
     .eq('id', task.id)
     .select()
     .single();
+  if (ruleError) handleSupabaseError(ruleError, 'Sync-Rule');
 
-  if (ruleError) handleSupabaseError(ruleError, 'TripleSync-Rule');
+  // 3. Precision Velocity Engine Integration
+  // Fetch recent fuel logs to calculate updated daily usage
+  const fuelLogs = await fetchFuelLogs(vehicle.id);
+  const serviceLogs = await fetchVehicleServiceLogs(vehicle.id);
+  const newAvgDailyKm = calculateAverageDailyKm(fuelLogs, serviceLogs);
 
-  // C. Sync Vehicle Telemetry
-  if (completionData.mileageAtService > vehicle.mileage) {
-    const { error: odoError } = await supabase
-      .from(DB_TABLES.VEHICLES)
-      .update({ current_mileage: completionData.mileageAtService })
-      .eq('id', vehicle.id);
-    if (odoError) handleSupabaseError(odoError, 'TripleSync-Odo');
-  }
+  // Recalculate Health Score with the new log included
+  const allTasks = await fetchVehicleTasks(vehicle.id);
+  const newHealthScore = calculateVitalityScore({ ...vehicle, mileage: completionData.mileageAtService }, allTasks);
+
+  // C. Sync Vehicle Telemetry (Odometer, Velocity, Health)
+  const { data: vData, error: vError } = await supabase
+    .from(DB_TABLES.VEHICLES)
+    .update({ 
+      current_mileage: Math.max(vehicle.mileage, completionData.mileageAtService),
+      avg_daily_km: newAvgDailyKm,
+      health_score: newHealthScore
+    })
+    .eq('id', vehicle.id)
+    .select()
+    .single();
+  if (vError) handleSupabaseError(vError, 'Sync-Vehicle-Telemetry');
 
   return {
     log: mapLogFromDb(logData),
@@ -216,15 +231,13 @@ export const finalizeMaintenanceCompletion = async (
       estimatedCost: parseFloat(ruleData.estimated_cost),
       lastCompletedAt: ruleData.last_completed_at,
       intervalKm: ruleData.interval_km,
-      intervalMonths: ruleData.interval_months
-    }
+      intervalMonths: ruleData.interval_months,
+      lastVerificationLevel: ruleData.last_verification_level
+    },
+    updatedVehicle: mapVehicleFromDb(vData)
   };
 };
 
-/**
- * Manual/Ad-hoc Service Log creation.
- * Only inserts a history record, does not update any recurring rules.
- */
 export const createManualServiceLog = async (
   vehicle: Vehicle,
   data: Omit<ServiceLog, 'id' | 'createdAt' | 'updatedAt'>
@@ -251,9 +264,16 @@ export const createManualServiceLog = async (
 
   if (error) handleSupabaseError(error, 'createManualServiceLog');
 
-  // Sync odometer if applicable
-  if (data.mileageAtService > vehicle.mileage) {
-    await updateMileage(vehicle.id, data.mileageAtService);
+  // Trigger velocity sync after manual log
+  const fuelLogs = await fetchFuelLogs(vehicle.id);
+  const serviceLogs = await fetchVehicleServiceLogs(vehicle.id);
+  const newAvgDailyKm = calculateAverageDailyKm(fuelLogs, serviceLogs);
+
+  if (data.mileageAtService > vehicle.mileage || newAvgDailyKm !== vehicle.avgDailyKm) {
+    await updateVehicle(vehicle.id, { 
+      mileage: Math.max(vehicle.mileage, data.mileageAtService),
+      avgDailyKm: newAvgDailyKm
+    });
   }
 
   return mapLogFromDb(logData);
@@ -281,7 +301,8 @@ export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceT
     estimatedCost: parseFloat(t.estimated_cost || '0'),
     lastCompletedAt: t.last_completed_at,
     intervalKm: t.interval_km,
-    intervalMonths: t.interval_months
+    intervalMonths: t.interval_months,
+    lastVerificationLevel: t.last_verification_level
   }));
 };
 
@@ -325,7 +346,8 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
       specs: vehicle.specs,
       status: 'active',
       fuel_type: vehicle.fuelType,
-      engine_size: vehicle.engineSize
+      engine_size: vehicle.engineSize,
+      avg_daily_km: 30
     }])
     .select()
     .single();

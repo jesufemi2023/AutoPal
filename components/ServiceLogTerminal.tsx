@@ -11,7 +11,7 @@ interface Props {
 }
 
 export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, onClose }) => {
-  const { addServiceLog, tasks, setTasks, updateMileage } = useAutoPalStore();
+  const { addServiceLog, tasks, setTasks, updateMileage, updateVehicleStore } = useAutoPalStore();
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
   
@@ -29,10 +29,11 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     linkToTaskId: preselectedTask?.id || null as string | null
   });
 
-  // Precision Refinement: Ad-hoc Matcher
+  // Ad-hoc Intelligence Matcher: Scans pending tasks for description matches
   const matchedTask = useMemo(() => {
     if (preselectedTask || step !== 2) return null;
     const input = form.type.toLowerCase();
+    if (input.length < 3) return null;
     return tasks.find(t => 
       t.status === 'pending' && 
       t.vehicleId === vehicle.id &&
@@ -43,12 +44,11 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Use the matched task if one was found during ad-hoc entry
       const activeTask = preselectedTask || (form.linkToTaskId ? tasks.find(t => t.id === form.linkToTaskId) : null);
 
       if (activeTask) {
-        // Recursive Task flow: Updates the rule, adds a log, and syncs telemetry
-        const { log, updatedTask } = await finalizeMaintenanceCompletion(vehicle, activeTask, {
+        // Precision Recursive Sync
+        const { log, updatedTask, updatedVehicle } = await finalizeMaintenanceCompletion(vehicle, activeTask, {
           mileageAtService: form.mileage,
           serviceDate: form.date,
           cost: parseFloat(form.cost) || 0,
@@ -62,8 +62,9 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         addServiceLog(log);
         const updatedTasks = tasks.map(t => t.id === updatedTask.id ? updatedTask : t);
         setTasks(updatedTasks);
+        updateVehicleStore(updatedVehicle);
       } else {
-        // Ad-hoc History flow: Just adds a record to the ledger
+        // Simple Ledger Entry
         const log = await createManualServiceLog(vehicle, {
           vehicleId: vehicle.id,
           serviceType: form.type || "Unscheduled Maintenance",
@@ -79,6 +80,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         addServiceLog(log);
       }
       
+      // Update local odometer if it progressed
       if (form.mileage > vehicle.mileage) {
         updateMileage(vehicle.id, form.mileage);
       }
@@ -93,10 +95,10 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
   };
 
   const categories: ServiceCategory[] = ['engine', 'brakes', 'fluids', 'tires', 'suspension', 'other'];
-  const verificationLevels: {id: VerificationLevel, label: string, icon: string}[] = [
-    { id: 'self_declared', label: 'Self Declared', icon: '👤' },
-    { id: 'receipt_verified', label: 'Receipt Upload', icon: '📄' },
-    { id: 'mechanic_verified', label: 'Mechanic Authenticated', icon: '🛠️' }
+  const verificationLevels: {id: VerificationLevel, label: string, icon: string, impact: string}[] = [
+    { id: 'self_declared', label: 'Self Declared', icon: '👤', impact: 'Base Trust' },
+    { id: 'receipt_verified', label: 'Receipt Upload', icon: '📄', impact: '+2% Vitality' },
+    { id: 'mechanic_verified', label: 'Mechanic Authenticated', icon: '🛠️', impact: '+5% Vitality' }
   ];
 
   return (
@@ -188,7 +190,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                     <span className="text-3xl">{level.icon}</span>
                     <div className="text-left">
                        <div className="font-black uppercase tracking-widest text-[11px]">{level.label}</div>
-                       <div className="text-[8px] font-bold opacity-40 uppercase tracking-widest mt-1">Impacts Vitality Multiplier</div>
+                       <div className="text-[8px] font-bold opacity-60 uppercase tracking-widest mt-1">{level.impact}</div>
                     </div>
                   </div>
                   <div className={`w-8 h-8 rounded-full border-4 ${form.verificationLevel === level.id ? 'border-white bg-blue-400' : 'border-slate-800'}`}></div>
@@ -240,7 +242,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
           <div className="space-y-10 animate-slide-up">
              <div className="text-center space-y-4">
                 <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em]">Recursive Optimization</h4>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">Adjust future milestones for this asset</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed text-center">Adjust future milestones for this asset</p>
              </div>
              <div className="grid grid-cols-2 gap-8">
                 <div className="space-y-3">
