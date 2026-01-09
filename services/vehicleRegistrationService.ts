@@ -40,23 +40,35 @@ export const registerNewVehicle = async (
     status: 'active',
     imageUrls: [],
     specs: confirmedData.specs || {},
-    // Fix: isDirty is now part of the Vehicle type
     isDirty: false
   };
 
+  // 1. Create the Vehicle Asset
   const savedVehicle = await createVehicle(payload);
 
-  // Background Task: Generate Initial Roadmap localized to regional conditions
-  generateMaintenanceSchedule(savedVehicle.make, savedVehicle.model, savedVehicle.year, savedVehicle.mileage)
-    .then(roadmap => {
-      return createMaintenanceTasksBatch(roadmap.tasks.map(t => ({
+  // 2. Generate Initial Roadmap (Awaited for UI feedback and atomicity)
+  try {
+    const roadmap = await generateMaintenanceSchedule(
+      savedVehicle.make, 
+      savedVehicle.model, 
+      savedVehicle.year, 
+      savedVehicle.mileage
+    );
+
+    if (roadmap && roadmap.tasks) {
+      await createMaintenanceTasksBatch(roadmap.tasks.map(t => ({
         ...t,
         vehicleId: savedVehicle.id,
         status: 'pending' as const,
         isDirty: false
       })));
-    })
-    .catch(e => console.error("Roadmap generation background error:", e));
+    }
+  } catch (e) {
+    console.error("Roadmap generation failed during registration:", e);
+    // We throw the error so the UI (AssetIntelligenceCenter) can report the failure to the user.
+    // The vehicle record still exists, but the user is informed that intelligence bootstrap failed.
+    throw new Error(`Vehicle registered, but roadmap generation failed: ${e instanceof Error ? e.message : 'Unknown AI Error'}`);
+  }
 
   return savedVehicle;
 };

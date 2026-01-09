@@ -4,12 +4,36 @@ import { ENV } from "./envService.ts";
 import { PROMPTS } from "./promptService.ts";
 import { AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
 
+const getAIClient = () => {
+  /**
+   * We prioritize process.env.API_KEY as per instructions.
+   * With the vite.config.ts update, this will be physically replaced 
+   * by the string value of VITE_API_KEY during the Vercel build.
+   */
+  const apiKey = process.env.API_KEY;
+  
+  if (!apiKey || apiKey === "undefined" || apiKey.trim() === "") {
+    // Check fallback for development/browser injection
+    const fallbackKey = (window as any).process?.env?.API_KEY;
+    if (fallbackKey && fallbackKey !== "undefined" && fallbackKey.trim() !== "") {
+      return new GoogleGenAI({ apiKey: fallbackKey });
+    }
+    
+    throw new Error(
+      "Neural Sync Failure: Gemini API key not found in environment. " +
+      "Ensure VITE_API_KEY is set in Vercel and the app is redeployed."
+    );
+  }
+
+  return new GoogleGenAI({ apiKey });
+};
+
 export const decodeVIN = async (vin: string): Promise<{ make: string; model: string; year: number; bodyType: string }> => {
   if (ENV.MOCK_AI) {
     return { make: "Toyota", model: "Camry", year: 2022, bodyType: "sedan" };
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAIClient();
   
   try {
     const response = await ai.models.generateContent({
@@ -51,7 +75,7 @@ export const generateMaintenanceSchedule = async (
     };
   }
 
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAIClient();
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
     contents: `Vehicle Profile: ${year} ${make} ${model}. Current Telemetry: ${mileage}km. Environment: ${ENV.REGIONAL_CONTEXT}`,
@@ -90,7 +114,7 @@ export const generateMaintenanceSchedule = async (
 export const getAdvancedDiagnostic = async (
   vehicle: any, symptoms: string, isPremium: boolean, imageBase64?: string
 ): Promise<AIResponse> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const ai = getAIClient();
   const modelId = (isPremium && ENV.ENABLE_PREMIUM_AI) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
   
   const parts: any[] = [{ text: `Vehicle Asset: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Reported Symptoms: ${symptoms}` }];

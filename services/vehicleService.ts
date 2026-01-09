@@ -24,6 +24,9 @@ const handleSupabaseError = (error: any, context: string) => {
   if (error.code === '23505') {
     throw new Error(`A vehicle with this Chassis ID (VIN) already exists in the system.`);
   }
+  if (error.code === 'PGRST204') {
+    throw new Error(`Schema mismatch: The database is missing columns (e.g., avg_daily_km). Please run the SQL migration script.`);
+  }
   throw error;
 };
 
@@ -89,6 +92,7 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   if (data.avgDailyKm !== undefined) dbPayload.avg_daily_km = data.avgDailyKm;
   if (data.healthScore !== undefined) dbPayload.health_score = data.healthScore;
 
+  // Clean up frontend-only keys before sending to Supabase
   delete dbPayload.id;
   delete dbPayload.mileage;
   delete dbPayload.ownerId;
@@ -99,6 +103,7 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   delete dbPayload.healthScore;
   delete dbPayload.createdAt;
   delete dbPayload.updatedAt;
+  delete dbPayload.imageUrls; // Supabase uses image_urls or image_url
 
   const { data: updated, error } = await supabase
     .from(DB_TABLES.VEHICLES)
@@ -120,10 +125,6 @@ export const updateMileage = async (vehicleId: string, mileage: number): Promise
   if (error) handleSupabaseError(error, 'updateMileage');
 };
 
-/**
- * Precision Execution: Syncs telemetry, updates rules recursively, 
- * and recalculates asset velocity in one flow.
- */
 export const finalizeMaintenanceCompletion = async (
   vehicle: Vehicle, 
   task: MaintenanceTask, 
@@ -144,7 +145,6 @@ export const finalizeMaintenanceCompletion = async (
   const targetIntervalKm = completionData.intervalKm ?? task.intervalKm ?? 5000;
   const targetIntervalMonths = completionData.intervalMonths ?? task.intervalMonths ?? 6;
 
-  // 1. Calculate the next recursive milestone (The "Floating" logic)
   const { nextMileage, nextDate } = calculateNextMilestone(
     completionData.mileageAtService, 
     completionData.serviceDate, 
@@ -152,9 +152,6 @@ export const finalizeMaintenanceCompletion = async (
     targetIntervalMonths
   );
 
-  // 2. Perform Atomic Multi-Sync
-  
-  // A. Log History
   const { data: logData, error: logError } = await supabase
     .from(DB_TABLES.RECORDS)
     .insert([{
@@ -175,7 +172,6 @@ export const finalizeMaintenanceCompletion = async (
     .single();
   if (logError) handleSupabaseError(logError, 'Sync-Log');
 
-  // B. Update Recurring Rule
   const { data: ruleData, error: ruleError } = await supabase
     .from(DB_TABLES.RULES)
     .update({
@@ -192,17 +188,13 @@ export const finalizeMaintenanceCompletion = async (
     .single();
   if (ruleError) handleSupabaseError(ruleError, 'Sync-Rule');
 
-  // 3. Precision Velocity Engine Integration
-  // Fetch recent fuel logs to calculate updated daily usage
   const fuelLogs = await fetchFuelLogs(vehicle.id);
   const serviceLogs = await fetchVehicleServiceLogs(vehicle.id);
   const newAvgDailyKm = calculateAverageDailyKm(fuelLogs, serviceLogs);
 
-  // Recalculate Health Score with the new log included
   const allTasks = await fetchVehicleTasks(vehicle.id);
   const newHealthScore = calculateVitalityScore({ ...vehicle, mileage: completionData.mileageAtService }, allTasks);
 
-  // C. Sync Vehicle Telemetry (Odometer, Velocity, Health)
   const { data: vData, error: vError } = await supabase
     .from(DB_TABLES.VEHICLES)
     .update({ 
@@ -256,7 +248,6 @@ export const createManualServiceLog = async (
       notes: data.notes,
       category: data.category,
       verification_level: data.verificationLevel,
-      receipt_url: data.receiptUrl,
       status: 'completed'
     }])
     .select()
@@ -264,7 +255,6 @@ export const createManualServiceLog = async (
 
   if (error) handleSupabaseError(error, 'createManualServiceLog');
 
-  // Trigger velocity sync after manual log
   const fuelLogs = await fetchFuelLogs(vehicle.id);
   const serviceLogs = await fetchVehicleServiceLogs(vehicle.id);
   const newAvgDailyKm = calculateAverageDailyKm(fuelLogs, serviceLogs);
@@ -331,24 +321,30 @@ export const archiveVehicle = async (vehicleId: string): Promise<void> => {
 export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt' | 'healthScore'>): Promise<Vehicle> => {
   if (!supabase) throw new Error("Supabase not configured");
   
+  // Basic payload compatible with older schemas
+  const payload: any = {
+    owner_id: vehicle.ownerId,
+    make: vehicle.make,
+    model: vehicle.model,
+    year: vehicle.year,
+    vin: vehicle.vin,
+    current_mileage: vehicle.mileage,
+    body_type: vehicle.bodyType,
+    image_url: vehicle.imageUrl,
+    image_urls: vehicle.imageUrls,
+    specs: vehicle.specs,
+    status: 'active',
+    fuel_type: vehicle.fuelType,
+    engine_size: vehicle.engineSize
+  };
+
+  // Only include avg_daily_km if specifically desired, 
+  // though we catch PGRST204 if the column is missing.
+  payload.avg_daily_km = 35;
+
   const { data, error } = await supabase
     .from(DB_TABLES.VEHICLES)
-    .insert([{
-      owner_id: vehicle.ownerId,
-      make: vehicle.make,
-      model: vehicle.model,
-      year: vehicle.year,
-      vin: vehicle.vin,
-      current_mileage: vehicle.mileage,
-      body_type: vehicle.bodyType,
-      image_url: vehicle.imageUrl,
-      image_urls: vehicle.imageUrls,
-      specs: vehicle.specs,
-      status: 'active',
-      fuel_type: vehicle.fuelType,
-      engine_size: vehicle.engineSize,
-      avg_daily_km: 30
-    }])
+    .insert([payload])
     .select()
     .single();
 
