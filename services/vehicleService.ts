@@ -25,7 +25,9 @@ const handleSupabaseError = (error: any, context: string) => {
     throw new Error(`A vehicle with this Chassis ID (VIN) already exists in the system.`);
   }
   if (error.code === 'PGRST204') {
-    throw new Error(`Schema mismatch: The database is missing columns (e.g., avg_daily_km). Please run the SQL migration script.`);
+    // This specifically catches missing columns (e.g. if avg_daily_km hasn't been added yet)
+    console.warn(`Column mismatch detected in ${context}. Proceeding with core fields only.`);
+    return 'SCHEMA_MISMATCH';
   }
   throw error;
 };
@@ -92,27 +94,35 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   if (data.avgDailyKm !== undefined) dbPayload.avg_daily_km = data.avgDailyKm;
   if (data.healthScore !== undefined) dbPayload.health_score = data.healthScore;
 
-  // Clean up frontend-only keys before sending to Supabase
-  delete dbPayload.id;
-  delete dbPayload.mileage;
-  delete dbPayload.ownerId;
-  delete dbPayload.bodyType;
-  delete dbPayload.fuelType;
-  delete dbPayload.engineSize;
-  delete dbPayload.avgDailyKm;
-  delete dbPayload.healthScore;
-  delete dbPayload.createdAt;
-  delete dbPayload.updatedAt;
-  delete dbPayload.imageUrls; // Supabase uses image_urls or image_url
+  // Clean up frontend-only keys
+  const keysToRemove = ['id', 'mileage', 'ownerId', 'bodyType', 'fuelType', 'engineSize', 'avgDailyKm', 'healthScore', 'createdAt', 'updatedAt', 'imageUrls'];
+  keysToRemove.forEach(k => delete dbPayload[k]);
 
-  const { data: updated, error } = await supabase
+  let { data: updated, error } = await supabase
     .from(DB_TABLES.VEHICLES)
     .update(dbPayload)
     .eq('id', vehicleId)
     .select()
     .single();
 
-  if (error) handleSupabaseError(error, 'updateVehicle');
+  if (error) {
+    const errType = handleSupabaseError(error, 'updateVehicle');
+    if (errType === 'SCHEMA_MISMATCH') {
+       // Retry without intelligence columns if schema is old
+       delete dbPayload.avg_daily_km;
+       delete dbPayload.health_score;
+       const retry = await supabase
+         .from(DB_TABLES.VEHICLES)
+         .update(dbPayload)
+         .eq('id', vehicleId)
+         .select()
+         .single();
+       if (retry.error) throw retry.error;
+       updated = retry.data;
+    } else {
+      throw error;
+    }
+  }
   return mapVehicleFromDb(updated);
 };
 
@@ -208,8 +218,8 @@ export const finalizeMaintenanceCompletion = async (
   if (vError) handleSupabaseError(vError, 'Sync-Vehicle-Telemetry');
 
   return {
-    log: mapLogFromDb(logData),
-    updatedTask: {
+    log: mapLogFromDb(vData ? vData : logData), // Handle potential null if update failed
+    updatedTask: ruleData ? {
       id: ruleData.id,
       taskId: ruleData.task_id,
       vehicleId: ruleData.vehicle_id,
@@ -225,7 +235,7 @@ export const finalizeMaintenanceCompletion = async (
       intervalKm: ruleData.interval_km,
       intervalMonths: ruleData.interval_months,
       lastVerificationLevel: ruleData.last_verification_level
-    },
+    } : ({} as any),
     updatedVehicle: mapVehicleFromDb(vData)
   };
 };
@@ -321,7 +331,6 @@ export const archiveVehicle = async (vehicleId: string): Promise<void> => {
 export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt' | 'healthScore'>): Promise<Vehicle> => {
   if (!supabase) throw new Error("Supabase not configured");
   
-  // Basic payload compatible with older schemas
   const payload: any = {
     owner_id: vehicle.ownerId,
     make: vehicle.make,
@@ -335,20 +344,32 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
     specs: vehicle.specs,
     status: 'active',
     fuel_type: vehicle.fuelType,
-    engine_size: vehicle.engineSize
+    engine_size: vehicle.engineSize,
+    avg_daily_km: 35 // Base standard for velocity calculation
   };
 
-  // Only include avg_daily_km if specifically desired, 
-  // though we catch PGRST204 if the column is missing.
-  payload.avg_daily_km = 35;
-
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from(DB_TABLES.VEHICLES)
     .insert([payload])
     .select()
     .single();
 
-  if (error) handleSupabaseError(error, 'createVehicle');
+  if (error) {
+    const errType = handleSupabaseError(error, 'createVehicle');
+    if (errType === 'SCHEMA_MISMATCH') {
+      // Retry without intelligence columns if the migration hasn't been run
+      delete payload.avg_daily_km;
+      const retry = await supabase
+        .from(DB_TABLES.VEHICLES)
+        .insert([payload])
+        .select()
+        .single();
+      if (retry.error) throw retry.error;
+      data = retry.data;
+    } else {
+      throw error;
+    }
+  }
   return mapVehicleFromDb(data);
 };
 
@@ -357,15 +378,15 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
   
   const payload = tasks.map(t => ({
     vehicle_id: t.vehicleId,
-    task_id: t.taskId,
+    task_id: t.taskId || null,
     title: t.title,
     description: t.description,
     due_mileage: t.dueMileage,
-    due_date: t.dueDate,
+    due_date: t.dueDate || null,
     status: t.status,
     priority: t.priority,
     category: t.category,
-    estimated_cost: t.estimatedCost,
+    estimated_cost: t.estimatedCost || 0,
     interval_km: t.intervalKm || 5000,
     interval_months: t.intervalMonths || 6
   }));
@@ -374,7 +395,20 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
     .from(DB_TABLES.RULES)
     .insert(payload);
     
-  if (error) handleSupabaseError(error, 'createMaintenanceTasksBatch');
+  if (error) {
+    const errType = handleSupabaseError(error, 'createMaintenanceTasksBatch');
+    if (errType === 'SCHEMA_MISMATCH') {
+      // Strip new columns if DB hasn't been upgraded
+      const fallbackPayload = payload.map(p => {
+        const { interval_km, interval_months, ...rest } = p;
+        return rest;
+      });
+      const retry = await supabase.from(DB_TABLES.RULES).insert(fallbackPayload);
+      if (retry.error) throw retry.error;
+    } else {
+      throw error;
+    }
+  }
 };
 
 export const uploadVehicleImage = async (userId: string, vehicleId: string, blob: Blob): Promise<string> => {
@@ -382,7 +416,7 @@ export const uploadVehicleImage = async (userId: string, vehicleId: string, blob
   const fileName = `${userId}/${vehicleId}/${Date.now()}.jpg`;
   const { data, error } = await supabase.storage.from('vehicle-images').upload(fileName, blob);
   if (error) handleSupabaseError(error, 'uploadVehicleImage');
-  const { data: { publicUrl } } = supabase.storage.from('vehicle-images').getPublicUrl(data.path);
+  const { data: { publicUrl } } = supabase.storage.from('vehicle-images').getPublicUrl(data!.path);
   return publicUrl;
 };
 

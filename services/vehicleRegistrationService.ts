@@ -2,7 +2,7 @@
 import { generateMaintenanceSchedule } from './geminiService.ts';
 import { createVehicle, createMaintenanceTasksBatch } from './vehicleService.ts';
 import { getCachedRoadmap, saveRoadmapTemplate } from './templateService.ts';
-import { Vehicle, BodyType } from '../shared/types.ts';
+import { Vehicle, BodyType, MaintenanceScheduleResponse } from '../shared/types.ts';
 
 /**
  * Vehicle Registration Orchestrator
@@ -28,7 +28,7 @@ export const registerNewVehicle = async (
   }
 ): Promise<Vehicle> => {
   
-  const payload: Omit<Vehicle, 'id'> = {
+  const payload: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt' | 'healthScore'> = {
     ownerId: userId,
     make: confirmedData.make,
     model: confirmedData.model,
@@ -37,7 +37,6 @@ export const registerNewVehicle = async (
     mileage: confirmedData.mileage,
     fuelType: confirmedData.fuelType,
     engineSize: confirmedData.engineSize,
-    healthScore: 100,
     bodyType: confirmedData.bodyType,
     status: 'active',
     imageUrls: [],
@@ -49,43 +48,49 @@ export const registerNewVehicle = async (
   const savedVehicle = await createVehicle(payload);
 
   /**
-   * 2. Intelligence Bootstrap (NON-BLOCKING)
-   * We try to get a roadmap, but we don't crash if it fails.
+   * 2. Intelligence Bootstrap (BACKGROUND PROCESS)
+   * We do this in a separate execution flow so we can return the vehicle immediately.
    */
+  bootstrapIntelligence(savedVehicle);
+
+  return savedVehicle;
+};
+
+/**
+ * Handles the async generation of maintenance roadmaps.
+ */
+async function bootstrapIntelligence(vehicle: Vehicle) {
   try {
     // Phase A: Check Template Factory ($0 Cost)
-    let roadmap = await getCachedRoadmap(savedVehicle.make, savedVehicle.model, savedVehicle.year);
+    let roadmap = await getCachedRoadmap(vehicle.make, vehicle.model, vehicle.year);
     let isNewTemplate = false;
 
-    // Phase B: Call AI if missing (Quota Check)
+    // Phase B: Call AI if missing (Quota Check & Fallback included in service)
     if (!roadmap) {
       roadmap = await generateMaintenanceSchedule(
-        savedVehicle.make, 
-        savedVehicle.model, 
-        savedVehicle.year, 
-        savedVehicle.mileage
+        vehicle.make, 
+        vehicle.model, 
+        vehicle.year, 
+        vehicle.mileage
       );
       isNewTemplate = true;
     }
 
-    // Phase C: Apply Tasks
+    // Phase C: Apply Tasks to user's local records
     if (roadmap && roadmap.tasks) {
       await createMaintenanceTasksBatch(roadmap.tasks.map(t => ({
         ...t,
-        vehicleId: savedVehicle.id,
+        vehicleId: vehicle.id,
         status: 'pending' as const,
         isDirty: false
       })));
 
       // Phase D: Shared Intelligence ($0 for next 10,000 users)
-      if (isNewTemplate) {
-        saveRoadmapTemplate(savedVehicle.make, savedVehicle.model, savedVehicle.year, roadmap);
+      if (isNewTemplate && roadmap.summary !== "Standard regional maintenance protocol applied (AI Quota Sleep).") {
+        saveRoadmapTemplate(vehicle.make, vehicle.model, vehicle.year, roadmap);
       }
     }
   } catch (e) {
     console.error("Non-critical Intelligence Bootstrap Failure:", e);
-    // Silent fail - the user has their car, they can trigger a manual sync later.
   }
-
-  return savedVehicle;
-};
+}
