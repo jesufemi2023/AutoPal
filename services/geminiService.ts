@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ENV } from "./envService.ts";
 import { PROMPTS } from "./promptService.ts";
-import { AIResponse, MaintenanceScheduleResponse, ReceiptData } from "../shared/types.ts";
+import { AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
 
 export const decodeVIN = async (vin: string): Promise<{ make: string; model: string; year: number; bodyType: string }> => {
   if (ENV.MOCK_AI) {
@@ -39,55 +39,14 @@ export const decodeVIN = async (vin: string): Promise<{ make: string; model: str
   }
 };
 
-export const extractReceiptData = async (imageBase64: string): Promise<ReceiptData> => {
-  if (ENV.MOCK_AI) {
-    return { vendor: "TotalEnergies Service Center", totalAmount: 25000, date: new Date().toISOString().split('T')[0] };
-  }
-
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const data = imageBase64.includes(",") ? imageBase64.split(",")[1] : imageBase64;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: {
-        parts: [
-          { inlineData: { mimeType: "image/jpeg", data: data } },
-          { text: "Extract receipt details: vendor name, total amount, and date." }
-        ]
-      },
-      config: {
-        systemInstruction: "You are a specialized receipt scanner. Extract data precisely. Return JSON.",
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            vendor: { type: Type.STRING },
-            totalAmount: { type: Type.NUMBER },
-            date: { type: Type.STRING, description: "ISO 8601 date YYYY-MM-DD" },
-            items: { type: Type.ARRAY, items: { type: Type.STRING } }
-          },
-          required: ["vendor", "totalAmount"]
-        }
-      }
-    });
-
-    let text = response.text?.replace(/```json/g, "").replace(/```/g, "").trim() || "{}";
-    return JSON.parse(text);
-  } catch (error) {
-    console.error("Receipt AI Error:", error);
-    throw error;
-  }
-};
-
 export const generateMaintenanceSchedule = async (
   make: string, model: string, year: number, mileage: number
 ): Promise<MaintenanceScheduleResponse> => {
   if (ENV.MOCK_AI) {
     return {
-      summary: "Mock roadmap.",
+      summary: "Mock roadmap generated.",
       tasks: [
-        { title: "Oil Change", description: "Standard service", dueMileage: mileage + 5000, priority: "high", category: "fluids", estimatedCost: 45000 }
+        { title: "Standard Oil Change", description: "Synthetic oil and filter replacement.", dueMileage: mileage + 5000, priority: "high", category: "fluids", estimatedCost: 45000 }
       ]
     };
   }
@@ -95,7 +54,7 @@ export const generateMaintenanceSchedule = async (
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: `Vehicle: ${year} ${make} ${model}. Odometer: ${mileage}km.`,
+    contents: `Vehicle Profile: ${year} ${make} ${model}. Current Telemetry: ${mileage}km. Environment: ${ENV.REGIONAL_CONTEXT}`,
     config: {
       systemInstruction: PROMPTS.MAINTENANCE_ROADMAP,
       responseMimeType: "application/json",
@@ -134,7 +93,7 @@ export const getAdvancedDiagnostic = async (
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const modelId = (isPremium && ENV.ENABLE_PREMIUM_AI) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
   
-  const parts: any[] = [{ text: `Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Problem: ${symptoms}` }];
+  const parts: any[] = [{ text: `Vehicle Asset: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Reported Symptoms: ${symptoms}` }];
   if (imageBase64) {
     const data = imageBase64.includes(",") ? imageBase64.split(",")[1] : imageBase64;
     parts.push({ inlineData: { mimeType: "image/jpeg", data: data } });

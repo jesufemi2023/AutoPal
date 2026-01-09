@@ -82,7 +82,6 @@ export interface ServiceLog {
 
 export interface MaintenanceTask {
   id: string;
-  // Added optional taskId for database rule reference
   taskId?: string;
   vehicleId: string;
   title: string;
@@ -96,7 +95,7 @@ export interface MaintenanceTask {
   lastCompletedAt?: string; 
   intervalKm?: number; 
   intervalMonths?: number; 
-  projectedDate?: string; // Phase 4: Calculated by Velocity Engine
+  projectedDate?: string; 
   lastVerificationLevel?: VerificationLevel;
   lastReceiptUrl?: string;
 }
@@ -106,13 +105,6 @@ export interface AIResponse {
   recommendations: string[];
   severity: 'info' | 'warning' | 'critical';
   partsIdentified?: string[];
-}
-
-export interface ReceiptData {
-  vendor?: string;
-  totalAmount?: number;
-  date?: string;
-  items?: string[];
 }
 
 export interface MaintenanceScheduleResponse {
