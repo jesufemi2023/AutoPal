@@ -16,12 +16,16 @@ const PRIORITY_MULTIPLIER: Record<Priority, number> = {
   low: 0.8
 };
 
-// Tropical Context Multiplier (1.0 = Standard, 1.2 = Severe Conditions)
+/**
+ * REGIONAL SEVERITY FACTOR
+ * 1.0 = Default Standard
+ * 1.2 = Severe (Nigeria: High dust, heat, stop-and-go traffic)
+ */
 const REGIONAL_SEVERITY = 1.2;
 
 /**
  * Velocity Engine: Average Daily Kilometers (ADD)
- * Calculates a weighted average of daily driving distance based on combined telemetry.
+ * Calculates a weighted average of daily driving distance based on telemetry.
  */
 export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: ServiceLog[]): number => {
   const allLogs = [
@@ -32,7 +36,7 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
   // Use only the most recent 10 records for high-fidelity velocity
   const recentLogs = allLogs.slice(-10);
   
-  if (recentLogs.length < 2) return 30; // Standard for urban Nigerian usage
+  if (recentLogs.length < 2) return 35; // Calibrated for West African urban centers
 
   const oldest = recentLogs[0];
   const newest = recentLogs[recentLogs.length - 1];
@@ -42,7 +46,7 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
   const days = Math.max(1, timeDiff / (1000 * 60 * 60 * 24));
 
   const add = distance / days;
-  return Math.max(5, Math.min(500, add));
+  return Math.max(5, Math.min(400, add)); // Sanity caps
 };
 
 /**
@@ -61,6 +65,7 @@ export const predictServiceDate = (vehicle: Vehicle, task: MaintenanceTask, add:
 
 /**
  * Calculates next milestone with regional severity compensation.
+ * Implements "Floating Intervals" (KM + Interval)
  */
 export const calculateNextMilestone = (
   baseMileage: number,
@@ -68,7 +73,7 @@ export const calculateNextMilestone = (
   intervalKm: number = 5000,
   intervalMonths?: number
 ) => {
-  // Apply severity reduction (e.g., if severe, service happens sooner)
+  // Severity reduction: services happen sooner in severe climates
   const adjustedInterval = Math.round(intervalKm / REGIONAL_SEVERITY);
   const nextMileage = baseMileage + adjustedInterval;
   
@@ -97,7 +102,7 @@ export const getTaskMaintenanceStatus = (vehicle: Vehicle, task: MaintenanceTask
 
   if (kmRemaining <= 0 || daysRemaining <= 0) return 'overdue';
   
-  // Warning triggers at 10% of interval or 14 days
+  // Warning triggers at 15% of interval or 14 days
   const warningKm = Math.min(1000, (task.intervalKm || 5000) * 0.15);
   if (kmRemaining <= warningKm || daysRemaining <= 14) return 'upcoming';
 
@@ -128,7 +133,7 @@ export const calculateVitalityScore = (vehicle: Vehicle, tasks: MaintenanceTask[
       }
     }
 
-    // Historical trust multiplier
+    // Historical trust multiplier: Verified records lift the asset's health perception
     if (task.lastVerificationLevel === 'receipt_verified') verificationBonus += 2;
     if (task.lastVerificationLevel === 'mechanic_verified') verificationBonus += 5;
   });
@@ -166,7 +171,7 @@ export const detectAnomalies = (logs: ServiceLog[]) => {
       anomalies.push({
         type: 'consumption',
         severity: 'high',
-        message: "Hyper-frequent engine service detected. Potential fluid leak or thermal distress identified."
+        message: "Unusually frequent engine servicing detected. Inspect for thermal fluid leaks or gasket distress."
       });
     }
   }
