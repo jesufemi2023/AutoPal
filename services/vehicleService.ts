@@ -16,7 +16,11 @@ const DB_TABLES = {
 };
 
 const handleSupabaseError = (error: any, context: string) => {
-  console.error(`Supabase Error [${context}]:`, error);
+  const message = error?.message || "Unknown Database Error";
+  const details = error?.details || "";
+  
+  console.error(`Supabase Error [${context}]:`, { message, details, code: error?.code });
+
   if (error.code === 'PGRST116') return null; 
   if (error.code === '42P01') {
     throw new Error(`Database table missing. Please run migrations in Supabase SQL Editor.`);
@@ -24,9 +28,7 @@ const handleSupabaseError = (error: any, context: string) => {
   if (error.code === '23505') {
     throw new Error(`A vehicle with this Chassis ID (VIN) already exists in the system.`);
   }
-  if (error.code === 'PGRST204') {
-    // This specifically catches missing columns (e.g. if avg_daily_km hasn't been added yet)
-    console.warn(`Column mismatch detected in ${context}. Proceeding with core fields only.`);
+  if (error.code === 'PGRST204' || error.code === '42703' || error.status === 400) {
     return 'SCHEMA_MISMATCH';
   }
   throw error;
@@ -94,7 +96,6 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   if (data.avgDailyKm !== undefined) dbPayload.avg_daily_km = data.avgDailyKm;
   if (data.healthScore !== undefined) dbPayload.health_score = data.healthScore;
 
-  // Clean up frontend-only keys
   const keysToRemove = ['id', 'mileage', 'ownerId', 'bodyType', 'fuelType', 'engineSize', 'avgDailyKm', 'healthScore', 'createdAt', 'updatedAt', 'imageUrls'];
   keysToRemove.forEach(k => delete dbPayload[k]);
 
@@ -108,7 +109,6 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   if (error) {
     const errType = handleSupabaseError(error, 'updateVehicle');
     if (errType === 'SCHEMA_MISMATCH') {
-       // Retry without intelligence columns if schema is old
        delete dbPayload.avg_daily_km;
        delete dbPayload.health_score;
        const retry = await supabase
@@ -218,7 +218,7 @@ export const finalizeMaintenanceCompletion = async (
   if (vError) handleSupabaseError(vError, 'Sync-Vehicle-Telemetry');
 
   return {
-    log: mapLogFromDb(vData ? vData : logData), // Handle potential null if update failed
+    log: mapLogFromDb(vData ? vData : logData),
     updatedTask: ruleData ? {
       id: ruleData.id,
       taskId: ruleData.task_id,
@@ -345,7 +345,7 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
     status: 'active',
     fuel_type: vehicle.fuelType,
     engine_size: vehicle.engineSize,
-    avg_daily_km: 35 // Base standard for velocity calculation
+    avg_daily_km: 35
   };
 
   let { data, error } = await supabase
@@ -357,7 +357,6 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
   if (error) {
     const errType = handleSupabaseError(error, 'createVehicle');
     if (errType === 'SCHEMA_MISMATCH') {
-      // Retry without intelligence columns if the migration hasn't been run
       delete payload.avg_daily_km;
       const retry = await supabase
         .from(DB_TABLES.VEHICLES)
@@ -376,7 +375,7 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
 export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[]): Promise<void> => {
   if (!supabase) return;
   
-  const payload = tasks.map(t => ({
+  const fullPayload = tasks.map(t => ({
     vehicle_id: t.vehicleId,
     task_id: t.taskId || null,
     title: t.title,
@@ -391,23 +390,41 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
     interval_months: t.intervalMonths || 6
   }));
 
-  const { error } = await supabase
-    .from(DB_TABLES.RULES)
-    .insert(payload);
+  // ATTEMPT 1: Full High-Fidelity Sync
+  const { error: error1 } = await supabase.from(DB_TABLES.RULES).insert(fullPayload);
+  if (!error1) return;
+
+  if (handleSupabaseError(error1, 'Batch1') === 'SCHEMA_MISMATCH') {
+    // ATTEMPT 2: Minimal Sync (MVP Baseline)
+    const mvpPayload = fullPayload.map(p => ({
+      vehicle_id: p.vehicle_id,
+      title: p.title,
+      description: p.description,
+      due_mileage: p.due_mileage,
+      status: p.status,
+      priority: p.priority,
+      category: p.category
+    }));
     
-  if (error) {
-    const errType = handleSupabaseError(error, 'createMaintenanceTasksBatch');
-    if (errType === 'SCHEMA_MISMATCH') {
-      // Strip new columns if DB hasn't been upgraded
-      const fallbackPayload = payload.map(p => {
-        const { interval_km, interval_months, ...rest } = p;
-        return rest;
-      });
-      const retry = await supabase.from(DB_TABLES.RULES).insert(fallbackPayload);
-      if (retry.error) throw retry.error;
-    } else {
-      throw error;
+    console.warn("Attempting MVP Baseline Sync...");
+    const { error: error2 } = await supabase.from(DB_TABLES.RULES).insert(mvpPayload);
+    if (!error2) return;
+
+    // ATTEMPT 3: Barebones (Survivability Mode)
+    const barePayload = mvpPayload.map(p => ({
+      vehicle_id: p.vehicle_id,
+      title: p.title,
+      status: p.status
+    }));
+    
+    console.warn("Attempting Barebones Survivability Sync...");
+    const { error: error3 } = await supabase.from(DB_TABLES.RULES).insert(barePayload);
+    if (error3) {
+      console.error("All fallback layers failed. Table structure mismatch is total.", error3);
+      throw error3;
     }
+  } else {
+    throw error1;
   }
 };
 
