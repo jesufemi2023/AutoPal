@@ -8,7 +8,7 @@ import Marketplace from './components/Marketplace.tsx';
 import AdminPanel from './components/AdminPanel.tsx';
 import FuelIntelligenceCenter from './components/FuelIntelligenceCenter.tsx';
 import ServiceIntelligenceCenter from './components/ServiceIntelligenceCenter.tsx';
-// Fixed: Path was missing 'components/' and ensured no '@/' alias is used
+// Fixed: Path was missing 'components/'
 import AssetIntelligenceCenter from './components/AssetIntelligenceCenter.tsx';
 import { validateEnv } from './services/envService.ts';
 import { fetchUserVehicles } from './services/vehicleService.ts';

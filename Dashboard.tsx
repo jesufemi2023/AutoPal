@@ -5,7 +5,7 @@ import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, archiveVehicle, updateMileage, updateVehicle
 } from './services/vehicleService.ts';
-import { OdometerInput } from './OdometerInput.tsx';
+import { OdometerInput } from './components/OdometerInput.tsx';
 import { MaintenanceTask, ServiceLog } from './shared/types.ts';
 
 import { VehicleOverview } from './components/dashboard/VehicleOverview.tsx';
