@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { finalizeMaintenanceCompletion, createManualServiceLog } from '../services/vehicleService.ts';
 import { MaintenanceTask, ServiceCategory, VerificationLevel, Vehicle } from '../shared/types.ts';
@@ -29,25 +29,38 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     linkToTaskId: preselectedTask?.id || null as string | null
   });
 
-  // Ad-hoc Intelligence Matcher: Scans pending tasks for description matches
-  const matchedTask = useMemo(() => {
-    if (preselectedTask || step !== 2) return null;
-    const input = form.type.toLowerCase();
-    if (input.length < 3) return null;
-    return tasks.find(t => 
+  // Automated Neural Link: Attempt to find a match while typing
+  useEffect(() => {
+    if (preselectedTask || step !== 2) return;
+    
+    const input = form.type.trim().toLowerCase();
+    if (input.length < 3) return;
+
+    const match = tasks.find(t => 
       t.status === 'pending' && 
       t.vehicleId === vehicle.id &&
-      (input.includes(t.title.toLowerCase()) || t.title.toLowerCase().includes(input))
+      (input === t.title.toLowerCase() || t.title.toLowerCase().includes(input))
     );
+
+    if (match && form.linkToTaskId !== match.id) {
+      setForm(prev => ({ 
+        ...prev, 
+        linkToTaskId: match.id, 
+        category: match.category,
+        intervalKm: match.intervalKm || 5000,
+        intervalMonths: match.intervalMonths || 6
+      }));
+    }
   }, [form.type, tasks, preselectedTask, step, vehicle.id]);
+
+  const activeTask = useMemo(() => {
+    return preselectedTask || (form.linkToTaskId ? tasks.find(t => t.id === form.linkToTaskId) : null);
+  }, [preselectedTask, form.linkToTaskId, tasks]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const activeTask = preselectedTask || (form.linkToTaskId ? tasks.find(t => t.id === form.linkToTaskId) : null);
-
       if (activeTask) {
-        // Precision Recursive Sync
         const { log, updatedTask, updatedVehicle } = await finalizeMaintenanceCompletion(vehicle, activeTask, {
           mileageAtService: form.mileage,
           serviceDate: form.date,
@@ -64,9 +77,9 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         setTasks(updatedTasks);
         updateVehicleStore(updatedVehicle);
       } else {
-        // Simple Ledger Entry
         const log = await createManualServiceLog(vehicle, {
           vehicleId: vehicle.id,
+          taskId: form.linkToTaskId || undefined,
           serviceType: form.type || "Unscheduled Maintenance",
           serviceDate: form.date,
           mileageAtService: form.mileage,
@@ -80,7 +93,6 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         addServiceLog(log);
       }
       
-      // Update local odometer if it progressed
       if (form.mileage > vehicle.mileage) {
         updateMileage(vehicle.id, form.mileage);
       }
@@ -107,7 +119,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         <header className="flex justify-between items-center text-white border-b border-slate-800 pb-10">
           <div className="space-y-1">
              <h3 className="text-3xl font-black uppercase tracking-tighter">
-               {preselectedTask ? 'Finalize Protocol' : 'Intelligence Log'}
+               {activeTask ? 'Protocol Sync' : 'Manual Entry'}
              </h3>
              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
                Operational Step {step} / 5
@@ -157,14 +169,11 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                   value={form.type}
                   onChange={e => setForm({...form, type: e.target.value})}
                 />
-                {matchedTask && (
+                {activeTask && (
                    <div className="absolute -bottom-10 left-0 right-0 animate-in slide-in-from-top-4 duration-500">
-                      <button 
-                        onClick={() => setForm({...form, linkToTaskId: matchedTask.id, category: matchedTask.category, type: matchedTask.title})}
-                        className={`text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-full border ${form.linkToTaskId === matchedTask.id ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-blue-600/10 border-blue-600 text-blue-500'}`}
-                      >
-                        {form.linkToTaskId === matchedTask.id ? '✓ Match Linked' : `Match found: ${matchedTask.title} (Link?)`}
-                      </button>
+                      <div className="inline-flex items-center gap-2 bg-emerald-600/10 border border-emerald-500/20 text-emerald-500 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest">
+                         <span className="animate-pulse">✧</span> Neural Link Active: {activeTask.title}
+                      </div>
                    </div>
                 )}
               </div>
@@ -225,20 +234,20 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 <button onClick={() => setStep(3)} className="w-1/3 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-500">Back</button>
                 <button 
                   onClick={() => {
-                    if (preselectedTask || form.linkToTaskId) setStep(5);
+                    if (activeTask) setStep(5);
                     else handleSave();
                   }} 
                   disabled={isSaving}
-                  className={`flex-1 ${(preselectedTask || form.linkToTaskId) ? 'bg-slate-800 text-slate-300' : 'bg-emerald-600 text-white shadow-3xl shadow-emerald-500/20'} py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] border-2 border-slate-700 transition-all active:scale-95`}
+                  className={`flex-1 ${activeTask ? 'bg-slate-800 text-slate-300' : 'bg-emerald-600 text-white shadow-3xl shadow-emerald-500/20'} py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] border-2 border-slate-700 transition-all active:scale-95`}
                 >
-                  {isSaving ? 'Synchronizing...' : ( (preselectedTask || form.linkToTaskId) ? 'Recurrence Tuning →' : 'Finalize Ledger Entry')}
+                  {isSaving ? 'Synchronizing...' : ( activeTask ? 'Recurrence Tuning →' : 'Finalize Ledger Entry')}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {step === 5 && (preselectedTask || form.linkToTaskId) && (
+        {step === 5 && activeTask && (
           <div className="space-y-10 animate-slide-up">
              <div className="text-center space-y-4">
                 <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em]">Recursive Optimization</h4>

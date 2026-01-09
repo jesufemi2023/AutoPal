@@ -21,15 +21,14 @@ export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]>
   return (data || []).map(row => ({
     id: row.id,
     vehicleId: row.vehicle_id,
+    taskId: row.task_id,
     serviceType: row.service_type,
     serviceDate: row.service_date,
     mileageAtService: parseFloat(row.mileage_at_service),
     cost: parseFloat(row.cost),
     provider: row.provider,
     notes: row.notes,
-    // Fix: category is required in ServiceLog
     category: row.category,
-    // Fix: status and updatedAt are now part of ServiceLog type
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at
@@ -43,13 +42,13 @@ export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' 
     .from('service_logs')
     .insert([{
       vehicle_id: log.vehicleId,
+      task_id: log.taskId || null,
       service_type: log.serviceType,
       service_date: log.serviceDate,
       mileage_at_service: log.mileageAtService,
       cost: log.cost,
       provider: log.provider,
       notes: log.notes,
-      // Fix: category and status mapping
       category: log.category,
       status: log.status
     }])
@@ -61,6 +60,7 @@ export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' 
   return {
     id: data.id,
     vehicleId: data.vehicle_id,
+    taskId: data.task_id,
     serviceType: data.service_type,
     serviceDate: data.service_date,
     mileageAtService: parseFloat(data.mileage_at_service),
@@ -68,7 +68,6 @@ export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' 
     provider: data.provider,
     notes: data.notes,
     category: data.category,
-    // Fix: mapping status and updatedAt from DB response
     status: data.status,
     createdAt: data.created_at,
     updatedAt: data.updated_at

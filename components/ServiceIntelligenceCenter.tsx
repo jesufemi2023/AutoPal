@@ -72,7 +72,6 @@ const ServiceIntelligenceCenter: React.FC = () => {
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8] transition-all">
             Service <br/><span className="text-blue-600">Module</span>
           </h2>
-          {/* Global Vehicle Switcher Pill */}
           {vehicles.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               {vehicles.map(v => (
@@ -164,17 +163,28 @@ const ServiceIntelligenceCenter: React.FC = () => {
                 {serviceLogs.length > 0 ? (
                   <div className="grid grid-cols-1 gap-4">
                     {serviceLogs.map((log) => (
-                      <div key={log.id} className="bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between">
+                      <div key={log.id} className="bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between group">
                         <div className="flex items-center gap-6">
-                          <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-xl">🛠️</div>
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${log.taskId ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'}`}>
+                            {log.taskId ? '✓' : '🛠️'}
+                          </div>
                           <div className="space-y-1">
-                            <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest">{formatDate(log.serviceDate)}</div>
+                            <div className="flex items-center gap-3">
+                              <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest">{formatDate(log.serviceDate)}</div>
+                              {log.taskId && (
+                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-600 text-[7px] font-black uppercase tracking-tighter rounded-md">Bonded</span>
+                              )}
+                            </div>
                             <h4 className="text-2xl font-black text-slate-900 tracking-tighter leading-none">{log.serviceType}</h4>
-                            <p className="text-slate-400 text-[9px] font-bold uppercase tracking-widest">{log.provider || 'Independent Operator'}</p>
+                            <p className="text-slate-400 text-[9px] font-bold uppercase tracking-widest">Provider: {log.provider || 'Independent Operator'}</p>
                           </div>
                         </div>
-                        <div className="flex gap-4">
-                          <button onClick={() => handleDeleteLog(log.id)} className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center text-sm">×</button>
+                        <div className="flex items-center gap-6">
+                           <div className="text-right">
+                              <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Investment</div>
+                              <div className="text-xl font-black text-slate-900 tracking-tighter">{formatCurrency(log.cost)}</div>
+                           </div>
+                           <button onClick={() => handleDeleteLog(log.id)} className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center text-sm opacity-0 group-hover:opacity-100 transition-opacity">×</button>
                         </div>
                       </div>
                     ))}

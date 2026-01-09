@@ -67,8 +67,8 @@ const mapLogFromDb = (l: any): ServiceLog => ({
   notes: l.notes,
   status: l.status,
   category: l.category,
-  verification_level: l.verification_level,
-  receipt_url: l.receipt_url,
+  verificationLevel: l.verification_level,
+  receiptUrl: l.receipt_url,
   createdAt: l.created_at
 });
 
@@ -92,7 +92,6 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   if (data.ownerId !== undefined) dbPayload.owner_id = data.ownerId;
   if (data.bodyType !== undefined) dbPayload.body_type = data.bodyType;
   if (data.fuelType !== undefined) dbPayload.fuel_type = data.fuelType;
-  // Fixed: Corrected property name from engine_size to engineSize on data object
   if (data.engineSize !== undefined) dbPayload.engine_size = data.engineSize;
   if (data.avgDailyKm !== undefined) dbPayload.avg_daily_km = data.avgDailyKm;
   if (data.healthScore !== undefined) dbPayload.health_score = data.healthScore;
@@ -127,30 +126,22 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   return mapVehicleFromDb(updated);
 };
 
-/**
- * The bridge between Fuel/Service and Garage.
- * Recalculates velocity and health when odometer changes.
- */
 export const syncVehicleVitals = async (vehicleId: string): Promise<Vehicle> => {
   if (!supabase) throw new Error("Cloud infrastructure missing.");
 
-  // 1. Fetch latest raw state
   const { data: vData, error: vError } = await supabase.from(DB_TABLES.VEHICLES).select('*').eq('id', vehicleId).single();
   if (vError) throw vError;
   const vehicle = mapVehicleFromDb(vData);
 
-  // 2. Fetch dependencies
   const [fuelLogs, serviceLogs, tasks] = await Promise.all([
     fetchFuelLogs(vehicleId),
     fetchVehicleServiceLogs(vehicleId),
     fetchVehicleTasks(vehicleId)
   ]);
 
-  // 3. Calculate new vitals
   const newAvgDailyKm = calculateAverageDailyKm(fuelLogs, serviceLogs);
   const newHealthScore = calculateVitalityScore({ ...vehicle, avgDailyKm: newAvgDailyKm }, tasks);
 
-  // 4. Persistence
   return await updateVehicle(vehicleId, { 
     avgDailyKm: newAvgDailyKm, 
     healthScore: newHealthScore 
@@ -208,7 +199,7 @@ export const finalizeMaintenanceCompletion = async (
       notes: completionData.notes,
       category: task.category,
       verification_level: completionData.verificationLevel,
-      receipt_url: completionData.receipt_url,
+      receipt_url: completionData.receiptUrl,
       status: 'completed'
     }])
     .select()
@@ -231,7 +222,6 @@ export const finalizeMaintenanceCompletion = async (
     .single();
   if (ruleError) handleSupabaseError(ruleError, 'Sync-Rule');
 
-  // Trigger global vital sync
   const updatedVehicle = await syncVehicleVitals(vehicle.id);
 
   return {
@@ -267,6 +257,7 @@ export const createManualServiceLog = async (
     .from(DB_TABLES.RECORDS)
     .insert([{
       vehicle_id: vehicle.id,
+      task_id: data.taskId || null,
       service_type: data.serviceType,
       service_date: data.serviceDate,
       mileage_at_service: data.mileageAtService,
@@ -282,7 +273,6 @@ export const createManualServiceLog = async (
 
   if (error) handleSupabaseError(error, 'createManualServiceLog');
 
-  // Update telemetry and vitals if mileage increased
   if (data.mileageAtService > vehicle.mileage) {
     await updateMileage(vehicle.id, data.mileageAtService);
   } else {
@@ -385,10 +375,6 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
   return mapVehicleFromDb(data);
 };
 
-/**
- * Enhanced Batch Implementation
- * Strictly maps to user-provided Supabase schema columns.
- */
 export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[]): Promise<void> => {
   if (!supabase) return;
   
@@ -408,34 +394,30 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
     last_receipt_url: t.lastReceiptUrl || null
   }));
 
-  // ATTEMPT 1: High-Fidelity Sync (All columns)
   const { error: error1 } = await supabase.from(DB_TABLES.RULES).insert(fullPayload);
   if (!error1) return;
 
   const errType = handleSupabaseError(error1, 'Sync-Batch-Full');
   
   if (errType === 'SCHEMA_MISMATCH') {
-    // ATTEMPT 2: Fallback (Remove non-critical potential mismatch columns)
     const fallbackPayload = fullPayload.map(p => {
       const { estimated_cost, interval_km, interval_months, last_verification_level, last_receipt_url, ...rest } = p;
       return rest;
     });
     
-    console.warn("Retrying with fallback schema (removing cost/interval columns)...");
+    console.warn("Retrying with fallback schema...");
     const { error: error2 } = await supabase.from(DB_TABLES.RULES).insert(fallbackPayload);
     if (!error2) return;
 
-    // ATTEMPT 3: Barebones (Absolute minimum columns to satisfy DB constraints)
     const barePayload = fallbackPayload.map(p => ({
       vehicle_id: p.vehicle_id,
       title: p.title,
       status: p.status
     }));
 
-    console.warn("Retrying with barebones schema (title + status only)...");
+    console.warn("Retrying with barebones schema...");
     const { error: error3 } = await supabase.from(DB_TABLES.RULES).insert(barePayload);
     if (error3) {
-      console.error("FATAL: Table 'maintenance_tasks' does not match any survival pattern.", error3);
       throw error3;
     }
   } else {
