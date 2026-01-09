@@ -2,16 +2,22 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../services/vehicleService.ts';
+import { fetchFuelLogs } from '../services/fuelService.ts';
 import { deleteServiceLog } from '../services/logService.ts';
 import { formatCurrency, formatDate } from '../shared/utils.ts';
 import { MaintenanceTask } from '../shared/types.ts';
-import { calculateVitalityScore, calculateDisciplineScore, getSpendByCategory } from '../services/maintenanceLogic.ts';
+import { 
+  calculateVitalityScore, 
+  calculateDisciplineScore, 
+  getSpendByCategory,
+  calculateTotalExpenditure
+} from '../services/maintenanceLogic.ts';
 import { MaintenanceRoadmap } from './dashboard/MaintenanceRoadmap.tsx';
 import { ServiceLogTerminal } from './ServiceLogTerminal.tsx';
 
 const ServiceIntelligenceCenter: React.FC = () => {
   const { 
-    vehicles, tasks, serviceLogs, setTasks, setServiceLogs, 
+    vehicles, tasks, serviceLogs, fuelLogs, setTasks, setServiceLogs, setFuelLogs,
     activeVehicleId, setActiveVehicleId 
   } = useAutoPalStore();
   
@@ -27,25 +33,30 @@ const ServiceIntelligenceCenter: React.FC = () => {
       setIsLoading(true);
       Promise.all([
         fetchVehicleTasks(activeVehicleId),
-        fetchVehicleServiceLogs(activeVehicleId)
+        fetchVehicleServiceLogs(activeVehicleId),
+        fetchFuelLogs(activeVehicleId)
       ])
-      .then(([taskList, logList]) => {
+      .then(([taskList, logList, fuelList]) => {
         setTasks(taskList);
         setServiceLogs(logList);
+        setFuelLogs(fuelList);
       })
       .finally(() => setIsLoading(false));
     }
-  }, [activeVehicleId, setTasks, setServiceLogs]);
+  }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
 
   const stats = useMemo(() => {
     if (!activeVehicle) return { vitality: 0, discipline: 0, totalSpend: 0, spendByCat: {} };
+    const vehicleFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicle.id);
+    const vehicleServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicle.id);
+    
     return {
       vitality: calculateVitalityScore(activeVehicle, tasks),
-      discipline: calculateDisciplineScore(serviceLogs, tasks),
-      totalSpend: serviceLogs.reduce((acc, l) => acc + l.cost, 0),
-      spendByCat: getSpendByCategory(serviceLogs)
+      discipline: calculateDisciplineScore(vehicleServiceLogs, tasks),
+      totalSpend: calculateTotalExpenditure(vehicleServiceLogs, vehicleFuelLogs),
+      spendByCat: getSpendByCategory(vehicleServiceLogs)
     };
-  }, [activeVehicle, tasks, serviceLogs]);
+  }, [activeVehicle, tasks, serviceLogs, fuelLogs]);
 
   const handleDeleteLog = async (id: string) => {
     if (!confirm("Are you sure you want to delete this service record? This will affect your health score.")) return;
@@ -127,7 +138,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
             <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] shadow-xl col-span-1 sm:col-span-2">
               <div className="space-y-4">
-                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Life-cycle Spend</h3>
+                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Total Lifecycle Spend</h3>
                 <div className="text-5xl font-black tracking-tighter">
                   {formatCurrency(stats.totalSpend)}
                 </div>

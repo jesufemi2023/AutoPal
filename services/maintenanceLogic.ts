@@ -186,3 +186,28 @@ export const getSpendByCategory = (logs: ServiceLog[]) => {
   });
   return totals;
 };
+
+/**
+ * Aggregates Total Cost of Ownership across all expenditure types.
+ */
+export const calculateTotalExpenditure = (serviceLogs: ServiceLog[], fuelLogs: FuelLog[]): number => {
+  const serviceTotal = serviceLogs.reduce((acc, l) => acc + (l.cost || 0), 0);
+  const fuelTotal = fuelLogs.reduce((acc, l) => acc + (l.totalCost || 0), 0);
+  return serviceTotal + fuelTotal;
+};
+
+/**
+ * Returns the split between Service and Fuel costs.
+ */
+export const getExpenditureRatio = (serviceLogs: ServiceLog[], fuelLogs: FuelLog[]) => {
+  const serviceTotal = serviceLogs.reduce((acc, l) => acc + (l.cost || 0), 0);
+  const fuelTotal = fuelLogs.reduce((acc, l) => acc + (l.totalCost || 0), 0);
+  const total = serviceTotal + fuelTotal;
+  
+  if (total === 0) return { service: 50, fuel: 50 };
+  
+  return {
+    service: (serviceTotal / total) * 100,
+    fuel: (fuelTotal / total) * 100
+  };
+};

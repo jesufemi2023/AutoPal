@@ -5,6 +5,7 @@ import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, archiveVehicle, updateMileage, updateVehicle
 } from './services/vehicleService.ts';
+import { fetchFuelLogs } from './services/fuelService.ts';
 import { OdometerInput } from './components/OdometerInput.tsx';
 import { MaintenanceTask, ServiceLog } from './shared/types.ts';
 
@@ -17,9 +18,9 @@ import { ServiceLogTerminal } from './components/ServiceLogTerminal.tsx';
 
 const Dashboard: React.FC = () => {
   const { 
-    vehicles, tasks, serviceLogs, user, setSuggestedParts,
+    vehicles, tasks, serviceLogs, fuelLogs, user, setSuggestedParts,
     activeVehicleId, setActiveVehicleId,
-    setTasks, setServiceLogs, setCurrentView,
+    setTasks, setServiceLogs, setFuelLogs, setCurrentView,
     removeVehicleStore, updateMileage: updateStoreMileage, updateVehicleStore
   } = useAutoPalStore();
 
@@ -37,7 +38,8 @@ const Dashboard: React.FC = () => {
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
   // Pass all tasks for the vehicle to the roadmap so it can filter them itself
   const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicleId);
-  const activeLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
+  const activeServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
+  const activeFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicleId);
 
   useEffect(() => {
     if (vehicles.length > 0 && !activeVehicleId) setActiveVehicleId(vehicles[0].id);
@@ -49,11 +51,13 @@ const Dashboard: React.FC = () => {
       setGlobalError(null);
       Promise.all([
         fetchVehicleTasks(activeVehicleId),
-        fetchVehicleServiceLogs(activeVehicleId)
+        fetchVehicleServiceLogs(activeVehicleId),
+        fetchFuelLogs(activeVehicleId)
       ])
-      .then(([taskList, logList]) => {
+      .then(([taskList, logList, fuelList]) => {
         setTasks(taskList);
         setServiceLogs(logList);
+        setFuelLogs(fuelList);
       })
       .catch((err) => {
         setGlobalError(err.message || "Intelligence synchronization failure.");
@@ -62,7 +66,7 @@ const Dashboard: React.FC = () => {
         setIsLoadingDetails(false);
       });
     }
-  }, [activeVehicleId, setTasks, setServiceLogs]);
+  }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
 
   // Recalculate health score whenever tasks or vehicle changes
   useEffect(() => {
@@ -132,7 +136,7 @@ const Dashboard: React.FC = () => {
           <div className="md:col-span-2 lg:col-span-8 space-y-12 lg:space-y-20">
             <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
             
-            <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeLogs} />
+            <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
 
             <MaintenanceRoadmap 
               vehicle={activeVehicle} 

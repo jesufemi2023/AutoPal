@@ -1,20 +1,29 @@
 
 import React, { useMemo } from 'react';
-import { Vehicle, MaintenanceTask, ServiceLog } from '../../shared/types.ts';
-import { calculateVitalityScore, calculateDisciplineScore, getSpendByCategory, detectAnomalies } from '../../services/maintenanceLogic.ts';
+import { Vehicle, MaintenanceTask, ServiceLog, FuelLog } from '../../shared/types.ts';
+import { 
+  calculateVitalityScore, 
+  calculateDisciplineScore, 
+  getSpendByCategory, 
+  detectAnomalies,
+  calculateTotalExpenditure,
+  getExpenditureRatio
+} from '../../services/maintenanceLogic.ts';
 import { formatCurrency } from '../../shared/utils.ts';
 
 interface Props {
   vehicle: Vehicle;
   tasks: MaintenanceTask[];
   logs: ServiceLog[];
+  fuelLogs: FuelLog[];
 }
 
-export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs }) => {
+export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelLogs }) => {
   const vitality = useMemo(() => calculateVitalityScore(vehicle, tasks), [vehicle, tasks]);
   const discipline = useMemo(() => calculateDisciplineScore(logs, tasks), [logs, tasks]);
   const categorySpend = useMemo(() => getSpendByCategory(logs), [logs]);
-  const totalSpend = useMemo(() => logs.reduce((acc, l) => acc + l.cost, 0), [logs]);
+  const totalSpend = useMemo(() => calculateTotalExpenditure(logs, fuelLogs), [logs, fuelLogs]);
+  const ratio = useMemo(() => getExpenditureRatio(logs, fuelLogs), [logs, fuelLogs]);
   const anomalies = useMemo(() => detectAnomalies(logs), [logs]);
 
   const getStatusColor = (score: number) => {
@@ -49,20 +58,41 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs }) => 
           </div>
         </div>
 
-        {/* Financial Pulse */}
+        {/* Financial Pulse (TCO) */}
         <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white flex flex-col justify-between shadow-xl">
           <div className="space-y-1">
             <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em]">Total Expenditure</h4>
             <div className="text-3xl font-black tracking-tighter">{formatCurrency(totalSpend)}</div>
           </div>
-          <div className="space-y-3 mt-8">
-            {Object.entries(categorySpend).length > 0 ? Object.entries(categorySpend).slice(0, 3).map(([cat, amount]) => (
-               <div key={cat} className="flex justify-between items-center text-[10px] font-bold">
+
+          <div className="mt-6 space-y-3">
+             <div className="w-full h-1.5 bg-slate-800 rounded-full flex overflow-hidden">
+                <div className="h-full bg-blue-600 transition-all duration-700" style={{ width: `${ratio.service}%` }}></div>
+                <div className="h-full bg-emerald-500 transition-all duration-700" style={{ width: `${ratio.fuel}%` }}></div>
+             </div>
+             <div className="flex justify-between text-[7px] font-black uppercase tracking-[0.2em]">
+                <div className="flex items-center gap-1.5">
+                   <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+                   <span className="text-slate-500">Maintenance</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-right">
+                   <span className="text-slate-500">Fuel Telemetry</span>
+                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                </div>
+             </div>
+          </div>
+
+          <div className="space-y-2 mt-8">
+            {Object.entries(categorySpend).length > 0 ? Object.entries(categorySpend).slice(0, 2).map(([cat, amount]) => (
+               <div key={cat} className="flex justify-between items-center text-[9px] font-bold">
                  <span className="text-slate-500 uppercase tracking-widest">{cat}</span>
-                 {/* Fixed: Cast amount to number to ensure compatibility with formatCurrency signature */}
                  <span className="text-blue-400">{formatCurrency(amount as number)}</span>
                </div>
-            )) : <div className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">No service data recorded</div>}
+            )) : null}
+            <div className="flex justify-between items-center text-[9px] font-bold">
+               <span className="text-slate-500 uppercase tracking-widest">Fuel Ops</span>
+               <span className="text-emerald-400">{formatCurrency(fuelLogs.reduce((acc,l) => acc + (l.totalCost || 0), 0))}</span>
+            </div>
           </div>
         </div>
 
