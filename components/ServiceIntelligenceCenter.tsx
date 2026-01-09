@@ -57,7 +57,8 @@ const ServiceIntelligenceCenter: React.FC = () => {
     }
   };
 
-  const pendingTasks = tasks.filter(t => t.vehicleId === activeVehicleId && t.status === 'pending');
+  // Provide all tasks for the vehicle to allow the roadmap to filter itself
+  const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicleId);
 
   return (
     <div className="space-y-12 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
@@ -153,7 +154,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
             {activeTab === 'roadmap' && (
               <MaintenanceRoadmap 
                 vehicle={activeVehicle} 
-                tasks={pendingTasks} 
+                tasks={vehicleTasks} 
                 onLog={(t) => { setSelectedTaskForLog(t); setShowLogTerminal(true); }} 
               />
             )}

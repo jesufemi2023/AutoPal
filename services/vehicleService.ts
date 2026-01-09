@@ -1,6 +1,6 @@
 
 import { supabase } from '../auth/supabaseClient.ts';
-import { Vehicle, MaintenanceTask, ServiceLog, VerificationLevel, FuelLog } from '../shared/types.ts';
+import { Vehicle, MaintenanceTask, ServiceLog, VerificationLevel, FuelLog, Priority } from '../shared/types.ts';
 import { calculateNextMilestone, calculateAverageDailyKm, calculateVitalityScore } from './maintenanceLogic.ts';
 import { fetchFuelLogs } from './fuelService.ts';
 
@@ -235,7 +235,7 @@ export const finalizeMaintenanceCompletion = async (
       dueMileage: parseFloat(ruleData.due_mileage),
       dueDate: ruleData.due_date,
       status: ruleData.status,
-      priority: ruleData.priority,
+      priority: ruleData.priority as Priority,
       category: ruleData.category,
       estimatedCost: parseFloat(ruleData.estimated_cost),
       lastCompletedAt: ruleData.last_completed_at,
@@ -299,7 +299,7 @@ export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceT
     dueMileage: parseFloat(t.due_mileage || '0'),
     dueDate: t.due_date,
     status: t.status,
-    priority: t.priority,
+    priority: t.priority as Priority,
     category: t.category,
     estimatedCost: parseFloat(t.estimated_cost || '0'),
     lastCompletedAt: t.last_completed_at,

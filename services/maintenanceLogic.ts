@@ -11,9 +11,9 @@ const CATEGORY_WEIGHTS: Record<ServiceCategory, number> = {
 };
 
 const PRIORITY_MULTIPLIER: Record<Priority, number> = {
-  high: 2.0,
-  medium: 1.2,
-  low: 0.8
+  [Priority.HIGH]: 2.0,
+  [Priority.MEDIUM]: 1.2,
+  [Priority.LOW]: 0.8
 };
 
 /**

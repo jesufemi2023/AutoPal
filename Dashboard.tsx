@@ -35,7 +35,8 @@ const Dashboard: React.FC = () => {
   const [globalError, setGlobalError] = useState<string | null>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
-  const pendingTasks = tasks.filter(t => t.vehicleId === activeVehicleId && t.status === 'pending');
+  // Pass all tasks for the vehicle to the roadmap so it can filter them itself
+  const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicleId);
   const activeLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
 
   useEffect(() => {
@@ -135,7 +136,7 @@ const Dashboard: React.FC = () => {
 
             <MaintenanceRoadmap 
               vehicle={activeVehicle} 
-              tasks={pendingTasks} 
+              tasks={vehicleTasks} 
               isLoading={isLoadingDetails}
               onLog={handleOpenLogTerminal} 
             />

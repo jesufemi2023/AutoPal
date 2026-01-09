@@ -3,7 +3,13 @@ export type Tier = 'free' | 'standard' | 'premium';
 export type UserRole = 'user' | 'admin';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback' | 'other';
 export type TaskStatus = 'pending' | 'completed' | 'skipped';
-export type Priority = 'low' | 'medium' | 'high';
+
+export enum Priority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high'
+}
+
 export type LogStatus = 'upcoming' | 'overdue' | 'completed';
 export type ServiceCategory = 'engine' | 'tires' | 'brakes' | 'fluids' | 'suspension' | 'other';
 export type VerificationLevel = 'self_declared' | 'receipt_verified' | 'mechanic_verified';
@@ -113,6 +119,7 @@ export interface MaintenanceScheduleResponse {
     title: string;
     description: string;
     dueMileage: number;
+    dueDate?: string;
     priority: Priority;
     category: ServiceCategory;
     estimatedCost?: number;

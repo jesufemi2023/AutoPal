@@ -15,7 +15,7 @@ export const PROMPTS = {
     Create a ${ENV.MAINTENANCE_STEPS}-step preventative maintenance roadmap.
     Geographic Context: ${ENV.REGIONAL_CONTEXT}.
     Focus on longevity under these conditions. Return JSON with 'summary' and 'tasks' array.
-    Include 'dueMileage', 'priority' (low/medium/high), and 'estimatedCost' in ${ENV.CURRENCY}.`,
+    Include 'dueMileage', 'priority' (low/medium/high), 'estimatedCost' in ${ENV.CURRENCY}, and 'dueDate' (ISO 8601 string) if the task is strictly time-based or has a predictable calendar interval (e.g. 6 months).`,
 
   DIAGNOSTIC_EXPERT: `You are a world-class diagnostic mechanic.
     Analyze the user's description and any provided images.
