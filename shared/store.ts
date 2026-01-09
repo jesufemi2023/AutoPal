@@ -10,7 +10,7 @@ interface AutoPalState {
   isLoading: boolean;
   currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service';
   editingVehicleId: string | null;
-  activeVehicleId: string | null; // Global persistence for selection
+  activeVehicleId: string | null; 
   vehicles: Vehicle[];
   tasks: MaintenanceTask[];
   serviceLogs: ServiceLog[];
@@ -30,6 +30,7 @@ interface AutoPalState {
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
   updateVehicleStore: (vehicle: Vehicle) => void;
+  syncVehicleState: (vehicleId: string, updates: Partial<Vehicle>) => void;
   removeVehicleStore: (vehicleId: string) => void;
   updateMileage: (vehicleId: string, mileage: number) => void;
   completeTask: (taskId: string, cost: number, currentMileage: number) => void;
@@ -91,15 +92,17 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   setActiveVehicleId: (activeVehicleId) => set({ activeVehicleId }),
   setVehicles: (vehicles) => set({ 
     vehicles,
-    // Auto-select first vehicle if none selected
     activeVehicleId: useAutoPalStore.getState().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
   }),
   addVehicle: (vehicle) => set((state) => ({ 
     vehicles: [vehicle, ...state.vehicles],
-    activeVehicleId: vehicle.id // Switch to newly created vehicle
+    activeVehicleId: vehicle.id 
   })),
   updateVehicleStore: (vehicle) => set((state) => ({
     vehicles: state.vehicles.map(v => v.id === vehicle.id ? vehicle : v)
+  })),
+  syncVehicleState: (vehicleId, updates) => set((state) => ({
+    vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, ...updates } : v)
   })),
   removeVehicleStore: (vehicleId) => set((state) => ({
     vehicles: state.vehicles.filter(v => v.id !== vehicleId),

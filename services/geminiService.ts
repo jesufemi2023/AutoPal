@@ -20,17 +20,62 @@ const getAIClient = () => {
 };
 
 /**
- * Standard Protocol Fallback
- * Used when hit with 429 Quota limits to ensure user is never blocked.
+ * Refined Standard Protocol (Nigeria Context)
+ * Aligned with maintenance_tasks table recurrence fields.
  */
 const getStandardProtocol = (mileage: number): MaintenanceScheduleResponse => ({
   summary: "Standard regional maintenance protocol applied (AI Quota Sleep).",
   tasks: [
-    { title: "Engine Lubrication Service", description: "Synthetic oil and filter replacement.", dueMileage: mileage + 5000, priority: "high", category: "fluids", estimatedCost: 45000 },
-    { title: "Brake System Inspection", description: "Check pad thickness and fluid levels.", dueMileage: mileage + 10000, priority: "medium", category: "brakes", estimatedCost: 15000 },
-    { title: "Air Intake Calibration", description: "Replace engine air filter and clean sensors.", dueMileage: mileage + 15000, priority: "medium", category: "engine", estimatedCost: 12000 },
-    { title: "Tire Rotation & Balance", description: "Ensure even tread wear and alignment.", dueMileage: mileage + 8000, priority: "low", category: "tires", estimatedCost: 10000 },
-    { title: "Spark Plug Diagnostics", description: "Inspect or replace ignition components.", dueMileage: mileage + 25000, priority: "medium", category: "engine", estimatedCost: 35000 }
+    { 
+      title: "Full Synthetic Oil Service", 
+      description: "Premium oil and filter replacement to protect against high tropical heat.", 
+      dueMileage: mileage + 5000, 
+      priority: "high", 
+      category: "fluids", 
+      estimatedCost: 45000,
+      intervalKm: 5000,
+      intervalMonths: 6
+    },
+    { 
+      title: "Brake System Calibration", 
+      description: "Inspect pads, rotors, and flush fluid for heavy stop-and-go urban traffic.", 
+      dueMileage: mileage + 10000, 
+      priority: "high", 
+      category: "brakes", 
+      estimatedCost: 15000,
+      intervalKm: 10000,
+      intervalMonths: 12
+    },
+    { 
+      title: "Air Intake & Filter Swap", 
+      description: "Replace engine air filter to combat high dust levels in the environment.", 
+      dueMileage: mileage + 15000, 
+      priority: "medium", 
+      category: "engine", 
+      estimatedCost: 12000,
+      intervalKm: 15000,
+      intervalMonths: 12
+    },
+    { 
+      title: "Suspension & Alignment", 
+      description: "Detailed check of bushings and ball joints due to challenging road conditions.", 
+      dueMileage: mileage + 10000, 
+      priority: "medium", 
+      category: "suspension", 
+      estimatedCost: 25000,
+      intervalKm: 10000,
+      intervalMonths: 6
+    },
+    { 
+      title: "AC Cabin Sanitization", 
+      description: "Micro-filter replacement and evaporator cleaning for humid climates.", 
+      dueMileage: mileage + 20000, 
+      priority: "low", 
+      category: "other", 
+      estimatedCost: 8000,
+      intervalKm: 20000,
+      intervalMonths: 12
+    }
   ]
 });
 
@@ -63,10 +108,12 @@ export const generateMaintenanceSchedule = async (
                   description: { type: Type.STRING },
                   dueMileage: { type: Type.NUMBER },
                   priority: { type: Type.STRING, enum: ["low", "medium", "high"] },
-                  category: { type: Type.STRING, enum: ["engine", "tires", "brakes", "fluids", "other"] },
-                  estimatedCost: { type: Type.NUMBER }
+                  category: { type: Type.STRING, enum: ["engine", "tires", "brakes", "fluids", "suspension", "other"] },
+                  estimatedCost: { type: Type.NUMBER },
+                  intervalKm: { type: Type.NUMBER },
+                  intervalMonths: { type: Type.NUMBER }
                 },
-                required: ["title", "dueMileage", "priority", "category"]
+                required: ["title", "dueMileage", "priority", "category", "intervalKm", "intervalMonths"]
               }
             }
           },

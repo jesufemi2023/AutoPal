@@ -2,8 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { addFuelLog, updateFuelLog } from '../services/fuelService.ts';
-import { updateVehicle } from '../services/vehicleService.ts';
-import { formatCurrency } from '../shared/utils.ts';
+import { updateMileage as syncOdometerBridge } from '../services/vehicleService.ts';
 import { ENV } from '../services/envService.ts';
 import { FuelLog } from '../shared/types.ts';
 
@@ -15,7 +14,7 @@ interface FuelEntryTerminalProps {
 }
 
 const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, currentOdo, initialLog, onClose }) => {
-  const { addFuelLogStore, updateFuelLogStore, updateMileage } = useAutoPalStore();
+  const { addFuelLogStore, updateFuelLogStore, syncVehicleState } = useAutoPalStore();
   const [isProcessing, setIsProcessing] = useState(false);
   
   const [form, setForm] = useState({
@@ -61,11 +60,9 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
         });
         updateFuelLogStore(updated);
         
-        // If this was the most recent log, update vehicle odometer
-        if (odo >= currentOdo) {
-           await updateVehicle(vehicleId, { mileage: odo });
-           updateMileage(vehicleId, odo);
-        }
+        // Push the update through the Golden Thread Bridge
+        const updatedVehicle = await syncOdometerBridge(vehicleId, odo);
+        syncVehicleState(vehicleId, updatedVehicle);
       } else {
         // Create Mode
         const log = await addFuelLog({
@@ -77,12 +74,11 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
           vendor: form.vendor.trim()
         });
 
-        // Synchronize Stores
         addFuelLogStore(log);
         
-        // Update the master vehicle mileage truth
-        await updateVehicle(vehicleId, { mileage: odo });
-        updateMileage(vehicleId, odo);
+        // Push the update through the Golden Thread Bridge
+        const updatedVehicle = await syncOdometerBridge(vehicleId, odo);
+        syncVehicleState(vehicleId, updatedVehicle);
       }
 
       onClose();
@@ -114,7 +110,6 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
         )}
 
         <div className="space-y-6">
-          {/* Main Odometer Input - The Truth */}
           <div className="space-y-2">
             <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] ml-2">Current Odometer (KM)</label>
             <input 
