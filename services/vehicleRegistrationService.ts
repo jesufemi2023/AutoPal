@@ -1,11 +1,13 @@
 
 import { generateMaintenanceSchedule } from './geminiService.ts';
 import { createVehicle, createMaintenanceTasksBatch } from './vehicleService.ts';
+import { getCachedRoadmap, saveRoadmapTemplate } from './templateService.ts';
 import { Vehicle, BodyType } from '../shared/types.ts';
 
 /**
  * Vehicle Registration Orchestrator
  * Finalizes the creation of a vehicle's digital twin and bootstraps its intelligence.
+ * Optimized for Scale: Uses templates first, falls back to AI, and never blocks registration.
  */
 export const registerNewVehicle = async (
   userId: string,
@@ -43,18 +45,30 @@ export const registerNewVehicle = async (
     isDirty: false
   };
 
-  // 1. Create the Vehicle Asset
+  // 1. Create the Vehicle Asset (MANDATORY STEP)
   const savedVehicle = await createVehicle(payload);
 
-  // 2. Generate Initial Roadmap (Awaited for UI feedback and atomicity)
+  /**
+   * 2. Intelligence Bootstrap (NON-BLOCKING)
+   * We try to get a roadmap, but we don't crash if it fails.
+   */
   try {
-    const roadmap = await generateMaintenanceSchedule(
-      savedVehicle.make, 
-      savedVehicle.model, 
-      savedVehicle.year, 
-      savedVehicle.mileage
-    );
+    // Phase A: Check Template Factory ($0 Cost)
+    let roadmap = await getCachedRoadmap(savedVehicle.make, savedVehicle.model, savedVehicle.year);
+    let isNewTemplate = false;
 
+    // Phase B: Call AI if missing (Quota Check)
+    if (!roadmap) {
+      roadmap = await generateMaintenanceSchedule(
+        savedVehicle.make, 
+        savedVehicle.model, 
+        savedVehicle.year, 
+        savedVehicle.mileage
+      );
+      isNewTemplate = true;
+    }
+
+    // Phase C: Apply Tasks
     if (roadmap && roadmap.tasks) {
       await createMaintenanceTasksBatch(roadmap.tasks.map(t => ({
         ...t,
@@ -62,12 +76,15 @@ export const registerNewVehicle = async (
         status: 'pending' as const,
         isDirty: false
       })));
+
+      // Phase D: Shared Intelligence ($0 for next 10,000 users)
+      if (isNewTemplate) {
+        saveRoadmapTemplate(savedVehicle.make, savedVehicle.model, savedVehicle.year, roadmap);
+      }
     }
   } catch (e) {
-    console.error("Roadmap generation failed during registration:", e);
-    // We throw the error so the UI (AssetIntelligenceCenter) can report the failure to the user.
-    // The vehicle record still exists, but the user is informed that intelligence bootstrap failed.
-    throw new Error(`Vehicle registered, but roadmap generation failed: ${e instanceof Error ? e.message : 'Unknown AI Error'}`);
+    console.error("Non-critical Intelligence Bootstrap Failure:", e);
+    // Silent fail - the user has their car, they can trigger a manual sync later.
   }
 
   return savedVehicle;
