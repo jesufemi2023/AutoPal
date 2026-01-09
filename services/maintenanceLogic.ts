@@ -18,7 +18,7 @@ const PRIORITY_MULTIPLIER: Record<Priority, number> = {
 
 /**
  * Velocity Engine: Average Daily Kilometers (ADD)
- * Calculates how much the car is driven per day based on historical logs.
+ * Calculates a weighted average of daily driving distance based on the last 5 records.
  */
 export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: ServiceLog[]): number => {
   const allLogs = [
@@ -26,17 +26,21 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
     ...serviceLogs.map(l => ({ odo: l.mileageAtService, date: new Date(l.serviceDate) }))
   ].sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  if (allLogs.length < 2) return 30; // Default fallback for Nigeria urban commute
+  // Use only the most recent 5 records for velocity to account for recent lifestyle changes
+  const recentLogs = allLogs.slice(-5);
+  
+  if (recentLogs.length < 2) return 30; // Default for Nigerian urban traffic
 
-  const oldest = allLogs[0];
-  const newest = allLogs[allLogs.length - 1];
+  const oldest = recentLogs[0];
+  const newest = recentLogs[recentLogs.length - 1];
   
   const distance = newest.odo - oldest.odo;
   const timeDiff = newest.date.getTime() - oldest.date.getTime();
   const days = Math.max(1, timeDiff / (1000 * 60 * 60 * 24));
 
   const add = distance / days;
-  return add > 0 ? add : 30;
+  // Cap velocity to realistic bounds (5km to 500km per day)
+  return Math.max(5, Math.min(500, add));
 };
 
 /**
@@ -84,41 +88,52 @@ export const getTaskMaintenanceStatus = (vehicle: Vehicle, task: MaintenanceTask
   }
 
   if (kmRemaining <= 0 || daysRemaining <= 0) return 'overdue';
-  if (kmRemaining <= 500 || daysRemaining <= 14) return 'upcoming';
+  // Warning triggers at 10% of interval or 14 days
+  const warningKm = Math.min(500, (task.intervalKm || 5000) * 0.1);
+  if (kmRemaining <= warningKm || daysRemaining <= 14) return 'upcoming';
 
   return 'optimal';
 };
 
+/**
+ * Precision Vitality Score
+ * Factors in maintenance status and rewards high-verification levels.
+ */
 export const calculateVitalityScore = (vehicle: Vehicle, tasks: MaintenanceTask[]): number => {
   if (tasks.length === 0) return 100;
 
   let totalPossibleDebt = 0;
   let currentDebt = 0;
+  let verificationBonus = 0;
 
   tasks.forEach(task => {
-    if (task.status !== 'pending') return;
-    
     const weight = CATEGORY_WEIGHTS[task.category] * PRIORITY_MULTIPLIER[task.priority];
     totalPossibleDebt += weight;
 
-    const status = getTaskMaintenanceStatus(vehicle, task);
-
-    if (status === 'overdue') {
-      currentDebt += weight;
-    } else if (status === 'upcoming') {
-      currentDebt += weight * 0.4;
+    if (task.status === 'pending') {
+      const status = getTaskMaintenanceStatus(vehicle, task);
+      if (status === 'overdue') {
+        currentDebt += weight;
+      } else if (status === 'upcoming') {
+        currentDebt += weight * 0.4;
+      }
     }
+
+    // Reward historical verification levels stored on the task
+    if (task.lastVerificationLevel === 'receipt_verified') verificationBonus += 2;
+    if (task.lastVerificationLevel === 'mechanic_verified') verificationBonus += 5;
   });
 
-  const score = 100 - (totalPossibleDebt > 0 ? (currentDebt / totalPossibleDebt) * 100 : 0);
-  return Math.max(0, Math.round(score));
+  const baseScore = 100 - (totalPossibleDebt > 0 ? (currentDebt / totalPossibleDebt) * 100 : 0);
+  return Math.min(100, Math.max(0, Math.round(baseScore + (verificationBonus / tasks.length))));
 };
 
 export const calculateDisciplineScore = (logs: ServiceLog[], tasks: MaintenanceTask[]): number => {
   if (logs.length === 0) return 0;
   
   const completedCount = logs.length;
-  const overdueCount = tasks.filter(t => t.status === 'pending' && t.dueMileage < 0).length;
+  const pendingCount = tasks.filter(t => t.status === 'pending').length;
+  const overdueCount = tasks.filter(t => t.status === 'pending' && getTaskMaintenanceStatus({mileage: 999999} as any, t) === 'overdue').length;
   
   const verificationBonus = logs.reduce((acc, l) => {
     if (l.verificationLevel === 'receipt_verified') return acc + 5;
@@ -126,7 +141,7 @@ export const calculateDisciplineScore = (logs: ServiceLog[], tasks: MaintenanceT
     return acc;
   }, 0);
   
-  const baseScore = (completedCount / (completedCount + overdueCount)) * 80; 
+  const baseScore = (completedCount / (completedCount + overdueCount + 1)) * 80; 
   const finalScore = baseScore + (verificationBonus / logs.length);
   
   return Math.min(100, Math.round(finalScore));
@@ -138,11 +153,12 @@ export const detectAnomalies = (logs: ServiceLog[]) => {
   const engineLogs = logs.filter(l => l.category === 'engine' || l.category === 'fluids').sort((a,b) => b.mileageAtService - a.mileageAtService);
   if (engineLogs.length >= 2) {
     const delta = engineLogs[0].mileageAtService - engineLogs[1].mileageAtService;
+    // If oil is changed every 2,000km, something is wrong
     if (delta > 0 && delta < 2000) {
       anomalies.push({
         type: 'consumption',
         severity: 'high',
-        message: "Excessive maintenance frequency detected. Potential engine leak or burn-off."
+        message: "Hyper-frequent service detected. Potential fluid leak or burn-off identified."
       });
     }
   }
