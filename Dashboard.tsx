@@ -18,11 +18,11 @@ import { ServiceLogTerminal } from './components/ServiceLogTerminal.tsx';
 const Dashboard: React.FC = () => {
   const { 
     vehicles, tasks, serviceLogs, user, setSuggestedParts,
+    activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setCurrentView,
     removeVehicleStore, updateMileage: updateStoreMileage, updateVehicleStore
   } = useAutoPalStore();
 
-  const [activeVehicleId, setActiveVehicleId] = useState<string | null>(null);
   const [isAskingAI, setIsAskingAI] = useState(false);
   const [symptom, setSymptom] = useState('');
   const [diagImage, setDiagImage] = useState<string | null>(null);
@@ -40,7 +40,7 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     if (vehicles.length > 0 && !activeVehicleId) setActiveVehicleId(vehicles[0].id);
-  }, [vehicles, activeVehicleId]);
+  }, [vehicles, activeVehicleId, setActiveVehicleId]);
 
   useEffect(() => {
     if (activeVehicleId) {
@@ -79,7 +79,6 @@ const Dashboard: React.FC = () => {
     try {
       await archiveVehicle(activeVehicleId);
       removeVehicleStore(activeVehicleId);
-      setActiveVehicleId(null);
     } catch (e: any) { alert(e.message); }
   };
 

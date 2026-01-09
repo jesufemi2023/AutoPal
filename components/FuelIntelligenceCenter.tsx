@@ -5,56 +5,45 @@ import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../ser
 import { formatCurrency, formatDate, kmlToMpg } from '../shared/utils.ts';
 import FuelEntryTerminal from './FuelEntryTerminal.tsx';
 import { FuelLog } from '../shared/types.ts';
-// Add missing ENV import to resolve currency display logic
 import { ENV } from '../services/envService.ts';
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  AreaChart, Area, ReferenceLine 
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  ReferenceLine 
 } from 'recharts';
 
-/**
- * Fuel Intelligence Center
- * Immersive dashboard for fuel efficiency tracking and cost analysis.
- */
 const FuelIntelligenceCenter: React.FC = () => {
-  const { vehicles, fuelLogs, setFuelLogs, removeFuelLogStore } = useAutoPalStore();
+  const { 
+    vehicles, fuelLogs, setFuelLogs, removeFuelLogStore, 
+    activeVehicleId, setActiveVehicleId 
+  } = useAutoPalStore();
   
-  const [activeVehicleId, setActiveVehicleId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showTerminal, setShowTerminal] = useState(false);
   const [editingLog, setEditingLog] = useState<FuelLog | null>(null);
   const [metric, setMetric] = useState<'KML' | 'MPG'>('KML');
 
-  useEffect(() => {
-    if (vehicles.length > 0 && !activeVehicleId) {
-      setActiveVehicleId(vehicles[0].id);
-    }
-  }, [vehicles, activeVehicleId]);
-
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
-  const loadLogs = async () => {
-    if (!activeVehicleId) return;
-    setIsLoading(true);
-    setFetchError(null);
-    try {
-      const logs = await fetchFuelLogs(activeVehicleId);
-      setFuelLogs(logs);
-    } catch (err: any) {
-      console.error("Telemetry fetch failure", err);
-      setFetchError(err.message || "Synchronization failure: Unable to retrieve fuel ledger from cloud.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const loadLogs = async () => {
+      if (!activeVehicleId) return;
+      setIsLoading(true);
+      setFetchError(null);
+      try {
+        const logs = await fetchFuelLogs(activeVehicleId);
+        setFuelLogs(logs);
+      } catch (err: any) {
+        console.error("Telemetry fetch failure", err);
+        setFetchError(err.message || "Synchronization failure: Unable to retrieve fuel ledger from cloud.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
     loadLogs();
   }, [activeVehicleId, setFuelLogs]);
 
   const logsWithAnalytics = useMemo(() => {
-    // Robust sorting: newest first by odometer for list display
     const sorted = [...fuelLogs].sort((a, b) => (b.odometerKm || 0) - (a.odometerKm || 0));
     
     return sorted.map((log, index) => {
@@ -86,7 +75,6 @@ const FuelIntelligenceCenter: React.FC = () => {
     });
   }, [fuelLogs]);
 
-  // Chart Data: Chronological (Oldest to Newest)
   const chartData = useMemo(() => {
     return [...logsWithAnalytics]
       .reverse()
@@ -156,11 +144,6 @@ const FuelIntelligenceCenter: React.FC = () => {
               </p>
             </div>
           ))}
-          {payload[0].payload.vendor && (
-             <p className="mt-2 text-[9px] font-bold text-blue-400 uppercase tracking-widest border-t border-slate-800 pt-2 italic">
-               📍 {payload[0].payload.vendor}
-             </p>
-          )}
         </div>
       );
     }
@@ -180,6 +163,20 @@ const FuelIntelligenceCenter: React.FC = () => {
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8] transition-all">
             Fuel <br/><span className="text-blue-600">Logic</span>
           </h2>
+          {/* Global Vehicle Switcher Pill */}
+          {vehicles.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              {vehicles.map(v => (
+                <button 
+                  key={v.id}
+                  onClick={() => setActiveVehicleId(v.id)}
+                  className={`flex-shrink-0 px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400'}`}
+                >
+                  {v.model}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
         
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
@@ -199,8 +196,9 @@ const FuelIntelligenceCenter: React.FC = () => {
           </div>
 
           <button 
+            disabled={!activeVehicle}
             onClick={() => { setEditingLog(null); setShowTerminal(true); }}
-            className="bg-slate-900 text-white px-8 sm:px-12 py-5 sm:py-6 rounded-[1.5rem] sm:rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] sm:text-[11px] shadow-3xl hover:bg-blue-600 transition-all active:scale-95 group flex items-center justify-center gap-3"
+            className="bg-slate-900 text-white px-8 sm:px-12 py-5 sm:py-6 rounded-[1.5rem] sm:rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] sm:text-[11px] shadow-3xl hover:bg-blue-600 transition-all active:scale-95 group flex items-center justify-center gap-3 disabled:opacity-50"
           >
             <span className="text-lg sm:text-xl group-hover:rotate-90 transition-transform">⛽</span>
             Log Refill
@@ -208,255 +206,81 @@ const FuelIntelligenceCenter: React.FC = () => {
         </div>
       </header>
 
-      {/* KPI GRID */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-2">
-        <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] relative overflow-hidden group shadow-sm">
-          <div className="relative z-10 space-y-4">
-            <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Last Efficiency</h3>
-            <div className="space-y-2">
-              <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
-                {currentEff ? currentEff.toFixed(1) : '--.-'}
-                <span className="text-xs text-slate-300 ml-2 font-sans font-bold">{metric}</span>
+      {!activeVehicle ? (
+        <div className="py-24 text-center bg-white card-radius border-2 border-slate-50 p-12">
+           <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest">No Active Telemetry Node</h3>
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-2">
+            <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] shadow-sm">
+              <div className="relative z-10 space-y-4">
+                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Last Efficiency</h3>
+                <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
+                  {currentEff ? currentEff.toFixed(1) : '--.-'}
+                  <span className="text-xs text-slate-300 ml-2 font-sans font-bold">{metric}</span>
+                </div>
               </div>
-              {efficiencyDelta !== null && (
-                <div className={`text-[8px] font-black uppercase tracking-widest flex items-center gap-1 ${efficiencyDelta >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                  {efficiencyDelta >= 0 ? '▲' : '▼'} {Math.abs(efficiencyDelta).toFixed(1)}%
+            </div>
+
+            <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] shadow-sm">
+              <div className="relative z-10 space-y-4">
+                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Avg. Price / L</h3>
+                <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
+                  {formatCurrency(avgPricePerLiter)}
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] relative overflow-hidden group shadow-sm">
-          <div className="relative z-10 space-y-4">
-            <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Avg. Price / L</h3>
-            <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
-              {formatCurrency(avgPricePerLiter)}
-            </div>
-            <div className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Market Telemetry</div>
-          </div>
-        </div>
-
-        <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] relative overflow-hidden group shadow-xl col-span-1 sm:col-span-2">
-          <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-blue-600/20 rounded-full blur-3xl"></div>
-          <div className="relative z-10 space-y-4">
-            <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Fleet Average</h3>
-            <div className="text-5xl font-black tracking-tighter flex items-baseline">
-              {avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}
-              <span className="text-xs text-slate-600 ml-2 font-sans font-bold">{metric}</span>
-            </div>
-            <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Lifetime Precision Statistics</div>
-          </div>
-        </div>
-      </div>
-
-      {/* VISUAL INTELLIGENCE SECTION */}
-      <section className="px-2 space-y-8">
-        <div className="flex items-center gap-3">
-          <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></div>
-          <h3 className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-900">Visual Intelligence Trend</h3>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Efficiency Progression */}
-          <div className="bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm flex flex-col h-[400px]">
-            <header className="mb-8 flex justify-between items-start">
-              <div className="space-y-1">
-                <h4 className="text-sm font-black text-slate-900 tracking-tight uppercase">Efficiency Progression</h4>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{metric} per Anchor Point</p>
               </div>
-            </header>
-            <div className="flex-grow w-full">
-              {chartData.filter(d => d.efficiency !== null).length > 1 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorEff" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#2563eb" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#2563eb" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="date" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }}
-                      dy={10}
-                    />
-                    <YAxis 
-                      hide={true}
-                      domain={['auto', 'auto']}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Area 
-                      name="Efficiency"
-                      type="monotone" 
-                      dataKey="efficiency" 
-                      stroke="#2563eb" 
-                      strokeWidth={4}
-                      fillOpacity={1} 
-                      fill="url(#colorEff)" 
-                      connectNulls={true}
-                      dot={{ r: 4, strokeWidth: 2, fill: '#fff' }}
-                      activeDot={{ r: 6, strokeWidth: 0, fill: '#2563eb' }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-slate-50 rounded-3xl">
-                   <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Accumulating Telemetry Data...</p>
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* Market Price Trend */}
-          <div className="bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm flex flex-col h-[400px]">
-            <header className="mb-8 flex justify-between items-start">
-              <div className="space-y-1">
-                <h4 className="text-sm font-black text-slate-900 tracking-tight uppercase">Fuel Market Trend</h4>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Price in {ENV.CURRENCY} per Liter</p>
+            <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] relative overflow-hidden shadow-xl col-span-1 sm:col-span-2">
+              <div className="relative z-10 space-y-4">
+                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Fleet Average</h3>
+                <div className="text-5xl font-black tracking-tighter flex items-baseline">
+                  {avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}
+                  <span className="text-xs text-slate-600 ml-2 font-sans font-bold">{metric}</span>
+                </div>
               </div>
-            </header>
-            <div className="flex-grow w-full">
-              {chartData.length > 1 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
-                    <defs>
-                      <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis 
-                      dataKey="date" 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{ fontSize: 9, fontWeight: 800, fill: '#94a3b8' }}
-                      dy={10}
-                    />
-                    <YAxis 
-                      hide={true}
-                      domain={['auto', 'auto']}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Area 
-                      name="Price"
-                      type="stepAfter" 
-                      dataKey="price" 
-                      stroke="#10b981" 
-                      strokeWidth={4}
-                      fillOpacity={1} 
-                      fill="url(#colorPrice)" 
-                      dot={{ r: 3, fill: '#10b981' }}
-                    />
-                    <ReferenceLine y={avgPricePerLiter} stroke="#10b981" strokeDasharray="3 3" opacity={0.3} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-slate-50 rounded-3xl">
-                   <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Awaiting Initial Pricing Logs...</p>
-                </div>
-              )}
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* RECORD STREAM */}
-      <div className="space-y-6 px-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></div>
-            <h3 className="font-black uppercase tracking-[0.2em] text-[10px] text-slate-900">Immutable Ledger Records</h3>
-          </div>
-        </div>
-
-        {logsWithAnalytics.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4">
-            {logsWithAnalytics.map((log, idx) => (
-              <div key={log.id} className="bg-white border border-slate-100 p-6 sm:p-8 rounded-[2rem] hover:shadow-xl transition-all group flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between relative shadow-sm overflow-hidden">
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-[0.02] pointer-events-none select-none text-[8px] font-black uppercase tracking-[0.8em] rotate-90 origin-right whitespace-nowrap">
-                  LEDGER_NODE_{log.id.slice(0, 8)}
-                </div>
-
-                <div className="flex items-center gap-6 w-full lg:w-auto relative z-10">
-                  <div className="relative">
-                    <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-white font-black transition-colors duration-500 ${log.isFullTank ? 'bg-slate-900 group-hover:bg-blue-600' : 'bg-slate-100 group-hover:bg-slate-200 !text-slate-400'}`}>
-                      <span className="text-[7px] opacity-40 uppercase tracking-widest mb-0.5 font-sans">Node</span>
-                      <span className="text-lg leading-none">{fuelLogs.length - idx}</span>
+          <div className="space-y-6 px-2">
+            {logsWithAnalytics.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4">
+                {logsWithAnalytics.map((log, idx) => (
+                  <div key={log.id} className="bg-white border border-slate-100 p-6 sm:p-8 rounded-[2rem] hover:shadow-xl transition-all group flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-6">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black ${log.isFullTank ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-300'}`}>
+                        {fuelLogs.length - idx}
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest">{formatDate(log.createdAt)}</div>
+                        <h4 className="text-xl font-black text-slate-900 tracking-tighter">{log.liters.toFixed(2)} Liters</h4>
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{log.vendor || 'Station Node'}</div>
+                      </div>
                     </div>
-                    {log.isFullTank && (
-                      <div className="absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full bg-emerald-500 text-white border-2 border-white flex items-center justify-center text-[8px] font-black shadow-lg">F</div>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-1.5">
-                      <span className="w-1 h-1 rounded-full bg-blue-500"></span>
-                      {formatDate(log.createdAt)}
+                    <div className="flex gap-4">
+                      <button onClick={() => { setEditingLog(log); setShowTerminal(true); }} className="px-4 py-2 rounded-xl bg-slate-50 text-[8px] font-black uppercase text-blue-600">Edit</button>
+                      <button onClick={() => handleDeleteRecord(log.id)} className="px-4 py-2 rounded-xl bg-rose-50 text-[8px] font-black uppercase text-rose-500">Purge</button>
                     </div>
-                    <h4 className="text-xl font-black text-slate-900 tracking-tighter leading-none">
-                      {log.liters.toFixed(2)} <span className="text-[10px] text-slate-300 font-sans font-bold">Liters</span>
-                    </h4>
-                    {log.tripDistance && (
-                      <div className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
-                        +{log.tripDistance.toLocaleString()} KM block
-                      </div>
-                    )}
-                    <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{log.vendor || 'Station Node'}</div>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-y-6 gap-x-8 w-full lg:w-auto pt-6 lg:pt-0 border-t lg:border-t-0 border-slate-50 relative z-10">
-                  <div className="space-y-1">
-                    <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Efficiency</div>
-                    {log.tripKml ? (
-                      <div className="text-lg font-black text-emerald-600 tracking-tighter leading-none">
-                        {(metric === 'KML' ? log.tripKml : kmlToMpg(log.tripKml))?.toFixed(1)} <span className="text-[8px] opacity-60">{metric}</span>
-                      </div>
-                    ) : (
-                      <div className={`text-[10px] font-black tracking-widest leading-none py-1.5 ${log.isFullTank ? 'text-slate-200 italic' : 'text-blue-400 animate-pulse'}`}>
-                        {log.isFullTank ? 'ANCHOR' : 'ACCUMULATING...'}
-                      </div>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Price / L</div>
-                    <div className="text-lg font-black text-slate-900 tracking-tighter leading-none">{formatCurrency(log.costPerLiter)}</div>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Investment</div>
-                    <div className="text-lg font-black text-slate-900 tracking-tighter leading-none">{formatCurrency(log.totalCost)}</div>
-                  </div>
-                  <div className="flex flex-row lg:flex-col items-center lg:items-end justify-between lg:justify-center gap-2 lg:gap-3">
-                     <button onClick={() => { setEditingLog(log); setShowTerminal(true); }} className="flex-1 lg:flex-none px-4 py-2 rounded-xl bg-slate-50 text-[8px] font-black uppercase text-blue-600 hover:bg-blue-600 hover:text-white transition-all tracking-widest border border-slate-100 shadow-sm">Correct</button>
-                     <button onClick={() => handleDeleteRecord(log.id)} className="flex-1 lg:flex-none px-4 py-2 rounded-xl bg-rose-50 text-[8px] font-black uppercase text-rose-500 hover:bg-rose-600 hover:text-white transition-all tracking-widest border border-rose-100 shadow-sm">Purge</button>
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="py-24 text-center bg-white card-radius border-2 border-dashed border-slate-100 p-12">
+                 <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tighter uppercase">Fuel Ledger Empty</h3>
+              </div>
+            )}
           </div>
-        ) : (
-          !isLoading && !fetchError && (
-            <div className="py-24 text-center bg-white card-radius border-4 border-dashed border-slate-100 p-12">
-               <div className="w-24 h-24 bg-slate-50 rounded-[3rem] flex items-center justify-center text-4xl mx-auto mb-8 shadow-inner grayscale">⛽</div>
-               <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tighter uppercase">Fuel Ledger Empty</h3>
-               <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.3em]">No fuel records detected for this vehicle.</p>
-               <button 
-                onClick={() => { setEditingLog(null); setShowTerminal(true); }}
-                className="mt-10 bg-slate-900 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-2xl hover:bg-blue-600 transition-all"
-               >
-                 Initialize First Entry
-               </button>
-            </div>
-          )
-        )}
-      </div>
+        </>
+      )}
 
       {showTerminal && activeVehicle && (
-        <FuelEntryTerminal vehicleId={activeVehicle.id} currentOdo={activeVehicle.mileage} initialLog={editingLog || undefined} onClose={() => { setShowTerminal(false); setEditingLog(null); }} />
+        <FuelEntryTerminal 
+          vehicleId={activeVehicle.id} 
+          currentOdo={activeVehicle.mileage} 
+          initialLog={editingLog || undefined} 
+          onClose={() => { setShowTerminal(false); setEditingLog(null); }} 
+        />
       )}
     </div>
   );

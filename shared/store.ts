@@ -10,6 +10,7 @@ interface AutoPalState {
   isLoading: boolean;
   currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service';
   editingVehicleId: string | null;
+  activeVehicleId: string | null; // Global persistence for selection
   vehicles: Vehicle[];
   tasks: MaintenanceTask[];
   serviceLogs: ServiceLog[];
@@ -25,6 +26,7 @@ interface AutoPalState {
   setLoading: (loading: boolean) => void;
   setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service') => void;
   setEditingVehicle: (id: string | null) => void;
+  setActiveVehicleId: (id: string | null) => void;
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
   updateVehicleStore: (vehicle: Vehicle) => void;
@@ -52,6 +54,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   isLoading: false,
   currentView: 'garage',
   editingVehicleId: null,
+  activeVehicleId: null,
   vehicles: [],
   tasks: [],
   serviceLogs: [],
@@ -85,13 +88,22 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   setCurrentView: (currentView) => set({ currentView }),
   setEditingVehicle: (editingVehicleId) => set({ editingVehicleId }),
-  setVehicles: (vehicles) => set({ vehicles }),
-  addVehicle: (vehicle) => set((state) => ({ vehicles: [vehicle, ...state.vehicles] })),
+  setActiveVehicleId: (activeVehicleId) => set({ activeVehicleId }),
+  setVehicles: (vehicles) => set({ 
+    vehicles,
+    // Auto-select first vehicle if none selected
+    activeVehicleId: useAutoPalStore.getState().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
+  }),
+  addVehicle: (vehicle) => set((state) => ({ 
+    vehicles: [vehicle, ...state.vehicles],
+    activeVehicleId: vehicle.id // Switch to newly created vehicle
+  })),
   updateVehicleStore: (vehicle) => set((state) => ({
     vehicles: state.vehicles.map(v => v.id === vehicle.id ? vehicle : v)
   })),
   removeVehicleStore: (vehicleId) => set((state) => ({
-    vehicles: state.vehicles.filter(v => v.id !== vehicleId)
+    vehicles: state.vehicles.filter(v => v.id !== vehicleId),
+    activeVehicleId: state.activeVehicleId === vehicleId ? (state.vehicles.length > 1 ? state.vehicles.find(v => v.id !== vehicleId)?.id || null : null) : state.activeVehicleId
   })),
   updateMileage: (vehicleId, mileage) => set((state) => ({
     vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, mileage } : v)
@@ -121,6 +133,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
     tasks: [], 
     serviceLogs: [],
     fuelLogs: [],
+    activeVehicleId: null,
     isRecovering: false,
     marketplaceFilter: ''
   }),
