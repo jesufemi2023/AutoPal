@@ -39,7 +39,7 @@ export const registerNewVehicle = async (
     engineSize: confirmedData.engineSize,
     bodyType: confirmedData.bodyType,
     status: 'active',
-    imageUrls: [],
+    imageUrl: '',
     specs: confirmedData.specs || {},
     isDirty: false
   };

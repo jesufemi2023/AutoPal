@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { registerNewVehicle } from '../services/vehicleRegistrationService.ts';
@@ -40,9 +41,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
   });
 
   useEffect(() => {
-    if (initialVehicle?.imageUrls?.[0]) {
-      setImagePreview(initialVehicle.imageUrls[0]);
-    } else if (initialVehicle?.imageUrl) {
+    if (initialVehicle?.imageUrl) {
       setImagePreview(initialVehicle.imageUrl);
     }
   }, [initialVehicle]);
@@ -59,7 +58,6 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
       if (mode === 'onboarding') {
         savedVehicle = await registerNewVehicle(user?.id || 'guest', form.vin, { ...form });
       } else {
-        // Pass partial data for updates
         const updateData: Partial<Vehicle> = {
           make: form.make,
           model: form.model,
@@ -79,8 +77,8 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
         try {
           const compressed = await compressImage(imageFile, 800, 0.7);
           const url = await uploadVehicleImage(user.id, savedVehicle.id, compressed);
-          // Fixed: This will now correctly trigger an update for image_urls without the PGRST116 error
-          savedVehicle = await updateVehicle(savedVehicle.id, { imageUrls: [url], imageUrl: url });
+          // Simplified: Update only the singular imageUrl property
+          savedVehicle = await updateVehicle(savedVehicle.id, { imageUrl: url });
         } catch (e: any) { 
           console.error("Optical data sync failed", e); 
           if (e.message?.includes('Permission Denied') || e.message?.includes('RLS')) {
@@ -176,7 +174,6 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
 
   return (
     <div className="fixed inset-0 bg-[#fcfcfd] z-[9999] flex flex-col lg:flex-row overflow-hidden">
-      {/* Visual Workspace Anchor */}
       <div className="h-[35vh] lg:h-full lg:w-5/12 bg-slate-900 flex flex-col relative overflow-hidden shrink-0">
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:32px_32px]"></div>
@@ -221,7 +218,6 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
         </div>
       </div>
 
-      {/* Configuration Control Panel */}
       <div className="flex-grow flex flex-col min-h-0 bg-white shadow-[-40px_0_80px_-40px_rgba(0,0,0,0.1)]">
         <header className="p-6 sm:p-10 border-b border-slate-100 flex justify-between items-center bg-white/90 backdrop-blur-xl sticky top-0 z-50 shrink-0">
           <div className="flex items-center gap-3">
@@ -233,7 +229,6 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
 
         <div className="flex-grow overflow-y-auto p-6 sm:p-20 scrollbar-hide">
           <div className="max-w-2xl mx-auto space-y-12 sm:space-y-20">
-            {/* Identity Module */}
             <section className="space-y-6 sm:space-y-10">
               <div className="space-y-6">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] ml-2">Asset Identity</label>
@@ -260,7 +255,6 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
               </div>
             </section>
 
-            {/* Engineering Module */}
             <section className="space-y-6 sm:space-y-10">
               <div className="space-y-6">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] ml-2">Core Engineering</label>
@@ -288,7 +282,6 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
               </div>
             </section>
 
-            {/* Hardware Telemetry Module */}
             <section className="space-y-10">
               <div className="space-y-8">
                 <label className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em] ml-2">Active Telemetry (KM)</label>
@@ -318,7 +311,6 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
               </div>
             </section>
 
-            {/* Danger Zone - Only show in Edit Mode */}
             {mode === 'edit' && (
               <section className="mt-20 pt-16 border-t-2 border-slate-100 space-y-8 pb-12">
                 <div className="space-y-2">
@@ -339,7 +331,6 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
           </div>
         </div>
 
-        {/* Action Infrastructure */}
         <footer className="p-6 sm:p-12 border-t border-slate-100 bg-white/95 backdrop-blur-xl sticky bottom-0 flex gap-6 shrink-0 shadow-[0_-20px_40px_rgba(0,0,0,0.02)]">
           <button 
             onClick={handleClose}
