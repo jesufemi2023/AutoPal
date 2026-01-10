@@ -49,25 +49,89 @@ If you do not have CLI access, use the web dashboard:
 4. Copy the entire content of `supabase/migrations/20240521_core_schema.sql`.
 5. Paste and click **Run**.
 
-## 3. Row Level Security (RLS) Configuration
+## 3. Row Level Security (RLS) Configuration - Tables
 
-Security is baked into the migration script, but here is how it works:
+Ensure your tables are secured and policies are active. Run this in the SQL Editor:
 
-- **Isolation**: Every table has `ENABLE ROW LEVEL SECURITY` applied.
-- **Ownership**: The `vehicles` table checks `auth.uid() = owner_id`.
-- **Relational Integrity**: `fuel_logs`, `service_logs`, and `maintenance_tasks` use a subquery check:
-  ```sql
-  USING (vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.uid()))
-  ```
-  This ensures that even if someone knows a UUID for a vehicle they don't own, they cannot read its logs.
+```sql
+-- 1. Enable RLS on all core tables
+ALTER TABLE vehicles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE maintenance_tasks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE service_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE fuel_logs ENABLE ROW LEVEL SECURITY;
 
-## 4. Storage Bucket Setup
+-- 2. Vehicle Table Policies (CRUD)
+CREATE POLICY "Users can manage their own vehicles"
+ON vehicles FOR ALL
+TO authenticated
+USING (auth.uid() = owner_id)
+WITH CHECK (auth.uid() = owner_id);
 
-To store vehicle images (Chassis photos or diagnostics):
+-- 3. Maintenance Tasks Policies (Relational CRUD)
+CREATE POLICY "Users can manage tasks for their vehicles"
+ON maintenance_tasks FOR ALL
+TO authenticated
+USING (vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.uid()))
+WITH CHECK (vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.uid()));
 
-1. Go to **Storage** in your Supabase Dashboard.
-2. Create a new bucket named `vehicle-images`.
-3. **Important**: While the bucket can be "Public" for easy access, the app is designed to work with individual RLS policies on the `objects` table if you require strict privacy. For MVP, keeping it Public is sufficient as filenames are randomized UUIDs.
+-- 4. Service Logs Policies (Relational CRUD)
+CREATE POLICY "Users can manage logs for their vehicles"
+ON service_logs FOR ALL
+TO authenticated
+USING (vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.uid()))
+WITH CHECK (vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.uid()));
+
+-- 5. Fuel Logs Policies (Relational CRUD)
+CREATE POLICY "Users can manage fuel records for their vehicles"
+ON fuel_logs FOR ALL
+TO authenticated
+USING (vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.uid()))
+WITH CHECK (vehicle_id IN (SELECT id FROM vehicles WHERE owner_id = auth.uid()));
+```
+
+## 4. Critical: Storage Bucket & RLS Fix (403 Forbidden)
+
+If you encounter a `403 Forbidden` or `new row violates row-level security policy` error during image upload, you must apply these specific policies to the storage engine:
+
+```sql
+-- 1. Ensure the bucket exists and is public for reading
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('vehicle-images', 'vehicle-images', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- 2. Allow public READ access to images (Anyone can see the car photos via URL)
+CREATE POLICY "Public Read Access"
+ON storage.objects FOR SELECT
+USING ( bucket_id = 'vehicle-images' );
+
+-- 3. Allow authenticated users to UPLOAD (INSERT) to their own folder
+-- The app uses the path: userId/vehicleId/filename.jpg
+CREATE POLICY "Authenticated Insert Access"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'vehicle-images' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- 4. Allow authenticated users to UPDATE (Overwrite) their own images
+CREATE POLICY "Authenticated Update Access"
+ON storage.objects FOR UPDATE
+TO authenticated
+USING (
+  bucket_id = 'vehicle-images' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- 5. Allow authenticated users to DELETE their own images
+CREATE POLICY "Authenticated Delete Access"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (
+  bucket_id = 'vehicle-images' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+```
 
 ## 5. Environment Synchronization
 

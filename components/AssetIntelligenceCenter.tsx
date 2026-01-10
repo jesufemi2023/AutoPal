@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { registerNewVehicle } from '../services/vehicleRegistrationService.ts';
@@ -68,7 +67,13 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
           const compressed = await compressImage(imageFile, 800, 0.7);
           const url = await uploadVehicleImage(user.id, savedVehicle.id, compressed);
           savedVehicle = await updateVehicle(savedVehicle.id, { imageUrls: [url] });
-        } catch (e) { console.error("Optical data sync failed", e); }
+        } catch (e: any) { 
+          console.error("Optical data sync failed", e); 
+          // If the error is an RLS error, we want to inform the user specifically
+          if (e.message?.includes('Permission Denied') || e.message?.includes('RLS')) {
+            alert(`Optical Sync Error: Image storage permissions are not configured correctly in the backend. The vehicle was saved, but the photo was rejected.\n\nTechnical Details: ${e.message}`);
+          }
+        }
       }
 
       if (mode === 'onboarding') {
@@ -80,8 +85,13 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
       setIsComplete(true);
     } catch (err: any) {
       console.error("Critical Asset Sync Error:", err);
-      // Improved error reporting to help the user identify connection or schema issues
-      alert(`Neural Sync Failure: ${err.message || "Unknown connectivity fault."}\n\nCheck your Supabase configuration and console for details.`);
+      let errorMsg = err.message || "Unknown connectivity fault.";
+      
+      if (errorMsg.includes('RLS') || errorMsg.includes('policy')) {
+        errorMsg = `Security Protocol Violation: The cloud database rejected this asset due to missing Row-Level Security (RLS) policies. Please consult SUPABASE_GUIDE.md to finalize infrastructure setup.\n\nFull error: ${errorMsg}`;
+      }
+
+      alert(`Neural Sync Failure:\n\n${errorMsg}`);
     } finally {
       setIsProcessing(false);
     }

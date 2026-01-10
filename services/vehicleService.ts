@@ -1,4 +1,3 @@
-
 import { supabase } from '../auth/supabaseClient.ts';
 import { Vehicle, MaintenanceTask, ServiceLog, VerificationLevel, FuelLog, Priority } from '../shared/types.ts';
 import { calculateNextMilestone, calculateAverageDailyKm, calculateVitalityScore } from './maintenanceLogic.ts';
@@ -20,6 +19,22 @@ const handleSupabaseError = (error: any, context: string) => {
   const details = error?.details || "";
   
   console.error(`Supabase Error [${context}]:`, { message, details, code: error?.code });
+
+  // Handle common RLS violation (403 or code 42501)
+  if (
+    error.message?.toLowerCase().includes('row-level security') || 
+    error.message?.toLowerCase().includes('permission denied') ||
+    error.code === '42501' || 
+    error.status === 403
+  ) {
+    throw new Error(`Permission Denied: ${context} failed due to RLS policies.
+    
+1. Check if the 'vehicle-images' bucket exists in Supabase.
+2. Ensure you have run the RLS policies from SUPABASE_GUIDE.md in the SQL Editor.
+3. Verify that your user session is still active.
+
+Full Details: ${message}`);
+  }
 
   if (error.code === 'PGRST116') return null; 
   if (error.code === '42P01') {
@@ -427,10 +442,26 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
 
 export const uploadVehicleImage = async (userId: string, vehicleId: string, blob: Blob): Promise<string> => {
   if (!supabase) throw new Error("Supabase not configured");
+  
+  // CRITICAL: The path MUST start with userId to satisfy the RLS policy:
+  // (storage.foldername(name))[1] = auth.uid()::text
   const fileName = `${userId}/${vehicleId}/${Date.now()}.jpg`;
-  const { data, error } = await supabase.storage.from('vehicle-images').upload(fileName, blob);
-  if (error) handleSupabaseError(error, 'uploadVehicleImage');
-  const { data: { publicUrl } } = supabase.storage.from('vehicle-images').getPublicUrl(data!.path);
+  
+  const { data, error } = await supabase.storage
+    .from('vehicle-images')
+    .upload(fileName, blob, {
+      cacheControl: '3600',
+      upsert: true // Allows updating if the path somehow conflicts
+    });
+  
+  if (error) {
+    handleSupabaseError(error, `Optical Storage Sync (${fileName})`);
+  }
+  
+  const { data: { publicUrl } } = supabase.storage
+    .from('vehicle-images')
+    .getPublicUrl(data!.path);
+    
   return publicUrl;
 };
 
