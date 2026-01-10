@@ -17,10 +17,10 @@ export const VehicleOverview: React.FC<Props> = ({ vehicle, onUpdateOdometer }) 
     
     <div className="flex flex-col lg:flex-row gap-8 sm:gap-12 md:gap-20 items-center relative z-10">
       <div className="w-full lg:w-5/12">
-        {vehicle.imageUrl ? (
+        {vehicle.imageUrls && vehicle.imageUrls.length > 0 ? (
           <div className="aspect-[16/10] w-full rounded-2xl sm:rounded-[3rem] overflow-hidden border-[6px] sm:border-[12px] border-slate-50 shadow-3xl relative">
             <img 
-              src={vehicle.imageUrl} 
+              src={vehicle.imageUrls[0]} 
               alt={vehicle.model}
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />

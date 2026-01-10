@@ -39,8 +39,7 @@ export const registerNewVehicle = async (
     engineSize: confirmedData.engineSize,
     bodyType: confirmedData.bodyType,
     status: 'active',
-    // Fixed: imageUrls does not exist on Vehicle; using imageUrl instead.
-    imageUrl: '',
+    imageUrls: [],
     specs: confirmedData.specs || {},
     isDirty: false
   };
