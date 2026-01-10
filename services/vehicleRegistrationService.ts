@@ -39,44 +39,26 @@ export const registerNewVehicle = async (
     engineSize: confirmedData.engineSize,
     bodyType: confirmedData.bodyType,
     status: 'active',
-    imageUrls: [],
+    imageUrl: '',
     specs: confirmedData.specs || {},
     isDirty: false
   };
 
-  // 1. Create the Vehicle Asset (MANDATORY STEP)
   const savedVehicle = await createVehicle(payload);
-
-  /**
-   * 2. Intelligence Bootstrap (BACKGROUND PROCESS)
-   * We do this in a separate execution flow so we can return the vehicle immediately.
-   */
   bootstrapIntelligence(savedVehicle);
-
   return savedVehicle;
 };
 
-/**
- * Handles the async generation of maintenance roadmaps.
- */
 async function bootstrapIntelligence(vehicle: Vehicle) {
   try {
-    // Phase A: Check Template Factory ($0 Cost)
     let roadmap = await getCachedRoadmap(vehicle.make, vehicle.model, vehicle.year);
     let isNewTemplate = false;
 
-    // Phase B: Call AI if missing (Quota Check & Fallback included in service)
     if (!roadmap) {
-      roadmap = await generateMaintenanceSchedule(
-        vehicle.make, 
-        vehicle.model, 
-        vehicle.year, 
-        vehicle.mileage
-      );
+      roadmap = await generateMaintenanceSchedule(vehicle.make, vehicle.model, vehicle.year, vehicle.mileage);
       isNewTemplate = true;
     }
 
-    // Phase C: Apply Tasks to user's local records
     if (roadmap && roadmap.tasks) {
       await createMaintenanceTasksBatch(roadmap.tasks.map(t => ({
         ...t,
@@ -85,7 +67,6 @@ async function bootstrapIntelligence(vehicle: Vehicle) {
         isDirty: false
       })));
 
-      // Phase D: Shared Intelligence ($0 for next 10,000 users)
       if (isNewTemplate && roadmap.summary !== "Standard regional maintenance protocol applied (AI Quota Sleep).") {
         saveRoadmapTemplate(vehicle.make, vehicle.model, vehicle.year, roadmap);
       }
