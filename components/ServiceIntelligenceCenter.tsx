@@ -138,7 +138,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
             <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] shadow-xl col-span-1 sm:col-span-2">
               <div className="space-y-4">
-                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Total Lifecycle Spend</h3>
+                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Total Maintenance Spend</h3>
                 <div className="text-5xl font-black tracking-tighter">
                   {formatCurrency(stats.totalSpend)}
                 </div>

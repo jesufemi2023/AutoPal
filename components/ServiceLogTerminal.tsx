@@ -106,6 +106,10 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     }
   };
 
+  const handleBack = () => {
+    if (step > 1) setStep(step - 1);
+  };
+
   const categories: ServiceCategory[] = ['engine', 'brakes', 'fluids', 'tires', 'suspension', 'other'];
   const verificationLevels: {id: VerificationLevel, label: string, icon: string, impact: string}[] = [
     { id: 'self_declared', label: 'Self Declared', icon: '👤', impact: 'Base Trust' },
@@ -117,13 +121,24 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     <div className="fixed inset-0 z-[1001] bg-slate-950/95 backdrop-blur-3xl flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
       <div className="w-full max-w-xl space-y-10">
         <header className="flex justify-between items-center text-white border-b border-slate-800 pb-10">
-          <div className="space-y-1">
-             <h3 className="text-3xl font-black uppercase tracking-tighter">
-               {activeTask ? 'Protocol Sync' : 'Manual Entry'}
-             </h3>
-             <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
-               Operational Step {step} / 5
-             </p>
+          <div className="flex items-center gap-6">
+            {step > 1 && (
+              <button 
+                onClick={handleBack}
+                className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-blue-600 hover:border-blue-600 transition-all group"
+                aria-label="Go back"
+              >
+                <span className="text-2xl group-hover:-translate-x-1 transition-transform">←</span>
+              </button>
+            )}
+            <div className="space-y-1">
+              <h3 className="text-3xl font-black uppercase tracking-tighter">
+                {activeTask ? 'Protocol Sync' : 'Manual Entry'}
+              </h3>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
+                Operational Step {step} / 5
+              </p>
+            </div>
           </div>
           <button onClick={onClose} className="text-4xl font-light text-slate-600 hover:text-white transition-colors">×</button>
         </header>
@@ -178,7 +193,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 )}
               </div>
               <div className="flex gap-4 pt-8">
-                <button onClick={() => setStep(1)} className="w-1/3 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-500">Back</button>
+                <button onClick={handleBack} className="w-1/3 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-500">Back</button>
                 <button onClick={() => setStep(3)} className="flex-1 bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-3xl active:scale-95 transition-all">Continue Execution</button>
               </div>
             </div>
@@ -206,7 +221,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 </button>
               ))}
             </div>
-            <button onClick={() => setStep(2)} className="w-full py-5 text-slate-600 font-black uppercase text-[10px] tracking-[0.4em]">Reverse Protocol</button>
+            <button onClick={handleBack} className="w-full py-5 text-slate-600 font-black uppercase text-[10px] tracking-[0.4em]">Reverse Protocol</button>
           </div>
         )}
 
@@ -231,7 +246,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 onChange={e => setForm({...form, provider: e.target.value})}
               />
               <div className="flex gap-4">
-                <button onClick={() => setStep(3)} className="w-1/3 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-500">Back</button>
+                <button onClick={handleBack} className="w-1/3 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-500">Back</button>
                 <button 
                   onClick={() => {
                     if (activeTask) setStep(5);
@@ -274,7 +289,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 </div>
              </div>
              <div className="flex gap-4 pt-4">
-                <button onClick={() => setStep(4)} className="w-1/3 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-500">Back</button>
+                <button onClick={handleBack} className="w-1/3 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-500">Back</button>
                 <button 
                   onClick={handleSave}
                   disabled={isSaving}

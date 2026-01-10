@@ -58,11 +58,12 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
           </div>
         </div>
 
-        {/* Financial Pulse (TCO) */}
+        {/* Financial Pulse (TCO - Maintenance Only Hero) */}
         <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white flex flex-col justify-between shadow-xl">
           <div className="space-y-1">
-            <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em]">Total Expenditure</h4>
+            <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em]">Maintenance Investment</h4>
             <div className="text-3xl font-black tracking-tighter">{formatCurrency(totalSpend)}</div>
+            <p className="text-[7px] text-slate-500 font-bold uppercase tracking-widest">Asset Value Preservation Total</p>
           </div>
 
           <div className="mt-6 space-y-3">
@@ -73,10 +74,10 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
              <div className="flex justify-between text-[7px] font-black uppercase tracking-[0.2em]">
                 <div className="flex items-center gap-1.5">
                    <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
-                   <span className="text-slate-500">Maintenance</span>
+                   <span className="text-slate-500">Service</span>
                 </div>
                 <div className="flex items-center gap-1.5 text-right">
-                   <span className="text-slate-500">Fuel Telemetry</span>
+                   <span className="text-slate-500">Fuel (OpEx)</span>
                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
                 </div>
              </div>
@@ -90,7 +91,7 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
                </div>
             )) : null}
             <div className="flex justify-between items-center text-[9px] font-bold">
-               <span className="text-slate-500 uppercase tracking-widest">Fuel Ops</span>
+               <span className="text-slate-500 uppercase tracking-widest">OpEx Fuel Total</span>
                <span className="text-emerald-400">{formatCurrency(fuelLogs.reduce((acc,l) => acc + (l.totalCost || 0), 0))}</span>
             </div>
           </div>

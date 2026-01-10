@@ -110,6 +110,10 @@ const FuelIntelligenceCenter: React.FC = () => {
     if (validLogs.length === 0) return 0;
     return validLogs.reduce((acc, l) => acc + (l.totalCost / l.liters), 0) / validLogs.length;
   }, [fuelLogs]);
+
+  const totalFuelSpend = useMemo(() => {
+    return fuelLogs.reduce((acc, l) => acc + (l.totalCost || 0), 0);
+  }, [fuelLogs]);
   
   const efficiencyDelta = useMemo(() => {
     const cur = efficienciesKml[0] || null;
@@ -163,7 +167,6 @@ const FuelIntelligenceCenter: React.FC = () => {
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8] transition-all">
             Fuel <br/><span className="text-blue-600">Logic</span>
           </h2>
-          {/* Global Vehicle Switcher Pill */}
           {vehicles.length > 1 && (
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               {vehicles.map(v => (
@@ -232,10 +235,19 @@ const FuelIntelligenceCenter: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] relative overflow-hidden shadow-xl col-span-1 sm:col-span-2">
+            <div className="bg-emerald-600 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] relative overflow-hidden shadow-xl">
+               <div className="relative z-10 space-y-4">
+                <h3 className="text-emerald-200 text-[8px] font-black uppercase tracking-[0.4em]">OpEx Lifetime Spend</h3>
+                <div className="text-3xl font-black tracking-tighter">
+                  {formatCurrency(totalFuelSpend)}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] relative overflow-hidden shadow-xl">
               <div className="relative z-10 space-y-4">
                 <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Fleet Average</h3>
-                <div className="text-5xl font-black tracking-tighter flex items-baseline">
+                <div className="text-4xl font-black tracking-tighter flex items-baseline">
                   {avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}
                   <span className="text-xs text-slate-600 ml-2 font-sans font-bold">{metric}</span>
                 </div>

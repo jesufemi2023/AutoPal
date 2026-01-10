@@ -4,19 +4,16 @@ import { ENV } from "./envService.ts";
 import { PROMPTS } from "./promptService.ts";
 import { AIResponse, MaintenanceScheduleResponse, Priority } from "../shared/types.ts";
 
+/**
+ * AI Client Factory
+ * Fixed: Strictly adhering to Gemini API guidelines to use process.env.API_KEY exclusively
+ * and initialize client with named parameter.
+ */
 const getAIClient = () => {
-  const apiKey = process.env.API_KEY;
-  
-  if (!apiKey || apiKey === "undefined" || apiKey.trim() === "") {
-    const fallbackKey = (window as any).process?.env?.API_KEY;
-    if (fallbackKey && fallbackKey !== "undefined" && fallbackKey.trim() !== "") {
-      return new GoogleGenAI({ apiKey: fallbackKey });
-    }
-    
-    throw new Error("Neural Sync Failure: Gemini API key not found.");
+  if (!process.env.API_KEY) {
+    throw new Error("Neural Sync Failure: Gemini API key not found in environment.");
   }
-
-  return new GoogleGenAI({ apiKey });
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
 /**
@@ -99,6 +96,7 @@ export const generateMaintenanceSchedule = async (
   const ai = getAIClient();
   
   try {
+    // Fixed: Using ai.models.generateContent with directly supported model name and configuration
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
       contents: `Vehicle Profile: ${year} ${make} ${model}. Current Telemetry: ${mileage}km. Environment: ${ENV.REGIONAL_CONTEXT}`,
@@ -133,8 +131,9 @@ export const generateMaintenanceSchedule = async (
       }
     });
 
-    let text = response.text?.replace(/```json/g, "").replace(/```/g, "").trim() || "{}";
-    return JSON.parse(text) as MaintenanceScheduleResponse;
+    // Fixed: Accessing response.text property directly as per Gemini API guidelines
+    const jsonStr = (response.text || "{}").trim();
+    return JSON.parse(jsonStr) as MaintenanceScheduleResponse;
   } catch (error: any) {
     console.warn("AI Generation Interrupted. Applying Standard Protocol.", error);
     return getStandardProtocol(mileage);
@@ -163,8 +162,9 @@ export const decodeVIN = async (vin: string): Promise<{ make: string; model: str
         }
       }
     });
-    let text = response.text?.replace(/```json/g, "").replace(/```/g, "").trim() || "{}";
-    return JSON.parse(text);
+    // Fixed: Accessing response.text property directly
+    const jsonStr = (response.text || "{}").trim();
+    return JSON.parse(jsonStr);
   } catch (error) {
     console.error("VIN Decode Error:", error);
     throw error;
@@ -175,6 +175,7 @@ export const getAdvancedDiagnostic = async (
   vehicle: any, symptoms: string, isPremium: boolean, imageBase64?: string
 ): Promise<AIResponse> => {
   const ai = getAIClient();
+  // Fixed: Selecting model based on guidelines (pro for complex/premium, flash for basic)
   const modelId = (isPremium && ENV.ENABLE_PREMIUM_AI) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
   const parts: any[] = [{ text: `Vehicle Asset: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Reported Symptoms: ${symptoms}` }];
   if (imageBase64) {
@@ -199,6 +200,7 @@ export const getAdvancedDiagnostic = async (
       }
     }
   });
-  let text = response.text?.replace(/```json/g, "").replace(/```/g, "").trim() || "{}";
-  return JSON.parse(text) as AIResponse;
+  // Fixed: Accessing response.text property directly
+  const jsonStr = (response.text || "{}").trim();
+  return JSON.parse(jsonStr) as AIResponse;
 };
