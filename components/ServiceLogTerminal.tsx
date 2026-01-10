@@ -1,37 +1,39 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
-import { finalizeMaintenanceCompletion, createManualServiceLog } from '../services/vehicleService.ts';
-import { MaintenanceTask, ServiceCategory, VerificationLevel, Vehicle } from '../shared/types.ts';
+import { finalizeMaintenanceCompletion, createManualServiceLog, syncVehicleVitals } from '../services/vehicleService.ts';
+import { updateServiceLog } from '../services/logService.ts';
+import { MaintenanceTask, ServiceCategory, VerificationLevel, Vehicle, ServiceLog } from '../shared/types.ts';
 
 interface Props {
   vehicle: Vehicle;
   preselectedTask?: MaintenanceTask;
+  initialLog?: ServiceLog;
   onClose: () => void;
 }
 
-export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, onClose }) => {
-  const { addServiceLog, tasks, setTasks, updateMileage, updateVehicleStore } = useAutoPalStore();
-  const [step, setStep] = useState(1);
+export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, initialLog, onClose }) => {
+  const { addServiceLog, updateServiceLogStore, tasks, setTasks, updateMileage, updateVehicleStore } = useAutoPalStore();
+  const [step, setStep] = useState(initialLog ? 2 : 1);
   const [isSaving, setIsSaving] = useState(false);
   
   const [form, setForm] = useState({
-    type: preselectedTask?.title || '',
-    category: preselectedTask?.category || 'other' as ServiceCategory,
-    mileage: vehicle.mileage,
-    date: new Date().toISOString().split('T')[0],
-    cost: preselectedTask?.estimatedCost?.toString() || '',
-    provider: '',
-    notes: '',
-    verificationLevel: 'self_declared' as VerificationLevel,
+    type: initialLog?.serviceType || preselectedTask?.title || '',
+    category: initialLog?.category || preselectedTask?.category || 'other' as ServiceCategory,
+    mileage: initialLog?.mileageAtService || vehicle.mileage,
+    date: initialLog?.serviceDate || new Date().toISOString().split('T')[0],
+    cost: initialLog?.cost.toString() || preselectedTask?.estimatedCost?.toString() || '',
+    provider: initialLog?.provider || '',
+    notes: initialLog?.notes || '',
+    verificationLevel: initialLog?.verificationLevel || 'self_declared' as VerificationLevel,
     intervalKm: preselectedTask?.intervalKm || 5000,
     intervalMonths: preselectedTask?.intervalMonths || 6,
-    linkToTaskId: preselectedTask?.id || null as string | null
+    linkToTaskId: initialLog?.taskId || preselectedTask?.id || null as string | null
   });
 
   // Automated Neural Link: Attempt to find a match while typing
   useEffect(() => {
-    if (preselectedTask || step !== 2) return;
+    if (initialLog || preselectedTask || step !== 2) return;
     
     const input = form.type.trim().toLowerCase();
     if (input.length < 3) return;
@@ -51,7 +53,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         intervalMonths: match.intervalMonths || 6
       }));
     }
-  }, [form.type, tasks, preselectedTask, step, vehicle.id]);
+  }, [form.type, tasks, preselectedTask, initialLog, step, vehicle.id]);
 
   const activeTask = useMemo(() => {
     return preselectedTask || (form.linkToTaskId ? tasks.find(t => t.id === form.linkToTaskId) : null);
@@ -60,7 +62,25 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      if (activeTask) {
+      if (initialLog) {
+        // Update existing log
+        const updated = await updateServiceLog(initialLog.id, {
+          serviceType: form.type,
+          serviceDate: form.date,
+          mileageAtService: form.mileage,
+          cost: parseFloat(form.cost) || 0,
+          provider: form.provider,
+          notes: form.notes,
+          category: form.category,
+          verificationLevel: form.verificationLevel
+        });
+        updateServiceLogStore(updated);
+        
+        // If mileage changed, sync the vehicle vitals
+        const syncedVehicle = await syncVehicleVitals(vehicle.id);
+        updateVehicleStore(syncedVehicle);
+      } else if (activeTask) {
+        // Complete a pending task
         const { log, updatedTask, updatedVehicle } = await finalizeMaintenanceCompletion(vehicle, activeTask, {
           mileageAtService: form.mileage,
           serviceDate: form.date,
@@ -77,6 +97,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         setTasks(updatedTasks);
         updateVehicleStore(updatedVehicle);
       } else {
+        // Create a manual entry
         const log = await createManualServiceLog(vehicle, {
           vehicleId: vehicle.id,
           taskId: form.linkToTaskId || undefined,
@@ -133,10 +154,10 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
             )}
             <div className="space-y-1">
               <h3 className="text-3xl font-black uppercase tracking-tighter">
-                {activeTask ? 'Protocol Sync' : 'Manual Entry'}
+                {initialLog ? 'Recalibration' : (activeTask ? 'Protocol Sync' : 'Manual Entry')}
               </h3>
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
-                Operational Step {step} / 5
+                Operational Step {step} / {activeTask ? 5 : 4}
               </p>
             </div>
           </div>
@@ -166,7 +187,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         {step === 2 && (
           <div className="space-y-12 animate-slide-up text-center">
             <div className="space-y-4">
-               <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em]">Current Telemetry (KM)</label>
+               <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em]">Service Telemetry (KM)</label>
                <input 
                 type="number" 
                 autoFocus
@@ -184,10 +205,10 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                   value={form.type}
                   onChange={e => setForm({...form, type: e.target.value})}
                 />
-                {activeTask && (
+                {(activeTask || initialLog?.taskId) && (
                    <div className="absolute -bottom-10 left-0 right-0 animate-in slide-in-from-top-4 duration-500">
                       <div className="inline-flex items-center gap-2 bg-emerald-600/10 border border-emerald-500/20 text-emerald-500 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest">
-                         <span className="animate-pulse">✧</span> Neural Link Active: {activeTask.title}
+                         <span className="animate-pulse">✧</span> Neural Link Bonded
                       </div>
                    </div>
                 )}
@@ -249,20 +270,20 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 <button onClick={handleBack} className="w-1/3 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-500">Back</button>
                 <button 
                   onClick={() => {
-                    if (activeTask) setStep(5);
+                    if (activeTask && !initialLog) setStep(5);
                     else handleSave();
                   }} 
                   disabled={isSaving}
-                  className={`flex-1 ${activeTask ? 'bg-slate-800 text-slate-300' : 'bg-emerald-600 text-white shadow-3xl shadow-emerald-500/20'} py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] border-2 border-slate-700 transition-all active:scale-95`}
+                  className={`flex-1 ${activeTask && !initialLog ? 'bg-slate-800 text-slate-300' : 'bg-emerald-600 text-white shadow-3xl shadow-emerald-500/20'} py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] border-2 border-slate-700 transition-all active:scale-95`}
                 >
-                  {isSaving ? 'Synchronizing...' : ( activeTask ? 'Recurrence Tuning →' : 'Finalize Ledger Entry')}
+                  {isSaving ? 'Synchronizing...' : ( (activeTask && !initialLog) ? 'Recurrence Tuning →' : 'Finalize Ledger Entry')}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {step === 5 && activeTask && (
+        {step === 5 && activeTask && !initialLog && (
           <div className="space-y-10 animate-slide-up">
              <div className="text-center space-y-4">
                 <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em]">Recursive Optimization</h4>

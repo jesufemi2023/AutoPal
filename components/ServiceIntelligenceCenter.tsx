@@ -5,7 +5,7 @@ import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../services/vehicleS
 import { fetchFuelLogs } from '../services/fuelService.ts';
 import { deleteServiceLog } from '../services/logService.ts';
 import { formatCurrency, formatDate } from '../shared/utils.ts';
-import { MaintenanceTask } from '../shared/types.ts';
+import { MaintenanceTask, ServiceLog } from '../shared/types.ts';
 import { 
   calculateVitalityScore, 
   calculateDisciplineScore, 
@@ -25,6 +25,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'roadmap' | 'ledger'>('roadmap');
   const [showLogTerminal, setShowLogTerminal] = useState(false);
   const [selectedTaskForLog, setSelectedTaskForLog] = useState<MaintenanceTask | undefined>();
+  const [editingLog, setEditingLog] = useState<ServiceLog | undefined>();
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
@@ -59,13 +60,18 @@ const ServiceIntelligenceCenter: React.FC = () => {
   }, [activeVehicle, tasks, serviceLogs, fuelLogs]);
 
   const handleDeleteLog = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this service record? This will affect your health score.")) return;
+    if (!confirm("Are you sure you want to delete this service record? This will affect your health score and history ledger.")) return;
     try {
       await deleteServiceLog(id);
       setServiceLogs(serviceLogs.filter(l => l.id !== id));
     } catch (e) {
       alert("System Sync Failure.");
     }
+  };
+
+  const handleEditLog = (log: ServiceLog) => {
+    setEditingLog(log);
+    setShowLogTerminal(true);
   };
 
   // Provide all tasks for the vehicle to allow the roadmap to filter itself
@@ -102,7 +108,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
           <button 
             disabled={!activeVehicle}
-            onClick={() => { setSelectedTaskForLog(undefined); setShowLogTerminal(true); }}
+            onClick={() => { setEditingLog(undefined); setSelectedTaskForLog(undefined); setShowLogTerminal(true); }}
             className="bg-slate-900 text-white px-8 sm:px-12 py-5 sm:py-6 rounded-[1.5rem] sm:rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] sm:text-[11px] shadow-3xl hover:bg-blue-600 transition-all active:scale-95 group flex items-center justify-center gap-3 disabled:opacity-50"
           >
             <span className="text-lg sm:text-xl group-hover:rotate-90 transition-transform">🛠️</span>
@@ -166,7 +172,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
               <MaintenanceRoadmap 
                 vehicle={activeVehicle} 
                 tasks={vehicleTasks} 
-                onLog={(t) => { setSelectedTaskForLog(t); setShowLogTerminal(true); }} 
+                onLog={(t) => { setEditingLog(undefined); setSelectedTaskForLog(t); setShowLogTerminal(true); }} 
               />
             )}
 
@@ -196,7 +202,10 @@ const ServiceIntelligenceCenter: React.FC = () => {
                               <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Investment</div>
                               <div className="text-xl font-black text-slate-900 tracking-tighter">{formatCurrency(log.cost)}</div>
                            </div>
-                           <button onClick={() => handleDeleteLog(log.id)} className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center text-sm opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                           <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <button onClick={() => handleEditLog(log)} className="w-10 h-10 rounded-xl bg-slate-50 text-blue-600 flex items-center justify-center text-[10px] font-black uppercase tracking-widest">Edit</button>
+                             <button onClick={() => handleDeleteLog(log.id)} className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center text-sm">×</button>
+                           </div>
                         </div>
                       </div>
                     ))}
@@ -216,7 +225,8 @@ const ServiceIntelligenceCenter: React.FC = () => {
         <ServiceLogTerminal 
           vehicle={activeVehicle} 
           preselectedTask={selectedTaskForLog} 
-          onClose={() => { setShowLogTerminal(false); setSelectedTaskForLog(undefined); }} 
+          initialLog={editingLog}
+          onClose={() => { setShowLogTerminal(false); setSelectedTaskForLog(undefined); setEditingLog(undefined); }} 
         />
       )}
     </div>

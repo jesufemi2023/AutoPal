@@ -37,6 +37,7 @@ interface AutoPalState {
   setTasks: (tasks: MaintenanceTask[]) => void;
   setServiceLogs: (logs: ServiceLog[]) => void;
   addServiceLog: (log: ServiceLog) => void;
+  updateServiceLogStore: (log: ServiceLog) => void;
   setFuelLogs: (logs: FuelLog[]) => void;
   addFuelLogStore: (log: FuelLog) => void;
   updateFuelLogStore: (log: FuelLog) => void;
@@ -117,6 +118,9 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   setTasks: (tasks) => set({ tasks }),
   setServiceLogs: (serviceLogs) => set({ serviceLogs }),
   addServiceLog: (log) => set((state) => ({ serviceLogs: [log, ...state.serviceLogs] })),
+  updateServiceLogStore: (log) => set((state) => ({
+    serviceLogs: state.serviceLogs.map(l => l.id === log.id ? log : l)
+  })),
   setFuelLogs: (fuelLogs) => set({ fuelLogs }),
   addFuelLogStore: (log) => set((state) => ({ fuelLogs: [log, ...state.fuelLogs] })),
   updateFuelLogStore: (log) => set((state) => ({
