@@ -46,7 +46,6 @@ export interface Vehicle {
   healthScore: number;
   bodyType: BodyType;
   imageUrl?: string;
-  imageUrls: string[];
   status: 'active' | 'archived' | 'sold';
   specs: VehicleSpecs;
   fuelType?: string;
