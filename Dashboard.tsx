@@ -21,7 +21,8 @@ const Dashboard: React.FC = () => {
     vehicles, tasks, serviceLogs, fuelLogs, user, setSuggestedParts,
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
-    removeVehicleStore, updateMileage: updateStoreMileage, updateVehicleStore
+    removeVehicleStore, updateMileage: updateStoreMileage, updateVehicleStore,
+    setEditingVehicle
   } = useAutoPalStore();
 
   const [isAskingAI, setIsAskingAI] = useState(false);
@@ -36,7 +37,6 @@ const Dashboard: React.FC = () => {
   const [globalError, setGlobalError] = useState<string | null>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
-  // Pass all tasks for the vehicle to the roadmap so it can filter them itself
   const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicleId);
   const activeServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
   const activeFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicleId);
@@ -68,7 +68,6 @@ const Dashboard: React.FC = () => {
     }
   }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
 
-  // Recalculate health score whenever tasks or vehicle changes
   useEffect(() => {
     if (activeVehicle && tasks.length > 0) {
       const newScore = calculateVitalityScore(activeVehicle, tasks);
@@ -92,6 +91,12 @@ const Dashboard: React.FC = () => {
     setShowLogTerminal(true);
   };
 
+  const startTuning = () => {
+    if (!activeVehicleId) return;
+    setEditingVehicle(activeVehicleId);
+    setCurrentView('edit');
+  };
+
   return (
     <div className="space-y-12 md:space-y-24">
       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-10 px-2">
@@ -99,19 +104,27 @@ const Dashboard: React.FC = () => {
           <h1 className="text-6xl md:text-8xl font-black text-slate-900 tracking-tighter leading-[0.85]">Garage</h1>
           <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] ml-2">Intelligence Dashboard v5.1.0</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           <button 
             onClick={() => setCurrentView('service')}
-            className="flex-1 sm:flex-none bg-blue-50 text-blue-600 px-10 py-6 rounded-[2rem] font-black uppercase tracking-widest text-[11px] hover:bg-blue-100 transition-all active:scale-95"
+            className="flex-1 sm:flex-none bg-blue-50 text-blue-600 px-8 py-6 rounded-[2rem] font-black uppercase tracking-widest text-[11px] hover:bg-blue-100 transition-all active:scale-95"
           >
             Service Hub
           </button>
           <button 
             onClick={() => setCurrentView('onboarding')}
-            className="flex-1 sm:flex-none bg-blue-600 text-white px-10 py-6 rounded-[2rem] font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-blue-500/20 active:scale-95 transition-all"
+            className="flex-1 sm:flex-none bg-blue-600 text-white px-8 py-6 rounded-[2rem] font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-blue-500/20 active:scale-95 transition-all"
           >
             + Deploy Asset
           </button>
+          {activeVehicle && (
+            <button 
+              onClick={startTuning}
+              className="flex-1 sm:flex-none bg-white border-2 border-slate-100 text-slate-900 px-8 py-6 rounded-[2rem] font-black uppercase tracking-widest text-[11px] shadow-sm active:scale-95 transition-all"
+            >
+              ⚙ Tuning
+            </button>
+          )}
         </div>
       </header>
 
