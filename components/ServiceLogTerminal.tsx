@@ -140,8 +140,8 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
   const categories: ServiceCategory[] = ['engine', 'brakes', 'fluids', 'tires', 'suspension', 'other'];
 
   return (
-    <div className="fixed inset-0 z-[1001] bg-slate-950/95 backdrop-blur-3xl flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
-      <div className="w-full max-w-xl space-y-10">
+    <div className="fixed inset-0 z-[1001] bg-slate-950/95 backdrop-blur-3xl overflow-y-auto scrollbar-hide flex flex-col p-6 animate-in fade-in duration-500">
+      <div className="w-full max-w-xl mx-auto space-y-10 pt-10 pb-20">
         <header className="flex justify-between items-center text-white border-b border-slate-800 pb-10">
           <div className="flex items-center gap-6">
             {step > 1 && (
@@ -244,7 +244,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         )}
 
         {step === 4 && (
-          <div className="space-y-10 animate-slide-up overflow-y-auto max-h-[60vh] pb-10 scrollbar-hide">
+          <div className="space-y-10 animate-slide-up">
             <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center">Verification Protocol</h4>
             
             <div className="grid grid-cols-1 gap-4">

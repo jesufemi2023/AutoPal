@@ -18,7 +18,7 @@ export const OdometerInput: React.FC<OdometerInputProps> = ({ value, onSave, onC
   };
 
   return (
-    <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl animate-slide-in">
+    <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl animate-slide-in max-h-[90vh] overflow-y-auto scrollbar-hide">
       <div className="flex justify-between items-center mb-6">
         <h3 className="text-white text-[10px] font-black uppercase tracking-widest opacity-60">Update Odometer</h3>
         <button onClick={onCancel} className="text-slate-500 text-xl font-black">×</button>

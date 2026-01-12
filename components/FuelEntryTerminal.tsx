@@ -90,8 +90,8 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/95 z-[9999] flex flex-col p-6 sm:p-10 animate-in fade-in duration-300">
-      <header className="flex justify-between items-center mb-10">
+    <div className="fixed inset-0 bg-slate-950/95 z-[9999] overflow-y-auto scrollbar-hide flex flex-col p-6 sm:p-10 animate-in fade-in duration-300">
+      <div className="flex-shrink-0 flex justify-between items-center mb-10 max-w-xl mx-auto w-full">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black">⛽</div>
           <div>
@@ -100,9 +100,9 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
           </div>
         </div>
         <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors text-3xl font-black">×</button>
-      </header>
+      </div>
 
-      <div className="flex-grow flex flex-col max-w-xl mx-auto w-full space-y-8 overflow-y-auto scrollbar-hide">
+      <div className="flex-grow flex flex-col max-w-xl mx-auto w-full space-y-8 pb-10">
         {error && (
           <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl text-rose-500 text-[10px] font-black uppercase tracking-widest text-center">
             {error}
