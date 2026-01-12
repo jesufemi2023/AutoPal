@@ -266,6 +266,7 @@ export const createManualServiceLog = async (vehicle: Vehicle, data: Omit<Servic
       notes: data.notes,
       category: data.category,
       verification_level: data.verificationLevel,
+      receipt_url: data.receiptUrl,
       status: 'completed'
     }]).select().single();
   if (error) handleSupabaseError(error, 'createManualServiceLog');
@@ -302,7 +303,7 @@ export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceT
 
 export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<ServiceLog[]> => {
   if (!supabase) return [];
-  const { data, error } = await supabase.from(DB_TABLES.RECORDS).select('*').eq('vehicle_id', vehicleId).order('service_date', { ascending: false });
+  const { data, error } = await supabase.from(DB_TABLES.RECORDS).select('*').eq('id', vehicleId).order('service_date', { ascending: false });
   if (error) handleSupabaseError(error, 'fetchVehicleServiceLogs');
   return (data || []).map(mapLogFromDb);
 };

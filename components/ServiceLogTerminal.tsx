@@ -1,9 +1,10 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
-import { finalizeMaintenanceCompletion, createManualServiceLog, syncVehicleVitals } from '../services/vehicleService.ts';
+import { finalizeMaintenanceCompletion, createManualServiceLog, syncVehicleVitals, uploadVehicleImage } from '../services/vehicleService.ts';
 import { updateServiceLog } from '../services/logService.ts';
 import { MaintenanceTask, ServiceCategory, VerificationLevel, Vehicle, ServiceLog } from '../shared/types.ts';
+import { compressImage } from '../shared/utils.ts';
 
 interface Props {
   vehicle: Vehicle;
@@ -13,9 +14,12 @@ interface Props {
 }
 
 export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, initialLog, onClose }) => {
-  const { addServiceLog, updateServiceLogStore, tasks, setTasks, updateMileage, updateVehicleStore } = useAutoPalStore();
+  const { user, addServiceLog, updateServiceLogStore, tasks, setTasks, updateMileage, updateVehicleStore } = useAutoPalStore();
   const [step, setStep] = useState(initialLog ? 2 : (preselectedTask ? 2 : 1));
   const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
   
   const [form, setForm] = useState({
     type: initialLog?.serviceType || preselectedTask?.title || '',
@@ -25,7 +29,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     cost: initialLog?.cost.toString() || preselectedTask?.estimatedCost?.toString() || '',
     provider: initialLog?.provider || '',
     notes: initialLog?.notes || '',
-    verificationLevel: initialLog?.verificationLevel || 'self_declared' as VerificationLevel,
+    verificationLevel: (initialLog?.verificationLevel || preselectedTask?.lastVerificationLevel || 'self_declared') as VerificationLevel,
     intervalKm: preselectedTask?.intervalKm || 5000,
     intervalMonths: preselectedTask?.intervalMonths || 6,
     linkToTaskId: initialLog?.taskId || preselectedTask?.id || null as string | null
@@ -36,7 +40,6 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     [tasks, vehicle.id]
   );
 
-  // Auto-Link Logic: Suggestions as user types
   const suggestion = useMemo(() => {
     if (form.linkToTaskId || form.type.length < 3) return null;
     return availableTasks.find(t => 
@@ -45,9 +48,31 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     );
   }, [form.type, form.linkToTaskId, availableTasks]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setFilePreview(reader.result as string);
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      let finalReceiptUrl = initialLog?.receiptUrl || '';
+
+      // Upload proof if selected
+      if (selectedFile && user?.id) {
+        try {
+          const compressed = await compressImage(selectedFile, 1200, 0.7);
+          finalReceiptUrl = await uploadVehicleImage(user.id, vehicle.id, compressed);
+        } catch (e) {
+          console.error("Proof sync failure", e);
+        }
+      }
+
       const activeTask = form.linkToTaskId ? tasks.find(t => t.id === form.linkToTaskId) : preselectedTask;
 
       if (initialLog) {
@@ -59,7 +84,8 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
           provider: form.provider,
           notes: form.notes,
           category: form.category,
-          verificationLevel: form.verificationLevel
+          verificationLevel: form.verificationLevel,
+          receiptUrl: finalReceiptUrl
         });
         updateServiceLogStore(updated);
         const syncedVehicle = await syncVehicleVitals(vehicle.id);
@@ -72,6 +98,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
           provider: form.provider,
           notes: form.notes,
           verificationLevel: form.verificationLevel,
+          receiptUrl: finalReceiptUrl,
           intervalKm: form.intervalKm,
           intervalMonths: form.intervalMonths
         });
@@ -91,6 +118,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
           notes: form.notes,
           category: form.category,
           verificationLevel: form.verificationLevel,
+          receiptUrl: finalReceiptUrl,
           status: 'completed'
         });
         addServiceLog(log);
@@ -158,7 +186,6 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 onChange={e => setForm({...form, type: e.target.value})}
                />
                
-               {/* Neural Suggestion Bridge */}
                {suggestion && (
                  <button 
                   onClick={() => setForm({...form, linkToTaskId: suggestion.id, type: suggestion.title, category: suggestion.category})}
@@ -212,12 +239,74 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 </select>
              </div>
 
-             <button 
+             <button onClick={() => setStep(4)} className="w-full bg-white text-slate-950 py-6 rounded-3xl font-black uppercase tracking-widest text-[11px] shadow-3xl">Next Step →</button>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="space-y-10 animate-slide-up overflow-y-auto max-h-[60vh] pb-10 scrollbar-hide">
+            <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center">Verification Protocol</h4>
+            
+            <div className="grid grid-cols-1 gap-4">
+              <button 
+                onClick={() => setForm({...form, verificationLevel: 'self_declared'})}
+                className={`p-6 rounded-[2rem] border-2 text-left transition-all ${form.verificationLevel === 'self_declared' ? 'bg-blue-600 border-blue-600 text-white shadow-xl' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-black text-xs uppercase tracking-widest">Self-Declared</span>
+                  {form.verificationLevel === 'self_declared' && <span>✓</span>}
+                </div>
+                <p className="text-[8px] font-bold uppercase opacity-60">Manual entry, zero proof required.</p>
+              </button>
+
+              <button 
+                onClick={() => setForm({...form, verificationLevel: 'receipt_verified'})}
+                className={`p-6 rounded-[2rem] border-2 text-left transition-all ${form.verificationLevel === 'receipt_verified' ? 'bg-blue-600 border-blue-600 text-white shadow-xl' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-black text-xs uppercase tracking-widest">Receipt-Verified</span>
+                  {form.verificationLevel === 'receipt_verified' && <span>✓</span>}
+                </div>
+                <p className="text-[8px] font-bold uppercase opacity-60">Attach invoice to boost asset trust score.</p>
+              </button>
+
+              <button 
+                onClick={() => setForm({...form, verificationLevel: 'mechanic_verified'})}
+                className={`p-6 rounded-[2rem] border-2 text-left transition-all ${form.verificationLevel === 'mechanic_verified' ? 'bg-blue-600 border-blue-600 text-white shadow-xl' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-black text-xs uppercase tracking-widest">Mechanic-Verified</span>
+                  {form.verificationLevel === 'mechanic_verified' && <span>✓</span>}
+                </div>
+                <p className="text-[8px] font-bold uppercase opacity-60">Verified by a certified workshop.</p>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={handleFileSelect} />
+              {filePreview ? (
+                <div className="relative aspect-video rounded-[2rem] overflow-hidden bg-slate-900 border-2 border-slate-800">
+                  <img src={filePreview} className="w-full h-full object-cover" alt="Proof" />
+                  <button onClick={() => { setSelectedFile(null); setFilePreview(null); }} className="absolute top-4 right-4 bg-rose-600 text-white p-2 rounded-full text-xs">×</button>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full py-6 border-2 border-dashed border-slate-800 rounded-[2rem] text-slate-500 text-[10px] font-black uppercase tracking-widest hover:border-blue-500 hover:text-blue-500 transition-all"
+                >
+                  + Attach Proof (Optional)
+                </button>
+              )}
+            </div>
+
+            <button 
                onClick={handleSave} 
                disabled={isSaving}
-               className="w-full bg-emerald-600 text-white py-6 rounded-3xl font-black uppercase tracking-[0.2em] text-[12px] shadow-4xl"
+               className="w-full bg-emerald-600 text-white py-8 rounded-[2.5rem] font-black uppercase tracking-[0.2em] text-[12px] shadow-4xl hover:bg-emerald-500 transition-all active:scale-95 flex items-center justify-center gap-4"
              >
-               {isSaving ? 'Processing Protocol...' : 'Finalize & Sync'}
+               {isSaving ? (
+                 <div className="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+               ) : 'Finalize & Commit Protocol'}
              </button>
           </div>
         )}
