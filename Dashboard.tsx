@@ -78,8 +78,8 @@ const Dashboard: React.FC = () => {
     }
   }, [tasks, activeVehicle?.mileage]);
 
-  const handleArchive = async () => {
-    if (!activeVehicleId || !confirm("Are you sure? This will archive the vehicle and its history.")) return;
+  const handleDecommissionAsset = async () => {
+    if (!activeVehicleId || !confirm("Decommission Asset: This will archive your Digital Twin and remove it from your active garage. History will be preserved but hidden. Proceed?")) return;
     try {
       await archiveVehicle(activeVehicleId);
       removeVehicleStore(activeVehicleId);
@@ -144,7 +144,6 @@ const Dashboard: React.FC = () => {
               <div className="text-2xl font-black tracking-tighter truncate group-hover:text-blue-500 transition-colors">{v.model}</div>
               <div className={`w-3 h-3 rounded-full mt-6 transition-all duration-500 ${activeVehicleId === v.id ? 'bg-blue-500 scale-125 shadow-[0_0_15px_rgba(59,130,246,0.6)]' : 'bg-slate-200'}`}></div>
               
-              {/* Subtle accent light for active card */}
               {activeVehicleId === v.id && (
                 <div className="absolute top-0 right-0 w-24 h-24 bg-blue-600/10 blur-3xl -translate-y-1/2 translate-x-1/2"></div>
               )}
@@ -168,7 +167,7 @@ const Dashboard: React.FC = () => {
             />
 
             <div className="pt-16 border-t border-slate-100 flex justify-center">
-               <button onClick={handleArchive} className="text-slate-300 text-[9px] font-black uppercase tracking-[0.4em] hover:text-rose-500 transition-all">
+               <button onClick={handleDecommissionAsset} className="text-slate-300 text-[9px] font-black uppercase tracking-[0.4em] hover:text-rose-500 transition-all">
                  Decommission Digital Twin
                </button>
             </div>

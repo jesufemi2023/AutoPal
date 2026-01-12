@@ -107,6 +107,9 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   })),
   removeVehicleStore: (vehicleId) => set((state) => ({
     vehicles: state.vehicles.filter(v => v.id !== vehicleId),
+    tasks: state.tasks.filter(t => t.vehicleId !== vehicleId),
+    serviceLogs: state.serviceLogs.filter(l => l.vehicleId !== vehicleId),
+    fuelLogs: state.fuelLogs.filter(l => l.vehicleId !== vehicleId),
     activeVehicleId: state.activeVehicleId === vehicleId ? (state.vehicles.length > 1 ? state.vehicles.find(v => v.id !== vehicleId)?.id || null : null) : state.activeVehicleId
   })),
   updateMileage: (vehicleId, mileage) => set((state) => ({

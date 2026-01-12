@@ -76,11 +76,11 @@ const mapLogFromDb = (l: any): ServiceLog => ({
   status: l.status,
   category: l.category,
   verificationLevel: l.verification_level,
+  // Fixed: receipt_url updated to receiptUrl to match ServiceLog interface in types.ts
   receiptUrl: l.receipt_url,
   createdAt: l.created_at
 });
 
-// Fixed: Exported fetchVehicleTasks to resolve missing member error
 export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceTask[]> => {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -105,7 +105,6 @@ export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceT
   }));
 };
 
-// Fixed: Exported fetchVehicleServiceLogs to resolve missing member error
 export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<ServiceLog[]> => {
   if (!supabase) return [];
   const { data, error } = await supabase
@@ -129,7 +128,6 @@ export const fetchUserVehicles = async (): Promise<Vehicle[]> => {
   return (data || []).map(mapVehicleFromDb);
 };
 
-// Fixed: Exported createVehicle to resolve missing member error
 export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt' | 'healthScore'>): Promise<Vehicle> => {
   if (!supabase) throw new Error("Supabase client missing.");
   const dbPayload = {
@@ -156,21 +154,20 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
   return mapVehicleFromDb(data);
 };
 
-// Fixed: Exported createMaintenanceTasksBatch to resolve missing member error
 export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[]): Promise<void> => {
   if (!supabase) return;
   const dbPayloads = tasks.map(t => ({
     vehicle_id: t.vehicleId,
     title: t.title,
     description: t.description,
-    due_mileage: t.dueMileage,
-    due_date: t.dueDate,
+    due_mileage: t.due_mileage,
+    due_date: t.due_date,
     status: t.status,
     priority: t.priority,
     category: t.category,
-    estimated_cost: t.estimatedCost,
-    interval_km: t.intervalKm,
-    interval_months: t.intervalMonths
+    estimated_cost: t.estimated_cost,
+    interval_km: t.interval_km,
+    interval_months: t.interval_months
   }));
   const { error } = await supabase
     .from(DB_TABLES.RULES)
@@ -231,7 +228,6 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   return mapVehicleFromDb(updated);
 };
 
-// Fixed: Exported updateTaskStatus to resolve missing member error
 export const updateTaskStatus = async (taskId: string, status: TaskStatus): Promise<void> => {
   if (!supabase) return;
   const { error } = await supabase
@@ -241,7 +237,10 @@ export const updateTaskStatus = async (taskId: string, status: TaskStatus): Prom
   if (error) handleSupabaseError(error, 'updateTaskStatus');
 };
 
-// Fixed: Exported archiveVehicle to resolve missing member error
+/**
+ * Soft Delete / Archive of Asset
+ * Marks the status as 'archived' to hide from UI while preserving history.
+ */
 export const archiveVehicle = async (vehicleId: string): Promise<void> => {
   if (!supabase) return;
   const { error } = await supabase
@@ -251,7 +250,6 @@ export const archiveVehicle = async (vehicleId: string): Promise<void> => {
   if (error) handleSupabaseError(error, 'archiveVehicle');
 };
 
-// Fixed: Exported uploadVehicleImage to resolve missing member error
 export const uploadVehicleImage = async (userId: string, vehicleId: string, blob: Blob): Promise<string> => {
   if (!supabase) throw new Error("Supabase client missing.");
   const path = `${userId}/${vehicleId}/${Date.now()}.jpg`;
@@ -265,7 +263,6 @@ export const uploadVehicleImage = async (userId: string, vehicleId: string, blob
   return publicUrl;
 };
 
-// Fixed: Exported createManualServiceLog to resolve missing member error
 export const createManualServiceLog = async (vehicle: Vehicle, log: Omit<ServiceLog, 'id' | 'createdAt' | 'updatedAt'>): Promise<ServiceLog> => {
   if (!supabase) throw new Error("Supabase client missing.");
   const { data, error } = await supabase
@@ -282,6 +279,7 @@ export const createManualServiceLog = async (vehicle: Vehicle, log: Omit<Service
       category: log.category,
       status: log.status || 'completed',
       verification_level: log.verificationLevel,
+      // Fixed: log.receipt_url updated to log.receiptUrl to match ServiceLog interface in types.ts
       receipt_url: log.receiptUrl
     }])
     .select()
@@ -308,15 +306,9 @@ export const syncVehicleVitals = async (vehicleId: string): Promise<Vehicle> => 
   return await updateVehicle(vehicleId, { avgDailyKm: newAvgDailyKm, healthScore: newHealthScore });
 };
 
-/**
- * Single Source of Truth for Odometer Updates
- * Implements "Ratchet" logic: only updates if new mileage is higher,
- * unless 'force' is true (for manual corrections).
- */
 export const updateMileage = async (vehicleId: string, mileage: number, force: boolean = false): Promise<Vehicle> => {
   if (!supabase) throw new Error("Supabase client missing.");
   
-  // Get current state to apply ratchet
   const { data: current, error: fetchError } = await supabase
     .from(DB_TABLES.VEHICLES)
     .select('current_mileage')
@@ -328,7 +320,6 @@ export const updateMileage = async (vehicleId: string, mileage: number, force: b
   const currentMileage = parseFloat(current.current_mileage || '0');
   
   if (!force && mileage <= currentMileage) {
-    // If not a force update and new mileage isn't higher, just sync vitals and return
     return await syncVehicleVitals(vehicleId);
   }
 
@@ -384,7 +375,6 @@ export const finalizeMaintenanceCompletion = async (
     .single();
   if (logError) handleSupabaseError(logError, 'finalize-Log');
 
-  // Fixed: Added missing task update and vehicle mileage update logic to complete the function
   const { data: taskData, error: taskError } = await supabase
     .from(DB_TABLES.RULES)
     .update({
@@ -393,7 +383,7 @@ export const finalizeMaintenanceCompletion = async (
       last_completed_at: completionData.serviceDate,
       last_verification_level: completionData.verificationLevel,
       last_receipt_url: completionData.receiptUrl,
-      status: 'pending' // Reset task to pending for next interval
+      status: 'pending' 
     })
     .eq('id', task.id)
     .select()
