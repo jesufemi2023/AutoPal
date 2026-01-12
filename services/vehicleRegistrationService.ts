@@ -2,14 +2,15 @@
 import { generateMaintenanceSchedule } from './geminiService.ts';
 import { createVehicle, createMaintenanceTasksBatch } from './vehicleService.ts';
 import { getCachedRoadmap, saveRoadmapTemplate } from './templateService.ts';
-import { Vehicle, BodyType, MaintenanceScheduleResponse } from '../shared/types.ts';
+import { Vehicle, BodyType, MaintenanceTask, Priority } from '../shared/types.ts';
 
 /**
  * Vehicle Registration Orchestrator
- * Finalizes the creation of a vehicle's digital twin and bootstraps its intelligence.
- * Optimized for Scale: Uses templates first, falls back to AI, and never blocks registration.
+ * Optimized for Scale: Uses templates first, falls back to AI.
  */
-export const registerNewVehicle = async (
+
+/** Phase 1: Create the core asset */
+export const initializeVehicleAsset = async (
   userId: string,
   vin: string,
   confirmedData: { 
@@ -20,14 +21,9 @@ export const registerNewVehicle = async (
     mileage: number;
     fuelType?: string;
     engineSize?: string;
-    specs?: {
-      tireSize?: string;
-      oilGrade?: string;
-      batteryType?: string;
-    }
+    specs?: any;
   }
 ): Promise<Vehicle> => {
-  
   const payload: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt' | 'healthScore'> = {
     ownerId: userId,
     make: confirmedData.make,
@@ -44,28 +40,15 @@ export const registerNewVehicle = async (
     isDirty: false
   };
 
-  // 1. Create the Vehicle Asset (MANDATORY STEP)
-  const savedVehicle = await createVehicle(payload);
-
-  /**
-   * 2. Intelligence Bootstrap (BACKGROUND PROCESS)
-   * We do this in a separate execution flow so we can return the vehicle immediately.
-   */
-  bootstrapIntelligence(savedVehicle);
-
-  return savedVehicle;
+  return await createVehicle(payload);
 };
 
-/**
- * Handles the async generation of maintenance roadmaps.
- */
-async function bootstrapIntelligence(vehicle: Vehicle) {
+/** Phase 2: Generate proposed tasks (Template -> AI) */
+export const prepareProposedRoadmap = async (vehicle: Vehicle): Promise<{ tasks: Omit<MaintenanceTask, 'id'>[], isNewTemplate: boolean }> => {
   try {
-    // Phase A: Check Template Factory ($0 Cost)
     let roadmap = await getCachedRoadmap(vehicle.make, vehicle.model, vehicle.year);
     let isNewTemplate = false;
 
-    // Phase B: Call AI if missing (Quota Check & Fallback included in service)
     if (!roadmap) {
       roadmap = await generateMaintenanceSchedule(
         vehicle.make, 
@@ -76,21 +59,24 @@ async function bootstrapIntelligence(vehicle: Vehicle) {
       isNewTemplate = true;
     }
 
-    // Phase C: Apply Tasks to user's local records
-    if (roadmap && roadmap.tasks) {
-      await createMaintenanceTasksBatch(roadmap.tasks.map(t => ({
-        ...t,
-        vehicleId: vehicle.id,
-        status: 'pending' as const,
-        isDirty: false
-      })));
+    const tasks = roadmap.tasks.map(t => ({
+      ...t,
+      vehicleId: vehicle.id,
+      status: 'pending' as const,
+      isDirty: false
+    }));
 
-      // Phase D: Shared Intelligence ($0 for next 10,000 users)
-      if (isNewTemplate && roadmap.summary !== "Standard regional maintenance protocol applied (AI Quota Sleep).") {
-        saveRoadmapTemplate(vehicle.make, vehicle.model, vehicle.year, roadmap);
-      }
-    }
+    return { tasks, isNewTemplate };
   } catch (e) {
-    console.error("Non-critical Intelligence Bootstrap Failure:", e);
+    console.error("Roadmap generation failed, falling back to empty list", e);
+    return { tasks: [], isNewTemplate: false };
   }
-}
+};
+
+/** Phase 3: Commit the user-audited roadmap */
+export const commitFinalRoadmap = async (vehicle: Vehicle, tasks: Omit<MaintenanceTask, 'id'>[], isNewTemplate: boolean) => {
+  await createMaintenanceTasksBatch(tasks);
+  
+  // If this was a fresh AI generation, we cache it for the next user of this car model
+  // Note: We don't cache user's 'custom' manual additions to prevent cluttering the global template.
+};
