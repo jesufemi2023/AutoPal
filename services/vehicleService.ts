@@ -160,14 +160,15 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
     vehicle_id: t.vehicleId,
     title: t.title,
     description: t.description,
-    due_mileage: t.due_mileage,
-    due_date: t.due_date,
+    // Fix: Using camelCase property names as defined in MaintenanceTask interface
+    due_mileage: t.dueMileage,
+    due_date: t.dueDate,
     status: t.status,
     priority: t.priority,
     category: t.category,
-    estimated_cost: t.estimated_cost,
-    interval_km: t.interval_km,
-    interval_months: t.interval_months
+    estimated_cost: t.estimatedCost,
+    interval_km: t.intervalKm,
+    interval_months: t.intervalMonths
   }));
   const { error } = await supabase
     .from(DB_TABLES.RULES)

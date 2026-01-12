@@ -15,6 +15,7 @@ import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { VitalityDashboard } from './components/dashboard/VitalityDashboard.tsx';
 import { calculateVitalityScore } from './services/maintenanceLogic.ts';
 import { ServiceLogTerminal } from './components/ServiceLogTerminal.tsx';
+import { ResaleValuationCard } from './components/dashboard/ResaleValuationCard.tsx';
 
 const Dashboard: React.FC = () => {
   const { 
@@ -157,6 +158,13 @@ const Dashboard: React.FC = () => {
           <div className="md:col-span-2 lg:col-span-8 space-y-12 lg:space-y-20">
             <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
             
+            <ResaleValuationCard 
+              vehicle={activeVehicle} 
+              tasks={tasks} 
+              serviceLogs={activeServiceLogs} 
+              fuelLogs={activeFuelLogs} 
+            />
+
             <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
 
             <MaintenanceRoadmap 
