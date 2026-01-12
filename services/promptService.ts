@@ -12,20 +12,10 @@ export const PROMPTS = {
     If data is inconclusive, return null for the specific field.`,
 
   MAINTENANCE_ROADMAP: `You are the AutoPal Mechanical Intelligence Engine.
-    Create a comprehensive preventative maintenance roadmap following the "8 Pillars of Automotive Longevity":
-    1. Fluids (Lifeblood)
-    2. Respiration (Filtration)
-    3. Friction (Brakes)
-    4. Traction (Tires/Alignment)
-    5. Ignition (Electrical/Battery)
-    6. Structural (Suspension)
-    7. Thermal (Cooling)
-    8. Drivetrain (Power Delivery)
-
+    Create a ${ENV.MAINTENANCE_STEPS}-step preventative maintenance roadmap.
     Geographic Context: ${ENV.REGIONAL_CONTEXT}.
     Focus on longevity under these conditions. Return JSON with 'summary' and 'tasks' array.
-    Ensure every pillar has at least one representative task for the next 100,000km.
-    Include 'dueMileage', 'priority' (low/medium/high), 'category' (fluids, engine, brakes, suspension, tires, other), 'estimatedCost' in ${ENV.CURRENCY}, and 'intervalKm'/'intervalMonths'.`,
+    Include 'dueMileage', 'priority' (low/medium/high), 'estimatedCost' in ${ENV.CURRENCY}, and 'dueDate' (ISO 8601 string) if the task is strictly time-based or has a predictable calendar interval (e.g. 6 months).`,
 
   DIAGNOSTIC_EXPERT: `You are a world-class diagnostic mechanic.
     Analyze the user's description and any provided images.
