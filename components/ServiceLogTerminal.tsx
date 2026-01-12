@@ -14,7 +14,7 @@ interface Props {
 
 export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, initialLog, onClose }) => {
   const { addServiceLog, updateServiceLogStore, tasks, setTasks, updateMileage, updateVehicleStore } = useAutoPalStore();
-  const [step, setStep] = useState(initialLog ? 2 : 1);
+  const [step, setStep] = useState(initialLog ? 2 : (preselectedTask ? 2 : 1));
   const [isSaving, setIsSaving] = useState(false);
   
   const [form, setForm] = useState({
@@ -31,39 +31,26 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     linkToTaskId: initialLog?.taskId || preselectedTask?.id || null as string | null
   });
 
-  // Automated Neural Link: Attempt to find a match while typing
-  useEffect(() => {
-    if (initialLog || preselectedTask || step !== 2) return;
-    
-    const input = form.type.trim().toLowerCase();
-    if (input.length < 3) return;
+  const availableTasks = useMemo(() => 
+    tasks.filter(t => t.vehicleId === vehicle.id && t.status === 'pending'),
+    [tasks, vehicle.id]
+  );
 
-    const match = tasks.find(t => 
-      t.status === 'pending' && 
-      t.vehicleId === vehicle.id &&
-      (input === t.title.toLowerCase() || t.title.toLowerCase().includes(input))
+  // Auto-Link Logic: Suggestions as user types
+  const suggestion = useMemo(() => {
+    if (form.linkToTaskId || form.type.length < 3) return null;
+    return availableTasks.find(t => 
+      t.title.toLowerCase().includes(form.type.toLowerCase()) ||
+      form.type.toLowerCase().includes(t.title.toLowerCase())
     );
-
-    if (match && form.linkToTaskId !== match.id) {
-      setForm(prev => ({ 
-        ...prev, 
-        linkToTaskId: match.id, 
-        category: match.category,
-        intervalKm: match.intervalKm || 5000,
-        intervalMonths: match.intervalMonths || 6
-      }));
-    }
-  }, [form.type, tasks, preselectedTask, initialLog, step, vehicle.id]);
-
-  const activeTask = useMemo(() => {
-    return preselectedTask || (form.linkToTaskId ? tasks.find(t => t.id === form.linkToTaskId) : null);
-  }, [preselectedTask, form.linkToTaskId, tasks]);
+  }, [form.type, form.linkToTaskId, availableTasks]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const activeTask = form.linkToTaskId ? tasks.find(t => t.id === form.linkToTaskId) : preselectedTask;
+
       if (initialLog) {
-        // Update existing log
         const updated = await updateServiceLog(initialLog.id, {
           serviceType: form.type,
           serviceDate: form.date,
@@ -75,12 +62,9 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
           verificationLevel: form.verificationLevel
         });
         updateServiceLogStore(updated);
-        
-        // If mileage changed, sync the vehicle vitals
         const syncedVehicle = await syncVehicleVitals(vehicle.id);
         updateVehicleStore(syncedVehicle);
       } else if (activeTask) {
-        // Complete a pending task
         const { log, updatedTask, updatedVehicle } = await finalizeMaintenanceCompletion(vehicle, activeTask, {
           mileageAtService: form.mileage,
           serviceDate: form.date,
@@ -93,11 +77,9 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         });
         
         addServiceLog(log);
-        const updatedTasks = tasks.map(t => t.id === updatedTask.id ? updatedTask : t);
-        setTasks(updatedTasks);
+        setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
         updateVehicleStore(updatedVehicle);
       } else {
-        // Create a manual entry
         const log = await createManualServiceLog(vehicle, {
           vehicleId: vehicle.id,
           taskId: form.linkToTaskId || undefined,
@@ -112,31 +94,22 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
           status: 'completed'
         });
         addServiceLog(log);
+        const syncedVehicle = await syncVehicleVitals(vehicle.id);
+        updateVehicleStore(syncedVehicle);
       }
       
       if (form.mileage > vehicle.mileage) {
         updateMileage(vehicle.id, form.mileage);
       }
-      
       onClose();
     } catch (e) {
-      console.error(e);
-      alert("Terminal Sync Error: Node synchronization failure.");
+      alert("Neural Link Error: Sync failure.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleBack = () => {
-    if (step > 1) setStep(step - 1);
-  };
-
   const categories: ServiceCategory[] = ['engine', 'brakes', 'fluids', 'tires', 'suspension', 'other'];
-  const verificationLevels: {id: VerificationLevel, label: string, icon: string, impact: string}[] = [
-    { id: 'self_declared', label: 'Self Declared', icon: '👤', impact: 'Base Trust' },
-    { id: 'receipt_verified', label: 'Receipt Upload', icon: '📄', impact: '+2% Vitality' },
-    { id: 'mechanic_verified', label: 'Mechanic Authenticated', icon: '🛠️', impact: '+5% Vitality' }
-  ];
 
   return (
     <div className="fixed inset-0 z-[1001] bg-slate-950/95 backdrop-blur-3xl flex flex-col items-center justify-center p-6 animate-in fade-in duration-500">
@@ -144,39 +117,28 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         <header className="flex justify-between items-center text-white border-b border-slate-800 pb-10">
           <div className="flex items-center gap-6">
             {step > 1 && (
-              <button 
-                onClick={handleBack}
-                className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-blue-600 hover:border-blue-600 transition-all group"
-                aria-label="Go back"
-              >
-                <span className="text-2xl group-hover:-translate-x-1 transition-transform">←</span>
-              </button>
+              <button onClick={() => setStep(step - 1)} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-xl hover:bg-blue-600 transition-all">←</button>
             )}
-            <div className="space-y-1">
+            <div>
               <h3 className="text-3xl font-black uppercase tracking-tighter">
-                {initialLog ? 'Recalibration' : (activeTask ? 'Protocol Sync' : 'Manual Entry')}
+                {initialLog ? 'Recalibration' : 'Neural Link'}
               </h3>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">
-                Operational Step {step} / {activeTask ? 5 : 4}
-              </p>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Digital Twin Service Entry</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-4xl font-light text-slate-600 hover:text-white transition-colors">×</button>
+          <button onClick={onClose} className="text-4xl text-slate-600">×</button>
         </header>
 
         {step === 1 && (
-          <div className="space-y-8 animate-slide-up">
-            <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em] text-center">System Category Mapping</h4>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-5">
+          <div className="space-y-6 animate-slide-up">
+            <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center">Select Pillar</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {categories.map(cat => (
                 <button 
                   key={cat}
                   onClick={() => { setForm({...form, category: cat}); setStep(2); }}
-                  className={`py-10 rounded-3xl border-2 font-black uppercase tracking-widest text-[9px] transition-all flex flex-col items-center gap-4 ${form.category === cat ? 'bg-blue-600 border-blue-600 text-white shadow-3xl shadow-blue-500/20' : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'}`}
+                  className={`py-8 rounded-3xl border-2 font-black uppercase tracking-widest text-[9px] transition-all ${form.category === cat ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
                 >
-                  <span className="text-3xl">
-                    {cat === 'engine' ? '⚙️' : cat === 'brakes' ? '🛑' : cat === 'fluids' ? '🧪' : cat === 'tires' ? '🛞' : cat === 'suspension' ? '⛓️' : '🛠️'}
-                  </span>
                   {cat}
                 </button>
               ))}
@@ -185,140 +147,78 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         )}
 
         {step === 2 && (
-          <div className="space-y-12 animate-slide-up text-center">
+          <div className="space-y-8 animate-slide-up">
             <div className="space-y-4">
-               <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em]">Service Telemetry (KM)</label>
+               <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Describe Task</label>
+               <input 
+                type="text" 
+                placeholder="What did you do?" 
+                className="w-full bg-slate-900 text-white p-8 rounded-3xl border-2 border-slate-800 font-black text-center text-xl outline-none focus:border-blue-600"
+                value={form.type}
+                onChange={e => setForm({...form, type: e.target.value})}
+               />
+               
+               {/* Neural Suggestion Bridge */}
+               {suggestion && (
+                 <button 
+                  onClick={() => setForm({...form, linkToTaskId: suggestion.id, type: suggestion.title, category: suggestion.category})}
+                  className="w-full bg-blue-600/10 border border-blue-500/20 text-blue-500 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 animate-pulse"
+                 >
+                   <span>✦ Did you mean: {suggestion.title}?</span>
+                   <span className="bg-blue-600 text-white px-2 py-0.5 rounded">LINK NOW</span>
+                 </button>
+               )}
+            </div>
+
+            <div className="space-y-4">
+               <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Service Odometer (KM)</label>
                <input 
                 type="number" 
-                autoFocus
-                className="w-full bg-transparent border-b-4 border-blue-600 text-6xl font-mono font-black text-white text-center py-6 outline-none tracking-tighter"
+                className="w-full bg-transparent border-b-4 border-blue-600 text-6xl font-mono font-black text-white text-center py-4 outline-none tracking-tighter"
                 value={form.mileage}
                 onChange={e => setForm({...form, mileage: parseInt(e.target.value) || 0})}
                />
             </div>
-            <div className="space-y-6">
-              <div className="relative">
-                <input 
-                  type="text" 
-                  placeholder="Service Description..." 
-                  className="w-full bg-slate-900 text-white p-8 rounded-3xl border-2 border-slate-800 font-bold text-center outline-none focus:border-blue-600 transition-all text-lg"
-                  value={form.type}
-                  onChange={e => setForm({...form, type: e.target.value})}
-                />
-                {(activeTask || initialLog?.taskId) && (
-                   <div className="absolute -bottom-10 left-0 right-0 animate-in slide-in-from-top-4 duration-500">
-                      <div className="inline-flex items-center gap-2 bg-emerald-600/10 border border-emerald-500/20 text-emerald-500 px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest">
-                         <span className="animate-pulse">✧</span> Neural Link Bonded
-                      </div>
-                   </div>
-                )}
-              </div>
-              <div className="flex gap-4 pt-8">
-                <button onClick={handleBack} className="w-1/3 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-500">Back</button>
-                <button onClick={() => setStep(3)} className="flex-1 bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-3xl active:scale-95 transition-all">Continue Execution</button>
-              </div>
+
+            <div className="flex gap-4">
+              <button onClick={() => setStep(3)} className="flex-1 bg-white text-slate-950 py-6 rounded-3xl font-black uppercase tracking-widest text-[11px] shadow-3xl">Next Step →</button>
             </div>
           </div>
         )}
 
         {step === 3 && (
           <div className="space-y-8 animate-slide-up">
-            <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em] text-center">Identity Verification</h4>
-            <div className="space-y-5">
-              {verificationLevels.map(level => (
-                <button 
-                  key={level.id}
-                  onClick={() => { setForm({...form, verificationLevel: level.id}); setStep(4); }}
-                  className={`w-full p-8 rounded-3xl border-2 flex items-center justify-between transition-all ${form.verificationLevel === level.id ? 'bg-blue-600 border-blue-600 text-white shadow-2xl' : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'}`}
+             <div className="space-y-4">
+                <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Cost (₦)</label>
+                <input 
+                  type="number" 
+                  className="w-full bg-slate-900 text-white p-8 rounded-3xl border-2 border-slate-800 font-black text-center text-3xl outline-none"
+                  value={form.cost}
+                  onChange={e => setForm({...form, cost: e.target.value})}
+                />
+             </div>
+             
+             <div className="space-y-4">
+                <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Bond to Roadmap (Optional)</label>
+                <select 
+                  className="w-full bg-slate-900 text-white p-6 rounded-2xl border-2 border-slate-800 font-bold outline-none"
+                  value={form.linkToTaskId || ''}
+                  onChange={e => setForm({...form, linkToTaskId: e.target.value || null})}
                 >
-                  <div className="flex items-center gap-6">
-                    <span className="text-3xl">{level.icon}</span>
-                    <div className="text-left">
-                       <div className="font-black uppercase tracking-widest text-[11px]">{level.label}</div>
-                       <div className="text-[8px] font-bold opacity-60 uppercase tracking-widest mt-1">{level.impact}</div>
-                    </div>
-                  </div>
-                  <div className={`w-8 h-8 rounded-full border-4 ${form.verificationLevel === level.id ? 'border-white bg-blue-400' : 'border-slate-800'}`}></div>
-                </button>
-              ))}
-            </div>
-            <button onClick={handleBack} className="w-full py-5 text-slate-600 font-black uppercase text-[10px] tracking-[0.4em]">Reverse Protocol</button>
-          </div>
-        )}
+                  <option value="">-- No Link (Unscheduled Service) --</option>
+                  {availableTasks.map(t => (
+                    <option key={t.id} value={t.id}>{t.title} ({t.dueMileage}km)</option>
+                  ))}
+                </select>
+             </div>
 
-        {step === 4 && (
-          <div className="space-y-12 animate-slide-up text-center">
-            <div className="space-y-4">
-               <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em]">Financial Transaction (₦)</label>
-               <input 
-                type="number" 
-                autoFocus
-                className="w-full bg-transparent border-b-4 border-emerald-500 text-7xl font-mono font-black text-white text-center py-6 outline-none tracking-tighter"
-                value={form.cost}
-                onChange={e => setForm({...form, cost: e.target.value})}
-               />
-            </div>
-            <div className="space-y-8">
-               <input 
-                type="text" 
-                placeholder="Service Provider / Facility Name" 
-                className="w-full bg-slate-900 text-white p-8 rounded-3xl border-2 border-slate-800 font-bold text-center outline-none focus:border-blue-600 transition-all"
-                value={form.provider}
-                onChange={e => setForm({...form, provider: e.target.value})}
-              />
-              <div className="flex gap-4">
-                <button onClick={handleBack} className="w-1/3 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-500">Back</button>
-                <button 
-                  onClick={() => {
-                    if (activeTask && !initialLog) setStep(5);
-                    else handleSave();
-                  }} 
-                  disabled={isSaving}
-                  className={`flex-1 ${activeTask && !initialLog ? 'bg-slate-800 text-slate-300' : 'bg-emerald-600 text-white shadow-3xl shadow-emerald-500/20'} py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] border-2 border-slate-700 transition-all active:scale-95`}
-                >
-                  {isSaving ? 'Synchronizing...' : ( (activeTask && !initialLog) ? 'Recurrence Tuning →' : 'Finalize Ledger Entry')}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {step === 5 && activeTask && !initialLog && (
-          <div className="space-y-10 animate-slide-up">
-             <div className="text-center space-y-4">
-                <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em]">Recursive Optimization</h4>
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed text-center">Adjust future milestones for this asset</p>
-             </div>
-             <div className="grid grid-cols-2 gap-8">
-                <div className="space-y-3">
-                   <label className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em] ml-2">Interval (KM)</label>
-                   <input 
-                    type="number" 
-                    className="w-full bg-slate-900 border-2 border-slate-800 rounded-3xl p-8 text-3xl font-mono font-black text-blue-500 outline-none text-center focus:border-blue-600 transition-all"
-                    value={form.intervalKm}
-                    onChange={e => setForm({...form, intervalKm: parseInt(e.target.value) || 0})}
-                   />
-                </div>
-                <div className="space-y-3">
-                   <label className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em] ml-2">Interval (Months)</label>
-                   <input 
-                    type="number" 
-                    className="w-full bg-slate-900 border-2 border-slate-800 rounded-3xl p-8 text-3xl font-mono font-black text-blue-500 outline-none text-center focus:border-blue-600 transition-all"
-                    value={form.intervalMonths}
-                    onChange={e => setForm({...form, intervalMonths: parseInt(e.target.value) || 0})}
-                   />
-                </div>
-             </div>
-             <div className="flex gap-4 pt-4">
-                <button onClick={handleBack} className="w-1/3 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-500">Back</button>
-                <button 
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="flex-1 bg-white text-slate-950 py-6 rounded-3xl font-black uppercase tracking-[0.3em] text-[12px] shadow-4xl active:scale-95 transition-all"
-                >
-                  {isSaving ? 'Processing Protocol...' : 'Launch Sync Protocol'}
-                </button>
-             </div>
+             <button 
+               onClick={handleSave} 
+               disabled={isSaving}
+               className="w-full bg-emerald-600 text-white py-6 rounded-3xl font-black uppercase tracking-[0.2em] text-[12px] shadow-4xl"
+             >
+               {isSaving ? 'Processing Protocol...' : 'Finalize & Sync'}
+             </button>
           </div>
         )}
       </div>

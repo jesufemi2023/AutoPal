@@ -129,16 +129,25 @@ const Dashboard: React.FC = () => {
       </header>
 
       {vehicles.length > 0 ? (
-        <div className="flex gap-6 overflow-x-auto pb-8 scrollbar-hide -mx-4 px-4">
+        <div className="flex gap-6 overflow-x-auto pb-10 scrollbar-hide -mx-4 px-4">
           {vehicles.map(v => (
             <button 
               key={v.id}
               onClick={() => setActiveVehicleId(v.id)}
-              className={`flex-shrink-0 px-10 py-8 rounded-[3rem] border-2 transition-all min-w-[240px] text-left relative overflow-hidden group ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-3xl' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300'}`}
+              className={`flex-shrink-0 px-10 py-8 rounded-[3rem] border-2 transition-all duration-500 min-w-[240px] text-left relative overflow-hidden group active:scale-95 hover:-translate-y-2 ${
+                activeVehicleId === v.id 
+                  ? 'bg-slate-900 border-slate-900 text-white shadow-2xl shadow-blue-600/30 scale-[1.02]' 
+                  : 'bg-white border-slate-100 text-slate-400 hover:border-blue-300 hover:shadow-xl hover:shadow-slate-200/50'
+              }`}
             >
-              <div className="text-[9px] font-black uppercase opacity-40 mb-1 tracking-widest truncate">{v.make}</div>
-              <div className="text-2xl font-black tracking-tighter truncate">{v.model}</div>
-              <div className={`w-3 h-3 rounded-full mt-6 ${activeVehicleId === v.id ? 'bg-blue-500' : 'bg-slate-200'}`}></div>
+              <div className="text-[9px] font-black uppercase opacity-40 mb-1 tracking-widest truncate group-hover:opacity-100 transition-opacity">{v.make}</div>
+              <div className="text-2xl font-black tracking-tighter truncate group-hover:text-blue-500 transition-colors">{v.model}</div>
+              <div className={`w-3 h-3 rounded-full mt-6 transition-all duration-500 ${activeVehicleId === v.id ? 'bg-blue-500 scale-125 shadow-[0_0_15px_rgba(59,130,246,0.6)]' : 'bg-slate-200'}`}></div>
+              
+              {/* Subtle accent light for active card */}
+              {activeVehicleId === v.id && (
+                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-600/10 blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+              )}
             </button>
           ))}
         </div>
