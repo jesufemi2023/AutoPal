@@ -1,27 +1,25 @@
 
 import { Vehicle, MaintenanceTask, ServiceLog, Priority, ServiceCategory, FuelLog, HealthBreakdown } from '../shared/types.ts';
 
-const CATEGORY_WEIGHTS: Record<ServiceCategory, number> = {
-  brakes: 2.5, 
-  suspension: 1.5,
-  engine: 1.2,
-  tires: 1.0,
-  fluids: 0.8,
-  electrical: 1.0,
-  cooling: 1.5,
-  other: 0.5
+/**
+ * GENETIC ANCHORS
+ * Ideal KM/L baselines for vehicle classes under normal conditions.
+ */
+const GENETIC_BASELINES: Record<string, number> = {
+  'sedan': 12.5,
+  'hatchback': 14.0,
+  'suv': 8.5,
+  'van': 7.5,
+  'truck': 6.5,
+  'coupe': 10.0,
+  'other': 9.0
 };
 
-const PRIORITY_MULTIPLIER: Record<Priority, number> = {
-  [Priority.HIGH]: 2.0,
-  [Priority.MEDIUM]: 1.2,
-  [Priority.LOW]: 0.8
-};
-
-const REGIONAL_SEVERITY = 1.2;
+const REGIONAL_STRESS_FACTOR = 1.2; // Nigerian heat/roads
 
 /**
- * Velocity Engine: Average Daily Kilometers
+ * VELOCITY ENGINE
+ * Calculates average daily usage and determines "Congestion Level"
  */
 export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: ServiceLog[]): number => {
   const allLogs = [
@@ -29,63 +27,70 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
     ...serviceLogs.map(l => ({ odo: l.mileageAtService, date: new Date(l.serviceDate) }))
   ].sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  const recentLogs = allLogs.slice(-10);
-  if (recentLogs.length < 2) return 35;
+  if (allLogs.length < 2) return 35; // Standard Lagos average
 
-  const oldest = recentLogs[0];
-  const newest = recentLogs[recentLogs.length - 1];
+  const oldest = allLogs[0];
+  const newest = allLogs[allLogs.length - 1];
   
   const distance = newest.odo - oldest.odo;
-  const timeDiff = newest.date.getTime() - oldest.date.getTime();
-  const days = Math.max(1, timeDiff / (1000 * 60 * 60 * 24));
+  const days = Math.max(1, (newest.date.getTime() - oldest.date.getTime()) / (1000 * 60 * 60 * 24));
 
   return Math.max(5, Math.min(400, distance / days));
 };
 
 /**
- * METABOLIC ENGINE: Efficiency interpretation
+ * METABOLIC ENGINE (Precision Interpretation)
  */
-export const calculateMetabolicStatus = (fuelLogs: FuelLog[]): { score: number, status: 'optimal' | 'warning' | 'critical', waste: number } => {
-  if (fuelLogs.length < 5) return { score: 100, status: 'optimal', waste: 0 };
+export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]): { score: number, status: 'optimal' | 'warning' | 'critical', waste: number, variance: number } => {
+  if (fuelLogs.length < 3) return { score: 100, status: 'optimal', waste: 0, variance: 0 };
 
-  const sorted = [...fuelLogs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const sorted = [...fuelLogs].sort((a, b) => b.odometerKm - a.odometerKm);
   
-  // Baseline = First 5 logs
-  const baselineLogs = sorted.slice(-5);
-  const baselineDist = baselineLogs[0].odometerKm - baselineLogs[baselineLogs.length-1].odometerKm;
-  const baselineFuel = baselineLogs.reduce((acc, l) => acc + l.liters, 0);
-  const baselineKml = baselineFuel > 0 ? baselineDist / baselineFuel : 0;
+  // Calculate current KML (last full-to-full cycle)
+  const fullLogs = sorted.filter(l => l.isFullTank);
+  if (fullLogs.length < 2) return { score: 100, status: 'optimal', waste: 0, variance: 0 };
 
-  // Recent = Last 3 logs
-  const recentLogs = sorted.slice(0, 3);
-  const recentDist = recentLogs[0].odometerKm - recentLogs[recentLogs.length-1].odometerKm;
-  const recentFuel = recentLogs.reduce((acc, l) => acc + l.liters, 0);
-  const recentKml = recentFuel > 0 ? recentDist / recentFuel : 0;
+  const recent = fullLogs[0];
+  const prev = fullLogs[1];
+  const dist = recent.odometerKm - prev.odometerKm;
+  
+  // Sum liters between these two odo readings
+  const startIndex = sorted.indexOf(recent);
+  const endIndex = sorted.indexOf(prev);
+  const liters = sorted.slice(startIndex, endIndex).reduce((acc, l) => acc + l.liters, 0);
+  
+  const currentKml = liters > 0 ? dist / liters : 0;
+  const factorySpec = GENETIC_BASELINES[vehicle.bodyType] || 10;
+  
+  // CONGESTION NORMALIZER
+  // If user drives < 20km/day, we allow a 30% "Traffic Grace" before penalizing health.
+  const isHeavyTrafficUser = (vehicle.avgDailyKm || 35) < 20;
+  const tolerance = isHeavyTrafficUser ? 0.30 : 0.10;
 
-  if (baselineKml === 0 || recentKml === 0) return { score: 100, status: 'optimal', waste: 0 };
-
-  const variance = (baselineKml - recentKml) / baselineKml;
+  const variance = (factorySpec - currentKml) / factorySpec;
   
   let score = 100;
   let status: 'optimal' | 'warning' | 'critical' = 'optimal';
-  
-  if (variance > 0.15) {
+
+  if (variance > (tolerance + 0.15)) {
     score = 40;
     status = 'critical';
-  } else if (variance > 0.05) {
+  } else if (variance > tolerance) {
     score = 75;
     status = 'warning';
   }
 
-  // Calculate waste based on 500km monthly driving and N800/liter
-  const waste = variance > 0 ? (500 / recentKml - 500 / baselineKml) * 800 : 0;
+  // Waste Calculation (N800/L, based on 500km/mo)
+  const idealFuelNeeded = 500 / factorySpec;
+  const actualFuelNeeded = 500 / (currentKml || factorySpec);
+  const waste = Math.max(0, (actualFuelNeeded - idealFuelNeeded) * 800);
 
-  return { score, status, waste: Math.max(0, waste) };
+  return { score, status, waste, variance: Math.round(variance * 100) };
 };
 
 /**
- * DETERMINISTIC HEALTH BRAIN
- * Drastically increases user value by identifying correlated faults.
+ * DETERMINISTIC INTELLIGENT HEALTH CHECK
+ * Mimics a mechanic's synergistic reasoning.
  */
 export const calculateIntelligentHealth = (
   vehicle: Vehicle, 
@@ -94,29 +99,34 @@ export const calculateIntelligentHealth = (
   serviceLogs: ServiceLog[]
 ): { total: number, breakdown: HealthBreakdown } => {
   
-  // 1. Metabolic Score (Fuel)
-  const metabolism = calculateMetabolicStatus(fuelLogs);
+  // 1. Metabolism (40%)
+  const metabolism = calculateMetabolicStatus(vehicle, fuelLogs);
 
-  // 2. Hygiene Score (Service)
-  let totalPillars = 8;
-  let healthyPillars = 8;
-  const categoriesPresent = new Set(tasks.map(t => t.category));
+  // 2. Hygiene (40%)
+  const pillarStatus: Record<string, boolean> = {};
+  const categories: ServiceCategory[] = ['fluids', 'engine', 'brakes', 'suspension', 'tires', 'electrical', 'cooling', 'other'];
   
-  tasks.forEach(task => {
-    if (task.status === 'pending') {
-      const status = getTaskMaintenanceStatus(vehicle, task);
-      if (status === 'overdue') healthyPillars--;
-    }
+  categories.forEach(cat => {
+    const catTasks = tasks.filter(t => t.category === cat);
+    const isOverdue = catTasks.some(t => t.status === 'pending' && getTaskMaintenanceStatus(vehicle, t) === 'overdue');
+    pillarStatus[cat] = !isOverdue;
   });
-  const hygieneScore = (Math.max(0, healthyPillars) / totalPillars) * 100;
 
-  // 3. Provenance Score (Trust)
+  const healthyPillars = Object.values(pillarStatus).filter(v => v).length;
+  let hygieneScore = (healthyPillars / categories.length) * 100;
+
+  // SYNERGISTIC PENALTY (Master Mechanic Logic)
+  // If Metabolism is Warning AND Respiration (Engine category) is overdue, double the penalty.
+  const isRespirationBad = !pillarStatus['engine'];
+  if (metabolism.status !== 'optimal' && isRespirationBad) {
+    hygieneScore *= 0.8; // Additional 20% drop for synergistic failure
+  }
+
+  // 3. Provenance (20%)
   const verifiedCount = serviceLogs.filter(l => l.verificationLevel === 'mechanic_verified').length;
   const totalLogs = serviceLogs.length || 1;
   const provenanceScore = (verifiedCount / totalLogs) * 100;
 
-  // Final Weighted Score
-  // Metabolic (40%), Hygiene (40%), Provenance Bonus (20%)
   const total = Math.round((metabolism.score * 0.4) + (hygieneScore * 0.4) + (provenanceScore * 0.2));
 
   return {
@@ -133,30 +143,22 @@ export const calculateIntelligentHealth = (
 
 export const getTaskMaintenanceStatus = (vehicle: Vehicle, task: MaintenanceTask): 'optimal' | 'upcoming' | 'overdue' => {
   const kmRemaining = task.dueMileage - vehicle.mileage;
-  
   let daysRemaining = Infinity;
   if (task.dueDate) {
     daysRemaining = Math.ceil((new Date(task.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   }
-
   if (kmRemaining <= 0 || daysRemaining <= 0) return 'overdue';
   if (kmRemaining <= 1000 || daysRemaining <= 14) return 'upcoming';
   return 'optimal';
 };
 
-export const calculateNextMilestone = (
-  baseMileage: number,
-  baseDate: string,
-  intervalKm: number = 5000,
-  intervalMonths?: number
-) => {
-  const adjustedInterval = Math.round(intervalKm / REGIONAL_SEVERITY);
+export const calculateNextMilestone = (baseMileage: number, baseDate: string, intervalKm: number = 5000, intervalMonths?: number) => {
+  const adjustedInterval = Math.round(intervalKm / REGIONAL_STRESS_FACTOR);
   const nextMileage = baseMileage + adjustedInterval;
-  
   let nextDate = undefined;
   if (intervalMonths && intervalMonths > 0) {
     const d = new Date(baseDate);
-    const adjustedMonths = Math.max(1, Math.round(intervalMonths / REGIONAL_SEVERITY));
+    const adjustedMonths = Math.max(1, Math.round(intervalMonths / REGIONAL_STRESS_FACTOR));
     d.setMonth(d.getMonth() + adjustedMonths);
     nextDate = d.toISOString();
   }
@@ -166,25 +168,28 @@ export const calculateNextMilestone = (
 export const predictServiceDate = (vehicle: Vehicle, task: MaintenanceTask, add: number): string | undefined => {
   const kmRemaining = task.dueMileage - vehicle.mileage;
   if (kmRemaining <= 0) return undefined;
-  const daysUntil = Math.ceil(kmRemaining / add);
+  const daysUntil = Math.ceil(kmRemaining / (add || 35));
   const prediction = new Date();
   prediction.setDate(prediction.getDate() + daysUntil);
   return prediction.toISOString();
 };
 
-/** DEPRECATED: Use calculateIntelligentHealth */
-export const calculateVitalityScore = (vehicle: Vehicle, tasks: MaintenanceTask[]): number => 100;
-export const calculateDisciplineScore = (logs: ServiceLog[], tasks: MaintenanceTask[]): number => 100;
+export const calculateVitalityScore = (vehicle: Vehicle, tasks: MaintenanceTask[]): number => {
+  // Mock bridge to the intelligent calculator for legacy calls
+  return 100; 
+};
+
+export const calculateDisciplineScore = (logs: ServiceLog[], tasks: MaintenanceTask[]): number => {
+  const verified = logs.filter(l => l.verificationLevel !== 'self_declared').length;
+  return logs.length > 0 ? (verified / logs.length) * 100 : 0;
+};
+
 export const calculateTotalExpenditure = (serviceLogs: ServiceLog[], fuelLogs: FuelLog[]): number => {
-  return serviceLogs.reduce((acc, l) => acc + (l.cost || 0), 0);
+  const s = serviceLogs.reduce((acc, l) => acc + (l.cost || 0), 0);
+  const f = fuelLogs.reduce((acc, l) => acc + (l.totalCost || 0), 0);
+  return s + f;
 };
-export const getExpenditureRatio = (serviceLogs: ServiceLog[], fuelLogs: FuelLog[]) => {
-  const serviceTotal = serviceLogs.reduce((acc, l) => acc + (l.cost || 0), 0);
-  const fuelTotal = fuelLogs.reduce((acc, l) => acc + (l.totalCost || 0), 0);
-  const total = serviceTotal + fuelTotal;
-  if (total === 0) return { service: 50, fuel: 50 };
-  return { service: (serviceTotal / total) * 100, fuel: (fuelTotal / total) * 100 };
-};
+
 export const getSpendByCategory = (logs: ServiceLog[]) => {
   const totals: Record<string, number> = {};
   logs.forEach(log => { totals[log.category] = (totals[log.category] || 0) + log.cost; });
