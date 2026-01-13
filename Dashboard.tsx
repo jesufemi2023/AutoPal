@@ -71,7 +71,6 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     if (activeVehicle && tasks.length > 0) {
-      // Pass all relevant telemetry to the vitality engine
       const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
       if (newScore !== activeVehicle.healthScore) {
         updateVehicle(activeVehicle.id, { healthScore: newScore });
@@ -100,29 +99,23 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-12 md:space-y-24">
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-10 px-2">
-        <div className="space-y-2">
-          <h1 className="text-6xl md:text-8xl font-black text-slate-900 tracking-tighter leading-[0.85]">Garage</h1>
-          <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px] ml-2">Intelligence Dashboard v5.1.0</p>
+    <div className="space-y-10 lg:space-y-16 animate-in fade-in duration-700">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 px-1">
+        <div>
+          <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter leading-none mb-2">My Garage</h1>
+          <p className="text-slate-400 font-black uppercase tracking-[0.3em] text-[9px]">Asset Monitoring v5.2.0 Active</p>
         </div>
-        <div className="flex flex-wrap gap-4">
-          <button 
-            onClick={() => setCurrentView('service')}
-            className="flex-1 sm:flex-none bg-blue-50 text-blue-600 px-8 py-6 rounded-[2rem] font-black uppercase tracking-widest text-[11px] hover:bg-blue-100 transition-all active:scale-95"
-          >
-            Service Hub
-          </button>
+        <div className="flex gap-4">
           <button 
             onClick={() => setCurrentView('onboarding')}
-            className="flex-1 sm:flex-none bg-blue-600 text-white px-8 py-6 rounded-[2rem] font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-blue-500/20 active:scale-95 transition-all"
+            className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-200 active:scale-95 transition-all"
           >
             + Deploy Asset
           </button>
           {activeVehicle && (
             <button 
               onClick={startTuning}
-              className="flex-1 sm:flex-none bg-white border-2 border-slate-100 text-slate-900 px-8 py-6 rounded-[2rem] font-black uppercase tracking-widest text-[11px] shadow-sm active:scale-95 transition-all"
+              className="bg-white border border-slate-200 text-slate-900 px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-sm active:scale-95 transition-all"
             >
               ⚙ Tuning
             </button>
@@ -131,32 +124,28 @@ const Dashboard: React.FC = () => {
       </header>
 
       {vehicles.length > 0 ? (
-        <div className="flex gap-6 overflow-x-auto pb-10 scrollbar-hide -mx-4 px-4">
+        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-2 px-2">
           {vehicles.map(v => (
             <button 
               key={v.id}
               onClick={() => setActiveVehicleId(v.id)}
-              className={`flex-shrink-0 px-10 py-8 rounded-[3rem] border-2 transition-all duration-500 min-w-[240px] text-left relative overflow-hidden group active:scale-95 hover:-translate-y-2 ${
+              className={`flex-shrink-0 px-8 py-6 rounded-3xl border transition-all duration-300 min-w-[200px] text-left relative overflow-hidden group active:scale-95 ${
                 activeVehicleId === v.id 
-                  ? 'bg-slate-900 border-slate-900 text-white shadow-2xl shadow-blue-600/30 scale-[1.02]' 
-                  : 'bg-white border-slate-100 text-slate-400 hover:border-blue-300 hover:shadow-xl hover:shadow-slate-200/50'
+                  ? 'bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-200' 
+                  : 'bg-white border-slate-100 text-slate-400 hover:border-blue-300 hover:shadow-md'
               }`}
             >
-              <div className="text-[9px] font-black uppercase opacity-40 mb-1 tracking-widest truncate group-hover:opacity-100 transition-opacity">{v.make}</div>
-              <div className="text-2xl font-black tracking-tighter truncate group-hover:text-blue-500 transition-colors">{v.model}</div>
-              <div className={`w-3 h-3 rounded-full mt-6 transition-all duration-500 ${activeVehicleId === v.id ? 'bg-blue-500 scale-125 shadow-[0_0_15px_rgba(59,130,246,0.6)]' : 'bg-slate-200'}`}></div>
-              
-              {activeVehicleId === v.id && (
-                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-600/10 blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-              )}
+              <div className="text-[8px] font-black uppercase opacity-40 mb-1 tracking-widest truncate">{v.make}</div>
+              <div className="text-lg font-black tracking-tighter truncate">{v.model}</div>
+              <div className={`w-2 h-2 rounded-full mt-4 transition-all duration-300 ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.6)]' : 'bg-slate-200'}`}></div>
             </button>
           ))}
         </div>
       ) : null}
 
       {activeVehicle ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-16 items-start">
-          <div className="md:col-span-2 lg:col-span-8 space-y-12 lg:space-y-20">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+          <div className="lg:col-span-8 space-y-12 lg:space-y-16">
             <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
             
             <ResaleValuationCard 
@@ -175,14 +164,14 @@ const Dashboard: React.FC = () => {
               onLog={handleOpenLogTerminal} 
             />
 
-            <div className="pt-16 border-t border-slate-100 flex justify-center">
-               <button onClick={handleDecommissionAsset} className="text-slate-300 text-[9px] font-black uppercase tracking-[0.4em] hover:text-rose-500 transition-all">
+            <div className="pt-10 flex justify-center">
+               <button onClick={handleDecommissionAsset} className="text-slate-300 text-[8px] font-black uppercase tracking-[0.4em] hover:text-rose-500 transition-all">
                  Decommission Digital Twin
                </button>
             </div>
           </div>
 
-          <aside className="md:col-span-2 lg:col-span-4 lg:sticky lg:top-32">
+          <aside className="lg:col-span-4 lg:sticky lg:top-10 space-y-8">
             <DiagnosticsPanel 
               vehicle={activeVehicle} symptom={symptom} setSymptom={setSymptom} 
               diagImage={diagImage} setDiagImage={setDiagImage} isAskingAI={isAskingAI} 
@@ -199,17 +188,17 @@ const Dashboard: React.FC = () => {
         </div>
       ) : (
         !isLoadingDetails && (
-          <div className="py-48 text-center bg-white card-radius border-4 border-dashed border-slate-100 p-16">
-             <div className="w-32 h-32 bg-slate-50 rounded-[4rem] flex items-center justify-center text-5xl mx-auto mb-12 shadow-inner">🛰️</div>
-             <h3 className="text-4xl font-black text-slate-900 mb-4 tracking-tighter">Command Center Offline</h3>
-             <p className="text-slate-400 mb-16 text-[10px] font-black uppercase tracking-[0.3em]">No Active Assets Detected in Neural Link</p>
-             <button onClick={() => setCurrentView('onboarding')} className="bg-slate-900 text-white px-16 py-8 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[11px] shadow-3xl hover:bg-blue-600 transition-all">Deploy Digital Twin</button>
+          <div className="py-24 text-center bg-white rounded-[2.5rem] border border-slate-100 p-16 shadow-sm">
+             <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center text-4xl mx-auto mb-8 shadow-inner">🛰️</div>
+             <h3 className="text-3xl font-black text-slate-900 mb-2 tracking-tighter uppercase">Command Center Offline</h3>
+             <p className="text-slate-400 mb-10 text-[9px] font-black uppercase tracking-[0.3em]">No Active Assets Detected in Neural Link</p>
+             <button onClick={() => setCurrentView('onboarding')} className="bg-slate-900 text-white px-12 py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl hover:bg-blue-600 transition-all">Deploy Digital Twin</button>
           </div>
         )
       )}
 
       {showOdometerModal && activeVehicle && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-2xl animate-in fade-in duration-500">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-xl animate-in fade-in duration-500">
           <div className="w-full max-w-md">
             <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { 
               await updateMileage(activeVehicle.id, v); 

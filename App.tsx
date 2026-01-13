@@ -8,7 +8,6 @@ import Marketplace from './components/Marketplace.tsx';
 import AdminPanel from './components/AdminPanel.tsx';
 import FuelIntelligenceCenter from './components/FuelIntelligenceCenter.tsx';
 import ServiceIntelligenceCenter from './components/ServiceIntelligenceCenter.tsx';
-// Fixed: Path was missing 'components/'
 import AssetIntelligenceCenter from './components/AssetIntelligenceCenter.tsx';
 import { validateEnv } from './services/envService.ts';
 import { fetchUserVehicles } from './services/vehicleService.ts';
@@ -20,6 +19,7 @@ const App: React.FC = () => {
   } = useAutoPalStore();
   
   const [initError, setInitError] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     validateEnv();
@@ -65,8 +65,8 @@ const App: React.FC = () => {
   if (!isInitialized) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <div className="relative animate-pulse-slow">
-          <div className="w-16 h-16 blue-gradient rounded-2xl rotate-12 flex items-center justify-center shadow-xl">
+        <div className="relative animate-pulse">
+          <div className="w-16 h-16 bg-blue-600 rounded-2xl rotate-12 flex items-center justify-center shadow-xl">
             <span className="text-white font-black text-2xl -rotate-12">A</span>
           </div>
         </div>
@@ -77,8 +77,8 @@ const App: React.FC = () => {
   if (initError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-        <div className="glass-card card-radius p-8 max-w-sm w-full text-center border-rose-100">
-          <h2 className="text-xl font-black mb-2 text-rose-600">Access Denied</h2>
+        <div className="bg-white rounded-[2rem] p-8 max-w-sm w-full text-center border border-rose-100 shadow-xl">
+          <h2 className="text-xl font-black mb-2 text-rose-600 uppercase tracking-tighter">Access Denied</h2>
           <p className="text-slate-500 text-[10px] mb-6 uppercase tracking-widest leading-relaxed">
             {initError}
           </p>
@@ -94,83 +94,108 @@ const App: React.FC = () => {
     return <AssetIntelligenceCenter mode={currentView} />;
   }
 
+  const NavItem = ({ view, label, icon }: { view: typeof currentView; label: string; icon: string }) => (
+    <button 
+      onClick={() => {
+        setCurrentView(view);
+        setIsMobileMenuOpen(false);
+      }}
+      className={`flex items-center gap-4 px-6 py-4 w-full transition-all duration-200 group ${currentView === view ? 'sidebar-link-active' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
+    >
+      <span className="text-lg transition-transform group-hover:scale-110">{icon}</span>
+      <span className="text-[11px] font-black uppercase tracking-[0.2em]">{label}</span>
+    </button>
+  );
+
   return (
-    <div className="min-h-screen bg-[#fcfcfd] pb-24 sm:pb-32">
-      <nav className="sticky top-0 z-[50] bg-white/80 backdrop-blur-xl border-b border-slate-100 px-4 sm:px-6 py-4">
-        <div className="max-w-page mx-auto flex justify-between items-center">
-          <div className="flex items-center gap-2 sm:gap-3 cursor-pointer" onClick={() => setCurrentView('garage')}>
-            <div className="w-7 h-7 sm:w-8 sm:h-8 blue-gradient rounded-lg flex items-center justify-center text-white font-black text-xs sm:text-sm">A</div>
-            <span className="font-black tracking-tighter text-slate-900 text-sm sm:text-base">AutoPal NG</span>
+    <div className="min-h-screen bg-[#f8fafc] flex">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:flex flex-col w-[280px] bg-white border-r border-slate-100 fixed inset-y-0 z-50">
+        <div className="p-8 shrink-0">
+          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setCurrentView('garage')}>
+            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-lg transition-transform group-hover:rotate-6 shadow-lg shadow-blue-200">A</div>
+            <div>
+              <span className="block font-black tracking-tighter text-slate-900 text-lg leading-tight">AutoPal NG</span>
+              <span className="block text-[8px] font-black uppercase tracking-[0.3em] text-blue-500">Intelligence Garage</span>
+            </div>
           </div>
-          
-          <div className="flex items-center gap-2 md:gap-6">
-            <button 
-              onClick={() => setCurrentView('garage')}
-              className={`px-3 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'garage' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
-            >
-              Garage
-            </button>
-            <button 
-              onClick={() => setCurrentView('service')}
-              className={`px-3 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'service' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-blue-600'}`}
-            >
-              Service
-            </button>
-            <button 
-              onClick={() => setCurrentView('fuel')}
-              className={`px-3 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'fuel' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-emerald-600'}`}
-            >
-              Fuel
-            </button>
-            <button 
-              onClick={() => setCurrentView('marketplace')}
-              className={`px-3 sm:px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'marketplace' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
-            >
-              Market
-            </button>
-            {user?.role === 'admin' && (
-              <button 
-                onClick={() => setCurrentView('admin')}
-                className={`hidden sm:block px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${currentView === 'admin' ? 'bg-rose-600 text-white shadow-lg' : 'text-slate-400 hover:text-rose-600'}`}
-              >
-                Admin
-              </button>
-            )}
-            <div className="h-6 w-px bg-slate-100 hidden md:block"></div>
+        </div>
+
+        <nav className="flex-grow mt-4">
+          <NavItem view="garage" label="Command Garage" icon="🏠" />
+          <NavItem view="service" label="Service Hub" icon="🛠️" />
+          <NavItem view="fuel" label="Fuel Logic" icon="⛽" />
+          <NavItem view="marketplace" label="Marketplace" icon="🛒" />
+          {user?.role === 'admin' && (
+            <NavItem view="admin" label="Admin Center" icon="🛡️" />
+          )}
+        </nav>
+
+        <div className="p-6 border-t border-slate-100 space-y-4">
+          <div className="flex items-center gap-4 px-2 py-3">
+            <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-black uppercase tracking-tighter border-2 border-white shadow-sm">
+              {user?.email?.[0].toUpperCase()}
+            </div>
+            <div className="overflow-hidden">
+              <span className="block text-[10px] font-black text-slate-900 truncate">{user?.email}</span>
+              <span className="block text-[8px] font-black text-blue-500 uppercase tracking-widest">{user?.tier} Tier</span>
+            </div>
+          </div>
+          <button 
+            onClick={() => supabase?.auth.signOut()}
+            className="w-full flex items-center gap-4 px-6 py-4 text-rose-500 hover:bg-rose-50 rounded-2xl transition-all text-[10px] font-black uppercase tracking-widest"
+          >
+            🚪 Sign Out
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-grow lg:ml-[280px] flex flex-col min-h-screen">
+        {/* Mobile Top Bar */}
+        <header className="lg:hidden sticky top-0 z-[40] bg-white/80 backdrop-blur-xl border-b border-slate-100 px-6 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-3" onClick={() => setCurrentView('garage')}>
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black text-sm">A</div>
+            <span className="font-black tracking-tighter text-slate-900 text-sm">AutoPal NG</span>
+          </div>
+          <div className="flex items-center gap-4">
             <button 
               onClick={() => supabase?.auth.signOut()}
-              className="hidden md:block text-[10px] font-black text-rose-500 uppercase tracking-widest hover:underline"
+              className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] border border-slate-200"
             >
-              Sign Out
+              👋
             </button>
           </div>
-        </div>
-      </nav>
+        </header>
 
-      <main className="max-w-page mx-auto px-4 sm:px-6 pt-6 sm:pt-12">
-        {currentView === 'garage' && <Dashboard />}
-        {currentView === 'service' && <ServiceIntelligenceCenter />}
-        {currentView === 'fuel' && <FuelIntelligenceCenter />}
-        {currentView === 'marketplace' && <Marketplace />}
-        {currentView === 'admin' && <AdminPanel />}
-      </main>
-
-      <div className="fixed bottom-6 sm:bottom-8 left-1/2 -translate-x-1/2 w-[92%] max-w-sm glass-card border-slate-200 rounded-[2rem] sm:rounded-[2.5rem] p-2 sm:p-3 shadow-2xl z-[100] md:hidden">
-        <div className="flex justify-around items-center">
-          <button onClick={() => setCurrentView('garage')} className={`p-4 rounded-xl transition-all ${currentView === 'garage' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>
-            🏠
-          </button>
-          <button onClick={() => setCurrentView('service')} className={`p-4 rounded-xl transition-all ${currentView === 'service' ? 'bg-blue-600 text-white' : 'text-slate-400'}`}>
-            🛠️
-          </button>
-          <button onClick={() => setCurrentView('fuel')} className={`p-4 rounded-xl transition-all ${currentView === 'fuel' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>
-            ⛽
-          </button>
-          <button onClick={() => setCurrentView('marketplace')} className={`p-4 rounded-xl transition-all ${currentView === 'marketplace' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>
-            🛒
-          </button>
-        </div>
+        <main className="p-6 sm:p-10 lg:p-14 max-w-7xl mx-auto w-full">
+          {currentView === 'garage' && <Dashboard />}
+          {currentView === 'service' && <ServiceIntelligenceCenter />}
+          {currentView === 'fuel' && <FuelIntelligenceCenter />}
+          {currentView === 'marketplace' && <Marketplace />}
+          {currentView === 'admin' && <AdminPanel />}
+        </main>
       </div>
+
+      {/* Mobile Bottom Nav */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[50] bg-white border-t border-slate-100 px-6 py-4 flex justify-between items-center pb-[calc(1rem+env(safe-area-inset-bottom))]">
+        <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
+          <span className="text-xl">🏠</span>
+          <span className="text-[7px] font-black uppercase tracking-widest">Garage</span>
+        </button>
+        <button onClick={() => setCurrentView('service')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'service' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
+          <span className="text-xl">🛠️</span>
+          <span className="text-[7px] font-black uppercase tracking-widest">Service</span>
+        </button>
+        <button onClick={() => setCurrentView('fuel')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'fuel' ? 'text-emerald-600 scale-110' : 'text-slate-400'}`}>
+          <span className="text-xl">⛽</span>
+          <span className="text-[7px] font-black uppercase tracking-widest">Fuel</span>
+        </button>
+        <button onClick={() => setCurrentView('marketplace')} className={`flex flex-col items-center gap-1 transition-all ${currentView === 'marketplace' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
+          <span className="text-xl">🛒</span>
+          <span className="text-[7px] font-black uppercase tracking-widest">Market</span>
+        </button>
+      </nav>
     </div>
   );
 };
