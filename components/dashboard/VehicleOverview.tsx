@@ -35,14 +35,14 @@ export const VehicleOverview: React.FC<Props> = ({ vehicle, onUpdateOdometer }) 
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px]">Cloud Sync Active</span>
+            <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px]">Real-Time Sync Active</span>
           </div>
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-[0.9] transition-colors group-hover:text-blue-600">
             {vehicle.year} {vehicle.model}
           </h2>
           <div className="flex items-center gap-4 pt-2">
-             <div className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg font-mono text-[9px] font-bold tracking-widest">{vehicle.vin || 'NO_CHASSIS_ID'}</div>
-             <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{vehicle.bodyType} Class Asset</div>
+             <div className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg font-mono text-[9px] font-bold tracking-widest uppercase">{vehicle.vin || 'NO_CHASSIS_ID'}</div>
+             <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{vehicle.bodyType} Asset</div>
           </div>
         </div>
         
@@ -51,12 +51,12 @@ export const VehicleOverview: React.FC<Props> = ({ vehicle, onUpdateOdometer }) 
             onClick={onUpdateOdometer}
             className="bg-slate-50 rounded-[1.5rem] p-6 text-left border border-slate-100 hover:border-blue-300 hover:bg-white transition-all active:scale-[0.98] group/btn"
           >
-            <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 group-hover/btn:text-blue-500">Live Odometer</div>
+            <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 group-hover/btn:text-blue-500">Telemetry Odometer</div>
             <div className="text-3xl font-bold font-mono text-slate-900 tracking-tighter mb-1">
               {vehicle.mileage.toLocaleString()}
               <span className="text-xs text-slate-300 ml-1 font-sans">KM</span>
             </div>
-            <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest opacity-0 group-hover/btn:opacity-100 transition-all">Update Entry →</div>
+            <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest opacity-0 group-hover/btn:opacity-100 transition-all">Update →</div>
           </button>
           
           <div className="bg-white border border-slate-100 rounded-[1.5rem] p-6 text-left shadow-sm flex flex-col justify-between">

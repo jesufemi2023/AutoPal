@@ -99,11 +99,11 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-10 lg:space-y-16 animate-in fade-in duration-700">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 px-1">
+    <div className="space-y-12 lg:space-y-16 animate-slide-up">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-8">
         <div>
-          <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter leading-none mb-2">My Garage</h1>
-          <p className="text-slate-400 font-black uppercase tracking-[0.3em] text-[9px]">Asset Monitoring v5.2.0 Active</p>
+          <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter leading-none mb-2">Command Center</h1>
+          <p className="text-slate-400 font-black uppercase tracking-[0.3em] text-[9px]">Asset Intelligence v5.3 Active</p>
         </div>
         <div className="flex gap-4">
           <button 
@@ -115,7 +115,7 @@ const Dashboard: React.FC = () => {
           {activeVehicle && (
             <button 
               onClick={startTuning}
-              className="bg-white border border-slate-200 text-slate-900 px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-sm active:scale-95 transition-all"
+              className="bg-white border border-slate-200 text-slate-900 px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-sm active:scale-95 transition-all hover:border-blue-300"
             >
               ⚙ Tuning
             </button>
@@ -144,7 +144,7 @@ const Dashboard: React.FC = () => {
       ) : null}
 
       {activeVehicle ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start">
           <div className="lg:col-span-8 space-y-12 lg:space-y-16">
             <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
             
@@ -171,7 +171,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          <aside className="lg:col-span-4 lg:sticky lg:top-10 space-y-8">
+          <aside className="lg:col-span-4 lg:sticky lg:top-14 space-y-8">
             <DiagnosticsPanel 
               vehicle={activeVehicle} symptom={symptom} setSymptom={setSymptom} 
               diagImage={diagImage} setDiagImage={setDiagImage} isAskingAI={isAskingAI} 
@@ -190,8 +190,8 @@ const Dashboard: React.FC = () => {
         !isLoadingDetails && (
           <div className="py-24 text-center bg-white rounded-[2.5rem] border border-slate-100 p-16 shadow-sm">
              <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center text-4xl mx-auto mb-8 shadow-inner">🛰️</div>
-             <h3 className="text-3xl font-black text-slate-900 mb-2 tracking-tighter uppercase">Command Center Offline</h3>
-             <p className="text-slate-400 mb-10 text-[9px] font-black uppercase tracking-[0.3em]">No Active Assets Detected in Neural Link</p>
+             <h3 className="text-3xl font-black text-slate-900 mb-2 tracking-tighter uppercase">No Assets Detected</h3>
+             <p className="text-slate-400 mb-10 text-[9px] font-black uppercase tracking-[0.3em]">Deploy your first Digital Twin to begin tracking</p>
              <button onClick={() => setCurrentView('onboarding')} className="bg-slate-900 text-white px-12 py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl hover:bg-blue-600 transition-all">Deploy Digital Twin</button>
           </div>
         )
