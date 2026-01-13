@@ -148,8 +148,8 @@ const App: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-grow lg:ml-[280px] flex flex-col min-h-screen w-full overflow-x-hidden">
-        <main className="p-4 sm:p-8 lg:p-12 xl:p-16 max-w-full lg:max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow overflow-x-hidden">
-          <div className="animate-slide-up w-full">
+        <main className="p-4 sm:p-8 lg:p-12 xl:p-16 max-w-full lg:max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow flex flex-col items-center">
+          <div className="animate-slide-up w-full max-w-full">
             {currentView === 'garage' && <Dashboard />}
             {currentView === 'service' && <ServiceIntelligenceCenter />}
             {currentView === 'fuel' && <FuelIntelligenceCenter />}
@@ -159,7 +159,7 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation - Enhanced for responsiveness and accessibility */}
+      {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-3 shadow-2xl">
         <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
           <span className="text-xl">🏠</span>
