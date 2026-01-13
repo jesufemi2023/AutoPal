@@ -71,7 +71,6 @@ const mapLogFromDb = (l: any): ServiceLog => ({
   serviceDate: l.service_date,
   mileageAtService: parseFloat(l.mileage_at_service || '0'),
   cost: parseFloat(l.cost || '0'),
-  provider: l.provider,
   notes: l.notes,
   status: l.status,
   category: l.category,
@@ -269,7 +268,6 @@ export const createManualServiceLog = async (vehicle: Vehicle, log: Omit<Service
       service_date: log.serviceDate,
       mileage_at_service: log.mileageAtService,
       cost: log.cost,
-      provider: log.provider,
       notes: log.notes,
       category: log.category,
       status: log.status || 'completed',
@@ -335,7 +333,6 @@ export const finalizeMaintenanceCompletion = async (
     mileageAtService: number;
     serviceDate: string;
     cost: number;
-    provider: string;
     notes: string;
     verificationLevel: VerificationLevel;
     receiptUrl?: string;
@@ -359,7 +356,6 @@ export const finalizeMaintenanceCompletion = async (
       service_date: completionData.serviceDate,
       mileage_at_service: completionData.mileageAtService,
       cost: completionData.cost,
-      provider: completionData.provider,
       notes: completionData.notes,
       category: task.category,
       verification_level: completionData.verificationLevel,

@@ -84,7 +84,6 @@ export interface ServiceLog {
   serviceDate: string;
   mileageAtService: number;
   cost: number;
-  provider?: string;
   notes?: string;
   category: ServiceCategory;
   createdAt?: string;

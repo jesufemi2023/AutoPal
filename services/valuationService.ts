@@ -89,10 +89,18 @@ export const calculateResaleValue = (
   const metabolism = calculateMetabolicStatus(vehicle, fuelLogs);
   let mechanicalRiskPenalty = 0;
   
+  // Stale Data Check: If the last fuel log is > 45 days old, we can't trust the metabolism
+  const lastFuelLog = fuelLogs[0];
+  const isStale = lastFuelLog ? (Date.now() - new Date(lastFuelLog.createdAt).getTime()) > (45 * 24 * 60 * 60 * 1000) : true;
+  
   if (metabolism.status === 'critical') {
-    mechanicalRiskPenalty = baseValue * 0.15; // Heavy 15% drop for efficiency failure (potential engine/fuel system wear)
+    mechanicalRiskPenalty = baseValue * 0.15; // Heavy 15% drop for efficiency failure
   } else if (metabolism.status === 'warning') {
     mechanicalRiskPenalty = baseValue * 0.05; // 5% drop for "Warning" metabolic state
+  }
+
+  if (isStale && fuelLogs.length > 0) {
+    mechanicalRiskPenalty += baseValue * 0.03; // Extra 3% uncertainty penalty for stale telemetry
   }
 
   // 6. HEALTH SYNERGY (Vitality Integration)
