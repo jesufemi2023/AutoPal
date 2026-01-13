@@ -10,65 +10,65 @@ interface Props {
 }
 
 export const VehicleOverview: React.FC<Props> = ({ vehicle, onUpdateOdometer }) => (
-  <section className="bg-white rounded-[2.5rem] p-8 sm:p-12 border border-slate-100 shadow-sm relative overflow-hidden group transition-all duration-500 hover:shadow-lg hover:border-blue-100">
-    <div className="absolute top-0 right-0 p-8 opacity-[0.02] font-black text-[10rem] pointer-events-none select-none uppercase tracking-tighter leading-none transition-all group-hover:opacity-[0.04]">
+  <section className="bg-white rounded-[3rem] p-10 sm:p-14 border border-slate-100 shadow-sm relative overflow-hidden group transition-all duration-700 hover:shadow-2xl hover:border-blue-100">
+    <div className="absolute top-0 right-0 p-10 opacity-[0.03] font-black text-[12rem] pointer-events-none select-none uppercase tracking-tighter leading-none transition-all duration-1000 group-hover:opacity-[0.05] group-hover:scale-110">
       {vehicle.make}
     </div>
     
-    <div className="flex flex-col md:flex-row gap-10 md:gap-14 items-center relative z-10">
-      <div className="w-full md:w-5/12">
+    <div className="flex flex-col xl:flex-row gap-12 xl:gap-20 items-center relative z-10">
+      <div className="w-full xl:w-5/12">
         {vehicle.imageUrl ? (
-          <div className="aspect-[16/10] w-full rounded-[2rem] overflow-hidden border-8 border-slate-50 shadow-lg relative">
+          <div className="aspect-[16/10] w-full rounded-[2.5rem] overflow-hidden border-[10px] border-slate-50 shadow-2xl relative">
             <img 
               src={vehicle.imageUrl} 
               alt={vehicle.model}
-              className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+              className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 to-transparent"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 to-transparent opacity-60"></div>
           </div>
         ) : (
-          <VehicleBlueprint type={vehicle.bodyType} className="bg-slate-50 border-slate-100 text-slate-300" />
+          <VehicleBlueprint type={vehicle.bodyType} className="bg-slate-50 border-slate-100 text-slate-300 py-16" />
         )}
       </div>
 
-      <div className="w-full md:w-7/12 space-y-8">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px]">Real-Time Sync Active</span>
+      <div className="w-full xl:w-7/12 space-y-10">
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-slate-400 font-black uppercase tracking-[0.4em] text-[9px]">Neural Telemetry Synchronized</span>
           </div>
-          <h2 className="text-4xl md:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-[0.9] transition-colors group-hover:text-blue-600">
+          <h2 className="text-5xl md:text-6xl lg:text-7xl font-black text-slate-900 tracking-tighter leading-[0.85] transition-colors duration-500 group-hover:text-blue-600">
             {vehicle.year} {vehicle.model}
           </h2>
-          <div className="flex items-center gap-4 pt-2">
-             <div className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg font-mono text-[9px] font-bold tracking-widest uppercase">{vehicle.vin || 'NO_CHASSIS_ID'}</div>
-             <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{vehicle.bodyType} Asset</div>
+          <div className="flex flex-wrap items-center gap-4 pt-3">
+             <div className="px-4 py-1.5 bg-slate-100 text-slate-600 rounded-xl font-mono text-[10px] font-bold tracking-widest uppercase border border-slate-200">{vehicle.vin || 'TELEMETRY_PENDING'}</div>
+             <div className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">{vehicle.bodyType} Class Core</div>
           </div>
         </div>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <button 
             onClick={onUpdateOdometer}
-            className="bg-slate-50 rounded-[1.5rem] p-6 text-left border border-slate-100 hover:border-blue-300 hover:bg-white transition-all active:scale-[0.98] group/btn"
+            className="bg-slate-50 rounded-[2rem] p-8 text-left border border-slate-100 hover:border-blue-400 hover:bg-white transition-all duration-300 active:scale-[0.98] group/btn shadow-sm"
           >
-            <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 group-hover/btn:text-blue-500">Telemetry Odometer</div>
-            <div className="text-3xl font-bold font-mono text-slate-900 tracking-tighter mb-1">
+            <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2 group-hover/btn:text-blue-600 transition-colors">Instrument Cluster</div>
+            <div className="text-4xl font-bold font-mono text-slate-900 tracking-tighter mb-1.5">
               {vehicle.mileage.toLocaleString()}
-              <span className="text-xs text-slate-300 ml-1 font-sans">KM</span>
+              <span className="text-sm text-slate-300 ml-2 font-sans font-bold">KM</span>
             </div>
-            <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest opacity-0 group-hover/btn:opacity-100 transition-all">Update →</div>
+            <div className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em] opacity-0 group-hover/btn:opacity-100 translate-x-[-10px] group-hover/btn:translate-x-0 transition-all duration-500">Calibrate Node →</div>
           </button>
           
-          <div className="bg-white border border-slate-100 rounded-[1.5rem] p-6 text-left shadow-sm flex flex-col justify-between">
+          <div className="bg-white border-2 border-slate-50 rounded-[2rem] p-8 text-left shadow-sm flex flex-col justify-between group/vibe">
             <div>
-              <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Vitality Score</div>
-              <div className={`text-3xl font-black ${getHealthColor(vehicle.healthScore)} tracking-tighter`}>
+              <div className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-2">Asset Vitality</div>
+              <div className={`text-4xl font-black ${getHealthColor(vehicle.healthScore)} tracking-tighter transition-all duration-500 group-hover/vibe:scale-105 origin-left`}>
                 {vehicle.healthScore}%
               </div>
             </div>
-            <div className="flex items-center gap-2 mt-2">
-               <div className={`w-1.5 h-1.5 rounded-full ${getHealthColor(vehicle.healthScore).replace('text', 'bg')}`}></div>
-               <div className="text-[9px] font-black uppercase text-slate-900 tracking-widest leading-none">{getHealthStatusText(vehicle.healthScore)}</div>
+            <div className="flex items-center gap-3 mt-4">
+               <div className={`w-2 h-2 rounded-full ${getHealthColor(vehicle.healthScore).replace('text', 'bg')} shadow-lg`}></div>
+               <div className="text-[10px] font-black uppercase text-slate-900 tracking-[0.2em] leading-none">{getHealthStatusText(vehicle.healthScore)}</div>
             </div>
           </div>
         </div>

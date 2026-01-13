@@ -63,11 +63,12 @@ const App: React.FC = () => {
 
   if (!isInitialized) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <div className="relative animate-pulse">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl rotate-12 flex items-center justify-center shadow-xl">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f8fafc]">
+        <div className="relative">
+          <div className="w-16 h-16 bg-blue-600 rounded-[1.25rem] rotate-12 flex items-center justify-center shadow-2xl animate-pulse">
             <span className="text-white font-black text-2xl -rotate-12">A</span>
           </div>
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 translate-y-8 w-24 h-4 bg-blue-600/10 blur-xl"></div>
         </div>
       </div>
     );
@@ -76,12 +77,13 @@ const App: React.FC = () => {
   if (initError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-        <div className="bg-white rounded-[2rem] p-8 max-w-sm w-full text-center border border-rose-100 shadow-xl">
-          <h2 className="text-xl font-black mb-2 text-rose-600 uppercase tracking-tighter">Access Denied</h2>
-          <p className="text-slate-500 text-[10px] mb-6 uppercase tracking-widest leading-relaxed">
+        <div className="bg-white rounded-[2.5rem] p-12 max-w-sm w-full text-center border border-rose-100 shadow-2xl">
+          <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center text-2xl mx-auto mb-6">⚠️</div>
+          <h2 className="text-2xl font-black mb-2 text-slate-900 tracking-tighter uppercase">Access Denied</h2>
+          <p className="text-slate-500 text-[10px] mb-8 uppercase tracking-widest leading-relaxed">
             {initError}
           </p>
-          <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-widest text-[10px]">Retry Initialization</button>
+          <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 shadow-lg">Retry Handshake</button>
         </div>
       </div>
     );
@@ -96,31 +98,31 @@ const App: React.FC = () => {
   const NavItem = ({ view, label, icon }: { view: typeof currentView; label: string; icon: string }) => (
     <button 
       onClick={() => setCurrentView(view)}
-      className={`flex items-center gap-4 px-6 py-4 w-full transition-all duration-200 group relative ${currentView === view ? 'sidebar-link-active' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
+      className={`flex items-center gap-4 px-6 py-4.5 w-full transition-all duration-300 group relative ${currentView === view ? 'sidebar-link-active' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
     >
-      <span className="text-xl transition-transform group-hover:scale-110">{icon}</span>
-      <span className="text-[11px] font-black uppercase tracking-[0.2em]">{label}</span>
+      <span className="text-xl transition-transform duration-300 group-hover:scale-110">{icon}</span>
+      <span className="text-[11px] font-black uppercase tracking-[0.25em]">{label}</span>
       {currentView === view && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-blue-600 rounded-r-full shadow-[2px_0_8px_rgba(37,99,235,0.4)]"></div>
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-600 rounded-l-full shadow-[0_0_12px_rgba(37,99,235,0.4)]"></div>
       )}
     </button>
   );
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex">
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar - Premium SaaS Look */}
       <aside className="hidden lg:flex flex-col w-[280px] bg-white border-r border-slate-100 fixed inset-y-0 z-50">
-        <div className="p-8 shrink-0">
-          <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setCurrentView('garage')}>
-            <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black text-lg transition-transform group-hover:rotate-6 shadow-lg shadow-blue-200">A</div>
+        <div className="p-10 pb-6 shrink-0">
+          <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setCurrentView('garage')}>
+            <div className="w-11 h-11 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-xl transition-all duration-500 group-hover:bg-blue-600 group-hover:rotate-6 shadow-xl">A</div>
             <div>
-              <span className="block font-black tracking-tighter text-slate-900 text-lg leading-tight">AutoPal NG</span>
-              <span className="block text-[8px] font-black uppercase tracking-[0.3em] text-blue-500">Intelligence Garage</span>
+              <span className="block font-black tracking-tighter text-slate-900 text-xl leading-tight">AutoPal NG</span>
+              <span className="block text-[8px] font-black uppercase tracking-[0.4em] text-blue-500">Node v5.3.2</span>
             </div>
           </div>
         </div>
 
-        <nav className="flex-grow mt-4 space-y-1 px-4">
+        <nav className="flex-grow mt-6 space-y-1 px-4 overflow-y-auto scrollbar-hide">
           <NavItem view="garage" label="Garage Command" icon="🏠" />
           <NavItem view="service" label="Service Hub" icon="🛠️" />
           <NavItem view="fuel" label="Fuel Logic" icon="⛽" />
@@ -130,67 +132,69 @@ const App: React.FC = () => {
           )}
         </nav>
 
-        <div className="p-6 mt-auto border-t border-slate-100 space-y-4">
-          <div className="flex items-center gap-4 px-2 py-3 bg-slate-50 rounded-2xl">
-            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-900 text-xs font-black uppercase tracking-tighter border border-slate-200 shadow-sm">
-              {user?.email?.[0].toUpperCase()}
+        <div className="p-8 mt-auto space-y-4">
+          <div className="flex items-center gap-4 px-4 py-4 bg-slate-50 rounded-[1.5rem] border border-slate-100">
+            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-slate-900 text-xs font-black border border-slate-200 shadow-sm uppercase">
+              {user?.email?.[0]}
             </div>
             <div className="overflow-hidden">
               <span className="block text-[10px] font-black text-slate-900 truncate">{user?.email}</span>
-              <span className="block text-[8px] font-black text-blue-500 uppercase tracking-widest">{user?.tier} Member</span>
+              <span className="block text-[8px] font-black text-blue-500 uppercase tracking-widest">{user?.tier} Class</span>
             </div>
           </div>
           <button 
             onClick={() => supabase?.auth.signOut()}
             className="w-full flex items-center gap-4 px-6 py-4 text-rose-500 hover:bg-rose-50 rounded-2xl transition-all text-[10px] font-black uppercase tracking-widest"
           >
-            🚪 Sign Out
+            🚪 De-authorize
           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <div className="flex-grow lg:ml-[280px] flex flex-col min-h-screen">
-        {/* Mobile Header */}
+        {/* Mobile Top Header */}
         <header className="lg:hidden sticky top-0 z-[40] bg-white/80 backdrop-blur-xl border-b border-slate-100 px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3" onClick={() => setCurrentView('garage')}>
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black text-sm">A</div>
-            <span className="font-black tracking-tighter text-slate-900 text-sm">AutoPal NG</span>
+            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm">A</div>
+            <span className="font-black tracking-tighter text-slate-900 text-base">AutoPal NG</span>
           </div>
           <button 
             onClick={() => supabase?.auth.signOut()}
-            className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] border border-slate-200"
+            className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-[10px] border border-slate-200"
           >
             👋
           </button>
         </header>
 
-        <main className="p-6 sm:p-10 lg:p-14 max-w-7xl mx-auto w-full pb-32 lg:pb-14">
-          {currentView === 'garage' && <Dashboard />}
-          {currentView === 'service' && <ServiceIntelligenceCenter />}
-          {currentView === 'fuel' && <FuelIntelligenceCenter />}
-          {currentView === 'marketplace' && <Marketplace />}
-          {currentView === 'admin' && <AdminPanel />}
+        <main className="p-6 sm:p-12 lg:p-16 max-w-7xl mx-auto w-full pb-32 lg:pb-16">
+          <div className="animate-slide-up">
+            {currentView === 'garage' && <Dashboard />}
+            {currentView === 'service' && <ServiceIntelligenceCenter />}
+            {currentView === 'fuel' && <FuelIntelligenceCenter />}
+            {currentView === 'marketplace' && <Marketplace />}
+            {currentView === 'admin' && <AdminPanel />}
+          </div>
         </main>
       </div>
 
-      {/* Mobile Navigation Bar */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[50] bg-white border-t border-slate-100 px-4 py-3 flex justify-around items-center pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
-        <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1 flex-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
-          <span className="text-xl">🏠</span>
-          <span className="text-[8px] font-black uppercase tracking-widest">Garage</span>
+      {/* Mobile Bottom Navigation */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[50] bg-white border-t border-slate-100 px-4 py-3 flex justify-around items-center pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_40px_rgba(0,0,0,0.04)]">
+        <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all duration-300 ${currentView === 'garage' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
+          <span className="text-2xl">🏠</span>
+          <span className="text-[9px] font-black uppercase tracking-widest">Garage</span>
         </button>
-        <button onClick={() => setCurrentView('service')} className={`flex flex-col items-center gap-1 flex-1 transition-all ${currentView === 'service' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
-          <span className="text-xl">🛠️</span>
-          <span className="text-[8px] font-black uppercase tracking-widest">Service</span>
+        <button onClick={() => setCurrentView('service')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all duration-300 ${currentView === 'service' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
+          <span className="text-2xl">🛠️</span>
+          <span className="text-[9px] font-black uppercase tracking-widest">Service</span>
         </button>
-        <button onClick={() => setCurrentView('fuel')} className={`flex flex-col items-center gap-1 flex-1 transition-all ${currentView === 'fuel' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
-          <span className="text-xl">⛽</span>
-          <span className="text-[8px] font-black uppercase tracking-widest">Fuel</span>
+        <button onClick={() => setCurrentView('fuel')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all duration-300 ${currentView === 'fuel' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
+          <span className="text-2xl">⛽</span>
+          <span className="text-[9px] font-black uppercase tracking-widest">Fuel</span>
         </button>
-        <button onClick={() => setCurrentView('marketplace')} className={`flex flex-col items-center gap-1 flex-1 transition-all ${currentView === 'marketplace' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
-          <span className="text-xl">🛒</span>
-          <span className="text-[8px] font-black uppercase tracking-widest">Market</span>
+        <button onClick={() => setCurrentView('marketplace')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all duration-300 ${currentView === 'marketplace' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
+          <span className="text-2xl">🛒</span>
+          <span className="text-[9px] font-black uppercase tracking-widest">Market</span>
         </button>
       </nav>
     </div>

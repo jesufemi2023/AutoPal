@@ -99,23 +99,23 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-12 lg:space-y-16 animate-slide-up">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-8">
+    <div className="space-y-12 lg:space-y-20">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-8 px-1">
         <div>
-          <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter leading-none mb-2">Command Center</h1>
-          <p className="text-slate-400 font-black uppercase tracking-[0.3em] text-[9px]">Asset Intelligence v5.3 Active</p>
+          <h1 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-3">Garage Command</h1>
+          <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px]">Strategic Asset Monitoring Active</p>
         </div>
         <div className="flex gap-4">
           <button 
             onClick={() => setCurrentView('onboarding')}
-            className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl shadow-blue-200 active:scale-95 transition-all"
+            className="bg-blue-600 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-blue-200 active:scale-95 transition-all hover:bg-blue-700"
           >
             + Deploy Asset
           </button>
           {activeVehicle && (
             <button 
               onClick={startTuning}
-              className="bg-white border border-slate-200 text-slate-900 px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-sm active:scale-95 transition-all hover:border-blue-300"
+              className="bg-white border-2 border-slate-100 text-slate-900 px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-sm active:scale-95 transition-all hover:border-blue-300"
             >
               ⚙ Tuning
             </button>
@@ -124,28 +124,28 @@ const Dashboard: React.FC = () => {
       </header>
 
       {vehicles.length > 0 ? (
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide -mx-2 px-2">
+        <div className="flex gap-5 overflow-x-auto pb-6 scrollbar-hide -mx-2 px-2">
           {vehicles.map(v => (
             <button 
               key={v.id}
               onClick={() => setActiveVehicleId(v.id)}
-              className={`flex-shrink-0 px-8 py-6 rounded-3xl border transition-all duration-300 min-w-[200px] text-left relative overflow-hidden group active:scale-95 ${
+              className={`flex-shrink-0 px-10 py-8 rounded-[2.5rem] border-2 transition-all duration-500 min-w-[220px] text-left relative overflow-hidden group active:scale-95 ${
                 activeVehicleId === v.id 
-                  ? 'bg-slate-900 border-slate-900 text-white shadow-xl shadow-slate-200' 
-                  : 'bg-white border-slate-100 text-slate-400 hover:border-blue-300 hover:shadow-md'
+                  ? 'bg-slate-900 border-slate-900 text-white shadow-2xl shadow-slate-200 scale-[1.02]' 
+                  : 'bg-white border-slate-100 text-slate-400 hover:border-blue-300 hover:shadow-xl'
               }`}
             >
-              <div className="text-[8px] font-black uppercase opacity-40 mb-1 tracking-widest truncate">{v.make}</div>
-              <div className="text-lg font-black tracking-tighter truncate">{v.model}</div>
-              <div className={`w-2 h-2 rounded-full mt-4 transition-all duration-300 ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.6)]' : 'bg-slate-200'}`}></div>
+              <div className="text-[9px] font-black uppercase opacity-50 mb-1.5 tracking-[0.2em] truncate">{v.make}</div>
+              <div className="text-2xl font-black tracking-tighter truncate leading-tight">{v.model}</div>
+              <div className={`w-3 h-3 rounded-full mt-6 transition-all duration-500 ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_12px_rgba(59,130,246,0.8)] scale-110' : 'bg-slate-200'}`}></div>
             </button>
           ))}
         </div>
       ) : null}
 
       {activeVehicle ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-start">
-          <div className="lg:col-span-8 space-y-12 lg:space-y-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20 items-start">
+          <div className="lg:col-span-8 space-y-16 lg:space-y-24">
             <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
             
             <ResaleValuationCard 
@@ -164,14 +164,14 @@ const Dashboard: React.FC = () => {
               onLog={handleOpenLogTerminal} 
             />
 
-            <div className="pt-10 flex justify-center">
-               <button onClick={handleDecommissionAsset} className="text-slate-300 text-[8px] font-black uppercase tracking-[0.4em] hover:text-rose-500 transition-all">
+            <div className="pt-12 flex justify-center">
+               <button onClick={handleDecommissionAsset} className="text-slate-300 text-[10px] font-black uppercase tracking-[0.5em] hover:text-rose-500 transition-all cursor-pointer">
                  Decommission Digital Twin
                </button>
             </div>
           </div>
 
-          <aside className="lg:col-span-4 lg:sticky lg:top-14 space-y-8">
+          <aside className="lg:col-span-4 lg:sticky lg:top-10 space-y-10">
             <DiagnosticsPanel 
               vehicle={activeVehicle} symptom={symptom} setSymptom={setSymptom} 
               diagImage={diagImage} setDiagImage={setDiagImage} isAskingAI={isAskingAI} 
@@ -188,18 +188,18 @@ const Dashboard: React.FC = () => {
         </div>
       ) : (
         !isLoadingDetails && (
-          <div className="py-24 text-center bg-white rounded-[2.5rem] border border-slate-100 p-16 shadow-sm">
-             <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center text-4xl mx-auto mb-8 shadow-inner">🛰️</div>
-             <h3 className="text-3xl font-black text-slate-900 mb-2 tracking-tighter uppercase">No Assets Detected</h3>
-             <p className="text-slate-400 mb-10 text-[9px] font-black uppercase tracking-[0.3em]">Deploy your first Digital Twin to begin tracking</p>
-             <button onClick={() => setCurrentView('onboarding')} className="bg-slate-900 text-white px-12 py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-xl hover:bg-blue-600 transition-all">Deploy Digital Twin</button>
+          <div className="py-32 text-center bg-white rounded-[3rem] border border-slate-100 p-20 shadow-sm">
+             <div className="w-28 h-28 bg-slate-50 rounded-[2.5rem] flex items-center justify-center text-5xl mx-auto mb-10 shadow-inner">🛰️</div>
+             <h3 className="text-4xl font-black text-slate-900 mb-3 tracking-tighter uppercase">Neural Link Empty</h3>
+             <p className="text-slate-400 mb-12 text-[10px] font-black uppercase tracking-[0.4em]">Initialize your first Digital Twin to begin monitoring</p>
+             <button onClick={() => setCurrentView('onboarding')} className="bg-slate-900 text-white px-16 py-7 rounded-3xl font-black uppercase tracking-[0.25em] text-[11px] shadow-2xl hover:bg-blue-600 transition-all active:scale-95">Deploy Digital Twin</button>
           </div>
         )
       )}
 
       {showOdometerModal && activeVehicle && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-xl animate-in fade-in duration-500">
-          <div className="w-full max-w-md">
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/70 backdrop-blur-2xl animate-in fade-in duration-500">
+          <div className="w-full max-w-md animate-slide-up">
             <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { 
               await updateMileage(activeVehicle.id, v); 
               updateStoreMileage(activeVehicle.id, v); 
