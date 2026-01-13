@@ -46,22 +46,21 @@ const ServiceIntelligenceCenter: React.FC = () => {
     }
   }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
 
+  // Derived Telemetry State
+  const vehicleTasks = useMemo(() => tasks.filter(t => t.vehicleId === activeVehicleId), [tasks, activeVehicleId]);
+  const activeServiceLogs = useMemo(() => serviceLogs.filter(l => l.vehicleId === activeVehicleId), [serviceLogs, activeVehicleId]);
+  const activeFuelLogs = useMemo(() => fuelLogs.filter(l => l.vehicleId === activeVehicleId), [fuelLogs, activeVehicleId]);
+
   const stats = useMemo(() => {
     if (!activeVehicle) return { vitality: 0, discipline: 0, totalSpend: 0, spendByCat: {} };
     
-    // Filter telemetry for the active vehicle to ensure precise calculations
-    const vehicleFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicle.id);
-    const vehicleServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicle.id);
-    const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicle.id);
-    
     return {
-      // FIX: Pass fuel and service logs so the score is calculated with full context
-      vitality: calculateVitalityScore(activeVehicle, vehicleTasks, vehicleFuelLogs, vehicleServiceLogs),
-      discipline: calculateDisciplineScore(vehicleServiceLogs, vehicleTasks),
-      totalSpend: calculateTotalExpenditure(vehicleServiceLogs, vehicleFuelLogs),
-      spendByCat: getSpendByCategory(vehicleServiceLogs)
+      vitality: calculateVitalityScore(activeVehicle, vehicleTasks, activeFuelLogs, activeServiceLogs),
+      discipline: Math.round(calculateDisciplineScore(activeServiceLogs, vehicleTasks)),
+      totalSpend: calculateTotalExpenditure(activeServiceLogs, activeFuelLogs),
+      spendByCat: getSpendByCategory(activeServiceLogs)
     };
-  }, [activeVehicle, tasks, serviceLogs, fuelLogs]);
+  }, [activeVehicle, vehicleTasks, activeServiceLogs, activeFuelLogs]);
 
   const handleDeleteLog = async (id: string) => {
     if (!confirm("Are you sure you want to delete this service record? This will affect your health score and history ledger.")) return;
@@ -77,8 +76,6 @@ const ServiceIntelligenceCenter: React.FC = () => {
     setEditingLog(log);
     setShowLogTerminal(true);
   };
-
-  const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicleId);
 
   return (
     <div className="space-y-12 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
@@ -181,9 +178,9 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
             {activeTab === 'ledger' && (
               <div className="space-y-6">
-                {serviceLogs.length > 0 ? (
+                {activeServiceLogs.length > 0 ? (
                   <div className="grid grid-cols-1 gap-4">
-                    {serviceLogs.map((log) => (
+                    {activeServiceLogs.map((log) => (
                       <div key={log.id} className="bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between group">
                         <div className="flex items-center gap-6">
                           <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${log.taskId ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'}`}>
