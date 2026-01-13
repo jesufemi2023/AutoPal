@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { 
@@ -38,16 +38,9 @@ const Dashboard: React.FC = () => {
   const [globalError, setGlobalError] = useState<string | null>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
-  
-  // CRITICAL: Derived telemetry state ensures the score is always based on the most recent store data
-  const vehicleTasks = useMemo(() => tasks.filter(t => t.vehicleId === activeVehicleId), [tasks, activeVehicleId]);
-  const activeServiceLogs = useMemo(() => serviceLogs.filter(l => l.vehicleId === activeVehicleId), [serviceLogs, activeVehicleId]);
-  const activeFuelLogs = useMemo(() => fuelLogs.filter(l => l.vehicleId === activeVehicleId), [fuelLogs, activeVehicleId]);
-
-  const derivedHealthScore = useMemo(() => {
-    if (!activeVehicle) return 100;
-    return calculateVitalityScore(activeVehicle, vehicleTasks, activeFuelLogs, activeServiceLogs);
-  }, [activeVehicle, vehicleTasks, activeFuelLogs, activeServiceLogs]);
+  const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicleId);
+  const activeServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
+  const activeFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicleId);
 
   useEffect(() => {
     if (vehicles.length > 0 && !activeVehicleId) setActiveVehicleId(vehicles[0].id);
@@ -76,6 +69,17 @@ const Dashboard: React.FC = () => {
     }
   }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
 
+  useEffect(() => {
+    if (activeVehicle && tasks.length > 0) {
+      // Pass all relevant telemetry to the vitality engine
+      const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
+      if (newScore !== activeVehicle.healthScore) {
+        updateVehicle(activeVehicle.id, { healthScore: newScore });
+        updateVehicleStore({ ...activeVehicle, healthScore: newScore });
+      }
+    }
+  }, [tasks, activeVehicle?.mileage, activeFuelLogs, activeServiceLogs]);
+
   const handleDecommissionAsset = async () => {
     if (!activeVehicleId || !confirm("Decommission Asset: This will archive your Digital Twin and remove it from your active garage. History will be preserved but hidden. Proceed?")) return;
     try {
@@ -94,10 +98,6 @@ const Dashboard: React.FC = () => {
     setEditingVehicle(activeVehicleId);
     setCurrentView('edit');
   };
-
-  // We only sync the health score back to the database if it actually changed meaningfully, 
-  // but we use the locally derived version for UI to guarantee consistency across pages.
-  const displayVehicle = activeVehicle ? { ...activeVehicle, healthScore: derivedHealthScore } : null;
 
   return (
     <div className="space-y-12 md:space-y-24">
@@ -154,22 +154,22 @@ const Dashboard: React.FC = () => {
         </div>
       ) : null}
 
-      {displayVehicle ? (
+      {activeVehicle ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-16 items-start">
           <div className="md:col-span-2 lg:col-span-8 space-y-12 lg:space-y-20">
-            <VehicleOverview vehicle={displayVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
+            <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
             
             <ResaleValuationCard 
-              vehicle={displayVehicle} 
-              tasks={vehicleTasks} 
+              vehicle={activeVehicle} 
+              tasks={tasks} 
               serviceLogs={activeServiceLogs} 
               fuelLogs={activeFuelLogs} 
             />
 
-            <VitalityDashboard vehicle={displayVehicle} tasks={vehicleTasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
+            <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
 
             <MaintenanceRoadmap 
-              vehicle={displayVehicle} 
+              vehicle={activeVehicle} 
               tasks={vehicleTasks} 
               isLoading={isLoadingDetails}
               onLog={handleOpenLogTerminal} 
@@ -184,12 +184,12 @@ const Dashboard: React.FC = () => {
 
           <aside className="md:col-span-2 lg:col-span-4 lg:sticky lg:top-32">
             <DiagnosticsPanel 
-              vehicle={displayVehicle} symptom={symptom} setSymptom={setSymptom} 
+              vehicle={activeVehicle} symptom={symptom} setSymptom={setSymptom} 
               diagImage={diagImage} setDiagImage={setDiagImage} isAskingAI={isAskingAI} 
               onAnalyze={async () => {
                 setIsAskingAI(true);
                 try {
-                  const advice = await getAdvancedDiagnostic(displayVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
+                  const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
                   setAiAdvice(advice);
                   if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
                 } catch (e) { alert("Neural Analysis Error"); } finally { setIsAskingAI(false); }
@@ -208,21 +208,21 @@ const Dashboard: React.FC = () => {
         )
       )}
 
-      {showOdometerModal && displayVehicle && (
+      {showOdometerModal && activeVehicle && (
         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/60 backdrop-blur-2xl animate-in fade-in duration-500">
           <div className="w-full max-w-md">
-            <OdometerInput value={displayVehicle.mileage} onSave={async (v) => { 
-              await updateMileage(displayVehicle.id, v); 
-              updateStoreMileage(displayVehicle.id, v); 
+            <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { 
+              await updateMileage(activeVehicle.id, v); 
+              updateStoreMileage(activeVehicle.id, v); 
               setShowOdometerModal(false); 
             }} onCancel={() => setShowOdometerModal(false)} />
           </div>
         </div>
       )}
 
-      {showLogTerminal && displayVehicle && (
+      {showLogTerminal && activeVehicle && (
         <ServiceLogTerminal 
-          vehicle={displayVehicle} 
+          vehicle={activeVehicle} 
           preselectedTask={selectedTaskForLog} 
           onClose={() => { setShowLogTerminal(false); setSelectedTaskForLog(undefined); }} 
         />

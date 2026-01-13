@@ -38,17 +38,16 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
 };
 
 /**
- * METABOLIC ENGINE (Fuel Health)
+ * METABOLIC ENGINE
  */
 export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]): { score: number, status: 'optimal' | 'warning' | 'critical', waste: number, variance: number, isCalibrating: boolean } => {
-  // If no logs, metabolism is a "Neutral Unknown" (80%)
   if (fuelLogs.length < 3) {
-    return { score: 85, status: 'optimal', waste: 0, variance: 0, isCalibrating: true };
+    return { score: 100, status: 'optimal', waste: 0, variance: 0, isCalibrating: true };
   }
 
   const sorted = [...fuelLogs].sort((a, b) => b.odometerKm - a.odometerKm);
   const fullLogs = sorted.filter(l => l.isFullTank);
-  if (fullLogs.length < 2) return { score: 85, status: 'optimal', waste: 0, variance: 0, isCalibrating: true };
+  if (fullLogs.length < 2) return { score: 100, status: 'optimal', waste: 0, variance: 0, isCalibrating: true };
 
   const recent = fullLogs[0];
   const prev = fullLogs[1];
@@ -61,9 +60,8 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
   const currentKml = liters > 0 ? dist / liters : 0;
   const factorySpec = GENETIC_BASELINES[vehicle.bodyType] || 10;
   
-  // Traffic Normalizer
   const isHeavyTrafficUser = (vehicle.avgDailyKm || 35) < 20;
-  const tolerance = isHeavyTrafficUser ? 0.25 : 0.10;
+  const tolerance = isHeavyTrafficUser ? 0.30 : 0.10;
 
   const variance = (factorySpec - currentKml) / factorySpec;
   
@@ -76,9 +74,6 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
   } else if (variance > tolerance) {
     score = 75;
     status = 'warning';
-  } else {
-    // Slight penalty for even minor variance
-    score = Math.max(80, 100 - (variance * 100));
   }
 
   const idealFuelNeeded = 500 / factorySpec;
@@ -90,8 +85,7 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
 
 /**
  * DETERMINISTIC INTELLIGENT HEALTH CHECK
- * Completely overhauled to use a Weighted Hygiene system.
- * Overdue high-priority tasks now have a massive impact on the score.
+ * Centralized logic used by both Dashboard and Service Hub.
  */
 export const calculateIntelligentHealth = (
   vehicle: Vehicle, 
@@ -100,49 +94,42 @@ export const calculateIntelligentHealth = (
   serviceLogs: ServiceLog[]
 ): { total: number, breakdown: HealthBreakdown & { isCalibrating: boolean } } => {
   
+  // CRITICAL: Ensure we only look at tasks for THIS vehicle to keep the score accurate
   const vehicleTasks = tasks.filter(t => t.vehicleId === vehicle.id);
   const vehicleFuel = fuelLogs.filter(l => l.vehicleId === vehicle.id);
   const vehicleService = serviceLogs.filter(l => l.vehicleId === vehicle.id);
 
-  // 1. METABOLISM (40%) - Real-world efficiency
+  // 1. Metabolism (40%) - Fuel Efficiency
   const metabolism = calculateMetabolicStatus(vehicle, vehicleFuel);
 
-  // 2. HYGIENE (40%) - Adherence to Maintenance Schedule
-  // Logic: Start at 100, subtract points for every overdue task based on priority
-  let hygieneScore = 100;
-  const overdueTasks = vehicleTasks.filter(t => t.status === 'pending' && getTaskMaintenanceStatus(vehicle, t) === 'overdue');
-
-  overdueTasks.forEach(task => {
-    if (task.priority === Priority.HIGH) hygieneScore -= 30;
-    else if (task.priority === Priority.MEDIUM) hygieneScore -= 15;
-    else hygieneScore -= 5;
+  // 2. Hygiene (40%) - Maintenance Adherence
+  const pillarStatus: Record<string, boolean> = {};
+  const categories: ServiceCategory[] = ['fluids', 'engine', 'brakes', 'suspension', 'tires', 'electrical', 'cooling', 'other'];
+  
+  categories.forEach(cat => {
+    const catTasks = vehicleTasks.filter(t => t.category === cat);
+    if (catTasks.length === 0) {
+      pillarStatus[cat] = true; 
+      return;
+    }
+    const isOverdue = catTasks.some(t => t.status === 'pending' && getTaskMaintenanceStatus(vehicle, t) === 'overdue');
+    pillarStatus[cat] = !isOverdue;
   });
 
-  // Pillar Coverage Bonus/Penalty
-  // If a car has ZERO tasks for critical pillars (fluids, brakes, engine), it's considered unmonitored (Penalty).
-  const criticalPillars: ServiceCategory[] = ['fluids', 'engine', 'brakes'];
-  criticalPillars.forEach(cat => {
-    const hasTasks = vehicleTasks.some(t => t.category === cat);
-    if (!hasTasks) hygieneScore -= 10; // Unmonitored risk
-  });
+  const healthyPillars = Object.values(pillarStatus).filter(v => v).length;
+  let hygieneScore = (healthyPillars / categories.length) * 100;
 
-  hygieneScore = Math.max(0, hygieneScore);
+  // Synergistic Penalties
+  if (metabolism.status !== 'optimal' && !pillarStatus['engine']) hygieneScore *= 0.75;
+  if (!pillarStatus['cooling'] && !pillarStatus['fluids']) hygieneScore *= 0.7;
+  if (!pillarStatus['brakes'] && !pillarStatus['tires']) hygieneScore *= 0.8;
 
-  // Synergistic Penalties (Critical Failures)
-  // Example: If Engine Pillar is overdue AND Metabolism is Warning, the engine is actively suffering.
-  const isEngineOverdue = vehicleTasks.some(t => t.category === 'engine' && t.status === 'pending' && getTaskMaintenanceStatus(vehicle, t) === 'overdue');
-  if (metabolism.status !== 'optimal' && isEngineOverdue) {
-    hygieneScore *= 0.6; // Heavy synergy penalty (60% drop)
-  }
-
-  // 3. PROVENANCE (20%) - Trust through verification
-  let provenanceScore = 50; // Neutral start
+  // 3. Provenance (20%) - Verification Trust
+  let provenanceScore = 50;
   if (vehicleService.length > 0) {
     const verifiedCount = vehicleService.filter(l => l.verificationLevel === 'mechanic_verified').length;
     const receiptCount = vehicleService.filter(l => l.verificationLevel === 'receipt_verified').length;
     const totalLogs = vehicleService.length;
-    
-    // Weight: Mechanic (1.0), Receipt (0.6), Self (0.2)
     const weightedSum = (verifiedCount * 1.0) + (receiptCount * 0.6) + ((totalLogs - verifiedCount - receiptCount) * 0.2);
     provenanceScore = (weightedSum / totalLogs) * 100;
   }
@@ -168,7 +155,6 @@ export const getTaskMaintenanceStatus = (vehicle: Vehicle, task: MaintenanceTask
   if (task.dueDate) {
     daysRemaining = Math.ceil((new Date(task.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   }
-  // If either distance or time has elapsed, it is overdue.
   if (kmRemaining <= 0 || daysRemaining <= 0) return 'overdue';
   if (kmRemaining <= 1000 || daysRemaining <= 14) return 'upcoming';
   return 'optimal';
