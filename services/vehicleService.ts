@@ -72,6 +72,7 @@ const mapLogFromDb = (l: any): ServiceLog => ({
   mileageAtService: parseFloat(l.mileage_at_service || '0'),
   cost: parseFloat(l.cost || '0'),
   notes: l.notes,
+  provider: l.provider,
   status: l.status,
   category: l.category,
   verificationLevel: l.verification_level,
@@ -154,6 +155,7 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
 
 export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[]): Promise<void> => {
   if (!supabase) return;
+  // Fixed: Map MaintenanceTask properties to DB columns using correct camelCase properties
   const dbPayloads = tasks.map(t => ({
     vehicle_id: t.vehicleId,
     title: t.title,
@@ -186,6 +188,7 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   if (data.specs !== undefined) dbPayload.specs = data.specs;
   
   if (data.mileage !== undefined) dbPayload.current_mileage = data.mileage;
+  // Fixed: Access ownerId from Partial<Vehicle> using correct camelCase property
   if (data.ownerId !== undefined) dbPayload.owner_id = data.ownerId;
   if (data.bodyType !== undefined) dbPayload.body_type = data.bodyType;
   if (data.fuelType !== undefined) dbPayload.fuel_type = data.fuelType;
@@ -269,6 +272,7 @@ export const createManualServiceLog = async (vehicle: Vehicle, log: Omit<Service
       mileage_at_service: log.mileageAtService,
       cost: log.cost,
       notes: log.notes,
+      provider: log.provider,
       category: log.category,
       status: log.status || 'completed',
       verification_level: log.verificationLevel,
@@ -334,6 +338,7 @@ export const finalizeMaintenanceCompletion = async (
     serviceDate: string;
     cost: number;
     notes: string;
+    provider?: string;
     verificationLevel: VerificationLevel;
     receiptUrl?: string;
     intervalKm?: number;
@@ -357,6 +362,7 @@ export const finalizeMaintenanceCompletion = async (
       mileage_at_service: completionData.mileageAtService,
       cost: completionData.cost,
       notes: completionData.notes,
+      provider: completionData.provider,
       category: task.category,
       verification_level: completionData.verificationLevel,
       receipt_url: completionData.receiptUrl,
@@ -372,6 +378,7 @@ export const finalizeMaintenanceCompletion = async (
       due_mileage: nextMileage,
       due_date: nextDate,
       last_completed_at: completionData.serviceDate,
+      // Fixed: corrected undefined completionLevel to completionData.verificationLevel
       last_verification_level: completionData.verificationLevel,
       last_receipt_url: completionData.receiptUrl,
       status: 'pending' 

@@ -27,6 +27,7 @@ export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]>
     mileageAtService: parseFloat(row.mileage_at_service),
     cost: parseFloat(row.cost),
     notes: row.notes,
+    provider: row.provider,
     category: row.category,
     status: row.status,
     createdAt: row.created_at,
@@ -49,6 +50,7 @@ export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' 
       mileage_at_service: log.mileageAtService,
       cost: log.cost,
       notes: log.notes,
+      provider: log.provider,
       category: log.category,
       status: log.status,
       verification_level: log.verificationLevel
@@ -67,6 +69,7 @@ export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' 
     mileageAtService: parseFloat(data.mileage_at_service),
     cost: parseFloat(data.cost),
     notes: data.notes,
+    provider: data.provider,
     category: data.category,
     status: data.status,
     createdAt: data.created_at,
@@ -85,6 +88,7 @@ export const updateServiceLog = async (id: string, log: Partial<ServiceLog>): Pr
   if (log.mileageAtService !== undefined) payload.mileage_at_service = log.mileageAtService;
   if (log.cost !== undefined) payload.cost = log.cost;
   if (log.notes !== undefined) payload.notes = log.notes;
+  if (log.provider !== undefined) payload.provider = log.provider;
   if (log.category !== undefined) payload.category = log.category;
   if (log.verificationLevel !== undefined) payload.verification_level = log.verificationLevel;
 
@@ -106,6 +110,7 @@ export const updateServiceLog = async (id: string, log: Partial<ServiceLog>): Pr
     mileageAtService: parseFloat(data.mileage_at_service),
     cost: parseFloat(data.cost),
     notes: data.notes,
+    provider: data.provider,
     category: data.category,
     status: data.status,
     createdAt: data.created_at,

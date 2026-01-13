@@ -28,6 +28,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     date: initialLog?.serviceDate || new Date().toISOString().split('T')[0],
     cost: initialLog?.cost.toString() || preselectedTask?.estimatedCost?.toString() || '',
     notes: initialLog?.notes || '',
+    provider: initialLog?.provider || '',
     verificationLevel: (initialLog?.verificationLevel || preselectedTask?.lastVerificationLevel || 'self_declared') as VerificationLevel,
     intervalKm: preselectedTask?.intervalKm || 5000,
     intervalMonths: preselectedTask?.intervalMonths || 6,
@@ -81,6 +82,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
           mileageAtService: form.mileage,
           cost: parseFloat(form.cost) || 0,
           notes: form.notes,
+          provider: form.provider,
           category: form.category,
           verificationLevel: form.verificationLevel,
           receiptUrl: finalReceiptUrl
@@ -94,6 +96,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
           serviceDate: form.date,
           cost: parseFloat(form.cost) || 0,
           notes: form.notes,
+          provider: form.provider,
           verificationLevel: form.verificationLevel,
           receiptUrl: finalReceiptUrl,
           intervalKm: form.intervalKm,
@@ -112,6 +115,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
           mileageAtService: form.mileage,
           cost: parseFloat(form.cost) || 0,
           notes: form.notes,
+          provider: form.provider,
           category: form.category,
           verificationLevel: form.verificationLevel,
           receiptUrl: finalReceiptUrl,
@@ -218,6 +222,17 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                   className="w-full bg-slate-900 text-white p-8 rounded-3xl border-2 border-slate-800 font-black text-center text-3xl outline-none"
                   value={form.cost}
                   onChange={e => setForm({...form, cost: e.target.value})}
+                />
+             </div>
+
+             <div className="space-y-4">
+                <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Service Provider / Workshop Name</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Mandilas Motors"
+                  className="w-full bg-slate-900 text-white p-6 rounded-2xl border-2 border-slate-800 font-bold outline-none"
+                  value={form.provider}
+                  onChange={e => setForm({...form, provider: e.target.value})}
                 />
              </div>
              

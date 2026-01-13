@@ -194,6 +194,9 @@ const ServiceIntelligenceCenter: React.FC = () => {
                               )}
                             </div>
                             <h4 className="text-2xl font-black text-slate-900 tracking-tighter leading-none">{log.serviceType}</h4>
+                            {log.provider && (
+                                <p className="text-slate-400 text-[9px] font-bold uppercase tracking-widest">Provider: {log.provider}</p>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-6">
