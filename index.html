@@ -36,6 +36,8 @@
         --safe-top: env(safe-area-inset-top);
         --safe-bottom: env(safe-area-inset-bottom);
         --sidebar-width: 280px;
+        --brand-blue: #2563eb;
+        --brand-slate: #0f172a;
       }
       body {
         font-family: 'Plus Jakarta Sans', sans-serif;
@@ -58,21 +60,25 @@
       }
       .sidebar-link-active {
         background-color: #f1f5f9;
-        color: #2563eb;
+        color: var(--brand-blue);
         font-weight: 700;
-        border-right: 4px solid #2563eb;
+        border-right: 4px solid var(--brand-blue);
       }
       .scrollbar-hide::-webkit-scrollbar { display: none; }
       .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       
       @keyframes slideUp {
-        from { transform: translateY(20px); opacity: 0; }
+        from { transform: translateY(24px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
       }
       .animate-slide-up { animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
       
       .card-radius { border-radius: 2.5rem; }
       
+      /* Mobile safe area adjustments */
+      .pb-safe { padding-bottom: var(--safe-bottom); }
+      .pt-safe { padding-top: var(--safe-top); }
+
       @media (max-width: 1024px) {
         .main-content { margin-left: 0 !important; }
       }

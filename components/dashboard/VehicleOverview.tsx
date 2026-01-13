@@ -35,7 +35,7 @@ export const VehicleOverview: React.FC<Props> = ({ vehicle, onUpdateOdometer }) 
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-slate-400 font-black uppercase tracking-[0.4em] text-[9px]">Neural Telemetry Synchronized</span>
+            <span className="text-slate-400 font-black uppercase tracking-[0.4em] text-[9px]">Neural Telemetry Link Active</span>
           </div>
           <h2 className="text-5xl md:text-6xl lg:text-7xl font-black text-slate-900 tracking-tighter leading-[0.85] transition-colors duration-500 group-hover:text-blue-600">
             {vehicle.year} {vehicle.model}
@@ -56,7 +56,7 @@ export const VehicleOverview: React.FC<Props> = ({ vehicle, onUpdateOdometer }) 
               {vehicle.mileage.toLocaleString()}
               <span className="text-sm text-slate-300 ml-2 font-sans font-bold">KM</span>
             </div>
-            <div className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em] opacity-0 group-hover/btn:opacity-100 translate-x-[-10px] group-hover/btn:translate-x-0 transition-all duration-500">Calibrate Node →</div>
+            <div className="text-[9px] font-black text-blue-500 uppercase tracking-[0.2em] opacity-0 group-hover/btn:opacity-100 translate-x-[-10px] group-hover/btn:translate-x-0 transition-all duration-500">Update Telemetry →</div>
           </button>
           
           <div className="bg-white border-2 border-slate-50 rounded-[2rem] p-8 text-left shadow-sm flex flex-col justify-between group/vibe">

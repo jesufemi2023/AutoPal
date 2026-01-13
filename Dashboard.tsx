@@ -102,7 +102,7 @@ const Dashboard: React.FC = () => {
     <div className="space-y-12 lg:space-y-20">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-8 px-1">
         <div>
-          <h1 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-3">Garage Command</h1>
+          <h1 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tighter leading-none mb-3">Garage Control</h1>
           <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px]">Strategic Asset Monitoring Active</p>
         </div>
         <div className="flex gap-4">
@@ -124,7 +124,7 @@ const Dashboard: React.FC = () => {
       </header>
 
       {vehicles.length > 0 ? (
-        <div className="flex gap-5 overflow-x-auto pb-6 scrollbar-hide -mx-2 px-2">
+        <div className="flex gap-5 overflow-x-auto pb-6 scrollbar-hide -mx-6 px-6 sm:-mx-0 sm:px-0">
           {vehicles.map(v => (
             <button 
               key={v.id}
@@ -164,7 +164,7 @@ const Dashboard: React.FC = () => {
               onLog={handleOpenLogTerminal} 
             />
 
-            <div className="pt-12 flex justify-center">
+            <div className="pt-12 flex justify-center pb-12">
                <button onClick={handleDecommissionAsset} className="text-slate-300 text-[10px] font-black uppercase tracking-[0.5em] hover:text-rose-500 transition-all cursor-pointer">
                  Decommission Digital Twin
                </button>
@@ -190,8 +190,8 @@ const Dashboard: React.FC = () => {
         !isLoadingDetails && (
           <div className="py-32 text-center bg-white rounded-[3rem] border border-slate-100 p-20 shadow-sm">
              <div className="w-28 h-28 bg-slate-50 rounded-[2.5rem] flex items-center justify-center text-5xl mx-auto mb-10 shadow-inner">🛰️</div>
-             <h3 className="text-4xl font-black text-slate-900 mb-3 tracking-tighter uppercase">Neural Link Empty</h3>
-             <p className="text-slate-400 mb-12 text-[10px] font-black uppercase tracking-[0.4em]">Initialize your first Digital Twin to begin monitoring</p>
+             <h3 className="text-4xl font-black text-slate-900 mb-3 tracking-tighter uppercase">No Assets Found</h3>
+             <p className="text-slate-400 mb-12 text-[10px] font-black uppercase tracking-[0.4em]">Deploy your first Digital Twin to begin monitoring</p>
              <button onClick={() => setCurrentView('onboarding')} className="bg-slate-900 text-white px-16 py-7 rounded-3xl font-black uppercase tracking-[0.25em] text-[11px] shadow-2xl hover:bg-blue-600 transition-all active:scale-95">Deploy Digital Twin</button>
           </div>
         )

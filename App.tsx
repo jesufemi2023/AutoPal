@@ -103,21 +103,21 @@ const App: React.FC = () => {
       <span className="text-xl transition-transform duration-300 group-hover:scale-110">{icon}</span>
       <span className="text-[11px] font-black uppercase tracking-[0.25em]">{label}</span>
       {currentView === view && (
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-600 rounded-l-full shadow-[0_0_12px_rgba(37,99,235,0.4)]"></div>
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-blue-600 rounded-l-full shadow-[0_0_12px_rgba(37,99,235,0.4)]"></div>
       )}
     </button>
   );
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex">
-      {/* Desktop Sidebar - Premium SaaS Look */}
+      {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-[280px] bg-white border-r border-slate-100 fixed inset-y-0 z-50">
         <div className="p-10 pb-6 shrink-0">
           <div className="flex items-center gap-4 cursor-pointer group" onClick={() => setCurrentView('garage')}>
             <div className="w-11 h-11 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-xl transition-all duration-500 group-hover:bg-blue-600 group-hover:rotate-6 shadow-xl">A</div>
             <div>
               <span className="block font-black tracking-tighter text-slate-900 text-xl leading-tight">AutoPal NG</span>
-              <span className="block text-[8px] font-black uppercase tracking-[0.4em] text-blue-500">Node v5.3.2</span>
+              <span className="block text-[8px] font-black uppercase tracking-[0.4em] text-blue-500">Fleet Control</span>
             </div>
           </div>
         </div>
@@ -146,7 +146,7 @@ const App: React.FC = () => {
             onClick={() => supabase?.auth.signOut()}
             className="w-full flex items-center gap-4 px-6 py-4 text-rose-500 hover:bg-rose-50 rounded-2xl transition-all text-[10px] font-black uppercase tracking-widest"
           >
-            🚪 De-authorize
+            🚪 Sign Out
           </button>
         </div>
       </aside>
@@ -154,20 +154,19 @@ const App: React.FC = () => {
       {/* Main Content Area */}
       <div className="flex-grow lg:ml-[280px] flex flex-col min-h-screen">
         {/* Mobile Top Header */}
-        <header className="lg:hidden sticky top-0 z-[40] bg-white/80 backdrop-blur-xl border-b border-slate-100 px-6 py-4 flex justify-between items-center">
+        <header className="lg:hidden sticky top-0 z-[40] bg-white/80 backdrop-blur-xl border-b border-slate-100 px-6 py-4 flex justify-between items-center pt-safe">
           <div className="flex items-center gap-3" onClick={() => setCurrentView('garage')}>
             <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm">A</div>
             <span className="font-black tracking-tighter text-slate-900 text-base">AutoPal NG</span>
           </div>
-          <button 
-            onClick={() => supabase?.auth.signOut()}
-            className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-[10px] border border-slate-200"
-          >
-            👋
-          </button>
+          <div className="flex items-center gap-3">
+             <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-900 text-[10px] font-black border border-slate-200 uppercase">
+              {user?.email?.[0]}
+            </div>
+          </div>
         </header>
 
-        <main className="p-6 sm:p-12 lg:p-16 max-w-7xl mx-auto w-full pb-32 lg:pb-16">
+        <main className="p-6 sm:p-12 lg:p-16 max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow">
           <div className="animate-slide-up">
             {currentView === 'garage' && <Dashboard />}
             {currentView === 'service' && <ServiceIntelligenceCenter />}
