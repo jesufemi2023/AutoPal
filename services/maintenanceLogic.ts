@@ -49,13 +49,28 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
  * Measures real-world fuel conversion efficiency against genetic baselines.
  */
 export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]): { score: number, status: 'optimal' | 'warning' | 'critical', waste: number, variance: number, isCalibrating: boolean } => {
-  if (fuelLogs.length < 3) {
+  // NG Refinement: Allow score to move after 2 logs (1 trip) to provide immediate feedback.
+  if (fuelLogs.length < 2) {
     return { score: 100, status: 'optimal', waste: 0, variance: 0, isCalibrating: true };
   }
 
   const sorted = [...fuelLogs].sort((a, b) => b.odometerKm - a.odometerKm);
   const fullLogs = sorted.filter(l => l.isFullTank);
-  if (fullLogs.length < 2) return { score: 100, status: 'optimal', waste: 0, variance: 0, isCalibrating: true };
+  
+  // If we don't have two full tanks, we can't do exact "Full-to-Full" calculation
+  // but we can estimate based on total liters vs total distance.
+  if (fullLogs.length < 2) {
+    const newest = sorted[0];
+    const oldest = sorted[sorted.length - 1];
+    const totalDist = newest.odometerKm - oldest.odometerKm;
+    const totalLiters = sorted.slice(0, sorted.length - 1).reduce((acc, l) => acc + l.liters, 0);
+    
+    if (totalDist <= 0 || totalLiters <= 0) {
+      return { score: 100, status: 'optimal', waste: 0, variance: 0, isCalibrating: true };
+    }
+    
+    return processMetabolicMath(vehicle, totalDist / totalLiters, true);
+  }
 
   const recent = fullLogs[0];
   const prev = fullLogs[1];
@@ -66,6 +81,10 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
   const liters = sorted.slice(startIndex, endIndex).reduce((acc, l) => acc + l.liters, 0);
   
   const currentKml = liters > 0 ? dist / liters : 0;
+  return processMetabolicMath(vehicle, currentKml, false);
+};
+
+const processMetabolicMath = (vehicle: Vehicle, currentKml: number, isEstimated: boolean) => {
   const factorySpec = GENETIC_BASELINES[vehicle.bodyType] || 10;
   
   // Traffic Normalizer: Low daily mileage suggests heavy traffic, relax efficiency baseline.
@@ -89,12 +108,17 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
   const actualFuelNeeded = 500 / (currentKml || factorySpec);
   const waste = Math.max(0, (actualFuelNeeded - idealFuelNeeded) * 800);
 
-  return { score, status, waste, variance: Math.round(variance * 100), isCalibrating: false };
+  return { 
+    score: isEstimated ? Math.round((100 + score) / 2) : score, // Dampen score if estimated
+    status, 
+    waste, 
+    variance: Math.round(variance * 100), 
+    isCalibrating: isEstimated 
+  };
 };
 
 /**
  * REFINED ASSET VITALITY SCORE (The NG Engine)
- * Translates multi-pillar telemetry into a singular health index.
  */
 export const calculateIntelligentHealth = (
   vehicle: Vehicle, 
@@ -117,62 +141,47 @@ export const calculateIntelligentHealth = (
   allCategories.forEach(cat => {
     const catTasks = vehicleTasks.filter(t => t.category === cat);
     if (catTasks.length === 0) {
-      pillarStatus[cat] = true; // Assume healthy if no tasks defined (NG refinement: should be 'unknown')
+      pillarStatus[cat] = true;
       return;
     }
     const isOverdue = catTasks.some(t => t.status === 'pending' && getTaskMaintenanceStatus(vehicle, t) === 'overdue');
     pillarStatus[cat] = !isOverdue;
   });
 
-  // Calculate weighted Hygiene Score
   const primaryHealthy = PRIMARY_PILLARS.filter(p => pillarStatus[p]).length;
   const secondaryHealthy = SECONDARY_PILLARS.filter(p => pillarStatus[p]).length;
   
   const primaryScore = (primaryHealthy / PRIMARY_PILLARS.length) * 100;
   const secondaryScore = (secondaryHealthy / SECONDARY_PILLARS.length) * 100;
   
-  // Hygiene is 75% Primary, 25% Secondary
   let hygieneScore = (primaryScore * 0.75) + (secondaryScore * 0.25);
 
-  // --- SYNERGY PENALTIES (The Intelligence Layer) ---
-  
-  // A. The "Thermal Trap": Cooling + Fluids overdue = High Risk
   if (!pillarStatus['cooling'] && !pillarStatus['fluids']) {
     hygieneScore *= 0.70; 
   }
 
-  // B. The "Metabolic Cross-Check": Engine healthy but Metabolism Critical
-  // This detects "Hidden Faults" where logs claim service but car performs poorly.
   if (pillarStatus['engine'] && metabolism.status === 'critical') {
     hygieneScore *= 0.75; 
   }
 
-  // C. The "Safety Cascade": Brakes + Tires overdue
   let safetyMultiplier = 1.0;
   if (!pillarStatus['brakes'] && !pillarStatus['tires']) {
     safetyMultiplier = 0.80; 
   }
 
-  // 3. PROVENANCE (20%) - History Veracity & Trust
-  let provenanceScore = 40; // Default low-trust baseline
+  // 3. PROVENANCE (20%)
+  let provenanceScore = 40;
   if (vehicleService.length > 0) {
     const weightedLogs = vehicleService.map(log => {
-      let multiplier = 0.2; // Base for Self-Declared
+      let multiplier = 0.2; 
       if (log.verificationLevel === 'mechanic_verified') multiplier = 1.0;
       else if (log.verificationLevel === 'receipt_verified') multiplier = 0.6;
-      
-      // The "Provider Bonus": Logs with a named workshop signature are more trustworthy
-      if (log.provider && log.provider.trim().length > 2) {
-        multiplier += 0.1;
-      }
-      
+      if (log.provider && log.provider.trim().length > 2) multiplier += 0.1;
       return Math.min(1.0, multiplier);
     });
-
     provenanceScore = (weightedLogs.reduce((a, b) => a + b, 0) / vehicleService.length) * 100;
   }
 
-  // Final Aggregation with Safety Multiplier
   const total = Math.round(((metabolism.score * 0.4) + (hygieneScore * 0.4) + (provenanceScore * 0.2)) * safetyMultiplier);
 
   return {

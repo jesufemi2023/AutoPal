@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { 
-  fetchVehicleTasks, fetchVehicleServiceLogs, archiveVehicle, updateMileage, updateVehicle
+  fetchVehicleTasks, fetchVehicleServiceLogs, archiveVehicle, updateMileage, updateVehicle, syncVehicleVitals
 } from './services/vehicleService.ts';
 import { fetchFuelLogs } from './services/fuelService.ts';
 import { OdometerInput } from './components/OdometerInput.tsx';
@@ -69,16 +69,25 @@ const Dashboard: React.FC = () => {
     }
   }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
 
+  // GOLDEN THREAD: Reactive Health Score Synchronization
   useEffect(() => {
     if (activeVehicle && tasks.length > 0) {
-      // Pass all relevant telemetry to the vitality engine
       const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
+      
       if (newScore !== activeVehicle.healthScore) {
-        updateVehicle(activeVehicle.id, { healthScore: newScore });
-        updateVehicleStore({ ...activeVehicle, healthScore: newScore });
+        // Debounce update to prevent DB spam if many logs added at once
+        const timer = setTimeout(async () => {
+          try {
+            const updated = await updateVehicle(activeVehicle.id, { healthScore: newScore });
+            updateVehicleStore(updated);
+          } catch (e) {
+            console.error("Vitality Sync Error", e);
+          }
+        }, 1000);
+        return () => clearTimeout(timer);
       }
     }
-  }, [tasks, activeVehicle?.mileage, activeFuelLogs, activeServiceLogs]);
+  }, [tasks, activeFuelLogs, activeServiceLogs, activeVehicleId]);
 
   const handleDecommissionAsset = async () => {
     if (!activeVehicleId || !confirm("Decommission Asset: This will archive your Digital Twin and remove it from your active garage. History will be preserved but hidden. Proceed?")) return;
