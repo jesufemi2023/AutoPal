@@ -101,9 +101,6 @@ export const calculateIntelligentHealth = (
   serviceLogs: ServiceLog[]
 ): { total: number, breakdown: HealthBreakdown & { isCalibrating: boolean } } => {
   
-  // Safety: Filter tasks to ensure we only analyze items belonging to this specific vehicle
-  const vehicleTasks = tasks.filter(t => t.vehicleId === vehicle.id);
-
   // 1. Metabolism (40%)
   const metabolism = calculateMetabolicStatus(vehicle, fuelLogs);
 
@@ -112,7 +109,7 @@ export const calculateIntelligentHealth = (
   const categories: ServiceCategory[] = ['fluids', 'engine', 'brakes', 'suspension', 'tires', 'electrical', 'cooling', 'other'];
   
   categories.forEach(cat => {
-    const catTasks = vehicleTasks.filter(t => t.category === cat);
+    const catTasks = tasks.filter(t => t.category === cat);
     if (catTasks.length === 0) {
       pillarStatus[cat] = true; // Assume healthy if no tasks defined yet
       return;

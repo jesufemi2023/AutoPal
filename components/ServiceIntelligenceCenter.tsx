@@ -50,12 +50,10 @@ const ServiceIntelligenceCenter: React.FC = () => {
     if (!activeVehicle) return { vitality: 0, discipline: 0, totalSpend: 0, spendByCat: {} };
     const vehicleFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicle.id);
     const vehicleServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicle.id);
-    const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicle.id);
     
     return {
-      // FIX: Pass fuelLogs and serviceLogs to ensure the "Doctor" uses the full medical chart for the vitality score.
-      vitality: calculateVitalityScore(activeVehicle, vehicleTasks, vehicleFuelLogs, vehicleServiceLogs),
-      discipline: calculateDisciplineScore(vehicleServiceLogs, vehicleTasks),
+      vitality: calculateVitalityScore(activeVehicle, tasks),
+      discipline: calculateDisciplineScore(vehicleServiceLogs, tasks),
       totalSpend: calculateTotalExpenditure(vehicleServiceLogs, vehicleFuelLogs),
       spendByCat: getSpendByCategory(vehicleServiceLogs)
     };
