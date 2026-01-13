@@ -19,7 +19,6 @@ const REGIONAL_STRESS_FACTOR = 1.2; // Nigerian heat/roads
 
 /**
  * VELOCITY ENGINE
- * Calculates average daily usage and determines "Congestion Level"
  */
 export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: ServiceLog[]): number => {
   const allLogs = [
@@ -27,7 +26,7 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
     ...serviceLogs.map(l => ({ odo: l.mileageAtService, date: new Date(l.serviceDate) }))
   ].sort((a, b) => a.date.getTime() - b.date.getTime());
 
-  if (allLogs.length < 2) return 35; // Standard Lagos average
+  if (allLogs.length < 2) return 35;
 
   const oldest = allLogs[0];
   const newest = allLogs[allLogs.length - 1];
@@ -39,7 +38,7 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
 };
 
 /**
- * METABOLIC ENGINE (Precision Interpretation)
+ * METABOLIC ENGINE
  */
 export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]): { score: number, status: 'optimal' | 'warning' | 'critical', waste: number, variance: number, isCalibrating: boolean } => {
   if (fuelLogs.length < 3) {
@@ -47,8 +46,6 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
   }
 
   const sorted = [...fuelLogs].sort((a, b) => b.odometerKm - a.odometerKm);
-  
-  // Calculate current KML (last full-to-full cycle)
   const fullLogs = sorted.filter(l => l.isFullTank);
   if (fullLogs.length < 2) return { score: 100, status: 'optimal', waste: 0, variance: 0, isCalibrating: true };
 
@@ -56,7 +53,6 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
   const prev = fullLogs[1];
   const dist = recent.odometerKm - prev.odometerKm;
   
-  // Sum liters between these two odo readings
   const startIndex = sorted.indexOf(recent);
   const endIndex = sorted.indexOf(prev);
   const liters = sorted.slice(startIndex, endIndex).reduce((acc, l) => acc + l.liters, 0);
@@ -64,8 +60,6 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
   const currentKml = liters > 0 ? dist / liters : 0;
   const factorySpec = GENETIC_BASELINES[vehicle.bodyType] || 10;
   
-  // CONGESTION NORMALIZER
-  // If user drives < 20km/day, we allow a 30% "Traffic Grace" before penalizing health.
   const isHeavyTrafficUser = (vehicle.avgDailyKm || 35) < 20;
   const tolerance = isHeavyTrafficUser ? 0.30 : 0.10;
 
@@ -82,7 +76,6 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
     status = 'warning';
   }
 
-  // Waste Calculation (N800/L, based on 500km/mo)
   const idealFuelNeeded = 500 / factorySpec;
   const actualFuelNeeded = 500 / (currentKml || factorySpec);
   const waste = Math.max(0, (actualFuelNeeded - idealFuelNeeded) * 800);
@@ -92,7 +85,7 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
 
 /**
  * DETERMINISTIC INTELLIGENT HEALTH CHECK
- * Mimics a mechanic's synergistic reasoning.
+ * Centralized logic used by both Dashboard and Service Hub.
  */
 export const calculateIntelligentHealth = (
   vehicle: Vehicle, 
@@ -101,17 +94,22 @@ export const calculateIntelligentHealth = (
   serviceLogs: ServiceLog[]
 ): { total: number, breakdown: HealthBreakdown & { isCalibrating: boolean } } => {
   
-  // 1. Metabolism (40%)
-  const metabolism = calculateMetabolicStatus(vehicle, fuelLogs);
+  // CRITICAL: Ensure we only look at tasks for THIS vehicle to keep the score accurate
+  const vehicleTasks = tasks.filter(t => t.vehicleId === vehicle.id);
+  const vehicleFuel = fuelLogs.filter(l => l.vehicleId === vehicle.id);
+  const vehicleService = serviceLogs.filter(l => l.vehicleId === vehicle.id);
 
-  // 2. Hygiene (40%)
+  // 1. Metabolism (40%) - Fuel Efficiency
+  const metabolism = calculateMetabolicStatus(vehicle, vehicleFuel);
+
+  // 2. Hygiene (40%) - Maintenance Adherence
   const pillarStatus: Record<string, boolean> = {};
   const categories: ServiceCategory[] = ['fluids', 'engine', 'brakes', 'suspension', 'tires', 'electrical', 'cooling', 'other'];
   
   categories.forEach(cat => {
-    const catTasks = tasks.filter(t => t.category === cat);
+    const catTasks = vehicleTasks.filter(t => t.category === cat);
     if (catTasks.length === 0) {
-      pillarStatus[cat] = true; // Assume healthy if no tasks defined yet
+      pillarStatus[cat] = true; 
       return;
     }
     const isOverdue = catTasks.some(t => t.status === 'pending' && getTaskMaintenanceStatus(vehicle, t) === 'overdue');
@@ -121,32 +119,17 @@ export const calculateIntelligentHealth = (
   const healthyPillars = Object.values(pillarStatus).filter(v => v).length;
   let hygieneScore = (healthyPillars / categories.length) * 100;
 
-  // SYNERGISTIC PENALTIES (Master Mechanic Logic)
-  // If Metabolism is Warning AND Respiration (Engine category) is overdue, the engine is actively suffering.
-  if (metabolism.status !== 'optimal' && !pillarStatus['engine']) {
-    hygieneScore *= 0.75; // 25% Synergistic Penalty
-  }
+  // Synergistic Penalties
+  if (metabolism.status !== 'optimal' && !pillarStatus['engine']) hygieneScore *= 0.75;
+  if (!pillarStatus['cooling'] && !pillarStatus['fluids']) hygieneScore *= 0.7;
+  if (!pillarStatus['brakes'] && !pillarStatus['tires']) hygieneScore *= 0.8;
 
-  // Critical Synergy: Cooling + Fluids (Tropical Heat Risk)
-  if (!pillarStatus['cooling'] && !pillarStatus['fluids']) {
-    hygieneScore *= 0.7; // 30% Synergistic Penalty (High Seizure Risk)
-  }
-
-  // Safety Synergy: Brakes + Tires
-  if (!pillarStatus['brakes'] && !pillarStatus['tires']) {
-    hygieneScore *= 0.8; // 20% Synergistic Penalty (Safety Risk)
-  }
-
-  // 3. Provenance (20%)
-  // Calibration: If 0 logs, provenance is neutral (50).
-  if (serviceLogs.length === 0) {
-    var provenanceScore = 50;
-  } else {
-    const verifiedCount = serviceLogs.filter(l => l.verificationLevel === 'mechanic_verified').length;
-    const receiptCount = serviceLogs.filter(l => l.verificationLevel === 'receipt_verified').length;
-    const totalLogs = serviceLogs.length;
-    
-    // Weight: Mechanic (1.0), Receipt (0.6), Self (0.2)
+  // 3. Provenance (20%) - Verification Trust
+  let provenanceScore = 50;
+  if (vehicleService.length > 0) {
+    const verifiedCount = vehicleService.filter(l => l.verificationLevel === 'mechanic_verified').length;
+    const receiptCount = vehicleService.filter(l => l.verificationLevel === 'receipt_verified').length;
+    const totalLogs = vehicleService.length;
     const weightedSum = (verifiedCount * 1.0) + (receiptCount * 0.6) + ((totalLogs - verifiedCount - receiptCount) * 0.2);
     provenanceScore = (weightedSum / totalLogs) * 100;
   }

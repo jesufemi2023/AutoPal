@@ -48,12 +48,16 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
   const stats = useMemo(() => {
     if (!activeVehicle) return { vitality: 0, discipline: 0, totalSpend: 0, spendByCat: {} };
+    
+    // Filter telemetry for the active vehicle to ensure precise calculations
     const vehicleFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicle.id);
     const vehicleServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicle.id);
+    const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicle.id);
     
     return {
-      vitality: calculateVitalityScore(activeVehicle, tasks),
-      discipline: calculateDisciplineScore(vehicleServiceLogs, tasks),
+      // FIX: Pass fuel and service logs so the score is calculated with full context
+      vitality: calculateVitalityScore(activeVehicle, vehicleTasks, vehicleFuelLogs, vehicleServiceLogs),
+      discipline: calculateDisciplineScore(vehicleServiceLogs, vehicleTasks),
       totalSpend: calculateTotalExpenditure(vehicleServiceLogs, vehicleFuelLogs),
       spendByCat: getSpendByCategory(vehicleServiceLogs)
     };
@@ -74,7 +78,6 @@ const ServiceIntelligenceCenter: React.FC = () => {
     setShowLogTerminal(true);
   };
 
-  // Provide all tasks for the vehicle to allow the roadmap to filter itself
   const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicleId);
 
   return (
