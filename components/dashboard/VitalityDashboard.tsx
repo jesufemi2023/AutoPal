@@ -48,7 +48,11 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
           <div className="space-y-4 relative z-10">
             <div className="flex justify-between items-center">
               <h4 className="text-[8px] font-black text-slate-500 uppercase tracking-[0.3em]">Vital Sign: Engine Metabolism</h4>
-              {isTrafficNormalizerActive && (
+              {health.breakdown.isCalibrating ? (
+                <span className="bg-amber-500/20 text-amber-400 text-[7px] font-black px-2 py-0.5 rounded uppercase tracking-widest border border-amber-500/30">
+                  Calibrating...
+                </span>
+              ) : isTrafficNormalizerActive && (
                 <span className="bg-blue-500/20 text-blue-400 text-[7px] font-black px-2 py-0.5 rounded uppercase tracking-widest border border-blue-500/30">
                   Traffic Adjusted
                 </span>
@@ -56,13 +60,17 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
             </div>
             
             <div className="space-y-1">
-              <div className={`text-3xl font-black tracking-tighter ${status.color}`}>{status.title}</div>
-              <p className="text-[11px] text-slate-400 font-medium leading-relaxed">{status.text}</p>
+              <div className={`text-3xl font-black tracking-tighter ${status.color}`}>
+                {health.breakdown.isCalibrating ? 'Calibrating Baseline' : status.title}
+              </div>
+              <p className="text-[11px] text-slate-400 font-medium leading-relaxed">
+                {health.breakdown.isCalibrating ? 'Collect 3+ fuel logs to establish operational metabolism.' : status.text}
+              </p>
             </div>
           </div>
           
           <div className="mt-8 pt-6 border-t border-white/5 space-y-5 relative z-10">
-            {health.breakdown.wasteMonthly > 0 && (
+            {!health.breakdown.isCalibrating && health.breakdown.wasteMonthly > 0 && (
               <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl flex justify-between items-center">
                 <div>
                   <div className="text-[7px] font-black text-rose-400 uppercase tracking-widest mb-1">Estimated Monthly Waste</div>

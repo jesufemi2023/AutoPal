@@ -71,13 +71,14 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     if (activeVehicle && tasks.length > 0) {
-      const newScore = calculateVitalityScore(activeVehicle, tasks);
+      // Pass all relevant telemetry to the vitality engine
+      const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
       if (newScore !== activeVehicle.healthScore) {
         updateVehicle(activeVehicle.id, { healthScore: newScore });
         updateVehicleStore({ ...activeVehicle, healthScore: newScore });
       }
     }
-  }, [tasks, activeVehicle?.mileage]);
+  }, [tasks, activeVehicle?.mileage, activeFuelLogs, activeServiceLogs]);
 
   const handleDecommissionAsset = async () => {
     if (!activeVehicleId || !confirm("Decommission Asset: This will archive your Digital Twin and remove it from your active garage. History will be preserved but hidden. Proceed?")) return;

@@ -41,14 +41,16 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
 /**
  * METABOLIC ENGINE (Precision Interpretation)
  */
-export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]): { score: number, status: 'optimal' | 'warning' | 'critical', waste: number, variance: number } => {
-  if (fuelLogs.length < 3) return { score: 100, status: 'optimal', waste: 0, variance: 0 };
+export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]): { score: number, status: 'optimal' | 'warning' | 'critical', waste: number, variance: number, isCalibrating: boolean } => {
+  if (fuelLogs.length < 3) {
+    return { score: 100, status: 'optimal', waste: 0, variance: 0, isCalibrating: true };
+  }
 
   const sorted = [...fuelLogs].sort((a, b) => b.odometerKm - a.odometerKm);
   
   // Calculate current KML (last full-to-full cycle)
   const fullLogs = sorted.filter(l => l.isFullTank);
-  if (fullLogs.length < 2) return { score: 100, status: 'optimal', waste: 0, variance: 0 };
+  if (fullLogs.length < 2) return { score: 100, status: 'optimal', waste: 0, variance: 0, isCalibrating: true };
 
   const recent = fullLogs[0];
   const prev = fullLogs[1];
@@ -85,7 +87,7 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
   const actualFuelNeeded = 500 / (currentKml || factorySpec);
   const waste = Math.max(0, (actualFuelNeeded - idealFuelNeeded) * 800);
 
-  return { score, status, waste, variance: Math.round(variance * 100) };
+  return { score, status, waste, variance: Math.round(variance * 100), isCalibrating: false };
 };
 
 /**
@@ -97,7 +99,7 @@ export const calculateIntelligentHealth = (
   tasks: MaintenanceTask[], 
   fuelLogs: FuelLog[],
   serviceLogs: ServiceLog[]
-): { total: number, breakdown: HealthBreakdown } => {
+): { total: number, breakdown: HealthBreakdown & { isCalibrating: boolean } } => {
   
   // 1. Metabolism (40%)
   const metabolism = calculateMetabolicStatus(vehicle, fuelLogs);
@@ -108,6 +110,10 @@ export const calculateIntelligentHealth = (
   
   categories.forEach(cat => {
     const catTasks = tasks.filter(t => t.category === cat);
+    if (catTasks.length === 0) {
+      pillarStatus[cat] = true; // Assume healthy if no tasks defined yet
+      return;
+    }
     const isOverdue = catTasks.some(t => t.status === 'pending' && getTaskMaintenanceStatus(vehicle, t) === 'overdue');
     pillarStatus[cat] = !isOverdue;
   });
@@ -115,17 +121,35 @@ export const calculateIntelligentHealth = (
   const healthyPillars = Object.values(pillarStatus).filter(v => v).length;
   let hygieneScore = (healthyPillars / categories.length) * 100;
 
-  // SYNERGISTIC PENALTY (Master Mechanic Logic)
-  // If Metabolism is Warning AND Respiration (Engine category) is overdue, double the penalty.
-  const isRespirationBad = !pillarStatus['engine'];
-  if (metabolism.status !== 'optimal' && isRespirationBad) {
-    hygieneScore *= 0.8; // Additional 20% drop for synergistic failure
+  // SYNERGISTIC PENALTIES (Master Mechanic Logic)
+  // If Metabolism is Warning AND Respiration (Engine category) is overdue, the engine is actively suffering.
+  if (metabolism.status !== 'optimal' && !pillarStatus['engine']) {
+    hygieneScore *= 0.75; // 25% Synergistic Penalty
+  }
+
+  // Critical Synergy: Cooling + Fluids (Tropical Heat Risk)
+  if (!pillarStatus['cooling'] && !pillarStatus['fluids']) {
+    hygieneScore *= 0.7; // 30% Synergistic Penalty (High Seizure Risk)
+  }
+
+  // Safety Synergy: Brakes + Tires
+  if (!pillarStatus['brakes'] && !pillarStatus['tires']) {
+    hygieneScore *= 0.8; // 20% Synergistic Penalty (Safety Risk)
   }
 
   // 3. Provenance (20%)
-  const verifiedCount = serviceLogs.filter(l => l.verificationLevel === 'mechanic_verified').length;
-  const totalLogs = serviceLogs.length || 1;
-  const provenanceScore = (verifiedCount / totalLogs) * 100;
+  // Calibration: If 0 logs, provenance is neutral (50).
+  if (serviceLogs.length === 0) {
+    var provenanceScore = 50;
+  } else {
+    const verifiedCount = serviceLogs.filter(l => l.verificationLevel === 'mechanic_verified').length;
+    const receiptCount = serviceLogs.filter(l => l.verificationLevel === 'receipt_verified').length;
+    const totalLogs = serviceLogs.length;
+    
+    // Weight: Mechanic (1.0), Receipt (0.6), Self (0.2)
+    const weightedSum = (verifiedCount * 1.0) + (receiptCount * 0.6) + ((totalLogs - verifiedCount - receiptCount) * 0.2);
+    provenanceScore = (weightedSum / totalLogs) * 100;
+  }
 
   const total = Math.round((metabolism.score * 0.4) + (hygieneScore * 0.4) + (provenanceScore * 0.2));
 
@@ -136,7 +160,8 @@ export const calculateIntelligentHealth = (
       hygiene: hygieneScore,
       provenance: provenanceScore,
       metabolicStatus: metabolism.status,
-      wasteMonthly: metabolism.waste
+      wasteMonthly: metabolism.waste,
+      isCalibrating: metabolism.isCalibrating
     }
   };
 };
@@ -174,9 +199,13 @@ export const predictServiceDate = (vehicle: Vehicle, task: MaintenanceTask, add:
   return prediction.toISOString();
 };
 
-export const calculateVitalityScore = (vehicle: Vehicle, tasks: MaintenanceTask[]): number => {
-  // Mock bridge to the intelligent calculator for legacy calls
-  return 100; 
+export const calculateVitalityScore = (
+  vehicle: Vehicle, 
+  tasks: MaintenanceTask[], 
+  fuelLogs: FuelLog[] = [], 
+  serviceLogs: ServiceLog[] = []
+): number => {
+  return calculateIntelligentHealth(vehicle, tasks, fuelLogs, serviceLogs).total;
 };
 
 export const calculateDisciplineScore = (logs: ServiceLog[], tasks: MaintenanceTask[]): number => {

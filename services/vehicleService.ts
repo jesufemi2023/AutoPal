@@ -76,7 +76,6 @@ const mapLogFromDb = (l: any): ServiceLog => ({
   status: l.status,
   category: l.category,
   verificationLevel: l.verification_level,
-  // Fixed: receipt_url updated to receiptUrl to match ServiceLog interface in types.ts
   receiptUrl: l.receipt_url,
   createdAt: l.created_at
 });
@@ -160,7 +159,6 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
     vehicle_id: t.vehicleId,
     title: t.title,
     description: t.description,
-    // Fix: Using camelCase property names as defined in MaintenanceTask interface
     due_mileage: t.dueMileage,
     due_date: t.dueDate,
     status: t.status,
@@ -238,10 +236,6 @@ export const updateTaskStatus = async (taskId: string, status: TaskStatus): Prom
   if (error) handleSupabaseError(error, 'updateTaskStatus');
 };
 
-/**
- * Soft Delete / Archive of Asset
- * Marks the status as 'archived' to hide from UI while preserving history.
- */
 export const archiveVehicle = async (vehicleId: string): Promise<void> => {
   if (!supabase) return;
   const { error } = await supabase
@@ -280,7 +274,6 @@ export const createManualServiceLog = async (vehicle: Vehicle, log: Omit<Service
       category: log.category,
       status: log.status || 'completed',
       verification_level: log.verificationLevel,
-      // Fixed: log.receipt_url updated to log.receiptUrl to match ServiceLog interface in types.ts
       receipt_url: log.receiptUrl
     }])
     .select()
@@ -302,7 +295,8 @@ export const syncVehicleVitals = async (vehicleId: string): Promise<Vehicle> => 
   ]);
 
   const newAvgDailyKm = calculateAverageDailyKm(fuelLogs, serviceLogs);
-  const newHealthScore = calculateVitalityScore({ ...vehicle, avgDailyKm: newAvgDailyKm }, tasks);
+  // Pass all logs to ensure the vitality score is derived from full telemetry
+  const newHealthScore = calculateVitalityScore({ ...vehicle, avgDailyKm: newAvgDailyKm }, tasks, fuelLogs, serviceLogs);
 
   return await updateVehicle(vehicleId, { avgDailyKm: newAvgDailyKm, healthScore: newHealthScore });
 };
