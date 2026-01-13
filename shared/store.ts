@@ -8,7 +8,7 @@ interface AutoPalState {
   isInitialized: boolean;
   isRecovering: boolean;
   isLoading: boolean;
-  currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service';
+  currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service' | 'diagnostic';
   editingVehicleId: string | null;
   activeVehicleId: string | null; 
   vehicles: Vehicle[];
@@ -24,7 +24,7 @@ interface AutoPalState {
   setInitialized: (initialized: boolean) => void;
   setRecovering: (isRecovering: boolean) => void;
   setLoading: (loading: boolean) => void;
-  setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service') => void;
+  setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service' | 'diagnostic') => void;
   setEditingVehicle: (id: string | null) => void;
   setActiveVehicleId: (id: string | null) => void;
   setVehicles: (vehicles: Vehicle[]) => void;
@@ -134,7 +134,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   })),
   setMarketplace: (marketplace) => set({ marketplace }),
   setSuggestedParts: (suggestedPartNames) => set({ suggestedPartNames }),
-  setMarketplaceFilter: (marketplaceFilter) => set({ marketplaceFilter }),
+  setMarketplaceFilter: (filter: string) => set({ marketplaceFilter: filter }),
 
   reset: () => set({ 
     user: null, 
