@@ -118,6 +118,6 @@ export const ResaleValuationCard: React.FC<Props> = ({ vehicle, tasks, serviceLo
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 };
