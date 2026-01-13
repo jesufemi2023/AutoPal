@@ -33,11 +33,16 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <style>
       :root {
-        --safe-top: env(safe-area-inset-top);
-        --safe-bottom: env(safe-area-inset-bottom);
+        --safe-top: env(safe-area-inset-top, 0px);
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
+        --safe-left: env(safe-area-inset-left, 0px);
+        --safe-right: env(safe-area-inset-right, 0px);
         --sidebar-width: 280px;
         --brand-blue: #2563eb;
         --brand-slate: #0f172a;
+      }
+      * {
+        -webkit-tap-highlight-color: transparent;
       }
       body {
         font-family: 'Plus Jakarta Sans', sans-serif;
@@ -45,6 +50,7 @@
         color: #0f172a;
         -webkit-font-smoothing: antialiased;
         overflow-x: hidden;
+        min-height: 100dvh;
       }
       .font-mono {
         font-family: 'JetBrains Mono', monospace;
@@ -78,9 +84,15 @@
       /* Mobile safe area adjustments */
       .pb-safe { padding-bottom: var(--safe-bottom); }
       .pt-safe { padding-top: var(--safe-top); }
+      .px-safe { padding-left: var(--safe-left); padding-right: var(--safe-right); }
 
       @media (max-width: 1024px) {
         .main-content { margin-left: 0 !important; }
+      }
+
+      /* Fix for interactive elements on touch */
+      button:active {
+        transform: scale(0.98);
       }
     </style>
     <script type="importmap">

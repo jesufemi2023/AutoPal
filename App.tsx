@@ -63,7 +63,7 @@ const App: React.FC = () => {
 
   if (!isInitialized) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f8fafc]">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#f8fafc] px-6">
         <div className="relative">
           <div className="w-16 h-16 bg-blue-600 rounded-[1.25rem] rotate-12 flex items-center justify-center shadow-2xl animate-pulse">
             <span className="text-white font-black text-2xl -rotate-12">A</span>
@@ -77,10 +77,10 @@ const App: React.FC = () => {
   if (initError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-        <div className="bg-white rounded-[2.5rem] p-12 max-w-sm w-full text-center border border-rose-100 shadow-2xl">
+        <div className="bg-white rounded-[2.5rem] p-10 sm:p-12 max-w-md w-full text-center border border-rose-100 shadow-2xl">
           <div className="w-16 h-16 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center text-2xl mx-auto mb-6">⚠️</div>
           <h2 className="text-2xl font-black mb-2 text-slate-900 tracking-tighter uppercase">Access Denied</h2>
-          <p className="text-slate-500 text-[10px] mb-8 uppercase tracking-widest leading-relaxed">
+          <p className="text-slate-500 text-xs mb-8 uppercase tracking-widest leading-relaxed">
             {initError}
           </p>
           <button onClick={() => window.location.reload()} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all active:scale-95 shadow-lg">Retry Handshake</button>
@@ -103,13 +103,13 @@ const App: React.FC = () => {
       <span className="text-xl transition-transform duration-300 group-hover:scale-110">{icon}</span>
       <span className="text-[11px] font-black uppercase tracking-[0.25em]">{label}</span>
       {currentView === view && (
-        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-blue-600 rounded-l-full shadow-[0_0_12px_rgba(37,99,235,0.4)]"></div>
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-600 rounded-l-full shadow-[0_0_12px_rgba(37,99,235,0.4)]"></div>
       )}
     </button>
   );
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] flex">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-[280px] bg-white border-r border-slate-100 fixed inset-y-0 z-50">
         <div className="p-10 pb-6 shrink-0">
@@ -156,17 +156,17 @@ const App: React.FC = () => {
         {/* Mobile Top Header */}
         <header className="lg:hidden sticky top-0 z-[40] bg-white/80 backdrop-blur-xl border-b border-slate-100 px-6 py-4 flex justify-between items-center pt-safe">
           <div className="flex items-center gap-3" onClick={() => setCurrentView('garage')}>
-            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm">A</div>
+            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm transition-transform active:scale-95">A</div>
             <span className="font-black tracking-tighter text-slate-900 text-base">AutoPal NG</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-900 text-[10px] font-black border border-slate-200 uppercase">
               {user?.email?.[0]}
             </div>
           </div>
         </header>
 
-        <main className="p-6 sm:p-12 lg:p-16 max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow">
+        <main className="p-4 sm:p-8 md:p-12 lg:p-16 max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow">
           <div className="animate-slide-up">
             {currentView === 'garage' && <Dashboard />}
             {currentView === 'service' && <ServiceIntelligenceCenter />}
@@ -178,20 +178,20 @@ const App: React.FC = () => {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[50] bg-white border-t border-slate-100 px-4 py-3 flex justify-around items-center pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-8px_40px_rgba(0,0,0,0.04)]">
-        <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all duration-300 ${currentView === 'garage' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[50] bg-white border-t border-slate-100 flex justify-around items-center pb-safe shadow-[0_-8px_40px_rgba(0,0,0,0.04)]">
+        <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1 py-3.5 flex-1 transition-all duration-300 ${currentView === 'garage' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
           <span className="text-2xl">🏠</span>
           <span className="text-[9px] font-black uppercase tracking-widest">Garage</span>
         </button>
-        <button onClick={() => setCurrentView('service')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all duration-300 ${currentView === 'service' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
+        <button onClick={() => setCurrentView('service')} className={`flex flex-col items-center gap-1 py-3.5 flex-1 transition-all duration-300 ${currentView === 'service' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
           <span className="text-2xl">🛠️</span>
           <span className="text-[9px] font-black uppercase tracking-widest">Service</span>
         </button>
-        <button onClick={() => setCurrentView('fuel')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all duration-300 ${currentView === 'fuel' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
+        <button onClick={() => setCurrentView('fuel')} className={`flex flex-col items-center gap-1 py-3.5 flex-1 transition-all duration-300 ${currentView === 'fuel' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
           <span className="text-2xl">⛽</span>
           <span className="text-[9px] font-black uppercase tracking-widest">Fuel</span>
         </button>
-        <button onClick={() => setCurrentView('marketplace')} className={`flex flex-col items-center gap-1.5 flex-1 transition-all duration-300 ${currentView === 'marketplace' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
+        <button onClick={() => setCurrentView('marketplace')} className={`flex flex-col items-center gap-1 py-3.5 flex-1 transition-all duration-300 ${currentView === 'marketplace' ? 'text-blue-600 scale-110' : 'text-slate-400'}`}>
           <span className="text-2xl">🛒</span>
           <span className="text-[9px] font-black uppercase tracking-widest">Market</span>
         </button>
