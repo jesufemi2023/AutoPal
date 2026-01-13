@@ -11,7 +11,7 @@ export enum Priority {
 }
 
 export type LogStatus = 'upcoming' | 'overdue' | 'completed';
-export type ServiceCategory = 'engine' | 'tires' | 'brakes' | 'fluids' | 'suspension' | 'other';
+export type ServiceCategory = 'engine' | 'tires' | 'brakes' | 'fluids' | 'suspension' | 'other' | 'electrical' | 'cooling';
 export type VerificationLevel = 'self_declared' | 'receipt_verified' | 'mechanic_verified';
 
 export interface UserProfile {
@@ -35,6 +35,14 @@ export interface VehicleSpecs {
   [key: string]: any;
 }
 
+export interface HealthBreakdown {
+  metabolic: number; // Fuel efficiency score
+  hygiene: number;    // Maintenance adherence
+  provenance: number; // Trust/Verification score
+  metabolicStatus: 'optimal' | 'warning' | 'critical';
+  wasteMonthly: number; // Estimated ₦ wasted
+}
+
 export interface Vehicle {
   id: string;
   ownerId: string;
@@ -44,6 +52,7 @@ export interface Vehicle {
   vin?: string;
   mileage: number; 
   healthScore: number;
+  healthBreakdown?: HealthBreakdown;
   bodyType: BodyType;
   imageUrl?: string;
   status: 'active' | 'archived' | 'sold';
@@ -52,7 +61,8 @@ export interface Vehicle {
   engineSize?: string;
   createdAt?: string;
   updatedAt?: string;
-  avgDailyKm?: number; // Phase 4: Velocity Engine
+  avgDailyKm?: number;
+  efficiencyBaseline?: number; // Established after 5 logs
   isDirty?: boolean;
 }
 
