@@ -3,11 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { 
-  fetchVehicleTasks, fetchVehicleServiceLogs, archiveVehicle, updateMileage, updateVehicle
+  fetchVehicleTasks, fetchVehicleServiceLogs, updateMileage, updateVehicle
 } from './services/vehicleService.ts';
 import { fetchFuelLogs } from './services/fuelService.ts';
 import { OdometerInput } from './components/OdometerInput.tsx';
-import { MaintenanceTask } from './shared/types.ts';
 
 import { VehicleOverview } from './components/dashboard/VehicleOverview.tsx';
 import { MaintenanceRoadmap } from './components/dashboard/MaintenanceRoadmap.tsx';
@@ -21,8 +20,7 @@ const Dashboard: React.FC = () => {
     vehicles, tasks, serviceLogs, fuelLogs, user, setSuggestedParts,
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
-    removeVehicleStore, updateMileage: updateStoreMileage, updateVehicleStore,
-    setEditingVehicle
+    updateMileage: updateStoreMileage, updateVehicleStore
   } = useAutoPalStore();
 
   const [isAskingAI, setIsAskingAI] = useState(false);
@@ -68,104 +66,101 @@ const Dashboard: React.FC = () => {
     }
   }, [tasks, activeVehicle?.mileage, activeFuelLogs, activeServiceLogs]);
 
-  const startTuning = () => {
-    if (!activeVehicleId) return;
-    setEditingVehicle(activeVehicleId);
-    setCurrentView('edit');
-  };
-
   return (
-    <div className="space-y-12 lg:space-y-20">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+    <div className="space-y-10 sm:space-y-16 lg:space-y-24 w-full max-w-full overflow-x-hidden">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-1">
         <div>
-          <h1 className="text-4xl sm:text-6xl font-black text-slate-900 tracking-tighter mb-2">Garage Report</h1>
-          <p className="text-slate-400 font-black uppercase tracking-widest text-[9px]">Strategic Asset Intelligence Active</p>
+          <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black text-slate-900 tracking-tighter mb-2">Garage Report</h1>
+          <p className="text-slate-400 font-black uppercase tracking-widest text-[8px] sm:text-[9px]">Strategic Asset Intelligence Active</p>
         </div>
-        <div className="flex gap-4">
-          <button 
-            onClick={() => setCurrentView('onboarding')}
-            className="flex-1 sm:flex-none bg-blue-600 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-blue-500/20 active:scale-95 transition-all"
-          >
-            + Deploy Asset
-          </button>
-          {activeVehicle && (
-            <button 
-              onClick={startTuning}
-              className="bg-white border-2 border-slate-100 text-slate-900 px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] active:scale-95 transition-all"
-            >
-              ⚙ Tuning
-            </button>
-          )}
-        </div>
-      </header>
-
-      {vehicles.length > 0 && (
-        <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-          {vehicles.map(v => (
+        
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide py-1">
+          {vehicles.length > 0 && vehicles.map(v => (
             <button 
               key={v.id}
               onClick={() => setActiveVehicleId(v.id)}
-              className={`flex-shrink-0 px-8 py-6 rounded-[2rem] border-2 transition-all min-w-[200px] text-left relative ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-300'}`}
+              className={`flex-shrink-0 px-6 sm:px-8 py-4 sm:py-6 rounded-2xl sm:rounded-[2rem] border-2 transition-all min-w-[160px] sm:min-w-[200px] text-left relative overflow-hidden ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-300'}`}
             >
-              <div className="text-[8px] font-black uppercase opacity-50 mb-1">{v.make}</div>
-              <div className="text-xl font-black tracking-tight truncate">{v.model}</div>
-              <div className={`w-2.5 h-2.5 rounded-full mt-4 ${activeVehicleId === v.id ? 'bg-blue-500' : 'bg-slate-200'}`}></div>
+              <div className="text-[7px] sm:text-[8px] font-black uppercase opacity-50 mb-1">{v.make}</div>
+              <div className="text-lg sm:text-xl font-black tracking-tight truncate">{v.model}</div>
+              <div className={`w-2 h-2 rounded-full mt-3 sm:mt-4 ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_8px_#3b82f6]' : 'bg-slate-200'}`}></div>
             </button>
           ))}
         </div>
-      )}
+      </header>
 
       {activeVehicle ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-16 items-start">
-          <div className="lg:col-span-8 space-y-16 lg:space-y-24">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-12 lg:gap-16 items-start w-full">
+          <div className="lg:col-span-8 space-y-12 sm:space-y-20 lg:space-y-28 w-full">
             <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
             
-            <ResaleValuationCard 
-              vehicle={activeVehicle} 
-              tasks={tasks} 
-              serviceLogs={activeServiceLogs} 
-              fuelLogs={activeFuelLogs} 
-            />
+            <div className="px-1">
+              <ResaleValuationCard 
+                vehicle={activeVehicle} 
+                tasks={tasks} 
+                serviceLogs={activeServiceLogs} 
+                fuelLogs={activeFuelLogs} 
+              />
+            </div>
 
-            <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
+            <div className="px-1">
+              <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
+            </div>
 
-            <MaintenanceRoadmap 
-              vehicle={activeVehicle} 
-              tasks={vehicleTasks} 
-              isLoading={isLoadingDetails}
-              onLog={() => setCurrentView('service')} 
-            />
+            <div className="px-1">
+              <MaintenanceRoadmap 
+                vehicle={activeVehicle} 
+                tasks={vehicleTasks} 
+                isLoading={isLoadingDetails}
+                onLog={() => setCurrentView('service')} 
+              />
+            </div>
           </div>
 
-          <aside className="lg:col-span-4 lg:sticky lg:top-10 space-y-10">
-            <DiagnosticsPanel 
-              vehicle={activeVehicle} symptom={symptom} setSymptom={setSymptom} 
-              diagImage={diagImage} setDiagImage={setDiagImage} isAskingAI={isAskingAI} 
-              onAnalyze={async () => {
-                setIsAskingAI(true);
-                try {
-                  const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
-                  setAiAdvice(advice);
-                  if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
-                } catch (e) { alert("Neural Analysis Error"); } finally { setIsAskingAI(false); }
-              }} aiAdvice={aiAdvice} 
-            />
+          <aside className="lg:col-span-4 lg:sticky lg:top-10 space-y-10 w-full">
+            <div className="px-1">
+              <DiagnosticsPanel 
+                vehicle={activeVehicle} symptom={symptom} setSymptom={setSymptom} 
+                diagImage={diagImage} setDiagImage={setDiagImage} isAskingAI={isAskingAI} 
+                onAnalyze={async () => {
+                  setIsAskingAI(true);
+                  try {
+                    const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
+                    setAiAdvice(advice);
+                    if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
+                  } catch (e) { alert("Neural Analysis Error"); } finally { setIsAskingAI(false); }
+                }} aiAdvice={aiAdvice} 
+              />
+            </div>
+            
+            <div className="bg-slate-50 rounded-[2rem] p-8 border border-slate-200">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Quick Insights</h4>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-[11px] font-bold">
+                  <span className="text-slate-500">Service Coverage</span>
+                  <span className="text-slate-900">{vehicleTasks.filter(t => t.status === 'completed').length} / {vehicleTasks.length}</span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-600 rounded-full" style={{ width: `${(vehicleTasks.filter(t => t.status === 'completed').length / (vehicleTasks.length || 1)) * 100}%` }}></div>
+                </div>
+              </div>
+            </div>
           </aside>
         </div>
       ) : (
         !isLoadingDetails && (
-          <div className="py-32 text-center bg-white rounded-[3rem] border border-slate-100 p-20 shadow-sm">
-             <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center text-4xl mx-auto mb-10">🛰️</div>
-             <h3 className="text-3xl font-black text-slate-900 mb-2">No Assets Deployed</h3>
-             <p className="text-slate-400 mb-12 text-[10px] font-black uppercase tracking-widest">Connect your first vehicle to begin analysis</p>
-             <button onClick={() => setCurrentView('onboarding')} className="bg-slate-900 text-white px-12 py-6 rounded-[2rem] font-black uppercase tracking-widest text-[11px] shadow-2xl">Initialize Digital Twin</button>
+          <div className="py-24 sm:py-32 lg:py-48 text-center bg-white rounded-[3rem] border border-slate-100 p-10 sm:p-20 shadow-sm mx-auto max-w-3xl">
+             <div className="w-20 h-20 sm:w-24 sm:h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center text-4xl mx-auto mb-8 sm:mb-10 shadow-inner">🛰️</div>
+             <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">Fleet Management Offline</h3>
+             <p className="text-slate-400 mb-10 sm:mb-12 text-[9px] sm:text-[10px] font-black uppercase tracking-widest max-w-sm mx-auto">Initialize a digital twin using the Deploy Asset feature in your sidebar</p>
+             <button onClick={() => setCurrentView('onboarding')} className="w-full sm:w-auto bg-slate-900 text-white px-10 sm:px-12 py-5 sm:py-6 rounded-[1.5rem] sm:rounded-[2rem] font-black uppercase tracking-widest text-[10px] sm:text-[11px] shadow-3xl hover:bg-blue-600 transition-all">Start Onboarding →</button>
           </div>
         )
       )}
 
       {showOdometerModal && activeVehicle && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md">
-          <div className="w-full max-w-md">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-xl">
+          <div className="w-full max-w-md animate-slide-up">
             <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { 
               await updateMileage(activeVehicle.id, v); 
               updateStoreMileage(activeVehicle.id, v); 
