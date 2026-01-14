@@ -81,7 +81,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const currentState = get();
     const meta = supabaseUser.user_metadata || {};
 
-    // Map metadata: Priorities match user requested keys ("Display name", "Phone")
+    // Map metadata using the specific keys from the user's Supabase table ("Display name", "Phone")
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
@@ -93,7 +93,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       createdAt: supabaseUser.created_at || new Date().toISOString(),
     };
 
-    // Deep check to prevent "blinking" - if local data is same, do not trigger re-render
+    // Deep check to prevent re-render flickers. Only update if data is truly different.
     const isIdentityEqual = 
       currentState.user?.id === newUserObj.id &&
       currentState.user?.displayName === newUserObj.displayName &&

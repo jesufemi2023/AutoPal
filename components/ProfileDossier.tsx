@@ -24,8 +24,8 @@ const ProfileDossier: React.FC = () => {
     phone: ''
   });
 
-  // Sync internal form data ONLY when entering edit mode or when not currently editing.
-  // This prevents background auth updates from overwriting the user's typing.
+  // Effect to populate form data only when NOT editing and NOT saving.
+  // This is crucial to prevent background auth heartbeat from resetting the form inputs.
   useEffect(() => {
     if (user && !isEditing && !isSaving) {
       setFormData({
@@ -46,7 +46,7 @@ const ProfileDossier: React.FC = () => {
     try {
       if (!supabase) throw new Error("Neural Link Failure: Supabase disconnected.");
       
-      // Update Supabase Auth metadata using exact keys provided by user
+      // Update Supabase Auth metadata using exact keys mapping to the Users table
       const { data, error } = await supabase.auth.updateUser({
         data: {
           "Display name": formData.displayName,
@@ -57,23 +57,23 @@ const ProfileDossier: React.FC = () => {
       if (error) throw error;
       
       if (data?.user) {
-        // Construct the updated profile object manually for optimistic UI update
+        // Construct the updated profile object manually for optimistic UI consistency
         const updatedProfile: UserProfile = {
           ...user,
           displayName: data.user.user_metadata?.['Display name'] || formData.displayName,
           phone: data.user.user_metadata?.['Phone'] || formData.phone
         };
         
-        // Immediately update global store to prevent the "blink"
+        // Update global store immediately to block the 'blink'
         setUser(updatedProfile);
         setSuccessMessage("Identity parameters synchronized.");
         
-        // Brief delay for user feedback before closing
+        // Provide visual confirmation before closing the edit mode
         setTimeout(() => {
           setIsEditing(false);
           setSuccessMessage(null);
           setIsSaving(false);
-        }, 1200);
+        }, 1500);
       }
     } catch (err: any) {
       setErrorMessage(err.message || "Identity synchronization failure.");
@@ -136,20 +136,32 @@ const ProfileDossier: React.FC = () => {
               </div>
               
               <div className="relative z-10 space-y-12">
-                <div className="flex items-center gap-8">
-                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-slate-900 flex items-center justify-center text-white text-3xl sm:text-4xl font-black shadow-2xl border-4 border-slate-800">
-                    {user?.email?.[0]?.toUpperCase() || 'U'}
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_12px_#10b981]"></span>
-                      <span className="text-slate-400 text-[9px] font-black uppercase tracking-[0.3em]">Identity Verified</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-8">
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-slate-900 flex items-center justify-center text-white text-3xl sm:text-4xl font-black shadow-2xl border-4 border-slate-800">
+                      {user?.email?.[0]?.toUpperCase() || 'U'}
                     </div>
-                    <h3 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none">
-                      {user?.displayName || 'Unknown Entity'}
-                    </h3>
-                    <p className="text-slate-400 font-mono text-xs sm:text-sm tracking-tight">{user?.email}</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_12px_#10b981]"></span>
+                        <span className="text-slate-400 text-[9px] font-black uppercase tracking-[0.3em]">Identity Verified</span>
+                      </div>
+                      <h3 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none">
+                        {user?.displayName || 'Unknown Entity'}
+                      </h3>
+                      <p className="text-slate-400 font-mono text-xs sm:text-sm tracking-tight">{user?.email}</p>
+                    </div>
                   </div>
+                  
+                  {!isEditing && (
+                    <button 
+                      onClick={() => setIsEditing(true)}
+                      className="hidden sm:flex items-center gap-3 bg-slate-50 border border-slate-100 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm active:scale-95"
+                    >
+                      <span>Update Profile</span>
+                      <span className="text-base">✎</span>
+                    </button>
+                  )}
                 </div>
 
                 <form onSubmit={handleUpdate} className="space-y-10">
@@ -161,13 +173,14 @@ const ProfileDossier: React.FC = () => {
                           type="text" 
                           required
                           disabled={isSaving}
+                          autoFocus
                           className="w-full bg-slate-50 border-2 border-blue-600/20 rounded-2xl px-6 py-5 font-bold text-sm outline-none focus:border-blue-600 focus:bg-white transition-all text-slate-900 shadow-inner disabled:opacity-50"
                           value={formData.displayName}
                           onChange={e => setFormData({ ...formData, displayName: e.target.value })}
                         />
                       ) : (
-                        <div className="px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 font-bold text-sm">
-                          {user?.displayName || "N/A"}
+                        <div className="px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 font-bold text-sm min-h-[60px] flex items-center">
+                          {user?.displayName || "Not specified"}
                         </div>
                       )}
                     </div>
@@ -183,8 +196,8 @@ const ProfileDossier: React.FC = () => {
                           onChange={e => setFormData({ ...formData, phone: e.target.value })}
                         />
                       ) : (
-                        <div className="px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 font-mono font-bold text-sm">
-                          {user?.phone || "N/A"}
+                        <div className="px-6 py-5 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 font-mono font-bold text-sm min-h-[60px] flex items-center">
+                          {user?.phone || "Not linked"}
                         </div>
                       )}
                     </div>
@@ -197,7 +210,8 @@ const ProfileDossier: React.FC = () => {
                   )}
 
                   {successMessage && (
-                    <div className="p-5 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-600 text-[10px] font-black uppercase tracking-widest animate-in fade-in slide-in-from-top-2">
+                    <div className="p-5 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-600 text-[10px] font-black uppercase tracking-widest animate-in fade-in slide-in-from-top-2 flex items-center gap-3">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                       {successMessage}
                     </div>
                   )}
@@ -211,7 +225,7 @@ const ProfileDossier: React.FC = () => {
                           className="flex-grow bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
                         >
                           {isSaving && <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>}
-                          {isSaving ? 'Updating...' : 'Save Changes'}
+                          {isSaving ? 'Synchronizing Node...' : 'Save Profile Changes'}
                         </button>
                         <button 
                           type="button" 
@@ -226,9 +240,10 @@ const ProfileDossier: React.FC = () => {
                       <button 
                         type="button" 
                         onClick={() => { setIsEditing(true); setErrorMessage(null); setSuccessMessage(null); }} 
-                        className="flex-grow bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-blue-600 transition-all shadow-xl active:scale-95"
+                        className="flex-grow bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-blue-600 transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3 sm:hidden"
                       >
-                        Update Identity Profile
+                        <span>Update Identity Parameters</span>
+                        <span className="text-base">✎</span>
                       </button>
                     )}
                   </div>
