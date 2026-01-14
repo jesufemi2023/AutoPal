@@ -79,21 +79,22 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
 
     const { user: supabaseUser } = session;
     const currentState = get();
+    const meta = supabaseUser.user_metadata || {};
 
-    // Map metadata with standardized priority
-    // We prioritize displayName (our internal key) then fall back to full_name (standard/Google key)
+    // Map metadata with standardized priority, checking both camelCase and the User's specific field names
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
-      displayName: supabaseUser.user_metadata?.displayName || supabaseUser.user_metadata?.full_name || '',
-      phone: supabaseUser.user_metadata?.phone || '',
-      tier: supabaseUser.user_metadata?.tier || 'free',
-      role: supabaseUser.user_metadata?.role || 'user',
-      onboarded: supabaseUser.user_metadata?.onboarded || false,
+      displayName: meta['Display name'] || meta.displayName || meta.full_name || '',
+      phone: meta['Phone'] || meta.phone || '',
+      tier: meta.tier || 'free',
+      role: meta.role || 'user',
+      onboarded: meta.onboarded || false,
       createdAt: supabaseUser.created_at || new Date().toISOString(),
     };
 
     // Robust comparison to prevent re-render loops or "flickers" back to old data
+    // We only update if the essential identity fields have actually changed
     const isIdentityEqual = 
       currentState.user?.id === newUserObj.id &&
       currentState.user?.displayName === newUserObj.displayName &&
@@ -101,9 +102,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       currentState.user?.tier === newUserObj.tier &&
       currentState.user?.role === newUserObj.role;
 
-    const isSessionEqual = currentState.session?.access_token === session.access_token;
-
-    if (!isIdentityEqual || !isSessionEqual) {
+    if (!isIdentityEqual || currentState.session?.access_token !== session.access_token) {
       set({ session, user: newUserObj });
     }
   },

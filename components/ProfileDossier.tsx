@@ -24,8 +24,9 @@ const ProfileDossier: React.FC = () => {
     phone: ''
   });
 
-  // Effect to sync internal form data when NOT editing
-  // This ensures the form reflects the store's current state when initially opened
+  // Effect to sync internal form data ONLY when not editing or saving.
+  // This is the critical fix for the "blink/revert" issue. 
+  // By ignoring 'user' updates while isSaving is true, we prevent the Auth listener from resetting the form.
   useEffect(() => {
     if (user && !isEditing && !isSaving) {
       setFormData({
@@ -46,40 +47,39 @@ const ProfileDossier: React.FC = () => {
     try {
       if (!supabase) throw new Error("Neural Link Failure: Supabase disconnected.");
       
-      // Update both displayName AND full_name to satisfy all potential auth provider mappings
-      // (Google uses full_name, we use displayName internally)
+      // We update both the standard camelCase and the User's specific required keys
       const { data, error } = await supabase.auth.updateUser({
         data: {
-          displayName: formData.displayName,
-          full_name: formData.displayName,
-          phone: formData.phone
+          "Display name": formData.displayName,
+          "Phone": formData.phone,
+          "displayName": formData.displayName, // Duplicate for backward compatibility
+          "phone": formData.phone
         }
       });
       
       if (error) throw error;
       
       if (data?.user) {
-        // Construct the updated profile locally to ensure immediate UI feedback
-        // and prevent the "blink" caused by auth heartbeat refreshes
+        // Construct the updated profile locally
         const updatedProfile: UserProfile = {
           ...user,
-          displayName: data.user.user_metadata?.displayName || data.user.user_metadata?.full_name || formData.displayName,
-          phone: data.user.user_metadata?.phone || formData.phone
+          displayName: data.user.user_metadata?.['Display name'] || formData.displayName,
+          phone: data.user.user_metadata?.['Phone'] || formData.phone
         };
         
-        // Update global store immediately
+        // Update global store
         setUser(updatedProfile);
         
-        // Show success state
-        setSuccessMessage("Identity parameters synchronized successfully.");
+        // Final success state
+        setSuccessMessage("Identity synchronization successful.");
         
-        // Delay closing the edit mode to ensure the user perceives the success
-        // and to allow server-side propagation to stabilize
+        // Hold the state for a moment so the user sees the success, 
+        // then close the edit mode and release the "isSaving" lock.
         setTimeout(() => {
           setIsEditing(false);
           setSuccessMessage(null);
           setIsSaving(false);
-        }, 1200);
+        }, 1500);
       }
     } catch (err: any) {
       setErrorMessage(err.message || "Identity synchronization failure.");
@@ -166,7 +166,8 @@ const ProfileDossier: React.FC = () => {
                         <input 
                           type="text" 
                           required
-                          className="w-full bg-slate-50 border-2 border-blue-600/20 rounded-2xl px-6 py-5 font-bold text-sm outline-none focus:border-blue-600 focus:bg-white transition-all text-slate-900 shadow-inner"
+                          disabled={isSaving}
+                          className="w-full bg-slate-50 border-2 border-blue-600/20 rounded-2xl px-6 py-5 font-bold text-sm outline-none focus:border-blue-600 focus:bg-white transition-all text-slate-900 shadow-inner disabled:opacity-50"
                           value={formData.displayName}
                           onChange={e => setFormData({ ...formData, displayName: e.target.value })}
                         />
@@ -182,7 +183,8 @@ const ProfileDossier: React.FC = () => {
                       {isEditing ? (
                         <input 
                           type="tel" 
-                          className="w-full bg-slate-50 border-2 border-blue-600/20 rounded-2xl px-6 py-5 font-mono font-bold text-sm outline-none focus:border-blue-600 focus:bg-white transition-all text-slate-900 shadow-inner"
+                          disabled={isSaving}
+                          className="w-full bg-slate-50 border-2 border-blue-600/20 rounded-2xl px-6 py-5 font-mono font-bold text-sm outline-none focus:border-blue-600 focus:bg-white transition-all text-slate-900 shadow-inner disabled:opacity-50"
                           value={formData.phone}
                           onChange={e => setFormData({ ...formData, phone: e.target.value })}
                         />
@@ -215,7 +217,7 @@ const ProfileDossier: React.FC = () => {
                           className="flex-grow bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
                         >
                           {isSaving && <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>}
-                          {isSaving ? 'Synchronizing...' : 'Commit Changes'}
+                          {isSaving ? 'Updating Neural Record...' : 'Commit Changes'}
                         </button>
                         <button 
                           type="button" 
