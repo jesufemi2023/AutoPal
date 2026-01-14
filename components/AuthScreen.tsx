@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { signIn, signUp, signInWithGoogle, sendPasswordResetEmail, updatePassword, signOut } from '../auth/authService.ts';
 import { useAutoPalStore } from '../shared/store.ts';
@@ -7,6 +8,7 @@ type AuthMode = 'login' | 'signup' | 'forgot' | 'reset';
 const AuthScreen: React.FC = () => {
   const isRecovering = useAutoPalStore(s => s.isRecovering);
   const setRecovering = useAutoPalStore(s => s.setRecovering);
+  const setCurrentView = useAutoPalStore(s => s.setCurrentView);
   
   const [mode, setMode] = useState<AuthMode>(isRecovering ? 'reset' : 'login');
   const [email, setEmail] = useState('');
@@ -40,16 +42,9 @@ const AuthScreen: React.FC = () => {
         await sendPasswordResetEmail(email);
         setSuccessMessage(`Reset link sent to ${email}. Check your inbox or spam.`);
       } else if (mode === 'reset') {
-        // 1. Apply the new password
         await updatePassword(password);
-        
-        // 2. Clear state and inform user
         setSuccessMessage('Password updated successfully! Redirecting to login...');
-        
-        // 3. Force sign out to destroy the temporary recovery session
         await signOut();
-
-        // 4. Clean up URL and redirect to login mode after delay
         setTimeout(() => {
           setRecovering(false);
           if (window.location.hash) {
@@ -57,7 +52,6 @@ const AuthScreen: React.FC = () => {
           }
           setMode('login');
           setSuccessMessage(null);
-          // Small nudge to clear any residual app state
           window.location.reload();
         }, 2000);
       }
@@ -68,7 +62,6 @@ const AuthScreen: React.FC = () => {
     }
   };
 
-  // Intermediate success screen for specific flows
   if (successMessage && (mode === 'signup' || mode === 'forgot')) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -98,9 +91,17 @@ const AuthScreen: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 border border-slate-100">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-blue-500/30 mx-auto mb-4">A</div>
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 border border-slate-100 relative overflow-hidden">
+        {/* Navigation Back Link */}
+        <button 
+          onClick={() => setCurrentView('landing')}
+          className="absolute top-8 left-8 flex items-center gap-2 group transition-all"
+        >
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black text-xs shadow-md shadow-blue-500/20 group-hover:scale-110 transition-transform">A</div>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Back Home</span>
+        </button>
+
+        <div className="text-center mb-8 mt-12">
           <h1 className="text-2xl font-black text-slate-900 tracking-tighter">
             {mode === 'login' && 'Welcome Back'}
             {mode === 'signup' && 'Join AutoPal NG'}
