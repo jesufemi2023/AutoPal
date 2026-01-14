@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [symptom, setSymptom] = useState('');
   const [diagImage, setDiagImage] = useState<string | null>(null);
   const [aiAdvice, setAiAdvice] = useState<any>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
@@ -147,7 +148,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-50 overflow-hidden">
-        {/* Pinned Brand Header */}
+        {/* Fixed Header */}
         <div className="p-8 pb-6 shrink-0">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
             <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-slate-900/20">A</div>
@@ -159,57 +160,66 @@ const App: React.FC = () => {
         </div>
 
         {/* Scrollable Navigation Area */}
-        <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 space-y-0.5">
+        <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 space-y-0.5 pb-8">
           <div className="pb-4">
-            <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2 mt-2">Menu</p>
-            <NavItem view="garage" label="Home" icon="🏠" />
+            <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2 mt-2">Navigation</p>
+            <NavItem view="garage" label="Dashboard" icon="🏠" />
             <NavItem view="diagnostic" label="AI Diagnostic" icon="✧" isNeural />
             <NavItem view="service" label="Service History" icon="🛠️" />
-            <NavItem view="fuel" label="Gas Log" icon="⛽" />
+            <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
             <NavItem view="marketplace" label="Shop Parts" icon="🛒" />
           </div>
 
           <div className="pt-4 border-t border-slate-50 mx-2">
-            <p className="px-3 text-[7px] font-black text-slate-400 uppercase tracking-[0.4em] mb-3">Vehicle Management</p>
-            <div className="bg-slate-50/50 rounded-2xl p-2 space-y-0.5 border border-slate-100/50">
-              <button 
-                onClick={() => setCurrentView('onboarding')}
-                className="flex items-center gap-4 px-3 py-3 w-full text-blue-600 hover:bg-white transition-all group rounded-xl border border-transparent hover:border-slate-100"
-              >
-                <span className="text-base group-hover:scale-110 transition-transform">➕</span>
-                <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add a Vehicle</span>
-              </button>
+            <button 
+              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+              className="flex items-center justify-between w-full px-3 mb-3 group"
+            >
+              <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.4em] group-hover:text-blue-600 transition-colors">Vehicle Settings</p>
+              <span className={`text-[10px] text-slate-300 transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}>▼</span>
+            </button>
+            
+            <div className={`transition-all duration-300 overflow-hidden ${isSettingsOpen ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              <div className="bg-slate-50/50 rounded-2xl p-2 space-y-0.5 border border-slate-100/50">
+                <button 
+                  onClick={() => setCurrentView('onboarding')}
+                  className="flex items-center gap-4 px-3 py-3 w-full text-blue-600 hover:bg-white transition-all group rounded-xl border border-transparent hover:border-slate-100"
+                >
+                  <span className="text-base group-hover:scale-110 transition-transform">➕</span>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add a Vehicle</span>
+                </button>
 
-              {activeVehicle && (
-                <>
-                  <button 
-                    onClick={handleEditAsset}
-                    className="flex items-center gap-4 px-3 py-3 w-full text-slate-600 hover:bg-white hover:text-blue-600 transition-all group rounded-xl border border-transparent hover:border-slate-100"
-                  >
-                    <span className="text-base group-hover:scale-110 transition-transform">✎</span>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em]">Change Details</span>
-                  </button>
-                  <button 
-                    onClick={handleArchiveAsset}
-                    className="flex items-center gap-4 px-3 py-3 w-full text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all group rounded-xl border border-transparent hover:border-rose-100"
-                  >
-                    <span className="text-base group-hover:scale-110 transition-transform">📁</span>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em]">Delete Vehicle</span>
-                  </button>
-                </>
-              )}
+                {activeVehicle && (
+                  <>
+                    <button 
+                      onClick={handleEditAsset}
+                      className="flex items-center gap-4 px-3 py-3 w-full text-slate-600 hover:bg-white hover:text-blue-600 transition-all group rounded-xl border border-transparent hover:border-slate-100"
+                    >
+                      <span className="text-base group-hover:scale-110 transition-transform">✎</span>
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em]">Update Details</span>
+                    </button>
+                    <button 
+                      onClick={handleArchiveAsset}
+                      className="flex items-center gap-4 px-3 py-3 w-full text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all group rounded-xl border border-transparent hover:border-rose-100"
+                    >
+                      <span className="text-base group-hover:scale-110 transition-transform">📁</span>
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em]">Remove Vehicle</span>
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
           {user?.role === 'admin' && (
-            <div className="pt-6 pb-4">
+            <div className="pt-6">
               <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Admin Tools</p>
               <NavItem view="admin" label="Admin Panel" icon="🛡️" />
             </div>
           )}
         </nav>
 
-        {/* Pinned User Footer */}
+        {/* Fixed Footer */}
         <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white">
           <button 
             onClick={() => setCurrentView('profile')}
@@ -264,11 +274,11 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation (Remains simple for usability) */}
+      {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-2xl">
         <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
           <span className="text-lg">🏠</span>
-          <span className="text-[7px] font-black uppercase tracking-widest">Home</span>
+          <span className="text-[7px] font-black uppercase tracking-widest">Dash</span>
         </button>
         <button onClick={() => setCurrentView('diagnostic')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
           <span className="text-lg">✧</span>
