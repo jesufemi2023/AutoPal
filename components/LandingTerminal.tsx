@@ -17,7 +17,7 @@ const LandingTerminal: React.FC = () => {
     // Guardrail: Guests can only generate a roadmap once.
     if (guestAttempts >= 1) {
       alert("Trial limit reached. Please create a Pilot ID to continue monitoring your vehicle's health.");
-      setCurrentView('garage'); // This will trigger AuthScreen if no session
+      setCurrentView('garage'); // This will trigger AuthScreen
       return;
     }
 

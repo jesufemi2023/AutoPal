@@ -47,7 +47,6 @@ const App: React.FC = () => {
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           setSession(session);
-          // If we just logged in and had transient data, the next sync would bond it.
         });
         return () => subscription.unsubscribe();
       } catch (err) {
@@ -57,22 +56,24 @@ const App: React.FC = () => {
     initAuth();
   }, [setSession, setInitialized]);
 
+  // Handle vehicle fetching and initial routing upon login
   useEffect(() => {
     if (session && user) {
-      fetchUserVehicles().then(setVehicles).catch(console.error);
+      fetchUserVehicles().then((fetchedVehicles) => {
+        setVehicles(fetchedVehicles);
+        
+        // Initial routing logic after login/session recovery
+        // Only override the view if we are on a landing or auth-related screen
+        if (currentView === 'landing' || currentView === 'garage') {
+          if (fetchedVehicles.length === 0) {
+            setCurrentView('onboarding');
+          } else {
+            setCurrentView('garage');
+          }
+        }
+      }).catch(console.error);
     }
   }, [session, user, setVehicles]);
-
-  // View Routing Logic
-  useEffect(() => {
-    if (session) {
-      if (vehicles.length === 0 && currentView !== 'onboarding' && currentView !== 'profile') {
-        setCurrentView('onboarding');
-      } else if (vehicles.length > 0 && currentView === 'landing') {
-        setCurrentView('garage');
-      }
-    }
-  }, [session, vehicles.length, currentView, setCurrentView]);
 
   if (!isInitialized) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -83,9 +84,14 @@ const App: React.FC = () => {
   // Unauthenticated Flow
   if (!session) {
     if (currentView === 'report' && transientVehicle) return <GuestReport />;
-    if (currentView === 'landing') return <LandingTerminal />;
-    return <AuthScreen />;
+    // Default to landing page for all other unauthenticated states
+    return <LandingTerminal />;
   }
+
+  // Auth screen as a modal/overlay if triggered manually
+  // This is a safety check: if we are logged in but somehow on the LandingTerminal, 
+  // the useEffect above should have already moved us. 
+  // But if explicitly on garage/onboarding/etc, we stay there.
 
   // Authenticated Modal Views
   if (currentView === 'onboarding' || currentView === 'edit') {

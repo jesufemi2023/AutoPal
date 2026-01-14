@@ -34,7 +34,7 @@ const ProfileDossier: React.FC = () => {
   };
 
   const handleDecommission = async () => {
-    if (!confirm("Are you sure? This will permanently decommission your pilot identity and all asset telemetry. This action cannot be undone.")) return;
+    if (!confirm("Are you sure? This will permanently delete your account and all saved vehicle data. This action cannot be undone.")) return;
     try {
       // In a real app, you'd call a backend function to delete the user.
       // For MVP, we sign out and show a goodbye message.
@@ -54,8 +54,8 @@ const ProfileDossier: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-10 animate-slide-up">
       <header className="px-1">
-        <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter leading-none uppercase">Personnel Dossier</h1>
-        <p className="text-slate-400 font-black uppercase tracking-widest text-[8px] sm:text-[9px] mt-2">Pilot ID: {user?.id.split('-')[0]}</p>
+        <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter leading-none uppercase">Profile & Settings</h1>
+        <p className="text-slate-400 font-black uppercase tracking-widest text-[8px] sm:text-[9px] mt-2">Member ID: {user?.id.split('-')[0]}</p>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -71,9 +71,9 @@ const ProfileDossier: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="text-slate-400 text-[8px] font-black uppercase tracking-widest">Active Pilot Session</span>
+                  <span className="text-slate-400 text-[8px] font-black uppercase tracking-widest">Active Member Session</span>
                 </div>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight">{user?.displayName || 'Anonymous Pilot'}</h3>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">{user?.displayName || 'Guest User'}</h3>
                 <p className="text-slate-400 font-mono text-xs">{user?.email}</p>
               </div>
             </div>
@@ -81,20 +81,22 @@ const ProfileDossier: React.FC = () => {
             <form onSubmit={handleUpdate} className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Pilot Name</label>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Display Name</label>
                   <input 
                     type="text" 
                     disabled={!isEditing}
+                    placeholder="Enter your name"
                     className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-4 font-bold text-sm outline-none focus:border-blue-600 disabled:opacity-50 transition-all"
                     value={formData.displayName}
                     onChange={e => setFormData({ ...formData, displayName: e.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Neural Relay (Phone)</label>
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Phone Number</label>
                   <input 
                     type="text" 
                     disabled={!isEditing}
+                    placeholder="+234..."
                     className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-4 font-mono font-bold text-sm outline-none focus:border-blue-600 disabled:opacity-50 transition-all"
                     value={formData.phone}
                     onChange={e => setFormData({ ...formData, phone: e.target.value })}
@@ -106,13 +108,13 @@ const ProfileDossier: React.FC = () => {
                 {isEditing ? (
                   <>
                     <button type="submit" disabled={isSaving} className="flex-grow bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-blue-600 transition-all">
-                      {isSaving ? 'Syncing...' : 'Confirm Update'}
+                      {isSaving ? 'Saving...' : 'Save Changes'}
                     </button>
                     <button type="button" onClick={() => setIsEditing(false)} className="px-6 py-4 border-2 border-slate-100 text-slate-400 rounded-xl font-black uppercase tracking-widest text-[10px]">Cancel</button>
                   </>
                 ) : (
                   <button type="button" onClick={() => setIsEditing(true)} className="flex-grow bg-white border-2 border-slate-900 text-slate-900 py-4 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-900 hover:text-white transition-all">
-                    Modify Identity
+                    Update Profile Details
                   </button>
                 )}
               </div>
@@ -124,31 +126,31 @@ const ProfileDossier: React.FC = () => {
         <div className="lg:col-span-5 space-y-6">
           <div className="bg-slate-900 rounded-[2rem] p-8 text-white space-y-8 shadow-xl">
              <div className="space-y-1">
-                <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em]">Operational License</h4>
-                <div className="text-3xl font-black text-blue-500 tracking-tighter">{stats.tier} CLASS</div>
+                <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em]">Membership Tier</h4>
+                <div className="text-3xl font-black text-blue-500 tracking-tighter">{stats.tier} ACCESS</div>
              </div>
              
              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
                 <div className="space-y-1">
-                   <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Active Assets</div>
+                   <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Active Cars</div>
                    <div className="text-2xl font-black">{stats.assets}</div>
                 </div>
                 <div className="space-y-1">
-                   <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Neural Logs</div>
+                   <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Service Records</div>
                    <div className="text-2xl font-black">{stats.ops}</div>
                 </div>
              </div>
 
              <button className="w-full bg-blue-600/10 border border-blue-500/20 py-4 rounded-xl text-blue-500 text-[9px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">
-               Upgrade Clearance
+               Upgrade Account
              </button>
           </div>
 
           <div className="bg-rose-50 border border-rose-100 rounded-[2rem] p-8 space-y-4">
             <h4 className="text-[9px] font-black text-rose-500 uppercase tracking-[0.4em]">Danger Zone</h4>
-            <p className="text-[10px] text-rose-400 font-bold uppercase tracking-widest leading-relaxed">Account decommissioning is permanent. Data persistence ends immediately.</p>
+            <p className="text-[10px] text-rose-400 font-bold uppercase tracking-widest leading-relaxed">Deleting your account is permanent. All vehicle history will be erased immediately.</p>
             <button onClick={handleDecommission} className="w-full bg-rose-500 text-white py-4 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all">
-              Decommission Identity
+              Delete My Account
             </button>
           </div>
         </div>
