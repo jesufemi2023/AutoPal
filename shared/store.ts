@@ -62,7 +62,8 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   editingVehicleId: null,
   activeVehicleId: null,
   transientVehicle: null,
-  guestAttempts: 0,
+  // Persistent guest attempts check
+  guestAttempts: parseInt(localStorage.getItem('autopal_guest_attempts') || '0'),
   vehicles: [],
   tasks: [],
   serviceLogs: [],
@@ -100,7 +101,13 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   setEditingVehicle: (editingVehicleId) => set({ editingVehicleId }),
   setActiveVehicleId: (activeVehicleId) => set({ activeVehicleId }),
   setTransientVehicle: (transientVehicle) => set({ transientVehicle }),
-  incrementGuestAttempts: () => set((state) => ({ guestAttempts: state.guestAttempts + 1 })),
+  
+  incrementGuestAttempts: () => set((state) => {
+    const newCount = state.guestAttempts + 1;
+    localStorage.setItem('autopal_guest_attempts', newCount.toString());
+    return { guestAttempts: newCount };
+  }),
+
   setVehicles: (vehicles) => set({ 
     vehicles,
     activeVehicleId: useAutoPalStore.getState().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
