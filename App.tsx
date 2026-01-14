@@ -30,7 +30,6 @@ const App: React.FC = () => {
   const [aiAdvice, setAiAdvice] = useState<any>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
-  const authInitialized = useRef(false);
 
   useEffect(() => { validateEnv(); }, []);
 
@@ -82,7 +81,7 @@ const App: React.FC = () => {
   const handleArchiveAsset = async () => {
     if (!activeVehicleId || !activeVehicle) return;
     const confirmed = confirm(
-      `REMOVE VEHICLE: Are you sure you want to remove the ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}? All service records and usage history will be moved to archives.`
+      `DELETE VEHICLE: Are you sure you want to remove the ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}? This will archive all service and fuel history.`
     );
     if (!confirmed) return;
 
@@ -91,7 +90,7 @@ const App: React.FC = () => {
       removeVehicleStore(activeVehicleId);
       setCurrentView('garage');
     } catch (e: any) {
-      alert(`Removal Fault: ${e.message}`);
+      alert(`System Error: ${e.message}`);
     }
   };
 
@@ -138,7 +137,7 @@ const App: React.FC = () => {
       setAiAdvice(advice);
       if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
     } catch (e) { 
-      alert("Analysis Error"); 
+      alert("AI Assistant error. Please try again."); 
     } finally { 
       setIsAskingAI(false); 
     }
@@ -147,51 +146,55 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-50 overflow-y-auto scrollbar-hide">
-        <div className="p-8 pb-4 shrink-0">
+      <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-50 overflow-hidden">
+        {/* Pinned Brand Header */}
+        <div className="p-8 pb-6 shrink-0">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
-            <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-lg">A</div>
+            <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-slate-900/20">A</div>
             <div>
-              <span className="block font-black tracking-tighter text-slate-900 text-base">AutoPal NG</span>
-              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">Vehicle Manager</span>
+              <span className="block font-black tracking-tighter text-slate-900 text-base leading-none mb-1">AutoPal NG</span>
+              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">My Garage</span>
             </div>
           </div>
         </div>
 
-        <nav className="mt-4 space-y-0.5 px-3 flex-grow">
-          <NavItem view="garage" label="Dashboard" icon="🏠" />
-          <NavItem view="diagnostic" label="AI Diagnostic" icon="✧" isNeural />
-          <NavItem view="service" label="Maintenance" icon="🛠️" />
-          <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
-          <NavItem view="marketplace" label="Parts Store" icon="🛒" />
-          
-          <div className="pt-8 pb-4">
-            <p className="px-5 text-[7px] font-black text-slate-400 uppercase tracking-[0.4em] mb-4">Vehicle Management</p>
-            <div className="bg-slate-50/50 rounded-2xl p-2 space-y-1">
+        {/* Scrollable Navigation Area */}
+        <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 space-y-0.5">
+          <div className="pb-4">
+            <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2 mt-2">Menu</p>
+            <NavItem view="garage" label="Home" icon="🏠" />
+            <NavItem view="diagnostic" label="AI Diagnostic" icon="✧" isNeural />
+            <NavItem view="service" label="Service History" icon="🛠️" />
+            <NavItem view="fuel" label="Gas Log" icon="⛽" />
+            <NavItem view="marketplace" label="Shop Parts" icon="🛒" />
+          </div>
+
+          <div className="pt-4 border-t border-slate-50 mx-2">
+            <p className="px-3 text-[7px] font-black text-slate-400 uppercase tracking-[0.4em] mb-3">Vehicle Management</p>
+            <div className="bg-slate-50/50 rounded-2xl p-2 space-y-0.5 border border-slate-100/50">
               <button 
                 onClick={() => setCurrentView('onboarding')}
-                className="flex items-center gap-4 px-4 py-3 w-full text-blue-600 hover:bg-white transition-all group rounded-xl border border-transparent hover:border-slate-100"
+                className="flex items-center gap-4 px-3 py-3 w-full text-blue-600 hover:bg-white transition-all group rounded-xl border border-transparent hover:border-slate-100"
               >
-                <span className="text-lg group-hover:scale-110 transition-transform">➕</span>
-                <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add New Vehicle</span>
+                <span className="text-base group-hover:scale-110 transition-transform">➕</span>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add a Vehicle</span>
               </button>
 
               {activeVehicle && (
                 <>
-                  <div className="h-px bg-slate-100/50 my-1 mx-4"></div>
                   <button 
                     onClick={handleEditAsset}
-                    className="flex items-center gap-4 px-4 py-3 w-full text-slate-600 hover:bg-white hover:text-blue-600 transition-all group rounded-xl border border-transparent hover:border-slate-100"
+                    className="flex items-center gap-4 px-3 py-3 w-full text-slate-600 hover:bg-white hover:text-blue-600 transition-all group rounded-xl border border-transparent hover:border-slate-100"
                   >
-                    <span className="text-lg group-hover:scale-110 transition-transform">✎</span>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em]">Update Details</span>
+                    <span className="text-base group-hover:scale-110 transition-transform">✎</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em]">Change Details</span>
                   </button>
                   <button 
                     onClick={handleArchiveAsset}
-                    className="flex items-center gap-4 px-4 py-3 w-full text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all group rounded-xl border border-transparent hover:border-rose-100"
+                    className="flex items-center gap-4 px-3 py-3 w-full text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all group rounded-xl border border-transparent hover:border-rose-100"
                   >
-                    <span className="text-lg group-hover:scale-110 transition-transform">📁</span>
-                    <span className="text-[9px] font-black uppercase tracking-[0.2em]">Remove Vehicle</span>
+                    <span className="text-base group-hover:scale-110 transition-transform">📁</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em]">Delete Vehicle</span>
                   </button>
                 </>
               )}
@@ -199,19 +202,20 @@ const App: React.FC = () => {
           </div>
 
           {user?.role === 'admin' && (
-            <div className="pt-4">
-              <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Core</p>
+            <div className="pt-6 pb-4">
+              <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Admin Tools</p>
               <NavItem view="admin" label="Admin Panel" icon="🛡️" />
             </div>
           )}
         </nav>
 
+        {/* Pinned User Footer */}
         <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white">
           <button 
             onClick={() => setCurrentView('profile')}
             className={`flex items-center gap-3 mb-4 w-full p-2 rounded-xl transition-all ${currentView === 'profile' ? 'bg-slate-50 border border-slate-100' : 'hover:bg-slate-50'}`}
           >
-            <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-[10px] font-black uppercase">{user?.email?.[0]}</div>
+            <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-[10px] font-black uppercase shadow-inner">{user?.email?.[0]}</div>
             <div className="overflow-hidden text-left">
               <span className="block text-[9px] font-black text-slate-900 truncate">{user?.displayName || user?.email}</span>
               <span className="block text-[7px] font-black text-blue-500 uppercase tracking-widest">{user?.tier} Member</span>
@@ -219,7 +223,7 @@ const App: React.FC = () => {
           </button>
           <button 
             onClick={() => supabase?.auth.signOut()}
-            className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest"
+            className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest border border-transparent hover:border-rose-100"
           >
             🚪 Sign Out
           </button>
@@ -260,7 +264,7 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation */}
+      {/* Mobile Bottom Navigation (Remains simple for usability) */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-2xl">
         <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
           <span className="text-lg">🏠</span>
