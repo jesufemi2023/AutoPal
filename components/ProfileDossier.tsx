@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
 
@@ -7,25 +7,48 @@ const ProfileDossier: React.FC = () => {
   const { user, setUser, vehicles, serviceLogs } = useAutoPalStore();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Initialize with current user data if available
   const [formData, setFormData] = useState({
     displayName: user?.displayName || '',
     phone: user?.phone || ''
   });
 
+  // CRITICAL FIX: Sync form data when the user object is finally loaded from Supabase
+  useEffect(() => {
+    if (user && !isEditing) {
+      setFormData({
+        displayName: user.displayName || '',
+        phone: user.phone || ''
+      });
+    }
+  }, [user, isEditing]);
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+    
     setIsSaving(true);
     try {
       if (!supabase) throw new Error("Supabase connection missing.");
-      const { error } = await supabase.auth.updateUser({
+      
+      // Update the Auth Metadata in Supabase
+      const { data, error } = await supabase.auth.updateUser({
         data: {
           displayName: formData.displayName,
           phone: formData.phone
         }
       });
+      
       if (error) throw error;
-      setUser({ ...user, ...formData });
+      
+      // Sync the global store so the sidebar and dashboard update immediately
+      setUser({ 
+        ...user, 
+        displayName: formData.displayName, 
+        phone: formData.phone 
+      });
+      
       setIsEditing(false);
     } catch (err: any) {
       alert(err.message || "Failed to update profile.");
@@ -42,9 +65,6 @@ const ProfileDossier: React.FC = () => {
 
     try {
       if (!supabase) throw new Error("Supabase connection missing.");
-      // In Supabase, users cannot delete themselves from the client.
-      // We sign them out and simulate account deactivation. 
-      // Real production would call a server function.
       await supabase.auth.signOut();
       window.location.reload();
     } catch (err: any) {
@@ -73,14 +93,14 @@ const ProfileDossier: React.FC = () => {
           <div className="relative z-10 space-y-10">
             <div className="flex items-center gap-6">
               <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-slate-900 flex items-center justify-center text-white text-2xl sm:text-3xl font-black shadow-2xl">
-                {user?.email[0].toUpperCase()}
+                {user?.email?.[0]?.toUpperCase() || 'U'}
               </div>
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span className="text-slate-400 text-[8px] font-black uppercase tracking-widest">Active Member</span>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{user?.displayName || 'User'}</h3>
+                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{user?.displayName || 'User Profile'}</h3>
                 <p className="text-slate-400 font-mono text-[10px] sm:text-xs">{user?.email}</p>
               </div>
             </div>
@@ -93,7 +113,7 @@ const ProfileDossier: React.FC = () => {
                     type="text" 
                     disabled={!isEditing}
                     placeholder="Enter your name"
-                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-4 font-bold text-sm outline-none focus:border-blue-600 disabled:opacity-50 transition-all"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-4 font-bold text-sm outline-none focus:border-blue-600 disabled:opacity-50 transition-all text-slate-900"
                     value={formData.displayName}
                     onChange={e => setFormData({ ...formData, displayName: e.target.value })}
                   />
@@ -104,7 +124,7 @@ const ProfileDossier: React.FC = () => {
                     type="text" 
                     disabled={!isEditing}
                     placeholder="+234..."
-                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-4 font-mono font-bold text-sm outline-none focus:border-blue-600 disabled:opacity-50 transition-all"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-5 py-4 font-mono font-bold text-sm outline-none focus:border-blue-600 disabled:opacity-50 transition-all text-slate-900"
                     value={formData.phone}
                     onChange={e => setFormData({ ...formData, phone: e.target.value })}
                   />
@@ -114,13 +134,32 @@ const ProfileDossier: React.FC = () => {
               <div className="pt-6 flex flex-col sm:flex-row gap-4">
                 {isEditing ? (
                   <>
-                    <button type="submit" disabled={isSaving} className="flex-grow bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-blue-600 transition-all">
-                      {isSaving ? 'Syncing...' : 'Save Changes'}
+                    <button 
+                      type="submit" 
+                      disabled={isSaving} 
+                      className="flex-grow bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-blue-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {isSaving ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                          Syncing...
+                        </>
+                      ) : 'Save Changes'}
                     </button>
-                    <button type="button" onClick={() => setIsEditing(false)} className="px-6 py-4 border-2 border-slate-100 text-slate-400 rounded-xl font-black uppercase tracking-widest text-[10px]">Cancel</button>
+                    <button 
+                      type="button" 
+                      onClick={() => setIsEditing(false)} 
+                      className="px-6 py-4 border-2 border-slate-100 text-slate-400 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-50 transition-all"
+                    >
+                      Cancel
+                    </button>
                   </>
                 ) : (
-                  <button type="button" onClick={() => setIsEditing(true)} className="flex-grow bg-white border-2 border-slate-900 text-slate-900 py-4 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-900 hover:text-white transition-all">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsEditing(true)} 
+                    className="flex-grow bg-white border-2 border-slate-900 text-slate-900 py-4 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-slate-900 hover:text-white transition-all shadow-sm"
+                  >
                     Edit Personal Information
                   </button>
                 )}
