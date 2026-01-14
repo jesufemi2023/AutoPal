@@ -6,27 +6,23 @@ import { supabase } from '../auth/supabaseClient.ts';
 /**
  * ProfileDossier
  * Handles user identity metadata management.
- * Fixes: Asynchronous session synchronization and state-driven form toggling.
+ * Refactored for clear state-driven UI toggling between Read and Edit modes.
  */
 const ProfileDossier: React.FC = () => {
   const { user, setUser, vehicles, serviceLogs } = useAutoPalStore();
   
-  // UI States
+  // UI Flow States
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
-  // Form State: Initialized with empty strings to prevent 'uncontrolled to controlled' warnings
+  // Local Form State
   const [formData, setFormData] = useState({
     displayName: '',
     phone: ''
   });
 
-  /**
-   * REACTION HOOK: Synchronize Local State
-   * This hook fires whenever the user session is loaded or changed.
-   * It populates the form fields so they aren't blank when 'Edit' is clicked.
-   */
+  // Sync form data when the user profile is loaded or when exiting edit mode
   useEffect(() => {
     if (user && !isEditing) {
       setFormData({
@@ -36,10 +32,6 @@ const ProfileDossier: React.FC = () => {
     }
   }, [user, isEditing]);
 
-  /**
-   * PERSISTENCE HANDLER
-   * Pushes metadata updates to Supabase Auth and updates the global store.
-   */
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -48,9 +40,8 @@ const ProfileDossier: React.FC = () => {
     setErrorMessage(null);
 
     try {
-      if (!supabase) throw new Error("Cloud infrastructure (Supabase) is disconnected.");
+      if (!supabase) throw new Error("Cloud infrastructure disconnected.");
       
-      // Phase 1: Update Supabase Identity Metadata
       const { data, error } = await supabase.auth.updateUser({
         data: {
           displayName: formData.displayName,
@@ -60,8 +51,7 @@ const ProfileDossier: React.FC = () => {
       
       if (error) throw error;
       
-      // Phase 2: Update Global Store (Propagates to Sidebar/Dashboard)
-      // This provides immediate UI feedback without a page reload.
+      // Update global context
       setUser({ 
         ...user, 
         displayName: formData.displayName, 
@@ -76,19 +66,9 @@ const ProfileDossier: React.FC = () => {
     }
   };
 
-  /**
-   * CANCEL HANDLER
-   * Discards local changes and reverts to store values.
-   */
   const handleCancel = () => {
     setIsEditing(false);
     setErrorMessage(null);
-    if (user) {
-      setFormData({
-        displayName: user.displayName || '',
-        phone: user.phone || ''
-      });
-    }
   };
 
   const handleAccountDeletion = async () => {
@@ -120,7 +100,7 @@ const ProfileDossier: React.FC = () => {
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Profile Details Card */}
+        {/* Profile Card */}
         <div className="lg:col-span-7 bg-white rounded-[2rem] sm:rounded-[2.5rem] p-8 sm:p-12 shadow-sm border border-slate-100 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-48 h-48 bg-blue-600/5 blur-[80px] rounded-full translate-x-1/2 -translate-y-1/2"></div>
           
@@ -141,52 +121,66 @@ const ProfileDossier: React.FC = () => {
               </div>
             </div>
 
-            <form onSubmit={handleUpdate} className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Display Name</label>
-                  <input 
-                    type="text" 
-                    disabled={!isEditing}
-                    placeholder="Enter full name"
-                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 font-bold text-sm outline-none focus:border-blue-600 focus:bg-white disabled:opacity-50 transition-all text-slate-900 shadow-inner"
-                    value={formData.displayName}
-                    onChange={e => setFormData({ ...formData, displayName: e.target.value })}
-                  />
+            <form onSubmit={handleUpdate} className="space-y-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
+                {/* Field 1: Display Name */}
+                <div className="space-y-3">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Identity Name</label>
+                  {isEditing ? (
+                    <input 
+                      type="text" 
+                      placeholder="Enter full name"
+                      className="w-full bg-slate-50 border-2 border-blue-100 rounded-2xl px-5 py-4 font-bold text-sm outline-none focus:border-blue-600 focus:bg-white transition-all text-slate-900 shadow-inner animate-in fade-in zoom-in-95 duration-300"
+                      value={formData.displayName}
+                      onChange={e => setFormData({ ...formData, displayName: e.target.value })}
+                      autoFocus
+                    />
+                  ) : (
+                    <div className="px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 font-bold text-sm">
+                      {user?.displayName || <span className="text-slate-300">Not configured</span>}
+                    </div>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-2">Phone Number</label>
-                  <input 
-                    type="tel" 
-                    disabled={!isEditing}
-                    placeholder="+234..."
-                    className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-5 py-4 font-mono font-bold text-sm outline-none focus:border-blue-600 focus:bg-white disabled:opacity-50 transition-all text-slate-900 shadow-inner"
-                    value={formData.phone}
-                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                  />
+
+                {/* Field 2: Phone Number */}
+                <div className="space-y-3">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Telemetry</label>
+                  {isEditing ? (
+                    <input 
+                      type="tel" 
+                      placeholder="+234..."
+                      className="w-full bg-slate-50 border-2 border-blue-100 rounded-2xl px-5 py-4 font-mono font-bold text-sm outline-none focus:border-blue-600 focus:bg-white transition-all text-slate-900 shadow-inner animate-in fade-in zoom-in-95 duration-300"
+                      value={formData.phone}
+                      onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                    />
+                  ) : (
+                    <div className="px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-slate-900 font-mono font-bold text-sm">
+                      {user?.phone || <span className="text-slate-300">Not configured</span>}
+                    </div>
+                  )}
                 </div>
               </div>
 
               {errorMessage && (
-                <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-500 text-[9px] font-black uppercase tracking-widest">
+                <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-500 text-[9px] font-black uppercase tracking-widest animate-in slide-in-from-top-2">
                   {errorMessage}
                 </div>
               )}
 
-              <div className="pt-6 flex flex-col sm:flex-row gap-4">
+              <div className="pt-4 flex flex-col sm:flex-row gap-4">
                 {isEditing ? (
                   <>
                     <button 
                       type="submit" 
                       disabled={isSaving} 
-                      className="flex-grow bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-blue-600 transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95"
+                      className="flex-grow bg-slate-900 text-white py-4 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-blue-600 transition-all flex items-center justify-center gap-2 active:scale-95"
                     >
                       {isSaving ? (
                         <>
                           <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                          Syncing...
+                          Updating...
                         </>
-                      ) : 'Save Changes'}
+                      ) : 'Confirm Changes'}
                     </button>
                     <button 
                       type="button" 
@@ -210,7 +204,7 @@ const ProfileDossier: React.FC = () => {
           </div>
         </div>
 
-        {/* Membership & Security Column */}
+        {/* Info Column */}
         <div className="lg:col-span-5 space-y-6">
           <div className="bg-slate-900 rounded-[2rem] p-8 text-white space-y-8 shadow-xl border border-white/5 relative overflow-hidden">
              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-600 via-emerald-500 to-blue-600"></div>
