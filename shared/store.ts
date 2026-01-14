@@ -80,12 +80,11 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const { user: supabaseUser } = session;
     const currentState = get();
 
-    // Mapping Supabase User Metadata to AutoPal UserProfile
-    // Keys match exactly what is sent in supabase.auth.updateUser
+    // Mapping metadata safely with fallbacks
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
-      displayName: supabaseUser.user_metadata?.displayName || '',
+      displayName: supabaseUser.user_metadata?.displayName || supabaseUser.user_metadata?.full_name || '',
       phone: supabaseUser.user_metadata?.phone || '',
       tier: supabaseUser.user_metadata?.tier || 'free',
       role: supabaseUser.user_metadata?.role || 'user',
@@ -93,15 +92,17 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       createdAt: supabaseUser.created_at || new Date().toISOString(),
     };
 
-    // Strict value comparison to prevent re-render loops
-    const hasUserChanged = !currentState.user || 
-      currentState.user.id !== newUserObj.id ||
-      currentState.user.displayName !== newUserObj.displayName ||
-      currentState.user.phone !== newUserObj.phone ||
-      currentState.user.tier !== newUserObj.tier;
+    // Strict comparison to prevent re-render loops unless data actually changes
+    const isIdentityEqual = 
+      currentState.user?.id === newUserObj.id &&
+      currentState.user?.displayName === newUserObj.displayName &&
+      currentState.user?.phone === newUserObj.phone &&
+      currentState.user?.tier === newUserObj.tier &&
+      currentState.user?.role === newUserObj.role;
 
-    // Only update if identity or auth token has changed
-    if (hasUserChanged || currentState.session?.access_token !== session.access_token) {
+    const isSessionEqual = currentState.session?.access_token === session.access_token;
+
+    if (!isIdentityEqual || !isSessionEqual) {
       set({ session, user: newUserObj });
     }
   },

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
-import { Tier } from '../shared/types.ts';
+import { Tier, UserProfile } from '../shared/types.ts';
 
 /**
  * ProfileDossier
@@ -16,6 +16,7 @@ const ProfileDossier: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'identity' | 'subscription'>('identity');
   
   const [formData, setFormData] = useState({
@@ -23,14 +24,15 @@ const ProfileDossier: React.FC = () => {
     phone: ''
   });
 
+  // Sync internal form data when user profile updates or when entering edit mode
   useEffect(() => {
-    if (user && !isEditing) {
+    if (user && !isSaving) {
       setFormData({
         displayName: user.displayName || '',
         phone: user.phone || ''
       });
     }
-  }, [user, isEditing]);
+  }, [user, isSaving]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +40,7 @@ const ProfileDossier: React.FC = () => {
     
     setIsSaving(true);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
       if (!supabase) throw new Error("Neural Link Failure: Supabase disconnected.");
@@ -51,16 +54,23 @@ const ProfileDossier: React.FC = () => {
       
       if (error) throw error;
       
-      const updatedSupabaseUser = data.user;
-      if (updatedSupabaseUser) {
-        setUser({ 
-          ...user, 
-          displayName: updatedSupabaseUser.user_metadata?.displayName || formData.displayName, 
-          phone: updatedSupabaseUser.user_metadata?.phone || formData.phone 
-        });
+      if (data?.user) {
+        // Construct the updated profile locally to ensure immediate UI feedback
+        const updatedProfile: UserProfile = {
+          ...user,
+          displayName: data.user.user_metadata?.displayName || formData.displayName,
+          phone: data.user.user_metadata?.phone || formData.phone
+        };
+        
+        setUser(updatedProfile);
+        setSuccessMessage("Identity parameters synchronized successfully.");
+        
+        // Brief delay before closing edit mode to let the user see the success
+        setTimeout(() => {
+          setIsEditing(false);
+          setSuccessMessage(null);
+        }, 1500);
       }
-      
-      setIsEditing(false);
     } catch (err: any) {
       setErrorMessage(err.message || "Identity synchronization failure.");
     } finally {
@@ -146,6 +156,7 @@ const ProfileDossier: React.FC = () => {
                       {isEditing ? (
                         <input 
                           type="text" 
+                          required
                           className="w-full bg-slate-50 border-2 border-blue-600/20 rounded-2xl px-6 py-5 font-bold text-sm outline-none focus:border-blue-600 focus:bg-white transition-all text-slate-900 shadow-inner"
                           value={formData.displayName}
                           onChange={e => setFormData({ ...formData, displayName: e.target.value })}
@@ -175,8 +186,14 @@ const ProfileDossier: React.FC = () => {
                   </div>
 
                   {errorMessage && (
-                    <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-[10px] font-black uppercase tracking-widest">
+                    <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-[10px] font-black uppercase tracking-widest animate-in fade-in slide-in-from-top-2">
                       {errorMessage}
+                    </div>
+                  )}
+
+                  {successMessage && (
+                    <div className="p-5 bg-emerald-50 border border-emerald-100 rounded-2xl text-emerald-600 text-[10px] font-black uppercase tracking-widest animate-in fade-in slide-in-from-top-2">
+                      {successMessage}
                     </div>
                   )}
 
@@ -186,15 +203,16 @@ const ProfileDossier: React.FC = () => {
                         <button 
                           type="submit" 
                           disabled={isSaving} 
-                          className="flex-grow bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3 active:scale-95"
+                          className="flex-grow bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
                         >
                           {isSaving && <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>}
-                          Commit Changes
+                          {isSaving ? 'Synchronizing...' : 'Commit Changes'}
                         </button>
                         <button 
                           type="button" 
-                          onClick={() => { setIsEditing(false); setErrorMessage(null); }} 
-                          className="px-10 py-5 border-2 border-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-slate-50 transition-all active:scale-95"
+                          disabled={isSaving}
+                          onClick={() => { setIsEditing(false); setErrorMessage(null); setSuccessMessage(null); }} 
+                          className="px-10 py-5 border-2 border-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50"
                         >
                           Cancel
                         </button>
@@ -202,7 +220,7 @@ const ProfileDossier: React.FC = () => {
                     ) : (
                       <button 
                         type="button" 
-                        onClick={() => setIsEditing(true)} 
+                        onClick={() => { setIsEditing(true); setErrorMessage(null); setSuccessMessage(null); }} 
                         className="flex-grow bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-blue-600 transition-all shadow-xl active:scale-95"
                       >
                         Modify Identity Parameters
