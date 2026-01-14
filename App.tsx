@@ -82,7 +82,7 @@ const App: React.FC = () => {
   const handleArchiveAsset = async () => {
     if (!activeVehicleId || !activeVehicle) return;
     const confirmed = confirm(
-      `ARCHIVE PROTOCOL: Are you sure you want to decommission the ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}? All service records and telemetry will be moved to archives.`
+      `REMOVE VEHICLE: Are you sure you want to remove the ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}? All service records and usage history will be moved to archives.`
     );
     if (!confirmed) return;
 
@@ -91,7 +91,7 @@ const App: React.FC = () => {
       removeVehicleStore(activeVehicleId);
       setCurrentView('garage');
     } catch (e: any) {
-      alert(`Decommission Fault: ${e.message}`);
+      alert(`Removal Fault: ${e.message}`);
     }
   };
 
@@ -138,7 +138,7 @@ const App: React.FC = () => {
       setAiAdvice(advice);
       if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
     } catch (e) { 
-      alert("Neural Analysis Error"); 
+      alert("Analysis Error"); 
     } finally { 
       setIsAskingAI(false); 
     }
@@ -153,20 +153,20 @@ const App: React.FC = () => {
             <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-lg">A</div>
             <div>
               <span className="block font-black tracking-tighter text-slate-900 text-base">AutoPal NG</span>
-              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">Fleet Control</span>
+              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">Vehicle Manager</span>
             </div>
           </div>
         </div>
 
         <nav className="mt-4 space-y-0.5 px-3 flex-grow">
           <NavItem view="garage" label="Dashboard" icon="🏠" />
-          <NavItem view="diagnostic" label="Neural Diagnostic" icon="✧" isNeural />
-          <NavItem view="service" label="Service Hub" icon="🛠️" />
-          <NavItem view="fuel" label="Fuel Logic" icon="⛽" />
-          <NavItem view="marketplace" label="Marketplace" icon="🛒" />
+          <NavItem view="diagnostic" label="AI Diagnostic" icon="✧" isNeural />
+          <NavItem view="service" label="Maintenance" icon="🛠️" />
+          <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
+          <NavItem view="marketplace" label="Parts Store" icon="🛒" />
           
           <div className="pt-6 pb-2">
-            <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Management</p>
+            <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Additions</p>
             <button 
               onClick={() => setCurrentView('onboarding')}
               className="flex items-center gap-4 px-5 py-3 w-full text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all group rounded-xl"
@@ -178,21 +178,21 @@ const App: React.FC = () => {
 
           {activeVehicle && (
             <div className="pt-4 border-t border-slate-50 mt-4 mx-3 px-2 py-4 bg-slate-50/50 rounded-2xl">
-              <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.4em] mb-4">Asset Control: {activeVehicle.model}</p>
+              <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.4em] mb-4">Vehicle Settings: {activeVehicle.model}</p>
               <div className="space-y-1">
                 <button 
                   onClick={handleEditAsset}
                   className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-slate-600 hover:bg-white hover:text-blue-600 transition-all text-[9px] font-black uppercase tracking-widest border border-transparent hover:border-slate-100"
                 >
                   <span className="text-base">✎</span>
-                  <span>Edit Profile</span>
+                  <span>Update Details</span>
                 </button>
                 <button 
                   onClick={handleArchiveAsset}
                   className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all text-[9px] font-black uppercase tracking-widest border border-transparent hover:border-rose-100"
                 >
                   <span className="text-base">📁</span>
-                  <span>Archive Asset</span>
+                  <span>Remove Vehicle</span>
                 </button>
               </div>
             </div>
@@ -214,7 +214,7 @@ const App: React.FC = () => {
             <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-[10px] font-black uppercase">{user?.email?.[0]}</div>
             <div className="overflow-hidden text-left">
               <span className="block text-[9px] font-black text-slate-900 truncate">{user?.displayName || user?.email}</span>
-              <span className="block text-[7px] font-black text-blue-500 uppercase tracking-widest">{user?.tier} Class</span>
+              <span className="block text-[7px] font-black text-blue-500 uppercase tracking-widest">{user?.tier} Member</span>
             </div>
           </button>
           <button 
@@ -240,8 +240,8 @@ const App: React.FC = () => {
             {currentView === 'diagnostic' && activeVehicle && (
               <div className="max-w-4xl mx-auto w-full space-y-8">
                 <header className="px-1">
-                  <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter mb-1 leading-none uppercase">Neural Link</h1>
-                  <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[9px]">JIT Asset Diagnostic Engine v4.1</p>
+                  <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter mb-1 leading-none uppercase">AI Diagnostic Assistant</h1>
+                  <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[9px]">Intelligent System Analysis</p>
                 </header>
                 <DiagnosticsPanel 
                   vehicle={activeVehicle} 
@@ -264,7 +264,7 @@ const App: React.FC = () => {
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-2xl">
         <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
           <span className="text-lg">🏠</span>
-          <span className="text-[7px] font-black uppercase tracking-widest">Dash</span>
+          <span className="text-[7px] font-black uppercase tracking-widest">Home</span>
         </button>
         <button onClick={() => setCurrentView('diagnostic')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
           <span className="text-lg">✧</span>
@@ -284,7 +284,7 @@ const App: React.FC = () => {
         </button>
         <button onClick={() => setCurrentView('profile')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'profile' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
           <span className="text-lg">👤</span>
-          <span className="text-[7px] font-black uppercase tracking-widest">Pilot</span>
+          <span className="text-[7px] font-black uppercase tracking-widest">Profile</span>
         </button>
       </nav>
     </div>
