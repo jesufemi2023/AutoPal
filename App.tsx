@@ -56,18 +56,19 @@ const App: React.FC = () => {
     initAuth();
   }, [setSession, setInitialized]);
 
-  // Handle vehicle fetching and initial routing upon login
+  // Strategic routing logic after login
   useEffect(() => {
     if (session && user) {
       fetchUserVehicles().then((fetchedVehicles) => {
         setVehicles(fetchedVehicles);
         
-        // Initial routing logic after login/session recovery
-        // Only override the view if we are on a landing or auth-related screen
+        // If we're coming from the landing/auth flow, decide the next destination
         if (currentView === 'landing' || currentView === 'garage') {
           if (fetchedVehicles.length === 0) {
+            // New User: Send to "Deploy Asset"
             setCurrentView('onboarding');
           } else {
+            // Returning User: Send to Dashboard
             setCurrentView('garage');
           }
         }
@@ -84,14 +85,11 @@ const App: React.FC = () => {
   // Unauthenticated Flow
   if (!session) {
     if (currentView === 'report' && transientVehicle) return <GuestReport />;
-    // Default to landing page for all other unauthenticated states
+    // When currentView is 'garage', show AuthScreen (this fixes the unresponsive buttons)
+    if (currentView === 'garage') return <AuthScreen />;
+    // Default to Landing Page
     return <LandingTerminal />;
   }
-
-  // Auth screen as a modal/overlay if triggered manually
-  // This is a safety check: if we are logged in but somehow on the LandingTerminal, 
-  // the useEffect above should have already moved us. 
-  // But if explicitly on garage/onboarding/etc, we stay there.
 
   // Authenticated Modal Views
   if (currentView === 'onboarding' || currentView === 'edit') {
@@ -110,13 +108,6 @@ const App: React.FC = () => {
       )}
     </button>
   );
-
-  const handleTuneAction = () => {
-    if (activeVehicleId) {
-      setEditingVehicle(activeVehicleId);
-      setCurrentView('edit');
-    }
-  };
 
   const handleAnalyze = async () => {
     if (!activeVehicle) return;
