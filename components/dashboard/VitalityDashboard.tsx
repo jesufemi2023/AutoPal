@@ -29,9 +29,9 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
   };
 
   const metabolicInfo = {
-    optimal: { color: 'text-emerald-500', bg: 'bg-emerald-500', title: 'Stable Metabolism', text: 'Combustion nodes within tolerance.' },
-    warning: { color: 'text-amber-500', bg: 'bg-amber-500', title: 'Telemetry Drift', text: 'Air/Fuel calibration recommended.' },
-    critical: { color: 'text-rose-500', bg: 'bg-rose-500', title: 'Systemic Leak', text: 'Immediate mechanical audit required.' }
+    optimal: { color: 'text-emerald-500', bg: 'bg-emerald-500', title: 'Optimal Performance', text: 'Vehicle is running efficiently within expected fuel usage targets.' },
+    warning: { color: 'text-amber-500', bg: 'bg-amber-500', title: 'Efficiency Drift', text: 'Minor drop in efficiency detected. Check air filters or tire pressure.' },
+    critical: { color: 'text-rose-500', bg: 'bg-rose-500', title: 'High Consumption', text: 'Significant efficiency loss. Immediate engine inspection recommended.' }
   };
 
   const status = metabolicInfo[health.breakdown.metabolicStatus];
@@ -40,18 +40,18 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
     <div className="w-full h-full">
       <div className="flex flex-col gap-6 w-full h-full">
         
-        {/* Metabolic Diagnostic */}
+        {/* Fuel Efficiency Diagnostic */}
         <div className="bg-slate-900 p-8 sm:p-10 rounded-[2rem] text-white flex flex-col justify-between shadow-xl relative overflow-hidden group border border-white/10 transition-all duration-500 w-full shrink-0">
           <div className="absolute top-0 right-0 p-8 opacity-5 text-[8rem] transition-transform duration-1000 group-hover:scale-110 leading-none select-none pointer-events-none">⛽</div>
           
           <div className="space-y-6 relative z-10">
-            <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em]">Node: Fuel Conversion</h4>
+            <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em]">Fuel Efficiency</h4>
             <div className="space-y-2.5">
               <div className={`text-3xl font-black tracking-tighter leading-none ${status.color}`}>
-                {health.breakdown.isCalibrating ? 'Calibrating Baseline' : status.title}
+                {health.breakdown.isCalibrating ? 'Calibrating Data' : status.title}
               </div>
               <p className="text-[12px] text-slate-400 font-medium leading-relaxed opacity-90">
-                {health.breakdown.isCalibrating ? 'Accumulating telemetry to establish metabolic index.' : status.text}
+                {health.breakdown.isCalibrating ? 'Accumulating logs to establish your unique efficiency baseline.' : status.text}
               </p>
             </div>
           </div>
@@ -60,7 +60,7 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
             {!health.breakdown.isCalibrating && health.breakdown.wasteMonthly > 0 && (
               <div className="bg-white/5 border border-white/10 p-5 rounded-[1.5rem] flex justify-between items-center group-hover:bg-white/10 transition-colors">
                 <div>
-                  <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Monthly Leakage</div>
+                  <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1.5">Est. Monthly Waste</div>
                   <div className="text-2xl font-mono font-black text-rose-500 leading-none">{formatCurrency(health.breakdown.wasteMonthly)}</div>
                 </div>
                 <div className="text-right">
@@ -72,7 +72,7 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
 
             <div className="space-y-3.5">
               <div className="flex justify-between text-[11px] font-black uppercase tracking-widest">
-                <span className="text-slate-500">Stability Matrix</span>
+                <span className="text-slate-500">Efficiency Score</span>
                 <span className={status.color}>{health.breakdown.metabolic}%</span>
               </div>
               <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
@@ -82,15 +82,15 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
           </div>
         </div>
 
-        {/* 8 Pillar Engineering Map */}
+        {/* Vehicle Systems Health */}
         <div className="bg-white p-8 sm:p-10 rounded-[2rem] border border-slate-100 shadow-sm relative group flex flex-col transition-all duration-500 hover:shadow-lg w-full flex-grow">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
             <div className="space-y-1.5">
-              <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Engineering Map</h4>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest opacity-80">System Analysis Module</p>
+              <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Systems Health</h4>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest opacity-80">Component Health Status</p>
             </div>
             <div className="bg-slate-50 text-slate-600 px-6 py-3 rounded-[1.25rem] text-[10px] font-black uppercase tracking-[0.15em] border border-slate-100 shadow-sm transition-all group-hover:bg-slate-900 group-hover:text-white shrink-0">
-              Score: <span className="font-mono font-bold">{Math.round(health.breakdown.provenance)}%</span>
+              Verified: <span className="font-mono font-bold">{Math.round(health.breakdown.provenance)}%</span>
             </div>
           </div>
 
@@ -116,16 +116,16 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
               <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-blue-600 font-black text-sm shadow-sm shrink-0">i</div>
               <div className="space-y-0.5">
                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed">
-                  Integrity Passport v2.1
+                  System Health Breakdown
                 </p>
-                <p className="text-[8px] text-slate-300 font-black uppercase tracking-[0.2em]">Dynamic Evaluation Engine</p>
+                <p className="text-[8px] text-slate-300 font-black uppercase tracking-[0.2em]">Real-time Component Analysis</p>
               </div>
             </div>
             <button 
               onClick={() => window.location.reload()}
               className="w-full lg:w-auto bg-slate-900 text-white px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all hover:bg-blue-600"
             >
-              Sync Node →
+              Sync Dashboard →
             </button>
           </div>
         </div>
