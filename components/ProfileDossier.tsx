@@ -1,57 +1,42 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
 
 /**
  * ProfileDossier
- * Handles user identity metadata management.
- * Refactored for extreme stability during background sync heartbeats.
+ * Managed identity component.
+ * Fixes:
+ * 1. Persistent 'Edit' activation by decoupling form state from global re-renders.
+ * 2. Supabase persistence by ensuring correct metadata keys and awaiting sync.
  */
 const ProfileDossier: React.FC = () => {
   const { user, setUser, vehicles, serviceLogs } = useAutoPalStore();
   
-  // UI Flow States
+  // Local UI state (immune to global re-renders unless explicitly unmounted)
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
-  // Local Form State
+  // Local Form state (Source of truth while editing)
   const [formData, setFormData] = useState({
     displayName: '',
     phone: ''
   });
 
-  // Keep a reference to the latest user ID to check for identity shifts
-  const lastUserId = useRef<string | null>(null);
-
   /**
-   * SYNC HANDLER: READ-ONLY STABILITY
-   * Prevents 'snapping back' or 'deactivating' if a global user update occurs 
-   * while the user is in Edit Mode.
+   * INITIALIZER
+   * Only syncs from global user store when entering Edit mode
+   * or when the user object initially loads.
    */
   useEffect(() => {
-    if (user) {
-      // If the identity itself changed (different user logged in), reset everything
-      if (lastUserId.current !== user.id) {
-        lastUserId.current = user.id;
-        setIsEditing(false);
-        setFormData({
-          displayName: user.displayName || '',
-          phone: user.phone || ''
-        });
-        return;
-      }
-
-      // If we are NOT editing, keep the local form in sync with the source of truth
-      if (!isEditing) {
-        setFormData({
-          displayName: user.displayName || '',
-          phone: user.phone || ''
-        });
-      }
+    if (user && !isEditing) {
+      setFormData({
+        displayName: user.displayName || '',
+        phone: user.phone || ''
+      });
     }
-  }, [user, isEditing]);
+  }, [user?.id, user?.displayName, user?.phone, isEditing]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,6 +48,8 @@ const ProfileDossier: React.FC = () => {
     try {
       if (!supabase) throw new Error("Cloud infrastructure disconnected.");
       
+      // Step 1: Update Supabase Identity Metadata
+      // Using 'data' key for public user metadata in Supabase Auth
       const { data, error } = await supabase.auth.updateUser({
         data: {
           displayName: formData.displayName,
@@ -72,15 +59,20 @@ const ProfileDossier: React.FC = () => {
       
       if (error) throw error;
       
-      // Update global context immediately for snappy UI feel
-      setUser({ 
-        ...user, 
-        displayName: formData.displayName, 
-        phone: formData.phone 
-      });
+      // Step 2: Extract updated fields from Supabase response
+      const updatedSupabaseUser = data.user;
+      if (updatedSupabaseUser) {
+        // Step 3: Force update global store to match Supabase exactly
+        setUser({ 
+          ...user, 
+          displayName: updatedSupabaseUser.user_metadata?.displayName || formData.displayName, 
+          phone: updatedSupabaseUser.user_metadata?.phone || formData.phone 
+        });
+      }
       
       setIsEditing(false);
     } catch (err: any) {
+      console.error("Profile Sync Error:", err);
       setErrorMessage(err.message || "Failed to synchronize profile changes.");
     } finally {
       setIsSaving(false);
@@ -90,7 +82,7 @@ const ProfileDossier: React.FC = () => {
   const handleCancel = () => {
     setIsEditing(false);
     setErrorMessage(null);
-    // Revert form to current user values
+    // Reset local form to what's in the store
     if (user) {
       setFormData({
         displayName: user.displayName || '',
@@ -158,7 +150,7 @@ const ProfileDossier: React.FC = () => {
                     <input 
                       type="text" 
                       placeholder="Enter full name"
-                      className="w-full bg-slate-50 border-2 border-blue-100 rounded-2xl px-5 py-4 font-bold text-sm outline-none focus:border-blue-600 focus:bg-white transition-all text-slate-900 shadow-inner animate-in fade-in zoom-in-95 duration-300"
+                      className="w-full bg-slate-50 border-2 border-blue-600/20 rounded-2xl px-5 py-4 font-bold text-sm outline-none focus:border-blue-600 focus:bg-white transition-all text-slate-900 shadow-inner"
                       value={formData.displayName}
                       onChange={e => setFormData({ ...formData, displayName: e.target.value })}
                       autoFocus
@@ -177,7 +169,7 @@ const ProfileDossier: React.FC = () => {
                     <input 
                       type="tel" 
                       placeholder="+234..."
-                      className="w-full bg-slate-50 border-2 border-blue-100 rounded-2xl px-5 py-4 font-mono font-bold text-sm outline-none focus:border-blue-600 focus:bg-white transition-all text-slate-900 shadow-inner animate-in fade-in zoom-in-95 duration-300"
+                      className="w-full bg-slate-50 border-2 border-blue-600/20 rounded-2xl px-5 py-4 font-mono font-bold text-sm outline-none focus:border-blue-600 focus:bg-white transition-all text-slate-900 shadow-inner"
                       value={formData.phone}
                       onChange={e => setFormData({ ...formData, phone: e.target.value })}
                     />
@@ -190,7 +182,7 @@ const ProfileDossier: React.FC = () => {
               </div>
 
               {errorMessage && (
-                <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-500 text-[9px] font-black uppercase tracking-widest animate-in slide-in-from-top-2">
+                <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-500 text-[9px] font-black uppercase tracking-widest">
                   {errorMessage}
                 </div>
               )}
@@ -206,7 +198,7 @@ const ProfileDossier: React.FC = () => {
                       {isSaving ? (
                         <>
                           <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                          Updating...
+                          Syncing...
                         </>
                       ) : 'Confirm Changes'}
                     </button>

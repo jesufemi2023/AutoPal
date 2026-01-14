@@ -80,7 +80,8 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const { user: supabaseUser } = session;
     const currentState = get();
 
-    // Deep comparison of essential user metadata to avoid redundant state triggers
+    // Mapping Supabase User Metadata to AutoPal UserProfile
+    // Keys match exactly what is sent in supabase.auth.updateUser
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
@@ -92,12 +93,14 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       createdAt: supabaseUser.created_at || new Date().toISOString(),
     };
 
+    // Strict value comparison to prevent re-render loops
     const hasUserChanged = !currentState.user || 
       currentState.user.id !== newUserObj.id ||
       currentState.user.displayName !== newUserObj.displayName ||
       currentState.user.phone !== newUserObj.phone ||
       currentState.user.tier !== newUserObj.tier;
 
+    // Only update if identity or auth token has changed
     if (hasUserChanged || currentState.session?.access_token !== session.access_token) {
       set({ session, user: newUserObj });
     }
