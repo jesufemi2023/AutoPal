@@ -46,27 +46,40 @@ const ProfileDossier: React.FC = () => {
     try {
       if (!supabase) throw new Error("Neural Link Failure: Supabase disconnected.");
       
-      // Update Supabase Auth metadata using exact keys mapping to the Users table
-      const { data, error } = await supabase.auth.updateUser({
+      // 1. UPDATE PUBLIC SQL TABLE (public.Users)
+      // This makes the data visible in your Database table and accessible for queries.
+      const { error: dbError } = await supabase
+        .from('Users')
+        .update({ 
+          "Display name": formData.displayName, 
+          "Phone": formData.phone 
+        })
+        .eq('id', user.id);
+      
+      if (dbError) throw dbError;
+
+      // 2. UPDATE AUTH METADATA (auth.users)
+      // This keeps the identity profile in sync with the database record.
+      const { data: authData, error: authError } = await supabase.auth.updateUser({
         data: {
           "Display name": formData.displayName,
           "Phone": formData.phone
         }
       });
       
-      if (error) throw error;
+      if (authError) throw authError;
       
-      if (data?.user) {
+      if (authData?.user) {
         // Construct the updated profile object manually for optimistic UI consistency
         const updatedProfile: UserProfile = {
           ...user,
-          displayName: data.user.user_metadata?.['Display name'] || formData.displayName,
-          phone: data.user.user_metadata?.['Phone'] || formData.phone
+          displayName: authData.user.user_metadata?.['Display name'] || formData.displayName,
+          phone: authData.user.user_metadata?.['Phone'] || formData.phone
         };
         
         // Update global store immediately to block the 'blink'
         setUser(updatedProfile);
-        setSuccessMessage("Identity parameters synchronized.");
+        setSuccessMessage("Identity and Ledger parameters synchronized.");
         
         // Provide visual confirmation before closing the edit mode
         setTimeout(() => {
