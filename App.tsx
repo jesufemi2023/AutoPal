@@ -13,7 +13,7 @@ import ProfileDossier from './components/ProfileDossier.tsx';
 import LandingTerminal from './components/LandingTerminal.tsx';
 import GuestReport from './components/GuestReport.tsx';
 import { validateEnv } from './services/envService.ts';
-import { fetchUserVehicles } from './services/vehicleService.ts';
+import { fetchUserVehicles, archiveVehicle } from './services/vehicleService.ts';
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 
@@ -21,7 +21,7 @@ const App: React.FC = () => {
   const { 
     session, setSession, isInitialized, setInitialized, 
     user, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
-    setSuggestedParts, transientVehicle
+    setSuggestedParts, transientVehicle, removeVehicleStore
   } = useAutoPalStore();
 
   const [isAskingAI, setIsAskingAI] = useState(false);
@@ -36,7 +36,6 @@ const App: React.FC = () => {
 
   /**
    * INITIAL AUTH LOAD
-   * Established on mount to sync session once.
    */
   useEffect(() => {
     const initAuth = async () => {
@@ -51,7 +50,6 @@ const App: React.FC = () => {
         setInitialized(true);
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-          // Only trigger state update if the session has actually changed (managed by store logic)
           setSession(session);
         });
         return () => subscription.unsubscribe();
@@ -64,19 +62,12 @@ const App: React.FC = () => {
 
   /**
    * STRATEGIC ROUTING
-   * Synchronizes vehicles on login and decides landing destination.
-   * Stability Fix: Guard against view resets during active user interactions.
    */
   useEffect(() => {
     if (session && user) {
-      // Fetch vehicles to ensure store is warm
       fetchUserVehicles().then((fetchedVehicles) => {
         setVehicles(fetchedVehicles);
-        
-        // Navigation Guard: Only redirect if the user is in a 'transition' state
-        // This prevents the 'flicker' where Profile or AI views reset during heartbeats.
         const isTransitioning = currentView === 'landing' || currentView === 'garage';
-        
         if (isTransitioning) {
           if (fetchedVehicles.length === 0) {
             setCurrentView('onboarding');
@@ -86,7 +77,29 @@ const App: React.FC = () => {
         }
       }).catch(console.error);
     }
-  }, [session?.user?.id, user?.id, setVehicles]); // Only track identity changes, not session token refreshes
+  }, [session?.user?.id, user?.id, setVehicles]);
+
+  const handleArchiveAsset = async () => {
+    if (!activeVehicleId || !activeVehicle) return;
+    const confirmed = confirm(
+      `ARCHIVE PROTOCOL: Are you sure you want to decommission the ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}? All service records and telemetry will be moved to archives.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await archiveVehicle(activeVehicleId);
+      removeVehicleStore(activeVehicleId);
+      setCurrentView('garage');
+    } catch (e: any) {
+      alert(`Decommission Fault: ${e.message}`);
+    }
+  };
+
+  const handleEditAsset = () => {
+    if (!activeVehicleId) return;
+    setEditingVehicle(activeVehicleId);
+    setCurrentView('edit');
+  };
 
   if (!isInitialized) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -94,14 +107,12 @@ const App: React.FC = () => {
     </div>
   );
 
-  // Unauthenticated Flow
   if (!session) {
     if (currentView === 'report' && transientVehicle) return <GuestReport />;
     if (currentView === 'garage') return <AuthScreen />;
     return <LandingTerminal />;
   }
 
-  // Authenticated Modal Views (Uninterrupted by global re-renders)
   if (currentView === 'onboarding' || currentView === 'edit') {
     return <AssetIntelligenceCenter mode={currentView} />;
   }
@@ -147,7 +158,7 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <nav className="mt-4 space-y-0.5 px-3">
+        <nav className="mt-4 space-y-0.5 px-3 flex-grow">
           <NavItem view="garage" label="Dashboard" icon="🏠" />
           <NavItem view="diagnostic" label="Neural Diagnostic" icon="✧" isNeural />
           <NavItem view="service" label="Service Hub" icon="🛠️" />
@@ -161,9 +172,31 @@ const App: React.FC = () => {
               className="flex items-center gap-4 px-5 py-3 w-full text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all group rounded-xl"
             >
               <span className="text-lg group-hover:scale-110 transition-transform">➕</span>
-              <span className="text-[9px] font-black uppercase tracking-[0.2em]">Deploy Asset</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add New Vehicle</span>
             </button>
           </div>
+
+          {activeVehicle && (
+            <div className="pt-4 border-t border-slate-50 mt-4 mx-3 px-2 py-4 bg-slate-50/50 rounded-2xl">
+              <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.4em] mb-4">Asset Control: {activeVehicle.model}</p>
+              <div className="space-y-1">
+                <button 
+                  onClick={handleEditAsset}
+                  className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-slate-600 hover:bg-white hover:text-blue-600 transition-all text-[9px] font-black uppercase tracking-widest border border-transparent hover:border-slate-100"
+                >
+                  <span className="text-base">✎</span>
+                  <span>Edit Profile</span>
+                </button>
+                <button 
+                  onClick={handleArchiveAsset}
+                  className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all text-[9px] font-black uppercase tracking-widest border border-transparent hover:border-rose-100"
+                >
+                  <span className="text-base">📁</span>
+                  <span>Archive Asset</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {user?.role === 'admin' && (
             <div className="pt-4">
