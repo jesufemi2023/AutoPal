@@ -80,7 +80,8 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const { user: supabaseUser } = session;
     const currentState = get();
 
-    // Mapping metadata safely with fallbacks
+    // Map metadata with standardized priority
+    // We prioritize displayName (our internal key) then fall back to full_name (standard/Google key)
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
@@ -92,7 +93,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       createdAt: supabaseUser.created_at || new Date().toISOString(),
     };
 
-    // Strict comparison to prevent re-render loops unless data actually changes
+    // Robust comparison to prevent re-render loops or "flickers" back to old data
     const isIdentityEqual = 
       currentState.user?.id === newUserObj.id &&
       currentState.user?.displayName === newUserObj.displayName &&
@@ -164,7 +165,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     fuelLogs: state.fuelLogs.filter(l => l.id !== logId)
   })),
   setMarketplace: (marketplace) => set({ marketplace }),
-  setSuggestedParts: (suggestedPartNames) => set({ suggestedPartNames }),
+  setSuggestedParts: (parts: string[]) => set({ suggestedPartNames: parts }),
   setMarketplaceFilter: (filter: string) => set({ marketplaceFilter: filter }),
 
   reset: () => set({ 

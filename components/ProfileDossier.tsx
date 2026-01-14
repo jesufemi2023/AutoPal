@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
 import { Tier, UserProfile } from '../shared/types.ts';
@@ -24,15 +24,16 @@ const ProfileDossier: React.FC = () => {
     phone: ''
   });
 
-  // Sync internal form data when user profile updates or when entering edit mode
+  // Effect to sync internal form data when NOT editing
+  // This ensures the form reflects the store's current state when initially opened
   useEffect(() => {
-    if (user && !isSaving) {
+    if (user && !isEditing && !isSaving) {
       setFormData({
         displayName: user.displayName || '',
         phone: user.phone || ''
       });
     }
-  }, [user, isSaving]);
+  }, [user, isEditing, isSaving]);
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,9 +46,12 @@ const ProfileDossier: React.FC = () => {
     try {
       if (!supabase) throw new Error("Neural Link Failure: Supabase disconnected.");
       
+      // Update both displayName AND full_name to satisfy all potential auth provider mappings
+      // (Google uses full_name, we use displayName internally)
       const { data, error } = await supabase.auth.updateUser({
         data: {
           displayName: formData.displayName,
+          full_name: formData.displayName,
           phone: formData.phone
         }
       });
@@ -56,24 +60,29 @@ const ProfileDossier: React.FC = () => {
       
       if (data?.user) {
         // Construct the updated profile locally to ensure immediate UI feedback
+        // and prevent the "blink" caused by auth heartbeat refreshes
         const updatedProfile: UserProfile = {
           ...user,
-          displayName: data.user.user_metadata?.displayName || formData.displayName,
+          displayName: data.user.user_metadata?.displayName || data.user.user_metadata?.full_name || formData.displayName,
           phone: data.user.user_metadata?.phone || formData.phone
         };
         
+        // Update global store immediately
         setUser(updatedProfile);
+        
+        // Show success state
         setSuccessMessage("Identity parameters synchronized successfully.");
         
-        // Brief delay before closing edit mode to let the user see the success
+        // Delay closing the edit mode to ensure the user perceives the success
+        // and to allow server-side propagation to stabilize
         setTimeout(() => {
           setIsEditing(false);
           setSuccessMessage(null);
-        }, 1500);
+          setIsSaving(false);
+        }, 1200);
       }
     } catch (err: any) {
       setErrorMessage(err.message || "Identity synchronization failure.");
-    } finally {
       setIsSaving(false);
     }
   };
