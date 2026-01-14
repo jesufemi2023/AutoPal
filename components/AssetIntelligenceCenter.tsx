@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { initializeVehicleAsset, prepareProposedRoadmap, commitFinalRoadmap } from '../services/vehicleRegistrationService.ts';
-import { uploadVehicleImage, updateVehicle, archiveVehicle } from '../services/vehicleService.ts';
+import { uploadVehicleImage, updateVehicle, archiveVehicle, syncVehicleVitals } from '../services/vehicleService.ts';
 import { BodyType, Vehicle, MaintenanceTask, Priority, ServiceCategory } from '../shared/types.ts';
 import { compressImage } from '../shared/utils.ts';
 import { VehicleBlueprint } from './VehicleBlueprint.tsx';
@@ -14,7 +14,10 @@ interface AssetIntelligenceCenterProps {
 type OnboardingStep = 'parameters' | 'calibrating' | 'review' | 'success';
 
 const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode }) => {
-  const { user, addVehicle, updateVehicleStore, removeVehicleStore, setCurrentView, vehicles, editingVehicleId, setEditingVehicle } = useAutoPalStore();
+  const { 
+    user, addVehicle, updateVehicleStore, removeVehicleStore, 
+    setCurrentView, vehicles, editingVehicleId, setEditingVehicle 
+  } = useAutoPalStore();
   
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('parameters');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -95,6 +98,67 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
     } catch (err: any) {
       alert(`Calibration Fault: ${err.message}`);
       setCurrentStep('parameters');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleUpdateAsset = async () => {
+    if (!initialVehicle) return;
+    setIsProcessing(true);
+
+    try {
+      let finalImageUrl = form.imageUrl;
+
+      // Process new image if selected
+      if (imageFile && user?.id) {
+        try {
+          const compressed = await compressImage(imageFile, 800, 0.7);
+          finalImageUrl = await uploadVehicleImage(user.id, initialVehicle.id, compressed);
+        } catch (e) {
+          console.error("Optical update fault:", e);
+        }
+      }
+
+      const updatedData = {
+        ...form,
+        imageUrl: finalImageUrl
+      };
+
+      const result = await updateVehicle(initialVehicle.id, updatedData);
+      
+      // If mileage changed, sync vitals immediately
+      if (form.mileage !== initialVehicle.mileage) {
+        const synced = await syncVehicleVitals(initialVehicle.id);
+        updateVehicleStore(synced);
+      } else {
+        updateVehicleStore(result);
+      }
+
+      setEditingVehicle(null);
+      setCurrentView('garage');
+    } catch (err: any) {
+      alert(`Update Conflict: ${err.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDecommission = async () => {
+    if (!initialVehicle) return;
+    const confirmed = confirm(
+      "PROTOCOL ALERT: Are you sure you want to decommission this digital twin? All lifecycle telemetry and maintenance history for this specific asset will be archived."
+    );
+    if (!confirmed) return;
+
+    setIsProcessing(true);
+    try {
+      await archiveVehicle(initialVehicle.id);
+      removeVehicleStore(initialVehicle.id);
+      setEditingVehicle(null);
+      setCurrentView('garage');
+    } catch (err: any) {
+      alert(`Decommission Fault: ${err.message}`);
     } finally {
       setIsProcessing(false);
     }
@@ -280,8 +344,10 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
           <div className="flex items-center gap-4 sm:gap-5">
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-black text-base sm:text-lg shadow-xl shadow-blue-600/20">A</div>
             <div>
-              <h1 className="text-white font-black text-sm sm:text-xl tracking-tighter uppercase leading-tight">Calibration Hub</h1>
-              <p className="text-blue-500/60 text-[7px] sm:text-[8px] font-black uppercase tracking-[0.3em]">Node: Initialization</p>
+              <h1 className="text-white font-black text-sm sm:text-xl tracking-tighter uppercase leading-tight">
+                {mode === 'edit' ? 'Tuning Station' : 'Calibration Hub'}
+              </h1>
+              <p className="text-blue-500/60 text-[7px] sm:text-[8px] font-black uppercase tracking-[0.3em]">Node: {mode === 'edit' ? 'Asset Modification' : 'Initialization'}</p>
             </div>
           </div>
           <button onClick={handleClose} className="lg:hidden w-10 h-10 rounded-full bg-white/5 border border-white/10 text-white flex items-center justify-center text-xl transition-all active:scale-90">×</button>
@@ -304,6 +370,9 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
               {imagePreview ? (
                 <div className="aspect-[16/10] rounded-[2rem] overflow-hidden border-[6px] sm:border-[8px] border-slate-800 shadow-3xl relative group">
                   <img src={imagePreview} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Asset Preview" />
+                  <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <span className="bg-white text-slate-900 px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest">Update Optical Frame</span>
+                  </div>
                 </div>
               ) : (
                 <div className="relative group">
@@ -319,7 +388,9 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
         <header className="p-6 sm:p-10 border-b border-slate-100 flex justify-between items-center bg-white/90 backdrop-blur-xl sticky top-0 z-50 shrink-0">
           <div className="flex items-center gap-3">
              <span className="w-8 h-8 bg-slate-900 text-white rounded-xl flex items-center justify-center text-[10px] font-black">01</span>
-             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900">Neural Parameters</h3>
+             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900">
+               {mode === 'edit' ? 'Modification Parameters' : 'Neural Parameters'}
+             </h3>
           </div>
           <button onClick={handleClose} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors hidden lg:block">Discard & Terminate</button>
         </header>
@@ -392,6 +463,27 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
                 </div>
               </div>
             </section>
+
+            {mode === 'edit' && (
+              <section className="pt-10 space-y-6">
+                <div className="h-px bg-slate-100 w-full"></div>
+                <div className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 bg-rose-50 rounded-[2rem] border border-rose-100">
+                  <div className="space-y-1 text-center sm:text-left">
+                    <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.4em]">Decommission Hub</h4>
+                    <p className="text-[9px] text-rose-400 font-bold uppercase tracking-widest leading-relaxed">
+                      This action permanently removes the asset from the neural link.
+                    </p>
+                  </div>
+                  <button 
+                    onClick={handleDecommission}
+                    disabled={isProcessing}
+                    className="w-full sm:w-auto bg-rose-600 text-white px-8 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-xl shadow-rose-600/20 active:scale-95 transition-all"
+                  >
+                    Archive Asset
+                  </button>
+                </div>
+              </section>
+            )}
           </div>
         </div>
 
@@ -402,17 +494,32 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
           >
             Cancel
           </button>
-          <button 
-            disabled={isProcessing}
-            onClick={handleStartCalibration}
-            className="flex-grow bg-slate-900 text-white py-6 sm:py-8 rounded-[2rem] sm:rounded-[2.5rem] font-black uppercase tracking-[0.3em] text-[11px] sm:text-[12px] shadow-4xl hover:bg-blue-600 transition-all flex items-center justify-center gap-6 disabled:opacity-50 active:scale-95"
-          >
-            {isProcessing ? (
-              <div className="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
-            ) : (
-              <>Initialize Calibration →</>
-            )}
-          </button>
+          
+          {mode === 'edit' ? (
+            <button 
+              disabled={isProcessing}
+              onClick={handleUpdateAsset}
+              className="flex-grow bg-slate-900 text-white py-6 sm:py-8 rounded-[2rem] sm:rounded-[2.5rem] font-black uppercase tracking-[0.3em] text-[11px] sm:text-[12px] shadow-4xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-6 disabled:opacity-50 active:scale-95"
+            >
+              {isProcessing ? (
+                <div className="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                <>Save Intelligence Update</>
+              )}
+            </button>
+          ) : (
+            <button 
+              disabled={isProcessing}
+              onClick={handleStartCalibration}
+              className="flex-grow bg-slate-900 text-white py-6 sm:py-8 rounded-[2rem] sm:rounded-[2.5rem] font-black uppercase tracking-[0.3em] text-[11px] sm:text-[12px] shadow-4xl hover:bg-blue-600 transition-all flex items-center justify-center gap-6 disabled:opacity-50 active:scale-95"
+            >
+              {isProcessing ? (
+                <div className="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                <>Initialize Calibration →</>
+              )}
+            </button>
+          )}
         </footer>
       </div>
     </div>
