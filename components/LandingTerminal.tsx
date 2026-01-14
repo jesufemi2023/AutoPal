@@ -52,48 +52,50 @@ const LandingTerminal: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col items-center p-6 relative overflow-hidden">
-      {/* Top Navigation */}
-      <nav className="w-full max-w-6xl flex justify-between items-center py-6 relative z-20">
-        <div 
-          className="flex items-center gap-3 cursor-pointer group" 
-          onClick={() => setCurrentView('landing')}
-        >
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black group-hover:scale-110 transition-transform">A</div>
-          <span className="font-black text-white tracking-tighter uppercase text-sm">AutoPal NG</span>
-        </div>
-        <div className="flex items-center gap-4">
-          {session ? (
-            <>
-              <button 
-                onClick={() => setCurrentView('garage')}
-                className="text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
-              >
-                Dashboard
-              </button>
-              <button 
-                onClick={handleSignOut}
-                className="bg-rose-600 text-white px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all"
-              >
-                Sign Out
-              </button>
-            </>
-          ) : (
-            <>
-              <button 
-                onClick={() => setCurrentView('garage')}
-                className="text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
-              >
-                Sign In
-              </button>
-              <button 
-                onClick={() => setCurrentView('garage')}
-                className="bg-white text-slate-900 px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all"
-              >
-                Create Account
-              </button>
-            </>
-          )}
+    <div className="min-h-screen bg-slate-950 flex flex-col items-center p-6 relative overflow-hidden pt-24 sm:pt-32">
+      {/* Fixed Top Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-[100] bg-slate-950/80 backdrop-blur-2xl border-b border-white/5">
+        <div className="max-w-6xl mx-auto flex justify-between items-center py-6 px-6 sm:px-10">
+          <div 
+            className="flex items-center gap-3 cursor-pointer group" 
+            onClick={() => setCurrentView('landing')}
+          >
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/20">A</div>
+            <span className="font-black text-white tracking-tighter uppercase text-sm">AutoPal NG</span>
+          </div>
+          <div className="flex items-center gap-4">
+            {session ? (
+              <>
+                <button 
+                  onClick={() => setCurrentView('garage')}
+                  className="text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
+                >
+                  Dashboard
+                </button>
+                <button 
+                  onClick={handleSignOut}
+                  className="bg-rose-600 text-white px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all shadow-lg shadow-rose-600/20"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <button 
+                  onClick={() => setCurrentView('garage')}
+                  className="text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
+                >
+                  Sign In
+                </button>
+                <button 
+                  onClick={() => setCurrentView('garage')}
+                  className="bg-white text-slate-900 px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-xl"
+                >
+                  Create Account
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </nav>
 
@@ -103,7 +105,7 @@ const LandingTerminal: React.FC = () => {
       </div>
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-600/5 blur-[160px] rounded-full"></div>
 
-      <div className="max-w-xl w-full space-y-12 relative z-10 animate-slide-up mt-12 sm:mt-24">
+      <div className="max-w-xl w-full space-y-12 relative z-10 animate-slide-up">
         <div className="text-center space-y-6">
           <h1 className="text-5xl sm:text-7xl font-black text-white tracking-tighter leading-none uppercase">
             Car <span className="text-blue-500">Health</span> Checker
