@@ -12,6 +12,7 @@ interface AutoPalState {
   editingVehicleId: string | null;
   activeVehicleId: string | null; 
   transientVehicle: TransientVehicle | null;
+  guestAttempts: number;
   vehicles: Vehicle[];
   tasks: MaintenanceTask[];
   serviceLogs: ServiceLog[];
@@ -29,6 +30,7 @@ interface AutoPalState {
   setEditingVehicle: (id: string | null) => void;
   setActiveVehicleId: (id: string | null) => void;
   setTransientVehicle: (vehicle: TransientVehicle | null) => void;
+  incrementGuestAttempts: () => void;
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
   updateVehicleStore: (vehicle: Vehicle) => void;
@@ -60,6 +62,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   editingVehicleId: null,
   activeVehicleId: null,
   transientVehicle: null,
+  guestAttempts: 0,
   vehicles: [],
   tasks: [],
   serviceLogs: [],
@@ -97,6 +100,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   setEditingVehicle: (editingVehicleId) => set({ editingVehicleId }),
   setActiveVehicleId: (activeVehicleId) => set({ activeVehicleId }),
   setTransientVehicle: (transientVehicle) => set({ transientVehicle }),
+  incrementGuestAttempts: () => set((state) => ({ guestAttempts: state.guestAttempts + 1 })),
   setVehicles: (vehicles) => set({ 
     vehicles,
     activeVehicleId: useAutoPalStore.getState().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
@@ -151,6 +155,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
     fuelLogs: [],
     activeVehicleId: null,
     transientVehicle: null,
+    guestAttempts: 0,
     isRecovering: false,
     marketplaceFilter: ''
   }),
