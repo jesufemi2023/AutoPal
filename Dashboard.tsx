@@ -68,18 +68,28 @@ const Dashboard: React.FC = () => {
           <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">System Status: Monitoring Active</p>
         </div>
         
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide py-1.5 px-0.5 -mx-0.5">
+        {/* Slidable Vehicle Selection Bar */}
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide py-1.5 px-0.5 -mx-0.5 flex-nowrap snap-x snap-mandatory">
           {vehicles.length > 0 && vehicles.map(v => (
             <button 
               key={v.id}
               onClick={() => setActiveVehicleId(v.id)}
-              className={`flex-shrink-0 px-6 py-4 rounded-[1.5rem] border-2 transition-all min-w-[160px] text-left relative overflow-hidden flex flex-col justify-center ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}
+              className={`flex-shrink-0 px-6 py-5 rounded-[1.75rem] border-2 transition-all min-w-[180px] sm:min-w-[200px] text-left relative overflow-hidden flex flex-col justify-center snap-center ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200 hover:bg-slate-50'}`}
             >
-              <div className="text-[7px] font-black uppercase opacity-50 mb-0.5 tracking-widest">{v.make}</div>
+              <div className="text-[7px] font-black uppercase opacity-50 mb-1 tracking-widest">{v.make}</div>
               <div className="text-base font-black tracking-tight truncate w-full">{v.model}</div>
-              <div className={`w-2 h-2 rounded-full mt-2.5 ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_6px_#3b82f6]' : 'bg-slate-200'}`}></div>
+              <div className="flex items-center gap-2 mt-3">
+                 <div className={`w-2 h-2 rounded-full ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_8px_#3b82f6]' : 'bg-slate-200'}`}></div>
+                 <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year} model</div>
+              </div>
             </button>
           ))}
+          {/* Add visual cue for scroll if many vehicles */}
+          {vehicles.length > 2 && (
+            <div className="flex-shrink-0 w-8 flex items-center justify-center text-slate-200 pointer-events-none">
+              <span className="animate-pulse">→</span>
+            </div>
+          )}
         </div>
       </header>
 
