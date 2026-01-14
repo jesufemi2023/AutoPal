@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
 
 /**
  * ProfileDossier
  * Handles user identity metadata management.
- * Refactored for clear state-driven UI toggling between Read and Edit modes.
+ * Refactored for extreme stability during background sync heartbeats.
  */
 const ProfileDossier: React.FC = () => {
   const { user, setUser, vehicles, serviceLogs } = useAutoPalStore();
@@ -22,13 +22,34 @@ const ProfileDossier: React.FC = () => {
     phone: ''
   });
 
-  // Sync form data when the user profile is loaded or when exiting edit mode
+  // Keep a reference to the latest user ID to check for identity shifts
+  const lastUserId = useRef<string | null>(null);
+
+  /**
+   * SYNC HANDLER: READ-ONLY STABILITY
+   * Prevents 'snapping back' or 'deactivating' if a global user update occurs 
+   * while the user is in Edit Mode.
+   */
   useEffect(() => {
-    if (user && !isEditing) {
-      setFormData({
-        displayName: user.displayName || '',
-        phone: user.phone || ''
-      });
+    if (user) {
+      // If the identity itself changed (different user logged in), reset everything
+      if (lastUserId.current !== user.id) {
+        lastUserId.current = user.id;
+        setIsEditing(false);
+        setFormData({
+          displayName: user.displayName || '',
+          phone: user.phone || ''
+        });
+        return;
+      }
+
+      // If we are NOT editing, keep the local form in sync with the source of truth
+      if (!isEditing) {
+        setFormData({
+          displayName: user.displayName || '',
+          phone: user.phone || ''
+        });
+      }
     }
   }, [user, isEditing]);
 
@@ -51,7 +72,7 @@ const ProfileDossier: React.FC = () => {
       
       if (error) throw error;
       
-      // Update global context
+      // Update global context immediately for snappy UI feel
       setUser({ 
         ...user, 
         displayName: formData.displayName, 
@@ -69,6 +90,13 @@ const ProfileDossier: React.FC = () => {
   const handleCancel = () => {
     setIsEditing(false);
     setErrorMessage(null);
+    // Revert form to current user values
+    if (user) {
+      setFormData({
+        displayName: user.displayName || '',
+        phone: user.phone || ''
+      });
+    }
   };
 
   const handleAccountDeletion = async () => {

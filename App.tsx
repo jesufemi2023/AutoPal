@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
 import AuthScreen from './components/AuthScreen.tsx';
@@ -30,9 +30,14 @@ const App: React.FC = () => {
   const [aiAdvice, setAiAdvice] = useState<any>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
+  const authInitialized = useRef(false);
 
   useEffect(() => { validateEnv(); }, []);
 
+  /**
+   * INITIAL AUTH LOAD
+   * Established on mount to sync session once.
+   */
   useEffect(() => {
     const initAuth = async () => {
       if (!isSupabaseConfigured) {
@@ -46,6 +51,7 @@ const App: React.FC = () => {
         setInitialized(true);
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          // Only trigger state update if the session has actually changed (managed by store logic)
           setSession(session);
         });
         return () => subscription.unsubscribe();
@@ -56,25 +62,31 @@ const App: React.FC = () => {
     initAuth();
   }, [setSession, setInitialized]);
 
-  // Strategic routing logic after login
+  /**
+   * STRATEGIC ROUTING
+   * Synchronizes vehicles on login and decides landing destination.
+   * Stability Fix: Guard against view resets during active user interactions.
+   */
   useEffect(() => {
     if (session && user) {
+      // Fetch vehicles to ensure store is warm
       fetchUserVehicles().then((fetchedVehicles) => {
         setVehicles(fetchedVehicles);
         
-        // If we're coming from the landing/auth flow, decide the next destination
-        if (currentView === 'landing' || currentView === 'garage') {
+        // Navigation Guard: Only redirect if the user is in a 'transition' state
+        // This prevents the 'flicker' where Profile or AI views reset during heartbeats.
+        const isTransitioning = currentView === 'landing' || currentView === 'garage';
+        
+        if (isTransitioning) {
           if (fetchedVehicles.length === 0) {
-            // New User: Send to "Deploy Asset"
             setCurrentView('onboarding');
           } else {
-            // Returning User: Send to Dashboard
             setCurrentView('garage');
           }
         }
       }).catch(console.error);
     }
-  }, [session, user, setVehicles]);
+  }, [session?.user?.id, user?.id, setVehicles]); // Only track identity changes, not session token refreshes
 
   if (!isInitialized) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -85,13 +97,11 @@ const App: React.FC = () => {
   // Unauthenticated Flow
   if (!session) {
     if (currentView === 'report' && transientVehicle) return <GuestReport />;
-    // When currentView is 'garage', show AuthScreen
     if (currentView === 'garage') return <AuthScreen />;
-    // Default to Landing Page
     return <LandingTerminal />;
   }
 
-  // Authenticated Modal Views
+  // Authenticated Modal Views (Uninterrupted by global re-renders)
   if (currentView === 'onboarding' || currentView === 'edit') {
     return <AssetIntelligenceCenter mode={currentView} />;
   }

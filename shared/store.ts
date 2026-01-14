@@ -52,7 +52,7 @@ interface AutoPalState {
   reset: () => void;
 }
 
-export const useAutoPalStore = create<AutoPalState>((set) => ({
+export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   user: null,
   session: null,
   isInitialized: false,
@@ -62,7 +62,6 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   editingVehicleId: null,
   activeVehicleId: null,
   transientVehicle: null,
-  // Persistent guest attempts check
   guestAttempts: parseInt(localStorage.getItem('autopal_guest_attempts') || '0'),
   vehicles: [],
   tasks: [],
@@ -74,23 +73,34 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
 
   setSession: (session) => {
     if (!session) {
-      set({ session: null, user: null });
+      if (get().session !== null) set({ session: null, user: null });
       return;
     }
-    const { user } = session;
-    set({ 
-      session, 
-      user: {
-        id: user.id,
-        email: user.email || '',
-        displayName: user.user_metadata?.displayName || '',
-        phone: user.user_metadata?.phone || '',
-        tier: user.user_metadata?.tier || 'free',
-        role: user.user_metadata?.role || 'user',
-        onboarded: user.user_metadata?.onboarded || false,
-        createdAt: user.created_at || new Date().toISOString(),
-      } 
-    });
+
+    const { user: supabaseUser } = session;
+    const currentState = get();
+
+    // Deep comparison of essential user metadata to avoid redundant state triggers
+    const newUserObj: UserProfile = {
+      id: supabaseUser.id,
+      email: supabaseUser.email || '',
+      displayName: supabaseUser.user_metadata?.displayName || '',
+      phone: supabaseUser.user_metadata?.phone || '',
+      tier: supabaseUser.user_metadata?.tier || 'free',
+      role: supabaseUser.user_metadata?.role || 'user',
+      onboarded: supabaseUser.user_metadata?.onboarded || false,
+      createdAt: supabaseUser.created_at || new Date().toISOString(),
+    };
+
+    const hasUserChanged = !currentState.user || 
+      currentState.user.id !== newUserObj.id ||
+      currentState.user.displayName !== newUserObj.displayName ||
+      currentState.user.phone !== newUserObj.phone ||
+      currentState.user.tier !== newUserObj.tier;
+
+    if (hasUserChanged || currentState.session?.access_token !== session.access_token) {
+      set({ session, user: newUserObj });
+    }
   },
   
   setUser: (user) => set({ user }),
@@ -110,7 +120,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
 
   setVehicles: (vehicles) => set({ 
     vehicles,
-    activeVehicleId: useAutoPalStore.getState().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
+    activeVehicleId: get().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
   }),
   addVehicle: (vehicle) => set((state) => ({ 
     vehicles: [vehicle, ...state.vehicles],
