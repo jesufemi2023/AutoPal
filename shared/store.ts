@@ -81,7 +81,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const currentState = get();
     const meta = supabaseUser.user_metadata || {};
 
-    // Map metadata with standardized priority, checking both camelCase and the User's specific field names
+    // Map metadata: Priorities match user requested keys ("Display name", "Phone")
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
@@ -93,8 +93,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       createdAt: supabaseUser.created_at || new Date().toISOString(),
     };
 
-    // Robust comparison to prevent re-render loops or "flickers" back to old data
-    // We only update if the essential identity fields have actually changed
+    // Deep check to prevent "blinking" - if local data is same, do not trigger re-render
     const isIdentityEqual = 
       currentState.user?.id === newUserObj.id &&
       currentState.user?.displayName === newUserObj.displayName &&

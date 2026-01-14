@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
 import { Tier, UserProfile } from '../shared/types.ts';
@@ -24,9 +24,8 @@ const ProfileDossier: React.FC = () => {
     phone: ''
   });
 
-  // Effect to sync internal form data ONLY when not editing or saving.
-  // This is the critical fix for the "blink/revert" issue. 
-  // By ignoring 'user' updates while isSaving is true, we prevent the Auth listener from resetting the form.
+  // Sync internal form data ONLY when entering edit mode or when not currently editing.
+  // This prevents background auth updates from overwriting the user's typing.
   useEffect(() => {
     if (user && !isEditing && !isSaving) {
       setFormData({
@@ -47,39 +46,34 @@ const ProfileDossier: React.FC = () => {
     try {
       if (!supabase) throw new Error("Neural Link Failure: Supabase disconnected.");
       
-      // We update both the standard camelCase and the User's specific required keys
+      // Update Supabase Auth metadata using exact keys provided by user
       const { data, error } = await supabase.auth.updateUser({
         data: {
           "Display name": formData.displayName,
-          "Phone": formData.phone,
-          "displayName": formData.displayName, // Duplicate for backward compatibility
-          "phone": formData.phone
+          "Phone": formData.phone
         }
       });
       
       if (error) throw error;
       
       if (data?.user) {
-        // Construct the updated profile locally
+        // Construct the updated profile object manually for optimistic UI update
         const updatedProfile: UserProfile = {
           ...user,
           displayName: data.user.user_metadata?.['Display name'] || formData.displayName,
           phone: data.user.user_metadata?.['Phone'] || formData.phone
         };
         
-        // Update global store
+        // Immediately update global store to prevent the "blink"
         setUser(updatedProfile);
+        setSuccessMessage("Identity parameters synchronized.");
         
-        // Final success state
-        setSuccessMessage("Identity synchronization successful.");
-        
-        // Hold the state for a moment so the user sees the success, 
-        // then close the edit mode and release the "isSaving" lock.
+        // Brief delay for user feedback before closing
         setTimeout(() => {
           setIsEditing(false);
           setSuccessMessage(null);
           setIsSaving(false);
-        }, 1500);
+        }, 1200);
       }
     } catch (err: any) {
       setErrorMessage(err.message || "Identity synchronization failure.");
@@ -161,7 +155,7 @@ const ProfileDossier: React.FC = () => {
                 <form onSubmit={handleUpdate} className="space-y-10">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                     <div className="space-y-3">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Legal Alias</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Display Name</label>
                       {isEditing ? (
                         <input 
                           type="text" 
@@ -179,7 +173,7 @@ const ProfileDossier: React.FC = () => {
                     </div>
 
                     <div className="space-y-3">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Comms Protocol (Phone)</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone Protocol</label>
                       {isEditing ? (
                         <input 
                           type="tel" 
@@ -217,7 +211,7 @@ const ProfileDossier: React.FC = () => {
                           className="flex-grow bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl hover:bg-blue-700 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
                         >
                           {isSaving && <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>}
-                          {isSaving ? 'Updating Neural Record...' : 'Commit Changes'}
+                          {isSaving ? 'Updating...' : 'Save Changes'}
                         </button>
                         <button 
                           type="button" 
@@ -234,7 +228,7 @@ const ProfileDossier: React.FC = () => {
                         onClick={() => { setIsEditing(true); setErrorMessage(null); setSuccessMessage(null); }} 
                         className="flex-grow bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-blue-600 transition-all shadow-xl active:scale-95"
                       >
-                        Modify Identity Parameters
+                        Update Identity Profile
                       </button>
                     )}
                   </div>
