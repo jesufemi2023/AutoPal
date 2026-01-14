@@ -28,7 +28,7 @@ const App: React.FC = () => {
   const [symptom, setSymptom] = useState('');
   const [diagImage, setDiagImage] = useState<string | null>(null);
   const [aiAdvice, setAiAdvice] = useState<any>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const [isSettingsFlyoutOpen, setIsSettingsFlyoutOpen] = useState(false);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
@@ -89,6 +89,7 @@ const App: React.FC = () => {
     try {
       await archiveVehicle(activeVehicleId);
       removeVehicleStore(activeVehicleId);
+      setIsSettingsFlyoutOpen(false);
       setCurrentView('garage');
     } catch (e: any) {
       alert(`System Error: ${e.message}`);
@@ -98,6 +99,7 @@ const App: React.FC = () => {
   const handleEditAsset = () => {
     if (!activeVehicleId) return;
     setEditingVehicle(activeVehicleId);
+    setIsSettingsFlyoutOpen(false);
     setCurrentView('edit');
   };
 
@@ -119,7 +121,10 @@ const App: React.FC = () => {
 
   const NavItem = ({ view, label, icon, isNeural = false }: { view: any; label: string; icon: string; isNeural?: boolean }) => (
     <button 
-      onClick={() => setCurrentView(view)}
+      onClick={() => {
+        setCurrentView(view);
+        setIsSettingsFlyoutOpen(false);
+      }}
       className={`flex items-center gap-4 px-5 py-3.5 w-full transition-all group relative ${currentView === view ? 'sidebar-link-active' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
     >
       <span className={`text-lg group-hover:scale-110 transition-transform ${isNeural && 'text-blue-500 animate-pulse'}`}>{icon}</span>
@@ -147,7 +152,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-50 overflow-hidden">
+      <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-50 overflow-visible">
         {/* Fixed Header */}
         <div className="p-8 pb-6 shrink-0">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
@@ -160,7 +165,7 @@ const App: React.FC = () => {
         </div>
 
         {/* Scrollable Navigation Area */}
-        <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 space-y-0.5 pb-8">
+        <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 space-y-0.5 pb-8 relative">
           <div className="pb-4">
             <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2 mt-2">Navigation</p>
             <NavItem view="garage" label="Dashboard" icon="🏠" />
@@ -170,22 +175,32 @@ const App: React.FC = () => {
             <NavItem view="marketplace" label="Shop Parts" icon="🛒" />
           </div>
 
-          <div className="pt-4 border-t border-slate-50 mx-2">
-            <button 
-              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-              className="flex items-center justify-between w-full px-3 mb-3 group"
+          <div className="pt-4 border-t border-slate-50 mx-2 relative">
+             <button 
+              onClick={() => setIsSettingsFlyoutOpen(!isSettingsFlyoutOpen)}
+              className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsFlyoutOpen ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-slate-50 border-slate-100 text-slate-500 hover:border-blue-200 hover:bg-white'}`}
             >
-              <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.4em] group-hover:text-blue-600 transition-colors">Vehicle Settings</p>
-              <span className={`text-[10px] text-slate-300 transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}>▼</span>
+              <div className="flex items-center gap-4">
+                <span className={`text-lg transition-transform ${isSettingsFlyoutOpen ? 'rotate-90 text-blue-400' : 'group-hover:rotate-12'}`}>⚙</span>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em]">Vehicle Settings</span>
+              </div>
+              <span className={`text-[10px] transition-transform ${isSettingsFlyoutOpen ? 'rotate-90' : ''}`}>▶</span>
             </button>
-            
-            <div className={`transition-all duration-300 overflow-hidden ${isSettingsOpen ? 'max-h-[300px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              <div className="bg-slate-50/50 rounded-2xl p-2 space-y-0.5 border border-slate-100/50">
+
+            {/* Flyout Menu (Desktop Only) */}
+            <div 
+              className={`absolute left-[105%] top-0 w-[240px] bg-slate-900 rounded-[2rem] p-3 shadow-3xl border border-white/5 transition-all duration-300 transform z-[60] ${isSettingsFlyoutOpen ? 'translate-x-0 opacity-100 visible' : '-translate-x-4 opacity-0 invisible pointer-events-none'}`}
+            >
+              <p className="px-4 py-3 text-[7px] font-black text-slate-500 uppercase tracking-[0.3em] border-b border-white/5 mb-2">Management Panel</p>
+              <div className="space-y-1">
                 <button 
-                  onClick={() => setCurrentView('onboarding')}
-                  className="flex items-center gap-4 px-3 py-3 w-full text-blue-600 hover:bg-white transition-all group rounded-xl border border-transparent hover:border-slate-100"
+                  onClick={() => {
+                    setCurrentView('onboarding');
+                    setIsSettingsFlyoutOpen(false);
+                  }}
+                  className="flex items-center gap-4 px-4 py-4 w-full text-white hover:bg-blue-600 transition-all group rounded-xl"
                 >
-                  <span className="text-base group-hover:scale-110 transition-transform">➕</span>
+                  <span className="text-base group-hover:scale-110">➕</span>
                   <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add a Vehicle</span>
                 </button>
 
@@ -193,16 +208,16 @@ const App: React.FC = () => {
                   <>
                     <button 
                       onClick={handleEditAsset}
-                      className="flex items-center gap-4 px-3 py-3 w-full text-slate-600 hover:bg-white hover:text-blue-600 transition-all group rounded-xl border border-transparent hover:border-slate-100"
+                      className="flex items-center gap-4 px-4 py-4 w-full text-white/80 hover:text-white hover:bg-white/5 transition-all group rounded-xl"
                     >
-                      <span className="text-base group-hover:scale-110 transition-transform">✎</span>
+                      <span className="text-base group-hover:scale-110">✎</span>
                       <span className="text-[9px] font-black uppercase tracking-[0.2em]">Update Details</span>
                     </button>
                     <button 
                       onClick={handleArchiveAsset}
-                      className="flex items-center gap-4 px-3 py-3 w-full text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all group rounded-xl border border-transparent hover:border-rose-100"
+                      className="flex items-center gap-4 px-4 py-4 w-full text-rose-400 hover:text-white hover:bg-rose-600 transition-all group rounded-xl"
                     >
-                      <span className="text-base group-hover:scale-110 transition-transform">📁</span>
+                      <span className="text-base group-hover:scale-110">📁</span>
                       <span className="text-[9px] font-black uppercase tracking-[0.2em]">Remove Vehicle</span>
                     </button>
                   </>
@@ -222,7 +237,10 @@ const App: React.FC = () => {
         {/* Fixed Footer */}
         <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white">
           <button 
-            onClick={() => setCurrentView('profile')}
+            onClick={() => {
+              setCurrentView('profile');
+              setIsSettingsFlyoutOpen(false);
+            }}
             className={`flex items-center gap-3 mb-4 w-full p-2 rounded-xl transition-all ${currentView === 'profile' ? 'bg-slate-50 border border-slate-100' : 'hover:bg-slate-50'}`}
           >
             <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-[10px] font-black uppercase shadow-inner">{user?.email?.[0]}</div>
@@ -242,7 +260,10 @@ const App: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-grow lg:ml-[300px] flex flex-col min-h-screen w-full overflow-x-hidden">
-        <main className={`p-4 sm:p-6 lg:p-10 xl:p-12 max-w-full lg:max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow flex flex-col items-center ${currentView === 'landing' ? '!p-0 !max-w-none' : ''}`}>
+        <main 
+          onClick={() => setIsSettingsFlyoutOpen(false)}
+          className={`p-4 sm:p-6 lg:p-10 xl:p-12 max-w-full lg:max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow flex flex-col items-center ${currentView === 'landing' ? '!p-0 !max-w-none' : ''}`}
+        >
           <div className={`animate-slide-up w-full max-w-full ${currentView === 'landing' ? '!max-w-none' : ''}`}>
             {currentView === 'landing' && <LandingTerminal />}
             {currentView === 'garage' && <Dashboard />}
