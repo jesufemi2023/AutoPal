@@ -165,38 +165,38 @@ const App: React.FC = () => {
           <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
           <NavItem view="marketplace" label="Parts Store" icon="🛒" />
           
-          <div className="pt-6 pb-2">
-            <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Additions</p>
-            <button 
-              onClick={() => setCurrentView('onboarding')}
-              className="flex items-center gap-4 px-5 py-3 w-full text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all group rounded-xl"
-            >
-              <span className="text-lg group-hover:scale-110 transition-transform">➕</span>
-              <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add New Vehicle</span>
-            </button>
-          </div>
+          <div className="pt-8 pb-4">
+            <p className="px-5 text-[7px] font-black text-slate-400 uppercase tracking-[0.4em] mb-4">Vehicle Management</p>
+            <div className="bg-slate-50/50 rounded-2xl p-2 space-y-1">
+              <button 
+                onClick={() => setCurrentView('onboarding')}
+                className="flex items-center gap-4 px-4 py-3 w-full text-blue-600 hover:bg-white transition-all group rounded-xl border border-transparent hover:border-slate-100"
+              >
+                <span className="text-lg group-hover:scale-110 transition-transform">➕</span>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add New Vehicle</span>
+              </button>
 
-          {activeVehicle && (
-            <div className="pt-4 border-t border-slate-50 mt-4 mx-3 px-2 py-4 bg-slate-50/50 rounded-2xl">
-              <p className="text-[7px] font-black text-slate-400 uppercase tracking-[0.4em] mb-4">Vehicle Settings: {activeVehicle.model}</p>
-              <div className="space-y-1">
-                <button 
-                  onClick={handleEditAsset}
-                  className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-slate-600 hover:bg-white hover:text-blue-600 transition-all text-[9px] font-black uppercase tracking-widest border border-transparent hover:border-slate-100"
-                >
-                  <span className="text-base">✎</span>
-                  <span>Update Details</span>
-                </button>
-                <button 
-                  onClick={handleArchiveAsset}
-                  className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all text-[9px] font-black uppercase tracking-widest border border-transparent hover:border-rose-100"
-                >
-                  <span className="text-base">📁</span>
-                  <span>Remove Vehicle</span>
-                </button>
-              </div>
+              {activeVehicle && (
+                <>
+                  <div className="h-px bg-slate-100/50 my-1 mx-4"></div>
+                  <button 
+                    onClick={handleEditAsset}
+                    className="flex items-center gap-4 px-4 py-3 w-full text-slate-600 hover:bg-white hover:text-blue-600 transition-all group rounded-xl border border-transparent hover:border-slate-100"
+                  >
+                    <span className="text-lg group-hover:scale-110 transition-transform">✎</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em]">Update Details</span>
+                  </button>
+                  <button 
+                    onClick={handleArchiveAsset}
+                    className="flex items-center gap-4 px-4 py-3 w-full text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all group rounded-xl border border-transparent hover:border-rose-100"
+                  >
+                    <span className="text-lg group-hover:scale-110 transition-transform">📁</span>
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em]">Remove Vehicle</span>
+                  </button>
+                </>
+              )}
             </div>
-          )}
+          </div>
 
           {user?.role === 'admin' && (
             <div className="pt-4">
