@@ -1,9 +1,10 @@
 
 import React, { useState } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
+import { supabase } from '../auth/supabaseClient.ts';
 
 const LandingTerminal: React.FC = () => {
-  const { setTransientVehicle, setCurrentView, setLoading, guestAttempts, incrementGuestAttempts } = useAutoPalStore();
+  const { setTransientVehicle, setCurrentView, setLoading, guestAttempts, incrementGuestAttempts, session } = useAutoPalStore();
   const [form, setForm] = useState({
     make: '',
     model: '',
@@ -43,27 +44,56 @@ const LandingTerminal: React.FC = () => {
     }
   };
 
+  const handleSignOut = async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center p-6 relative overflow-hidden">
       {/* Top Navigation */}
       <nav className="w-full max-w-6xl flex justify-between items-center py-6 relative z-20">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black">A</div>
+        <div 
+          className="flex items-center gap-3 cursor-pointer group" 
+          onClick={() => setCurrentView('landing')}
+        >
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black group-hover:scale-110 transition-transform">A</div>
           <span className="font-black text-white tracking-tighter uppercase text-sm">AutoPal NG</span>
         </div>
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => setCurrentView('garage')}
-            className="text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
-          >
-            Sign In
-          </button>
-          <button 
-            onClick={() => setCurrentView('garage')}
-            className="bg-white text-slate-900 px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all"
-          >
-            Create Account
-          </button>
+          {session ? (
+            <>
+              <button 
+                onClick={() => setCurrentView('garage')}
+                className="text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
+              >
+                Dashboard
+              </button>
+              <button 
+                onClick={handleSignOut}
+                className="bg-rose-600 text-white px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-rose-700 transition-all"
+              >
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <>
+              <button 
+                onClick={() => setCurrentView('garage')}
+                className="text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
+              >
+                Sign In
+              </button>
+              <button 
+                onClick={() => setCurrentView('garage')}
+                className="bg-white text-slate-900 px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all"
+              >
+                Create Account
+              </button>
+            </>
+          )}
         </div>
       </nav>
 

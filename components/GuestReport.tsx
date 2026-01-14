@@ -47,8 +47,11 @@ const GuestReport: React.FC = () => {
     <div className="min-h-screen bg-[#fcfcfd] flex flex-col animate-slide-up">
       {/* Warning Header */}
       <div className="bg-slate-900 text-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-white/10 relative z-50">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-sm shadow-lg shadow-blue-500/30">🎁</div>
+        <div 
+          className="flex items-center gap-3 cursor-pointer group"
+          onClick={() => setCurrentView('landing')}
+        >
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-sm shadow-lg shadow-blue-500/30 group-hover:scale-110 transition-transform">A</div>
           <div className="space-y-0.5">
             <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-400">One-Time Guest Pass</h4>
             <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400">This report will vanish if you close this window.</p>

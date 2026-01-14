@@ -85,7 +85,7 @@ const App: React.FC = () => {
   // Unauthenticated Flow
   if (!session) {
     if (currentView === 'report' && transientVehicle) return <GuestReport />;
-    // When currentView is 'garage', show AuthScreen (this fixes the unresponsive buttons)
+    // When currentView is 'garage', show AuthScreen
     if (currentView === 'garage') return <AuthScreen />;
     // Default to Landing Page
     return <LandingTerminal />;
@@ -128,7 +128,7 @@ const App: React.FC = () => {
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-50 overflow-y-auto scrollbar-hide">
         <div className="p-8 pb-4 shrink-0">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('garage')}>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
             <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-lg">A</div>
             <div>
               <span className="block font-black tracking-tighter text-slate-900 text-base">AutoPal NG</span>
@@ -185,8 +185,9 @@ const App: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-grow lg:ml-[300px] flex flex-col min-h-screen w-full overflow-x-hidden">
-        <main className="p-4 sm:p-6 lg:p-10 xl:p-12 max-w-full lg:max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow flex flex-col items-center">
-          <div className="animate-slide-up w-full max-w-full">
+        <main className={`p-4 sm:p-6 lg:p-10 xl:p-12 max-w-full lg:max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow flex flex-col items-center ${currentView === 'landing' ? '!p-0 !max-w-none' : ''}`}>
+          <div className={`animate-slide-up w-full max-w-full ${currentView === 'landing' ? '!max-w-none' : ''}`}>
+            {currentView === 'landing' && <LandingTerminal />}
             {currentView === 'garage' && <Dashboard />}
             {currentView === 'service' && <ServiceIntelligenceCenter />}
             {currentView === 'fuel' && <FuelIntelligenceCenter />}
