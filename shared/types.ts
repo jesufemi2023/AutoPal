@@ -17,10 +17,20 @@ export type VerificationLevel = 'self_declared' | 'receipt_verified' | 'mechanic
 export interface UserProfile {
   id: string;
   email: string;
+  displayName?: string;
+  phone?: string;
   tier: Tier;
   role: UserRole;
   onboarded: boolean;
   createdAt: string;
+}
+
+export interface TransientVehicle {
+  make: string;
+  model: string;
+  year: number;
+  mileage: number;
+  vin?: string;
 }
 
 export interface VehicleSpecs {
@@ -62,7 +72,7 @@ export interface Vehicle {
   createdAt?: string;
   updatedAt?: string;
   avgDailyKm?: number;
-  efficiencyBaseline?: number; // Established after 5 logs
+  efficiencyBaseline?: number; 
   isDirty?: boolean;
 }
 

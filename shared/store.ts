@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog } from './types.ts';
+import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle } from './types.ts';
 
 interface AutoPalState {
   user: UserProfile | null;
@@ -8,9 +8,10 @@ interface AutoPalState {
   isInitialized: boolean;
   isRecovering: boolean;
   isLoading: boolean;
-  currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service' | 'diagnostic';
+  currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service' | 'diagnostic' | 'landing' | 'profile' | 'report';
   editingVehicleId: string | null;
   activeVehicleId: string | null; 
+  transientVehicle: TransientVehicle | null;
   vehicles: Vehicle[];
   tasks: MaintenanceTask[];
   serviceLogs: ServiceLog[];
@@ -24,9 +25,10 @@ interface AutoPalState {
   setInitialized: (initialized: boolean) => void;
   setRecovering: (isRecovering: boolean) => void;
   setLoading: (loading: boolean) => void;
-  setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service' | 'diagnostic') => void;
+  setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service' | 'diagnostic' | 'landing' | 'profile' | 'report') => void;
   setEditingVehicle: (id: string | null) => void;
   setActiveVehicleId: (id: string | null) => void;
+  setTransientVehicle: (vehicle: TransientVehicle | null) => void;
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
   updateVehicleStore: (vehicle: Vehicle) => void;
@@ -54,9 +56,10 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   isInitialized: false,
   isRecovering: false,
   isLoading: false,
-  currentView: 'garage',
+  currentView: 'landing',
   editingVehicleId: null,
   activeVehicleId: null,
+  transientVehicle: null,
   vehicles: [],
   tasks: [],
   serviceLogs: [],
@@ -76,6 +79,8 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
       user: {
         id: user.id,
         email: user.email || '',
+        displayName: user.user_metadata?.displayName || '',
+        phone: user.user_metadata?.phone || '',
         tier: user.user_metadata?.tier || 'free',
         role: user.user_metadata?.role || 'user',
         onboarded: user.user_metadata?.onboarded || false,
@@ -91,6 +96,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
   setCurrentView: (currentView) => set({ currentView }),
   setEditingVehicle: (editingVehicleId) => set({ editingVehicleId }),
   setActiveVehicleId: (activeVehicleId) => set({ activeVehicleId }),
+  setTransientVehicle: (transientVehicle) => set({ transientVehicle }),
   setVehicles: (vehicles) => set({ 
     vehicles,
     activeVehicleId: useAutoPalStore.getState().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
@@ -144,6 +150,7 @@ export const useAutoPalStore = create<AutoPalState>((set) => ({
     serviceLogs: [],
     fuelLogs: [],
     activeVehicleId: null,
+    transientVehicle: null,
     isRecovering: false,
     marketplaceFilter: ''
   }),

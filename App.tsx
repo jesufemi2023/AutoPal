@@ -9,6 +9,9 @@ import AdminPanel from './components/AdminPanel.tsx';
 import FuelIntelligenceCenter from './components/FuelIntelligenceCenter.tsx';
 import ServiceIntelligenceCenter from './components/ServiceIntelligenceCenter.tsx';
 import AssetIntelligenceCenter from './components/AssetIntelligenceCenter.tsx';
+import ProfileDossier from './components/ProfileDossier.tsx';
+import LandingTerminal from './components/LandingTerminal.tsx';
+import GuestReport from './components/GuestReport.tsx';
 import { validateEnv } from './services/envService.ts';
 import { fetchUserVehicles } from './services/vehicleService.ts';
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
@@ -18,7 +21,7 @@ const App: React.FC = () => {
   const { 
     session, setSession, isInitialized, setInitialized, 
     user, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
-    setSuggestedParts
+    setSuggestedParts, transientVehicle
   } = useAutoPalStore();
 
   const [isAskingAI, setIsAskingAI] = useState(false);
@@ -44,6 +47,7 @@ const App: React.FC = () => {
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           setSession(session);
+          // If we just logged in and had transient data, the next sync would bond it.
         });
         return () => subscription.unsubscribe();
       } catch (err) {
@@ -59,14 +63,31 @@ const App: React.FC = () => {
     }
   }, [session, user, setVehicles]);
 
+  // View Routing Logic
+  useEffect(() => {
+    if (session) {
+      if (vehicles.length === 0 && currentView !== 'onboarding' && currentView !== 'profile') {
+        setCurrentView('onboarding');
+      } else if (vehicles.length > 0 && currentView === 'landing') {
+        setCurrentView('garage');
+      }
+    }
+  }, [session, vehicles.length, currentView, setCurrentView]);
+
   if (!isInitialized) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
     </div>
   );
 
-  if (!session) return <AuthScreen />;
+  // Unauthenticated Flow
+  if (!session) {
+    if (currentView === 'report' && transientVehicle) return <GuestReport />;
+    if (currentView === 'landing') return <LandingTerminal />;
+    return <AuthScreen />;
+  }
 
+  // Authenticated Modal Views
   if (currentView === 'onboarding' || currentView === 'edit') {
     return <AssetIntelligenceCenter mode={currentView} />;
   }
@@ -135,15 +156,6 @@ const App: React.FC = () => {
               <span className="text-lg group-hover:scale-110 transition-transform">➕</span>
               <span className="text-[9px] font-black uppercase tracking-[0.2em]">Deploy Asset</span>
             </button>
-            {vehicles.length > 0 && (
-              <button 
-                onClick={handleTuneAction}
-                className="flex items-center gap-4 px-5 py-3 w-full text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all group rounded-xl"
-              >
-                <span className="text-lg group-hover:scale-110 transition-transform">⚙️</span>
-                <span className="text-[9px] font-black uppercase tracking-[0.2em]">Asset Tuning</span>
-              </button>
-            )}
           </div>
 
           {user?.role === 'admin' && (
@@ -155,13 +167,16 @@ const App: React.FC = () => {
         </nav>
 
         <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-900 text-[10px] font-black uppercase">{user?.email?.[0]}</div>
-            <div className="overflow-hidden">
-              <span className="block text-[9px] font-black text-slate-900 truncate">{user?.email}</span>
+          <button 
+            onClick={() => setCurrentView('profile')}
+            className={`flex items-center gap-3 mb-4 w-full p-2 rounded-xl transition-all ${currentView === 'profile' ? 'bg-slate-50 border border-slate-100' : 'hover:bg-slate-50'}`}
+          >
+            <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-[10px] font-black uppercase">{user?.email?.[0]}</div>
+            <div className="overflow-hidden text-left">
+              <span className="block text-[9px] font-black text-slate-900 truncate">{user?.displayName || user?.email}</span>
               <span className="block text-[7px] font-black text-blue-500 uppercase tracking-widest">{user?.tier} Class</span>
             </div>
-          </div>
+          </button>
           <button 
             onClick={() => supabase?.auth.signOut()}
             className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest"
@@ -180,6 +195,7 @@ const App: React.FC = () => {
             {currentView === 'fuel' && <FuelIntelligenceCenter />}
             {currentView === 'marketplace' && <Marketplace />}
             {currentView === 'admin' && <AdminPanel />}
+            {currentView === 'profile' && <ProfileDossier />}
             {currentView === 'diagnostic' && activeVehicle && (
               <div className="max-w-4xl mx-auto w-full space-y-8">
                 <header className="px-1">
@@ -225,9 +241,9 @@ const App: React.FC = () => {
           <span className="text-lg">⛽</span>
           <span className="text-[7px] font-black uppercase tracking-widest">Fuel</span>
         </button>
-        <button onClick={() => setCurrentView('service')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'service' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
-          <span className="text-lg">🛠️</span>
-          <span className="text-[7px] font-black uppercase tracking-widest">Hub</span>
+        <button onClick={() => setCurrentView('profile')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'profile' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
+          <span className="text-lg">👤</span>
+          <span className="text-[7px] font-black uppercase tracking-widest">Pilot</span>
         </button>
       </nav>
     </div>
