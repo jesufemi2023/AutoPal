@@ -90,7 +90,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
           await updateVehicle(vehicle.id, { imageUrl: url });
           vehicle.imageUrl = url;
         } catch (e) {
-          console.error("Optical sync error:", e);
+          console.error("Image upload error:", e);
         }
       }
 
@@ -115,7 +115,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
           const compressed = await compressImage(imageFile, 800, 0.7);
           finalImageUrl = await uploadVehicleImage(user.id, initialVehicle.id, compressed);
         } catch (e) {
-          console.error("Optical update fault:", e);
+          console.error("Image update fault:", e);
         }
       }
 
@@ -343,7 +343,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-black text-base sm:text-lg shadow-xl shadow-blue-600/20">A</div>
             <div>
               <h1 className="text-white font-black text-sm sm:text-xl tracking-tighter uppercase leading-tight">
-                {mode === 'edit' ? 'Update Car' : 'Vehicle Setup'}
+                {mode === 'edit' ? 'Update Car' : 'New Vehicle Setup'}
               </h1>
               <p className="text-blue-500/60 text-[7px] sm:text-[8px] font-black uppercase tracking-[0.3em]">{mode === 'edit' ? 'Modifying details' : 'Getting started'}</p>
             </div>
@@ -397,7 +397,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
           <div className="max-w-2xl mx-auto space-y-12 sm:space-y-16">
             <section className="space-y-6 sm:space-y-10">
               <div className="space-y-6">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] ml-2">The Basics</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] ml-2">Car Details</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div className="space-y-2">
                     <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Make / Manufacturer</div>
@@ -414,7 +414,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
                     <input type="number" className="w-full px-6 sm:px-8 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black outline-none text-sm focus:border-blue-500" value={form.year} onChange={e => setForm({...form, year: parseInt(e.target.value)})} />
                   </div>
                   <div className="space-y-2">
-                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Chassis Number (VIN)</div>
+                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">VIN Number</div>
                     <input type="text" placeholder="Optional" className="w-full px-6 sm:px-8 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-mono font-black text-center tracking-widest outline-none uppercase text-sm focus:border-blue-500" value={form.vin} onChange={e => setForm({...form, vin: e.target.value.toUpperCase()})} />
                   </div>
                 </div>
@@ -467,9 +467,9 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
                 <div className="h-px bg-slate-100 w-full"></div>
                 <div className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 bg-rose-50 rounded-[2rem] border border-rose-100">
                   <div className="space-y-1 text-center sm:text-left">
-                    <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.4em]">Remove From Garage</h4>
+                    <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.4em]">Danger Zone</h4>
                     <p className="text-[9px] text-rose-400 font-bold uppercase tracking-widest leading-relaxed">
-                      Archive this vehicle and its entire maintenance history.
+                      Remove this vehicle and archive all its history.
                     </p>
                   </div>
                   <button 

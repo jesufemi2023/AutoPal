@@ -152,7 +152,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-50">
+      <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-50 overflow-hidden">
         {/* Fixed Header */}
         <div className="p-8 pb-6 shrink-0">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
@@ -187,7 +187,7 @@ const App: React.FC = () => {
               <span className={`text-[10px] transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}>▾</span>
             </button>
 
-            {/* Dropdown Menu (Integrated into sidebar flow) */}
+            {/* Dropdown Menu (Vertical) */}
             <div className={`transition-all duration-300 overflow-hidden ${isSettingsOpen ? 'max-h-[400px] opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
               <div className="bg-slate-50/50 rounded-2xl p-2 space-y-0.5 border border-slate-100/50 ml-2">
                 <button 
