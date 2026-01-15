@@ -67,6 +67,21 @@
       .scrollbar-hide::-webkit-scrollbar { display: none; }
       .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       
+      /* Desktop Scrollbar Affordance */
+      @media (min-width: 1024px) {
+        .scrollbar-desktop-show:hover::-webkit-scrollbar {
+          display: block;
+          height: 4px;
+        }
+        .scrollbar-desktop-show::-webkit-scrollbar-thumb {
+          background: #e2e8f0;
+          border-radius: 10px;
+        }
+        .scrollbar-desktop-show::-webkit-scrollbar-track {
+          background: transparent;
+        }
+      }
+
       @keyframes slideUp {
         from { transform: translateY(20px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }

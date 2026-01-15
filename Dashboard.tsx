@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, updateMileage, updateVehicle
@@ -23,6 +23,7 @@ const Dashboard: React.FC = () => {
 
   const [showOdometerModal, setShowOdometerModal] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
   const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicleId);
@@ -60,6 +61,16 @@ const Dashboard: React.FC = () => {
     }
   }, [tasks, activeVehicle?.mileage, activeFuelLogs, activeServiceLogs]);
 
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = 300;
+      scrollContainerRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 sm:space-y-10 lg:space-y-14 w-full max-w-full overflow-x-hidden pb-10 px-1">
       <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 px-1">
@@ -69,27 +80,43 @@ const Dashboard: React.FC = () => {
         </div>
         
         {/* Slidable Vehicle Selection Bar */}
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide py-1.5 px-0.5 -mx-0.5 flex-nowrap snap-x snap-mandatory">
-          {vehicles.length > 0 && vehicles.map(v => (
-            <button 
-              key={v.id}
-              onClick={() => setActiveVehicleId(v.id)}
-              className={`flex-shrink-0 px-6 py-5 rounded-[1.75rem] border-2 transition-all min-w-[180px] sm:min-w-[200px] text-left relative overflow-hidden flex flex-col justify-center snap-center ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200 hover:bg-slate-50'}`}
-            >
-              <div className="text-[7px] font-black uppercase opacity-50 mb-1 tracking-widest">{v.make}</div>
-              <div className="text-base font-black tracking-tight truncate w-full">{v.model}</div>
-              <div className="flex items-center gap-2 mt-3">
-                 <div className={`w-2 h-2 rounded-full ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_8px_#3b82f6]' : 'bg-slate-200'}`}></div>
-                 <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year} model</div>
-              </div>
-            </button>
-          ))}
-          {/* Add visual cue for scroll if many vehicles */}
-          {vehicles.length > 2 && (
-            <div className="flex-shrink-0 w-8 flex items-center justify-center text-slate-200 pointer-events-none">
-              <span className="animate-pulse">→</span>
-            </div>
-          )}
+        <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
+          {/* Desktop Navigation Buttons */}
+          <button 
+            onClick={() => handleScroll('left')}
+            className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/80 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-lg text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-5"
+            aria-label="Scroll Left"
+          >
+            ←
+          </button>
+          
+          <div 
+            ref={scrollContainerRef}
+            className="flex gap-3 overflow-x-auto scrollbar-hide scrollbar-desktop-show py-1.5 px-0.5 -mx-0.5 flex-nowrap snap-x snap-mandatory scroll-smooth"
+          >
+            {vehicles.length > 0 && vehicles.map(v => (
+              <button 
+                key={v.id}
+                onClick={() => setActiveVehicleId(v.id)}
+                className={`flex-shrink-0 px-6 py-5 rounded-[1.75rem] border-2 transition-all min-w-[180px] sm:min-w-[200px] text-left relative overflow-hidden flex flex-col justify-center snap-center ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200 hover:bg-slate-50'}`}
+              >
+                <div className="text-[7px] font-black uppercase opacity-50 mb-1 tracking-widest">{v.make}</div>
+                <div className="text-base font-black tracking-tight truncate w-full">{v.model}</div>
+                <div className="flex items-center gap-2 mt-3">
+                   <div className={`w-2 h-2 rounded-full ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_8px_#3b82f6]' : 'bg-slate-200'}`}></div>
+                   <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year} model</div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <button 
+            onClick={() => handleScroll('right')}
+            className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/80 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-lg text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -mr-5"
+            aria-label="Scroll Right"
+          >
+            →
+          </button>
         </div>
       </header>
 

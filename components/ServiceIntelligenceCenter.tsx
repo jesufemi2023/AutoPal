@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../services/vehicleService.ts';
 import { fetchFuelLogs } from '../services/fuelService.ts';
@@ -26,6 +26,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
   const [showLogTerminal, setShowLogTerminal] = useState(false);
   const [selectedTaskForLog, setSelectedTaskForLog] = useState<MaintenanceTask | undefined>();
   const [editingLog, setEditingLog] = useState<ServiceLog | undefined>();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
@@ -77,6 +78,16 @@ const ServiceIntelligenceCenter: React.FC = () => {
     setShowLogTerminal(true);
   };
 
+  const handleScroll = (direction: 'left' | 'right') => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = 200;
+      scrollContainerRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   return (
     <div className="space-y-12 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2">
@@ -91,16 +102,37 @@ const ServiceIntelligenceCenter: React.FC = () => {
             Service <br/><span className="text-blue-600">Module</span>
           </h2>
           {vehicles.length > 1 && (
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              {vehicles.map(v => (
-                <button 
-                  key={v.id}
-                  onClick={() => setActiveVehicleId(v.id)}
-                  className={`flex-shrink-0 px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400'}`}
-                >
-                  {v.model}
-                </button>
-              ))}
+            <div className="relative group/scroll w-full max-w-sm mt-4">
+              <button 
+                onClick={() => handleScroll('left')}
+                className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-4"
+                aria-label="Scroll Left"
+              >
+                ←
+              </button>
+              
+              <div 
+                ref={scrollContainerRef}
+                className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scrollbar-desktop-show scroll-smooth"
+              >
+                {vehicles.map(v => (
+                  <button 
+                    key={v.id}
+                    onClick={() => setActiveVehicleId(v.id)}
+                    className={`flex-shrink-0 px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400'}`}
+                  >
+                    {v.model}
+                  </button>
+                ))}
+              </div>
+
+              <button 
+                onClick={() => handleScroll('right')}
+                className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -mr-4"
+                aria-label="Scroll Right"
+              >
+                →
+              </button>
             </div>
           )}
         </div>
