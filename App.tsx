@@ -29,6 +29,7 @@ const App: React.FC = () => {
   const [diagImage, setDiagImage] = useState<string | null>(null);
   const [aiAdvice, setAiAdvice] = useState<any>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
@@ -90,6 +91,7 @@ const App: React.FC = () => {
       await archiveVehicle(activeVehicleId);
       removeVehicleStore(activeVehicleId);
       setIsSettingsOpen(false);
+      setIsMobileMenuOpen(false);
       setCurrentView('garage');
     } catch (e: any) {
       alert(`System Error: ${e.message}`);
@@ -100,6 +102,7 @@ const App: React.FC = () => {
     if (!activeVehicleId) return;
     setEditingVehicle(activeVehicleId);
     setIsSettingsOpen(false);
+    setIsMobileMenuOpen(false);
     setCurrentView('edit');
   };
 
@@ -124,6 +127,7 @@ const App: React.FC = () => {
       onClick={() => {
         setCurrentView(view);
         setIsSettingsOpen(false);
+        setIsMobileMenuOpen(false);
       }}
       className={`flex items-center gap-4 px-5 py-3.5 w-full transition-all group relative ${currentView === view ? 'sidebar-link-active' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
     >
@@ -133,6 +137,74 @@ const App: React.FC = () => {
         <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-blue-600 rounded-l-full"></div>
       )}
     </button>
+  );
+
+  const NavigationMenu = () => (
+    <>
+      <div className="pb-4">
+        <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2 mt-2">Navigation</p>
+        <NavItem view="garage" label="Dashboard" icon="🏠" />
+        <NavItem view="diagnostic" label="AI Diagnostic" icon="✧" isNeural />
+        <NavItem view="service" label="Service History" icon="🛠️" />
+        <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
+        <NavItem view="marketplace" label="Shop Parts" icon="🛒" />
+      </div>
+
+      <div className="pt-4 border-t border-slate-50 mx-2">
+        <button 
+          onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+          className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsOpen ? 'bg-slate-50 border-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}
+        >
+          <div className="flex items-center gap-4">
+            <span className={`text-lg transition-transform ${isSettingsOpen ? 'rotate-90 text-blue-600' : 'group-hover:rotate-12'}`}>⚙</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Vehicle Settings</span>
+          </div>
+          <span className={`text-[10px] transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}>▾</span>
+        </button>
+
+        <div className={`transition-all duration-300 overflow-hidden ${isSettingsOpen ? 'max-h-[400px] opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
+          <div className="bg-slate-50/50 rounded-2xl p-2 space-y-0.5 border border-slate-100/50 ml-2">
+            <button 
+              onClick={() => {
+                setCurrentView('onboarding');
+                setIsSettingsOpen(false);
+                setIsMobileMenuOpen(false);
+              }}
+              className="flex items-center gap-4 px-4 py-3 w-full text-blue-600 hover:bg-white transition-all group rounded-xl"
+            >
+              <span className="text-base group-hover:scale-110">➕</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add a Vehicle</span>
+            </button>
+
+            {activeVehicle && (
+              <>
+                <button 
+                  onClick={handleEditAsset}
+                  className="flex items-center gap-4 px-4 py-3 w-full text-slate-600 hover:text-blue-600 hover:bg-white transition-all group rounded-xl"
+                >
+                  <span className="text-base group-hover:scale-110">✎</span>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Update Details</span>
+                </button>
+                <button 
+                  onClick={handleArchiveAsset}
+                  className="flex items-center gap-4 px-4 py-3 w-full text-rose-500 hover:bg-rose-50 transition-all group rounded-xl"
+                >
+                  <span className="text-base group-hover:scale-110">📁</span>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Remove Vehicle</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {user?.role === 'admin' && (
+        <div className="pt-6">
+          <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Admin Tools</p>
+          <NavItem view="admin" label="Admin Panel" icon="🛡️" />
+        </div>
+      )}
+    </>
   );
 
   const handleAnalyze = async () => {
@@ -151,6 +223,68 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
+      {/* Mobile Header */}
+      <header className="lg:hidden h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 z-[100] w-full">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
+          <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-md">A</div>
+          <span className="font-black tracking-tighter text-slate-900 text-sm">AutoPal NG</span>
+        </div>
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="text-slate-900 p-2 focus:outline-none"
+          aria-label="Menu"
+        >
+          <div className="w-6 h-5 relative flex flex-col justify-between">
+            <span className={`w-full h-0.5 bg-slate-900 transition-all duration-300 ${isMobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`}></span>
+            <span className={`w-full h-0.5 bg-slate-900 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0' : ''}`}></span>
+            <span className={`w-full h-0.5 bg-slate-900 transition-all duration-300 ${isMobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
+          </div>
+        </button>
+      </header>
+
+      {/* Mobile Drawer Overlay */}
+      <div 
+        className={`lg:hidden fixed inset-0 bg-slate-950/20 backdrop-blur-sm z-[110] transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => setIsMobileMenuOpen(false)}
+      >
+        <aside 
+          className={`w-[280px] h-full bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-out transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="p-8 pb-6 flex justify-between items-center border-b border-slate-50">
+            <div>
+              <span className="block font-black tracking-tighter text-slate-900 text-base leading-none mb-1">AutoPal NG</span>
+              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">Navigation Hub</span>
+            </div>
+            <button onClick={() => setIsMobileMenuOpen(false)} className="text-slate-400 text-2xl font-light">×</button>
+          </div>
+          <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 space-y-0.5 py-6">
+            <NavigationMenu />
+          </nav>
+          <div className="p-6 border-t border-slate-50">
+            <button 
+              onClick={() => {
+                setCurrentView('profile');
+                setIsMobileMenuOpen(false);
+              }}
+              className={`flex items-center gap-3 mb-4 w-full p-2 rounded-xl transition-all ${currentView === 'profile' ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
+            >
+              <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-[10px] font-black uppercase shadow-inner">{user?.email?.[0]}</div>
+              <div className="text-left overflow-hidden">
+                <span className="block text-[9px] font-black text-slate-900 truncate">{user?.displayName || user?.email}</span>
+                <span className="block text-[7px] font-black text-blue-500 uppercase tracking-widest">{user?.tier} Member</span>
+              </div>
+            </button>
+            <button 
+              onClick={() => supabase?.auth.signOut()}
+              className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center"
+            >
+              🚪 Sign Out
+            </button>
+          </div>
+        </aside>
+      </div>
+
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-50 overflow-hidden">
         {/* Fixed Header */}
@@ -166,69 +300,7 @@ const App: React.FC = () => {
 
         {/* Scrollable Navigation Area */}
         <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 space-y-0.5 pb-8">
-          <div className="pb-4">
-            <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2 mt-2">Navigation</p>
-            <NavItem view="garage" label="Dashboard" icon="🏠" />
-            <NavItem view="diagnostic" label="AI Diagnostic" icon="✧" isNeural />
-            <NavItem view="service" label="Service History" icon="🛠️" />
-            <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
-            <NavItem view="marketplace" label="Shop Parts" icon="🛒" />
-          </div>
-
-          <div className="pt-4 border-t border-slate-50 mx-2">
-            <button 
-              onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-              className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsOpen ? 'bg-slate-50 border-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}
-            >
-              <div className="flex items-center gap-4">
-                <span className={`text-lg transition-transform ${isSettingsOpen ? 'rotate-90 text-blue-600' : 'group-hover:rotate-12'}`}>⚙</span>
-                <span className="text-[9px] font-black uppercase tracking-[0.2em]">Vehicle Settings</span>
-              </div>
-              <span className={`text-[10px] transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}>▾</span>
-            </button>
-
-            {/* Dropdown Menu (Vertical) */}
-            <div className={`transition-all duration-300 overflow-hidden ${isSettingsOpen ? 'max-h-[400px] opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
-              <div className="bg-slate-50/50 rounded-2xl p-2 space-y-0.5 border border-slate-100/50 ml-2">
-                <button 
-                  onClick={() => {
-                    setCurrentView('onboarding');
-                    setIsSettingsOpen(false);
-                  }}
-                  className="flex items-center gap-4 px-4 py-3 w-full text-blue-600 hover:bg-white transition-all group rounded-xl"
-                >
-                  <span className="text-base group-hover:scale-110">➕</span>
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add a Vehicle</span>
-                </button>
-
-                {activeVehicle && (
-                  <>
-                    <button 
-                      onClick={handleEditAsset}
-                      className="flex items-center gap-4 px-4 py-3 w-full text-slate-600 hover:text-blue-600 hover:bg-white transition-all group rounded-xl"
-                    >
-                      <span className="text-base group-hover:scale-110">✎</span>
-                      <span className="text-[9px] font-black uppercase tracking-[0.2em]">Update Details</span>
-                    </button>
-                    <button 
-                      onClick={handleArchiveAsset}
-                      className="flex items-center gap-4 px-4 py-3 w-full text-rose-500 hover:bg-rose-50 transition-all group rounded-xl"
-                    >
-                      <span className="text-base group-hover:scale-110">📁</span>
-                      <span className="text-[9px] font-black uppercase tracking-[0.2em]">Remove Vehicle</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {user?.role === 'admin' && (
-            <div className="pt-6">
-              <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Admin Tools</p>
-              <NavItem view="admin" label="Admin Panel" icon="🛡️" />
-            </div>
-          )}
+          <NavigationMenu />
         </nav>
 
         {/* Fixed Footer */}
@@ -258,7 +330,10 @@ const App: React.FC = () => {
       {/* Main Content Area */}
       <div className="flex-grow lg:ml-[300px] flex flex-col min-h-screen w-full overflow-x-hidden">
         <main 
-          onClick={() => setIsSettingsOpen(false)}
+          onClick={() => {
+            setIsSettingsOpen(false);
+            setIsMobileMenuOpen(false);
+          }}
           className={`p-4 sm:p-6 lg:p-10 xl:p-12 max-w-full lg:max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow flex flex-col items-center ${currentView === 'landing' ? '!p-0 !max-w-none' : ''}`}
         >
           <div className={`animate-slide-up w-full max-w-full ${currentView === 'landing' ? '!max-w-none' : ''}`}>
