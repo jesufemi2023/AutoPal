@@ -333,7 +333,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
 
   return (
     <div className="fixed inset-0 bg-[#fcfcfd] z-[9999] flex flex-col lg:flex-row overflow-hidden animate-in fade-in duration-500">
-      <div className="h-[30vh] sm:h-[35vh] lg:h-full lg:w-5/12 bg-slate-900 flex flex-col relative overflow-hidden shrink-0 pt-safe">
+      <div className="h-[45vh] lg:h-full lg:w-5/12 bg-slate-900 flex flex-col relative overflow-hidden shrink-0 pt-safe">
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:32px_32px]"></div>
         </div>
@@ -352,8 +352,8 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
         </header>
 
         <div className="flex-grow flex items-center justify-center p-6 relative z-10 overflow-hidden">
-          <div className="w-full max-w-lg space-y-6 lg:space-y-16 animate-slide-up">
-            <div className="text-center space-y-2">
+          <div className="w-full max-w-lg space-y-4 lg:space-y-12 animate-slide-up">
+            <div className="text-center space-y-2 mb-4 lg:mb-0">
                <h2 className="text-2xl sm:text-5xl lg:text-6xl font-black text-white tracking-tighter leading-[0.9] truncate px-4">
                  {form.make || 'Draft'} <br className="hidden sm:block" />
                  <span className="text-blue-500"> {form.model || 'Asset'}</span>
@@ -363,21 +363,37 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
                </div>
             </div>
 
-            <div className="relative group cursor-pointer max-w-[240px] sm:max-w-none mx-auto" onClick={() => fileInputRef.current?.click()}>
+            <div 
+              className="relative group cursor-pointer max-w-[240px] sm:max-w-[320px] lg:max-w-none mx-auto w-full transition-transform active:scale-95" 
+              onClick={() => fileInputRef.current?.click()}
+            >
               <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={onImageChange} />
+              
               {imagePreview ? (
-                <div className="aspect-[16/10] rounded-[2rem] overflow-hidden border-[6px] sm:border-[8px] border-slate-800 shadow-3xl relative group">
+                <div className="aspect-[16/10] rounded-[2rem] overflow-hidden border-[6px] sm:border-[8px] border-slate-800 shadow-3xl relative">
                   <img src={imagePreview} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Asset Preview" />
-                  <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                    <span className="bg-white text-slate-900 px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest">Change Photo</span>
+                  <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-all backdrop-blur-sm">
+                    <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-slate-900 text-xl mb-2 shadow-xl">📷</div>
+                    <span className="bg-white text-slate-900 px-6 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg">Change Photo</span>
                   </div>
                 </div>
               ) : (
-                <div className="relative group">
-                  <VehicleBlueprint type={form.bodyType} className="bg-slate-800/40 border-slate-700/50 text-slate-600 group-hover:text-blue-500 transition-all py-8 lg:py-20" />
+                <div className="relative group overflow-hidden rounded-[2.5rem] border-2 border-dashed border-slate-700 hover:border-blue-500 transition-all flex flex-col items-center justify-center bg-slate-800/20 group">
+                  <VehicleBlueprint type={form.bodyType} className="bg-transparent border-transparent text-slate-700 group-hover:text-blue-500 transition-all py-10 lg:py-24" />
+                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/40 group-hover:bg-slate-950/0 transition-all">
+                     <div className="w-14 h-14 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl mb-4 shadow-2xl group-hover:bg-blue-600 group-hover:border-blue-400 group-hover:scale-110 transition-all text-white/80 group-hover:text-white">
+                       <span className="animate-pulse">📷</span>
+                     </div>
+                     <span className="text-[10px] font-black text-white uppercase tracking-[0.3em] bg-blue-600 px-4 py-1.5 rounded-lg shadow-xl mb-2">Upload Photo</span>
+                     <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Click to link an image</span>
+                  </div>
                 </div>
               )}
             </div>
+            
+            <p className="text-center text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] lg:hidden">
+              Tap the icon above to upload a photo
+            </p>
           </div>
         </div>
       </div>
