@@ -5,6 +5,7 @@ import { supabase } from '../auth/supabaseClient.ts';
 
 const LandingTerminal: React.FC = () => {
   const { setTransientVehicle, setCurrentView, setLoading, guestAttempts, incrementGuestAttempts, session } = useAutoPalStore();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [form, setForm] = useState({
     make: '',
     model: '',
@@ -51,11 +52,13 @@ const LandingTerminal: React.FC = () => {
     }
   };
 
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col items-center p-6 relative overflow-hidden pt-24 sm:pt-32">
       {/* Fixed Top Navigation */}
       <nav className="fixed top-0 left-0 right-0 z-[100] bg-slate-950/80 backdrop-blur-2xl border-b border-white/5">
-        <div className="max-w-6xl mx-auto flex justify-between items-center py-6 px-6 sm:px-10">
+        <div className="max-w-6xl mx-auto flex justify-between items-center py-5 px-6 sm:px-10">
           <div 
             className="flex items-center gap-3 cursor-pointer group" 
             onClick={() => setCurrentView('landing')}
@@ -63,7 +66,9 @@ const LandingTerminal: React.FC = () => {
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/20">A</div>
             <span className="font-black text-white tracking-tighter uppercase text-sm">AutoPal NG</span>
           </div>
-          <div className="flex items-center gap-4">
+
+          {/* Desktop Navbar */}
+          <div className="hidden md:flex items-center gap-6">
             {session ? (
               <>
                 <button 
@@ -85,13 +90,64 @@ const LandingTerminal: React.FC = () => {
                   onClick={() => setCurrentView('garage')}
                   className="text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
                 >
-                  Sign In
+                  Signin
                 </button>
                 <button 
                   onClick={() => setCurrentView('garage')}
                   className="bg-white text-slate-900 px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all shadow-xl"
                 >
-                  Create Account
+                  Signup
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Mobile Hamburger Icon */}
+          <button 
+            className="md:hidden text-white p-2 focus:outline-none" 
+            onClick={toggleMenu}
+            aria-label="Toggle navigation menu"
+            aria-expanded={isMenuOpen}
+          >
+            <div className="w-6 h-5 relative flex flex-col justify-between">
+              <span className={`w-full h-0.5 bg-white transition-all duration-300 ${isMenuOpen ? 'rotate-45 translate-y-2' : ''}`}></span>
+              <span className={`w-full h-0.5 bg-white transition-all duration-300 ${isMenuOpen ? 'opacity-0' : ''}`}></span>
+              <span className={`w-full h-0.5 bg-white transition-all duration-300 ${isMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
+            </div>
+          </button>
+        </div>
+
+        {/* Mobile/Tablet Dropdown Menu */}
+        <div className={`md:hidden absolute top-full left-0 w-full bg-slate-900/95 backdrop-blur-3xl border-b border-white/5 transition-all duration-300 ease-in-out origin-top ${isMenuOpen ? 'scale-y-100 opacity-100 visible' : 'scale-y-0 opacity-0 invisible'}`}>
+          <div className="flex flex-col p-6 gap-4">
+            {session ? (
+              <>
+                <button 
+                  onClick={() => { setCurrentView('garage'); setIsMenuOpen(false); }}
+                  className="text-white text-[11px] font-black uppercase tracking-[0.2em] py-4 border-b border-white/5 text-left"
+                >
+                  Dashboard
+                </button>
+                <button 
+                  onClick={() => { handleSignOut(); setIsMenuOpen(false); }}
+                  className="text-rose-500 text-[11px] font-black uppercase tracking-[0.2em] py-4 text-left"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <button 
+                  onClick={() => { setCurrentView('garage'); setIsMenuOpen(false); }}
+                  className="text-white text-[11px] font-black uppercase tracking-[0.2em] py-4 border-b border-white/5 text-left"
+                >
+                  Signin
+                </button>
+                <button 
+                  onClick={() => { setCurrentView('garage'); setIsMenuOpen(false); }}
+                  className="text-blue-500 text-[11px] font-black uppercase tracking-[0.2em] py-4 text-left"
+                >
+                  Signup
                 </button>
               </>
             )}
