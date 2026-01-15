@@ -364,7 +364,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
             </div>
 
             <div 
-              className="relative group cursor-pointer max-w-[240px] sm:max-w-[320px] lg:max-w-none mx-auto w-full transition-transform active:scale-95" 
+              className="relative group cursor-pointer max-w-[220px] sm:max-w-[300px] lg:max-w-sm mx-auto w-full transition-transform active:scale-95" 
               onClick={() => fileInputRef.current?.click()}
             >
               <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={onImageChange} />
@@ -379,7 +379,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
                 </div>
               ) : (
                 <div className="relative group overflow-hidden rounded-[2.5rem] border-2 border-dashed border-slate-700 hover:border-blue-500 transition-all flex flex-col items-center justify-center bg-slate-800/20 group">
-                  <VehicleBlueprint type={form.bodyType} className="bg-transparent border-transparent text-slate-700 group-hover:text-blue-500 transition-all py-10 lg:py-24" />
+                  <VehicleBlueprint type={form.bodyType} className="bg-transparent border-transparent text-slate-700 group-hover:text-blue-500 transition-all py-8 lg:py-14" />
                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/40 group-hover:bg-slate-950/0 transition-all">
                      <div className="w-14 h-14 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-2xl mb-4 shadow-2xl group-hover:bg-blue-600 group-hover:border-blue-400 group-hover:scale-110 transition-all text-white/80 group-hover:text-white">
                        <span className="animate-pulse">📷</span>
