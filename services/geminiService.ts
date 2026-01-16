@@ -2,13 +2,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ENV } from "./envService.ts";
 import { PROMPTS } from "./promptService.ts";
-import { AIResponse, MaintenanceScheduleResponse, Priority } from "../shared/types.ts";
+import { AIResponse, MaintenanceScheduleResponse, Priority, AIValuationReport, Vehicle, MaintenanceTask, ServiceLog, FuelLog } from "../shared/types.ts";
 
-/**
- * AI Client Factory
- * Fixed: Strictly adhering to Gemini API guidelines to use process.env.API_KEY exclusively
- * and initialize client with named parameter.
- */
 const getAIClient = () => {
   if (!process.env.API_KEY) {
     throw new Error("Neural Sync Failure: Gemini API key not found in environment.");
@@ -16,10 +11,82 @@ const getAIClient = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
-/**
- * Refined Standard Protocol (Nigeria Context)
- * Aligned with maintenance_tasks table recurrence fields.
- */
+export const generateAIValuation = async (
+  vehicle: Vehicle,
+  tasks: MaintenanceTask[],
+  serviceLogs: ServiceLog[],
+  fuelLogs: FuelLog[]
+): Promise<AIValuationReport> => {
+  const ai = getAIClient();
+  
+  // Data minimization: Pass only essential fields to AI
+  const telemetry = {
+    vehicle: { make: vehicle.make, model: vehicle.model, year: vehicle.year, mileage: vehicle.mileage, bodyType: vehicle.bodyType },
+    pendingTasks: tasks.filter(t => t.status === 'pending').map(t => ({ title: t.title, due: t.dueMileage, cost: t.estimatedCost, cat: t.category })),
+    recentService: serviceLogs.slice(0, 10).map(l => ({ type: l.serviceType, date: l.serviceDate, km: l.mileageAtService, cost: l.cost, ver: l.verificationLevel })),
+    recentFuel: fuelLogs.slice(0, 10).map(l => ({ km: l.odometerKm, lit: l.liters, full: l.isFullTank }))
+  };
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: JSON.stringify(telemetry),
+      config: {
+        systemInstruction: `You are the AutoPal NG Valuation Engine. Analyze the provided vehicle telemetry for the Nigerian market.
+        Itemize insights into:
+        1. trustPremium: NGN value added by verified logs.
+        2. mechanicalVitality: 0-100 score based on fuel stability and service frequency.
+        3. maintenanceDebt: NGN value of upcoming/overdue costs.
+        4. marketGrade: A+ to D based on condition vs mileage.
+        5. exitStrategy: Advise when to sell.
+        
+        Market context: High tropical heat, dusty roads, currency: NGN.`,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            valuationNGN: { type: Type.NUMBER },
+            marketGrade: { type: Type.STRING, enum: ["A+", "A", "B", "C", "D"] },
+            insights: {
+              type: Type.OBJECT,
+              properties: {
+                trustPremium: { 
+                  type: Type.OBJECT,
+                  properties: { value: { type: Type.NUMBER }, description: { type: Type.STRING } },
+                  required: ["value", "description"]
+                },
+                mechanicalVitality: {
+                  type: Type.OBJECT,
+                  properties: { score: { type: Type.NUMBER }, description: { type: Type.STRING } },
+                  required: ["score", "description"]
+                },
+                maintenanceDebt: {
+                  type: Type.OBJECT,
+                  properties: { value: { type: Type.NUMBER }, description: { type: Type.STRING } },
+                  required: ["value", "description"]
+                },
+                exitStrategy: { type: Type.STRING },
+                marketComparison: { type: Type.STRING }
+              },
+              required: ["trustPremium", "mechanicalVitality", "maintenanceDebt", "exitStrategy", "marketComparison"]
+            }
+          },
+          required: ["valuationNGN", "marketGrade", "insights"]
+        }
+      }
+    });
+
+    const report = JSON.parse(response.text || "{}");
+    return {
+      ...report,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error("AI Valuation Failure:", error);
+    throw error;
+  }
+};
+
 const getStandardProtocol = (mileage: number): MaintenanceScheduleResponse => {
   const sixMonthsLater = new Date();
   sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
@@ -96,7 +163,6 @@ export const generateMaintenanceSchedule = async (
   const ai = getAIClient();
   
   try {
-    // Fixed: Using ai.models.generateContent with directly supported model name and configuration
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
       contents: `Vehicle Profile: ${year} ${make} ${model}. Current Telemetry: ${mileage}km. Environment: ${ENV.REGIONAL_CONTEXT}`,
@@ -131,7 +197,6 @@ export const generateMaintenanceSchedule = async (
       }
     });
 
-    // Fixed: Accessing response.text property directly as per Gemini API guidelines
     const jsonStr = (response.text || "{}").trim();
     return JSON.parse(jsonStr) as MaintenanceScheduleResponse;
   } catch (error: any) {
@@ -162,7 +227,6 @@ export const decodeVIN = async (vin: string): Promise<{ make: string; model: str
         }
       }
     });
-    // Fixed: Accessing response.text property directly
     const jsonStr = (response.text || "{}").trim();
     return JSON.parse(jsonStr);
   } catch (error) {
@@ -175,7 +239,6 @@ export const getAdvancedDiagnostic = async (
   vehicle: any, symptoms: string, isPremium: boolean, imageBase64?: string
 ): Promise<AIResponse> => {
   const ai = getAIClient();
-  // Fixed: Selecting model based on guidelines (pro for complex/premium, flash for basic)
   const modelId = (isPremium && ENV.ENABLE_PREMIUM_AI) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
   const parts: any[] = [{ text: `Vehicle Asset: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Reported Symptoms: ${symptoms}` }];
   if (imageBase64) {
@@ -200,7 +263,6 @@ export const getAdvancedDiagnostic = async (
       }
     }
   });
-  // Fixed: Accessing response.text property directly
   const jsonStr = (response.text || "{}").trim();
   return JSON.parse(jsonStr) as AIResponse;
 };

@@ -33,6 +33,19 @@ export interface TransientVehicle {
   vin?: string;
 }
 
+export interface AIValuationReport {
+  timestamp: string;
+  valuationNGN: number;
+  marketGrade: 'A+' | 'A' | 'B' | 'C' | 'D';
+  insights: {
+    trustPremium: { value: number; description: string };
+    mechanicalVitality: { score: number; description: string };
+    maintenanceDebt: { value: number; description: string };
+    exitStrategy: string;
+    marketComparison: string;
+  };
+}
+
 export interface VehicleSpecs {
   oilGrade?: string;
   tireSize?: string;
