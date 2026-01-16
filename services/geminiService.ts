@@ -1,259 +1,35 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { ENV } from "./envService.ts";
+import { UnifiedAIDossier, Vehicle, MaintenanceTask, ServiceLog, FuelLog, AIResponse, MaintenanceScheduleResponse } from "../shared/types.ts";
 import { PROMPTS } from "./promptService.ts";
-import { AIResponse, MaintenanceScheduleResponse, Priority, AIValuationReport, Vehicle, MaintenanceTask, ServiceLog, FuelLog } from "../shared/types.ts";
 
 const getAIClient = () => {
-  if (!process.env.API_KEY) {
-    throw new Error("Neural Sync Failure: Gemini API key not found in environment.");
-  }
+  if (!process.env.API_KEY) throw new Error("API Key Missing");
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
-export const generateAIValuation = async (
-  vehicle: Vehicle,
-  tasks: MaintenanceTask[],
-  serviceLogs: ServiceLog[],
-  fuelLogs: FuelLog[]
-): Promise<AIValuationReport> => {
-  const ai = getAIClient();
-  
-  const telemetry = {
-    vehicle: { make: vehicle.make, model: vehicle.model, year: vehicle.year, mileage: vehicle.mileage, bodyType: vehicle.bodyType, fuel: vehicle.fuelType },
-    pendingTasks: tasks.filter(t => t.status === 'pending').map(t => ({ title: t.title, due: t.dueMileage, cost: t.estimatedCost, cat: t.category })),
-    recentService: serviceLogs.slice(0, 15).map(l => ({ type: l.serviceType, date: l.serviceDate, km: l.mileageAtService, cost: l.cost, ver: l.verificationLevel })),
-    recentFuel: fuelLogs.slice(0, 10).map(l => ({ km: l.odometerKm, lit: l.liters, full: l.isFullTank }))
-  };
-
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: JSON.stringify(telemetry),
-      config: {
-        temperature: 0, // Deterministic Stabilizer
-        systemInstruction: `You are the AutoPal NG High-Confidence Valuation Engine. Analyze vehicle telemetry for the Nigerian used car market.
-        
-        CRITICAL RULES:
-        1. Base price must align with Lagos/Abuja market trends for 'Nigerian Used'.
-        2. trustPremium: Value added by verified service records.
-        3. mechanicalVitality: Score (0-100) based on fuel efficiency stability and service frequency.
-        4. maintenanceDebt: Estimated NGN deduction for pending/overdue high-cost maintenance (timing belt, tires, suspension).
-        5. exitStrategy: Advise user on the optimal window to sell to maximize ROI.
-        
-        Context: High heat, dust, stop-and-go traffic. Currency: NGN.`,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            valuationNGN: { type: Type.NUMBER },
-            priceRange: {
-              type: Type.OBJECT,
-              properties: { min: { type: Type.NUMBER }, max: { type: Type.NUMBER } },
-              required: ["min", "max"]
-            },
-            marketGrade: { type: Type.STRING, enum: ["A+", "A", "B", "C", "D"] },
-            insights: {
-              type: Type.OBJECT,
-              properties: {
-                trustPremium: { 
-                  type: Type.OBJECT,
-                  properties: { value: { type: Type.NUMBER }, description: { type: Type.STRING } },
-                  required: ["value", "description"]
-                },
-                mechanicalVitality: {
-                  type: Type.OBJECT,
-                  properties: { score: { type: Type.NUMBER }, description: { type: Type.STRING } },
-                  required: ["score", "description"]
-                },
-                maintenanceDebt: {
-                  type: Type.OBJECT,
-                  properties: { value: { type: Type.NUMBER }, description: { type: Type.STRING } },
-                  required: ["value", "description"]
-                },
-                exitStrategy: { type: Type.STRING },
-                marketComparison: { type: Type.STRING }
-              },
-              required: ["trustPremium", "mechanicalVitality", "maintenanceDebt", "exitStrategy", "marketComparison"]
-            }
-          },
-          required: ["valuationNGN", "priceRange", "marketGrade", "insights"]
-        }
-      }
-    });
-
-    const report = JSON.parse(response.text || "{}");
-    return {
-      ...report,
-      vehicleId: vehicle.id,
-      timestamp: new Date().toISOString()
-    };
-  } catch (error) {
-    console.error("AI Valuation Failure:", error);
-    throw error;
-  }
-};
-
-const getStandardProtocol = (mileage: number): MaintenanceScheduleResponse => {
-  const sixMonthsLater = new Date();
-  sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
-  
-  const oneYearLater = new Date();
-  oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-
-  return {
-    summary: "Standard regional maintenance protocol applied (AI Quota Sleep).",
-    tasks: [
-      { 
-        title: "Full Synthetic Oil Service", 
-        description: "Premium oil and filter replacement to protect against high tropical heat.", 
-        dueMileage: mileage + 5000, 
-        dueDate: sixMonthsLater.toISOString().split('T')[0],
-        priority: Priority.HIGH, 
-        category: "fluids", 
-        estimatedCost: 45000,
-        intervalKm: 5000,
-        intervalMonths: 6
-      },
-      { 
-        title: "Brake System Calibration", 
-        description: "Inspect pads, rotors, and flush fluid for heavy stop-and-go urban traffic.", 
-        dueMileage: mileage + 10000, 
-        dueDate: oneYearLater.toISOString().split('T')[0],
-        priority: Priority.HIGH, 
-        category: "brakes", 
-        estimatedCost: 15000,
-        intervalKm: 10000,
-        intervalMonths: 12
-      },
-      { 
-        title: "Air Intake & Filter Swap", 
-        description: "Replace engine air filter to combat high dust levels in the environment.", 
-        dueMileage: mileage + 15000, 
-        priority: Priority.MEDIUM, 
-        category: "engine", 
-        estimatedCost: 12000,
-        intervalKm: 15000,
-        intervalMonths: 12
-      },
-      { 
-        title: "Suspension & Alignment", 
-        description: "Detailed check of bushings and ball joints due to challenging road conditions.", 
-        dueMileage: mileage + 10000, 
-        priority: Priority.MEDIUM, 
-        category: "suspension", 
-        estimatedCost: 25000,
-        intervalKm: 10000,
-        intervalMonths: 6
-      },
-      { 
-        title: "AC Cabin Sanitization", 
-        description: "Micro-filter replacement and evaporator cleaning for humid climates.", 
-        dueMileage: mileage + 20000, 
-        priority: Priority.LOW, 
-        category: "other", 
-        estimatedCost: 8000,
-        intervalKm: 20000,
-        intervalMonths: 12
-      }
-    ]
-  };
-};
-
-export const generateMaintenanceSchedule = async (
-  make: string, model: string, year: number, mileage: number
-): Promise<MaintenanceScheduleResponse> => {
-  if (ENV.MOCK_AI) {
-    return getStandardProtocol(mileage);
-  }
-
-  const ai = getAIClient();
-  
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', 
-      contents: `Vehicle Profile: ${year} ${make} ${model}. Current Telemetry: ${mileage}km. Environment: ${ENV.REGIONAL_CONTEXT}`,
-      config: {
-        systemInstruction: PROMPTS.MAINTENANCE_ROADMAP,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            summary: { type: Type.STRING },
-            tasks: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  title: { type: Type.STRING },
-                  description: { type: Type.STRING },
-                  dueMileage: { type: Type.NUMBER },
-                  dueDate: { type: Type.STRING, description: "Optional ISO date for time-based items" },
-                  priority: { type: Type.STRING, enum: ["low", "medium", "high"] },
-                  category: { type: Type.STRING, enum: ["engine", "tires", "brakes", "fluids", "suspension", "other"] },
-                  estimatedCost: { type: Type.NUMBER },
-                  intervalKm: { type: Type.NUMBER },
-                  intervalMonths: { type: Type.NUMBER }
-                },
-                required: ["title", "dueMileage", "priority", "category", "intervalKm", "intervalMonths"]
-              }
-            }
-          },
-          required: ["summary", "tasks"]
-        }
-      }
-    });
-
-    const jsonStr = (response.text || "{}").trim();
-    return JSON.parse(jsonStr) as MaintenanceScheduleResponse;
-  } catch (error: any) {
-    console.warn("AI Generation Interrupted. Applying Standard Protocol.", error);
-    return getStandardProtocol(mileage);
-  }
-};
-
-export const decodeVIN = async (vin: string): Promise<{ make: string; model: string; year: number; bodyType: string }> => {
-  if (ENV.MOCK_AI) return { make: "Toyota", model: "Camry", year: 2022, bodyType: "sedan" };
-  const ai = getAIClient();
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: `Chassis Number (VIN) to analyze: ${vin}`,
-      config: {
-        systemInstruction: PROMPTS.VIN_DECODER,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            make: { type: Type.STRING },
-            model: { type: Type.STRING },
-            year: { type: Type.INTEGER },
-            bodyType: { type: Type.STRING, enum: ["sedan", "suv", "truck", "coupe", "van", "other"] }
-          },
-          required: ["make", "model", "year", "bodyType"]
-        }
-      }
-    });
-    const jsonStr = (response.text || "{}").trim();
-    return JSON.parse(jsonStr);
-  } catch (error) {
-    console.error("VIN Decode Error:", error);
-    throw error;
-  }
-};
-
+// Added missing getAdvancedDiagnostic function
 export const getAdvancedDiagnostic = async (
-  vehicle: any, symptoms: string, isPremium: boolean, imageBase64?: string
+  vehicle: Vehicle,
+  symptom: string,
+  isPremium: boolean,
+  image?: string
 ): Promise<AIResponse> => {
   const ai = getAIClient();
-  const modelId = (isPremium && ENV.ENABLE_PREMIUM_AI) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
-  const parts: any[] = [{ text: `Vehicle Asset: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Reported Symptoms: ${symptoms}` }];
-  if (imageBase64) {
-    const data = imageBase64.includes(",") ? imageBase64.split(",")[1] : imageBase64;
-    parts.push({ inlineData: { mimeType: "image/jpeg", data: data } });
+  const model = isPremium ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+
+  const parts = [{ text: `Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model}\nSymptoms: ${symptom}` }];
+  if (image) {
+    parts.push({
+      inlineData: {
+        mimeType: 'image/jpeg',
+        data: image.split(',')[1]
+      }
+    } as any);
   }
+
   const response = await ai.models.generateContent({
-    model: modelId,
+    model,
     contents: { parts },
     config: {
       systemInstruction: PROMPTS.DIAGNOSTIC_EXPERT,
@@ -262,14 +38,150 @@ export const getAdvancedDiagnostic = async (
         type: Type.OBJECT,
         properties: {
           advice: { type: Type.STRING },
-          recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
           severity: { type: Type.STRING, enum: ["info", "warning", "critical"] },
+          recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
           partsIdentified: { type: Type.ARRAY, items: { type: Type.STRING } }
         },
-        required: ["advice", "recommendations", "severity"]
+        required: ["advice", "severity", "recommendations"]
       }
     }
   });
-  const jsonStr = (response.text || "{}").trim();
-  return JSON.parse(jsonStr) as AIResponse;
+
+  return JSON.parse(response.text || "{}");
+};
+
+// Added missing generateMaintenanceSchedule function
+export const generateMaintenanceSchedule = async (
+  make: string,
+  model: string,
+  year: number,
+  mileage: number
+): Promise<MaintenanceScheduleResponse> => {
+  const ai = getAIClient();
+  const prompt = `Vehicle: ${year} ${make} ${model} at ${mileage}km.`;
+
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: prompt,
+    config: {
+      systemInstruction: PROMPTS.MAINTENANCE_ROADMAP,
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          summary: { type: Type.STRING },
+          tasks: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING },
+                description: { type: Type.STRING },
+                dueMileage: { type: Type.NUMBER },
+                priority: { type: Type.STRING, enum: ["low", "medium", "high"] },
+                category: { type: Type.STRING },
+                estimatedCost: { type: Type.NUMBER },
+                intervalKm: { type: Type.NUMBER },
+                intervalMonths: { type: Type.NUMBER }
+              },
+              required: ["title", "description", "dueMileage", "priority", "category"]
+            }
+          }
+        },
+        required: ["summary", "tasks"]
+      }
+    }
+  });
+
+  return JSON.parse(response.text || "{}");
+};
+
+export const runNeuralAudit = async (
+  vehicle: Vehicle,
+  tasks: MaintenanceTask[],
+  serviceLogs: ServiceLog[],
+  fuelLogs: FuelLog[]
+): Promise<UnifiedAIDossier> => {
+  const ai = getAIClient();
+  
+  const telemetry = {
+    vehicle: { make: vehicle.make, model: vehicle.model, year: vehicle.year, mileage: vehicle.mileage, bodyType: vehicle.bodyType },
+    pendingTasks: tasks.filter(t => t.status === 'pending'),
+    serviceHistory: serviceLogs.map(l => ({ type: l.serviceType, cost: l.cost, ver: l.verificationLevel, cat: l.category })),
+    fuelLedger: fuelLogs.slice(0, 15).map(f => ({ km: f.odometerKm, lit: f.liters, full: f.isFullTank }))
+  };
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: JSON.stringify(telemetry),
+      config: {
+        temperature: 0,
+        systemInstruction: `You are the AutoPal NG Neural Auditor. Perform a deep mechanical & financial audit of this vehicle.
+        
+        LOGIC RULES:
+        1. vitalityScore: Assess engine/mechanical health (0-100). Penalize heavily for missed critical tasks (oil, timing belt) or unstable fuel KM/L trends.
+        2. disciplineScore: Assess user adherence (0-100). Reward "mechanic_verified" logs. Penalize "self_declared" only logs.
+        3. valuation: Provide a Nigerian market-specific valuation (NGN). Verified cars get a +15% Trust Premium.
+        4. finance: Calculate totalOpEx (Fuel Only) and totalCapEx (Maintenance Only).
+        5. equityPreserved: Estimate how much the verified logs have prevented the car from depreciating.
+        
+        Context: Lagos/Abuja market, high heat, dusty environment.`,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            valuation: {
+              type: Type.OBJECT,
+              properties: {
+                marketValueNGN: { type: Type.NUMBER },
+                priceRange: { type: Type.OBJECT, properties: { min: { type: Type.NUMBER }, max: { type: Type.NUMBER } }, required: ["min", "max"] },
+                marketGrade: { type: Type.STRING, enum: ["A+", "A", "B", "C", "D"] }
+              },
+              required: ["marketValueNGN", "priceRange", "marketGrade"]
+            },
+            health: {
+              type: Type.OBJECT,
+              properties: {
+                vitalityScore: { type: Type.NUMBER },
+                disciplineScore: { type: Type.NUMBER },
+                status: { type: Type.STRING, enum: ["pristine", "stable", "degrading", "critical"] }
+              },
+              required: ["vitalityScore", "disciplineScore", "status"]
+            },
+            finance: {
+              type: Type.OBJECT,
+              properties: {
+                totalOpEx: { type: Type.NUMBER },
+                totalCapEx: { type: Type.NUMBER },
+                equityPreserved: { type: Type.NUMBER },
+                maintenanceDebt: { type: Type.NUMBER }
+              },
+              required: ["totalOpEx", "totalCapEx", "equityPreserved", "maintenanceDebt"]
+            },
+            insights: {
+              type: Type.OBJECT,
+              properties: {
+                metabolicState: { type: Type.STRING },
+                trustPremium: { type: Type.STRING },
+                exitStrategy: { type: Type.STRING },
+                criticalAlert: { type: Type.STRING }
+              },
+              required: ["metabolicState", "trustPremium", "exitStrategy"]
+            }
+          },
+          required: ["valuation", "health", "finance", "insights"]
+        }
+      }
+    });
+
+    return {
+      ...JSON.parse(response.text || "{}"),
+      vehicleId: vehicle.id,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error("Neural Audit Failed:", error);
+    throw error;
+  }
 };

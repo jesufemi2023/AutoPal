@@ -91,6 +91,7 @@ export const updateServiceLog = async (id: string, log: Partial<ServiceLog>): Pr
   if (log.provider !== undefined) payload.provider = log.provider;
   if (log.category !== undefined) payload.category = log.category;
   if (log.verificationLevel !== undefined) payload.verification_level = log.verificationLevel;
+  if (log.taskId !== undefined) payload.task_id = log.taskId;
 
   const { data, error } = await supabase
     .from('service_logs')

@@ -85,7 +85,8 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
           provider: form.provider,
           category: form.category,
           verificationLevel: form.verificationLevel,
-          receiptUrl: finalReceiptUrl
+          receiptUrl: finalReceiptUrl,
+          taskId: form.linkToTaskId || undefined
         });
         updateServiceLogStore(updated);
         const syncedVehicle = await syncVehicleVitals(vehicle.id);

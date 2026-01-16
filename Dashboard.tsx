@@ -136,7 +136,12 @@ const Dashboard: React.FC = () => {
               />
             </div>
             <div className="w-full h-full">
-               <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
+               <VitalityDashboard 
+                  vehicle={activeVehicle} 
+                  tasks={tasks} 
+                  logs={activeServiceLogs} 
+                  fuelLogs={activeFuelLogs} 
+                />
             </div>
           </div>
 
