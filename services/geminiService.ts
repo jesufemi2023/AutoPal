@@ -31,17 +31,18 @@ export const generateAIValuation = async (
       model: 'gemini-3-flash-preview',
       contents: JSON.stringify(telemetry),
       config: {
-        temperature: 0, // Deterministic Stabilizer
-        systemInstruction: `You are the AutoPal NG High-Confidence Valuation Engine. Analyze vehicle telemetry for the Nigerian used car market.
+        temperature: 0, 
+        systemInstruction: `You are the AutoPal NG High-Confidence Asset Audit Engine. 
+        Analyze vehicle telemetry for valuation and health auditing.
         
         CRITICAL RULES:
-        1. Base price must align with Lagos/Abuja market trends for 'Nigerian Used'.
-        2. trustPremium: Value added by verified service records.
-        3. mechanicalVitality: Score (0-100) based on fuel efficiency stability and service frequency.
-        4. maintenanceDebt: Estimated NGN deduction for pending/overdue high-cost maintenance (timing belt, tires, suspension).
-        5. exitStrategy: Advise user on the optimal window to sell to maximize ROI.
+        1. Base price must align with Lagos/Abuja market trends.
+        2. vitalityScore (0-100): Audit the mechanical state based on service gaps and fuel efficiency.
+        3. disciplineScore (0-100): Audit the owner's maintenance adherence and record verification levels.
+        4. trustPremium: Value added by verified service records.
+        5. maintenanceDebt: NGN deduction for pending high-cost items.
         
-        Context: High heat, dust, stop-and-go traffic. Currency: NGN.`,
+        Context: Nigeria (high heat, dust). Currency: NGN.`,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -53,6 +54,14 @@ export const generateAIValuation = async (
               required: ["min", "max"]
             },
             marketGrade: { type: Type.STRING, enum: ["A+", "A", "B", "C", "D"] },
+            auditedScores: {
+              type: Type.OBJECT,
+              properties: {
+                vitality: { type: Type.NUMBER },
+                discipline: { type: Type.NUMBER }
+              },
+              required: ["vitality", "discipline"]
+            },
             insights: {
               type: Type.OBJECT,
               properties: {
@@ -77,7 +86,7 @@ export const generateAIValuation = async (
               required: ["trustPremium", "mechanicalVitality", "maintenanceDebt", "exitStrategy", "marketComparison"]
             }
           },
-          required: ["valuationNGN", "priceRange", "marketGrade", "insights"]
+          required: ["valuationNGN", "priceRange", "marketGrade", "auditedScores", "insights"]
         }
       }
     });
@@ -89,7 +98,7 @@ export const generateAIValuation = async (
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    console.error("AI Valuation Failure:", error);
+    console.error("AI Asset Audit Failure:", error);
     throw error;
   }
 };
@@ -135,26 +144,6 @@ const getStandardProtocol = (mileage: number): MaintenanceScheduleResponse => {
         estimatedCost: 12000,
         intervalKm: 15000,
         intervalMonths: 12
-      },
-      { 
-        title: "Suspension & Alignment", 
-        description: "Detailed check of bushings and ball joints due to challenging road conditions.", 
-        dueMileage: mileage + 10000, 
-        priority: Priority.MEDIUM, 
-        category: "suspension", 
-        estimatedCost: 25000,
-        intervalKm: 10000,
-        intervalMonths: 6
-      },
-      { 
-        title: "AC Cabin Sanitization", 
-        description: "Micro-filter replacement and evaporator cleaning for humid climates.", 
-        dueMileage: mileage + 20000, 
-        priority: Priority.LOW, 
-        category: "other", 
-        estimatedCost: 8000,
-        intervalKm: 20000,
-        intervalMonths: 12
       }
     ]
   };
@@ -188,7 +177,7 @@ export const generateMaintenanceSchedule = async (
                   title: { type: Type.STRING },
                   description: { type: Type.STRING },
                   dueMileage: { type: Type.NUMBER },
-                  dueDate: { type: Type.STRING, description: "Optional ISO date for time-based items" },
+                  dueDate: { type: Type.STRING },
                   priority: { type: Type.STRING, enum: ["low", "medium", "high"] },
                   category: { type: Type.STRING, enum: ["engine", "tires", "brakes", "fluids", "suspension", "other"] },
                   estimatedCost: { type: Type.NUMBER },
@@ -207,7 +196,6 @@ export const generateMaintenanceSchedule = async (
     const jsonStr = (response.text || "{}").trim();
     return JSON.parse(jsonStr) as MaintenanceScheduleResponse;
   } catch (error: any) {
-    console.warn("AI Generation Interrupted. Applying Standard Protocol.", error);
     return getStandardProtocol(mileage);
   }
 };
@@ -237,7 +225,6 @@ export const decodeVIN = async (vin: string): Promise<{ make: string; model: str
     const jsonStr = (response.text || "{}").trim();
     return JSON.parse(jsonStr);
   } catch (error) {
-    console.error("VIN Decode Error:", error);
     throw error;
   }
 };
@@ -246,7 +233,7 @@ export const getAdvancedDiagnostic = async (
   vehicle: any, symptoms: string, isPremium: boolean, imageBase64?: string
 ): Promise<AIResponse> => {
   const ai = getAIClient();
-  const modelId = (isPremium && ENV.ENABLE_PREMIUM_AI) ? 'gemini-3-pro-preview' : 'gemini-3-flash-preview';
+  const modelId = 'gemini-3-flash-preview';
   const parts: any[] = [{ text: `Vehicle Asset: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Reported Symptoms: ${symptoms}` }];
   if (imageBase64) {
     const data = imageBase64.includes(",") ? imageBase64.split(",")[1] : imageBase64;

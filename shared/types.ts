@@ -39,6 +39,10 @@ export interface AIValuationReport {
   valuationNGN: number;
   priceRange: { min: number; max: number };
   marketGrade: 'A+' | 'A' | 'B' | 'C' | 'D';
+  auditedScores: {
+    vitality: number;
+    discipline: number;
+  };
   insights: {
     trustPremium: { value: number; description: string };
     mechanicalVitality: { score: number; description: string };

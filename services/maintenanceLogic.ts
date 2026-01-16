@@ -15,7 +15,7 @@ const GENETIC_BASELINES: Record<string, number> = {
   'other': 9.0
 };
 
-const REGIONAL_STRESS_FACTOR = 1.2; // Nigerian heat/roads
+const REGIONAL_STRESS_FACTOR = 1.2; 
 
 /**
  * VELOCITY ENGINE
@@ -85,7 +85,6 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
 
 /**
  * DETERMINISTIC INTELLIGENT HEALTH CHECK
- * Centralized logic used by both Dashboard and Service Hub.
  */
 export const calculateIntelligentHealth = (
   vehicle: Vehicle, 
@@ -94,15 +93,12 @@ export const calculateIntelligentHealth = (
   serviceLogs: ServiceLog[]
 ): { total: number, breakdown: HealthBreakdown & { isCalibrating: boolean } } => {
   
-  // CRITICAL: Ensure we only look at tasks for THIS vehicle to keep the score accurate
   const vehicleTasks = tasks.filter(t => t.vehicleId === vehicle.id);
   const vehicleFuel = fuelLogs.filter(l => l.vehicleId === vehicle.id);
   const vehicleService = serviceLogs.filter(l => l.vehicleId === vehicle.id);
 
-  // 1. Metabolism (40%) - Fuel Efficiency
   const metabolism = calculateMetabolicStatus(vehicle, vehicleFuel);
 
-  // 2. Hygiene (40%) - Maintenance Adherence
   const pillarStatus: Record<string, boolean> = {};
   const categories: ServiceCategory[] = ['fluids', 'engine', 'brakes', 'suspension', 'tires', 'electrical', 'cooling', 'other'];
   
@@ -119,12 +115,6 @@ export const calculateIntelligentHealth = (
   const healthyPillars = Object.values(pillarStatus).filter(v => v).length;
   let hygieneScore = (healthyPillars / categories.length) * 100;
 
-  // Synergistic Penalties
-  if (metabolism.status !== 'optimal' && !pillarStatus['engine']) hygieneScore *= 0.75;
-  if (!pillarStatus['cooling'] && !pillarStatus['fluids']) hygieneScore *= 0.7;
-  if (!pillarStatus['brakes'] && !pillarStatus['tires']) hygieneScore *= 0.8;
-
-  // 3. Provenance (20%) - Verification Trust
   let provenanceScore = 50;
   if (vehicleService.length > 0) {
     const verifiedCount = vehicleService.filter(l => l.verificationLevel === 'mechanic_verified').length;
@@ -196,10 +186,17 @@ export const calculateDisciplineScore = (logs: ServiceLog[], tasks: MaintenanceT
   return logs.length > 0 ? (verified / logs.length) * 100 : 0;
 };
 
-export const calculateTotalExpenditure = (serviceLogs: ServiceLog[], fuelLogs: FuelLog[]): number => {
-  const s = serviceLogs.reduce((acc, l) => acc + (l.cost || 0), 0);
-  const f = fuelLogs.reduce((acc, l) => acc + (l.totalCost || 0), 0);
-  return s + f;
+/**
+ * REFACTORED: Decoupled Expenditure Logic
+ */
+export const calculateFinancialLedger = (serviceLogs: ServiceLog[], fuelLogs: FuelLog[]): { maintenanceTotal: number, fuelTotal: number, grandTotal: number } => {
+  const maintenanceTotal = serviceLogs.reduce((acc, l) => acc + (l.cost || 0), 0);
+  const fuelTotal = fuelLogs.reduce((acc, l) => acc + (l.totalCost || 0), 0);
+  return {
+    maintenanceTotal,
+    fuelTotal,
+    grandTotal: maintenanceTotal + fuelTotal
+  };
 };
 
 export const getSpendByCategory = (logs: ServiceLog[]) => {
