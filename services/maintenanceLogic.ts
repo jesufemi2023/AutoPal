@@ -1,3 +1,4 @@
+
 import { Vehicle, MaintenanceTask, ServiceLog, Priority, ServiceCategory, FuelLog, HealthBreakdown } from '../shared/types.ts';
 
 /**
@@ -47,7 +48,7 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
 };
 
 /**
- * METABOLIC ENGINE (Evidence Only)
+ * METABOLIC ENGINE
  */
 export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]): { score: number, status: 'optimal' | 'warning' | 'critical', waste: number, variance: number, isCalibrating: boolean } => {
   if (fuelLogs.length < 3) {
@@ -93,8 +94,7 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
 };
 
 /**
- * DETERMINISTIC INTELLIGENT HEALTH CHECK (Evidence Only)
- * Used as evidence for the AI Judge.
+ * DETERMINISTIC INTELLIGENT HEALTH CHECK
  */
 export const calculateIntelligentHealth = (
   vehicle: Vehicle, 
@@ -182,9 +182,6 @@ export const predictServiceDate = (vehicle: Vehicle, task: MaintenanceTask, add:
   return prediction.toISOString();
 };
 
-/**
- * DETERMINISTIC FALLBACK (Internal Only)
- */
 export const calculateVitalityScore = (
   vehicle: Vehicle, 
   tasks: MaintenanceTask[], 
@@ -194,9 +191,6 @@ export const calculateVitalityScore = (
   return calculateIntelligentHealth(vehicle, tasks, fuelLogs, serviceLogs).total;
 };
 
-/**
- * DETERMINISTIC FALLBACK (Internal Only)
- */
 export const calculateDisciplineScore = (logs: ServiceLog[], tasks: MaintenanceTask[]): number => {
   const verified = logs.filter(l => l.verificationLevel !== 'self_declared').length;
   return logs.length > 0 ? (verified / logs.length) * 100 : 0;

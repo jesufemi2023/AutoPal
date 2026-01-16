@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../services/vehicleService.ts';
@@ -18,7 +17,7 @@ import { ServiceLogTerminal } from './ServiceLogTerminal.tsx';
 const ServiceIntelligenceCenter: React.FC = () => {
   const { 
     vehicles, tasks, serviceLogs, fuelLogs, setTasks, setServiceLogs, setFuelLogs,
-    activeVehicleId, setActiveVehicleId
+    activeVehicleId, setActiveVehicleId, aiValuationReports
   } = useAutoPalStore();
   
   const [isLoading, setIsLoading] = useState(false);
@@ -29,6 +28,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
+  const cachedReport = activeVehicle ? aiValuationReports[activeVehicle.id] : null;
 
   useEffect(() => {
     if (activeVehicleId) {
@@ -55,22 +55,17 @@ const ServiceIntelligenceCenter: React.FC = () => {
     if (!activeVehicle) return { vitality: 0, discipline: 0, maintenanceTotal: 0, fuelTotal: 0, spendByCat: {} };
     
     const financial = calculateFinancialLedger(activeServiceLogs, activeFuelLogs);
-    
-    // SOURCE OF TRUTH: AI Audit
-    const audit = activeVehicle.latestAiAudit;
-    
-    // Fallback only used for "Calibrating" state display
-    const deterministicHealth = calculateIntelligentHealth(activeVehicle, vehicleTasks, activeFuelLogs, activeServiceLogs);
+    const health = calculateIntelligentHealth(activeVehicle, vehicleTasks, activeFuelLogs, activeServiceLogs);
 
     return {
-      vitality: audit ? audit.auditedScores.vitality : deterministicHealth.total,
-      discipline: audit ? audit.auditedScores.discipline : Math.round(calculateDisciplineScore(activeServiceLogs, vehicleTasks)),
+      vitality: cachedReport ? cachedReport.auditedScores.vitality : health.total,
+      discipline: cachedReport ? cachedReport.auditedScores.discipline : Math.round(calculateDisciplineScore(activeServiceLogs, vehicleTasks)),
       maintenanceTotal: financial.maintenanceTotal,
       fuelTotal: financial.fuelTotal,
       spendByCat: getSpendByCategory(activeServiceLogs),
-      isAiAudited: !!audit
+      isAiAudited: !!cachedReport
     };
-  }, [activeVehicle, vehicleTasks, activeServiceLogs, activeFuelLogs]);
+  }, [activeVehicle, vehicleTasks, activeServiceLogs, activeFuelLogs, cachedReport]);
 
   const handleDeleteLog = async (id: string) => {
     if (!confirm("Are you sure? This will permanently delete the record.")) return;
@@ -138,24 +133,17 @@ const ServiceIntelligenceCenter: React.FC = () => {
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm">
               <div className="space-y-4">
                 <div className="flex justify-between">
-                  <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Audited Vitality</h3>
-                  {stats.isAiAudited && <span className="text-[7px] bg-blue-600/10 text-blue-500 px-2 py-0.5 rounded font-black">AI Verified</span>}
+                  <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Asset Vitality</h3>
+                  {stats.isAiAudited && <span className="text-[7px] text-blue-500 font-black">AI Audited</span>}
                 </div>
-                <div className={`text-4xl font-black tracking-tighter ${stats.isAiAudited ? 'text-blue-600' : 'text-slate-900 opacity-40'}`}>
-                  {stats.vitality}%
-                </div>
+                <div className="text-4xl font-black text-slate-900 tracking-tighter">{stats.vitality}%</div>
               </div>
             </div>
 
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm">
               <div className="space-y-4">
-                <div className="flex justify-between">
-                  <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Audited Discipline</h3>
-                  {stats.isAiAudited && <span className="text-[7px] bg-emerald-600/10 text-emerald-500 px-2 py-0.5 rounded font-black">AI Verified</span>}
-                </div>
-                <div className={`text-4xl font-black tracking-tighter ${stats.isAiAudited ? 'text-emerald-600' : 'text-slate-900 opacity-40'}`}>
-                  {stats.discipline}%
-                </div>
+                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Discipline</h3>
+                <div className="text-4xl font-black text-slate-900 tracking-tighter">{stats.discipline}%</div>
               </div>
             </div>
 
@@ -218,4 +206,5 @@ const ServiceIntelligenceCenter: React.FC = () => {
   );
 };
 
+// Add missing default export
 export default ServiceIntelligenceCenter;
