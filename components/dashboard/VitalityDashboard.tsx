@@ -4,7 +4,8 @@ import { Vehicle, MaintenanceTask, ServiceLog, FuelLog, ServiceCategory } from '
 import { 
   calculateIntelligentHealth,
   getTaskMaintenanceStatus,
-  calculateMetabolicStatus
+  calculateMetabolicStatus,
+  getLatestTelemetryTimestamp
 } from '../../services/maintenanceLogic.ts';
 import { formatCurrency } from '../../shared/utils.ts';
 
@@ -28,11 +29,7 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
   const hasDrift = useMemo(() => {
     if (!cachedAudit) return false;
     const auditTime = new Date(cachedAudit.timestamp).getTime();
-    const latestLogTime = Math.max(
-      ...logs.map(l => new Date(l.createdAt || l.serviceDate).getTime()),
-      ...fuelLogs.map(l => new Date(l.createdAt).getTime()),
-      0
-    );
+    const latestLogTime = getLatestTelemetryTimestamp(logs, fuelLogs);
     return latestLogTime > auditTime;
   }, [cachedAudit, logs, fuelLogs]);
 

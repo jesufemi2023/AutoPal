@@ -18,6 +18,16 @@ const GENETIC_BASELINES: Record<string, number> = {
 const REGIONAL_STRESS_FACTOR = 1.2; 
 
 /**
+ * TELEMETRY DRIFT ENGINE
+ * Returns the timestamp of the most recent data point in the system.
+ */
+export const getLatestTelemetryTimestamp = (serviceLogs: ServiceLog[], fuelLogs: FuelLog[]): number => {
+  const serviceTimes = serviceLogs.map(l => new Date(l.createdAt || l.serviceDate).getTime());
+  const fuelTimes = fuelLogs.map(l => new Date(l.createdAt).getTime());
+  return Math.max(0, ...serviceTimes, ...fuelTimes);
+};
+
+/**
  * VELOCITY ENGINE
  */
 export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: ServiceLog[]): number => {

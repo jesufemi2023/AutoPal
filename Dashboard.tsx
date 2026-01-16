@@ -5,6 +5,7 @@ import {
   fetchVehicleTasks, fetchVehicleServiceLogs, updateMileage, updateVehicle
 } from './services/vehicleService.ts';
 import { fetchFuelLogs } from './services/fuelService.ts';
+import { localDb } from './services/localDb.ts';
 import { OdometerInput } from './components/OdometerInput.tsx';
 
 import { VehicleOverview } from './components/dashboard/VehicleOverview.tsx';
@@ -18,7 +19,7 @@ const Dashboard: React.FC = () => {
     vehicles, tasks, serviceLogs, fuelLogs,
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
-    updateMileage: updateStoreMileage, updateVehicleStore
+    updateMileage: updateStoreMileage, updateVehicleStore, setVehicles
   } = useAutoPalStore();
 
   const [showOdometerModal, setShowOdometerModal] = useState(false);
@@ -30,13 +31,35 @@ const Dashboard: React.FC = () => {
   const activeServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
   const activeFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicleId);
 
+  // Phase 1: Local-First Load
   useEffect(() => {
-    if (vehicles.length > 0 && !activeVehicleId) setActiveVehicleId(vehicles[0].id);
-  }, [vehicles, activeVehicleId, setActiveVehicleId]);
+    const loadFromCache = async () => {
+      const cachedVehicles = await localDb.getVehicles();
+      if (cachedVehicles.length > 0) {
+        setVehicles(cachedVehicles);
+        if (!activeVehicleId) setActiveVehicleId(cachedVehicles[0].id);
+      }
+    };
+    loadFromCache();
+  }, []);
 
+  // Phase 2: Background Cloud Sync
   useEffect(() => {
     if (activeVehicleId) {
       setIsLoadingDetails(true);
+      
+      // Load local telemetry first for instant UI
+      Promise.all([
+        localDb.getTasks(activeVehicleId),
+        localDb.getLogs(activeVehicleId),
+        localDb.getFuelLogs(activeVehicleId)
+      ]).then(([t, l, f]) => {
+        if (t.length > 0) setTasks(t);
+        if (l.length > 0) setServiceLogs(l);
+        if (f.length > 0) setFuelLogs(f);
+      });
+
+      // Background Fetch from Cloud
       Promise.all([
         fetchVehicleTasks(activeVehicleId),
         fetchVehicleServiceLogs(activeVehicleId),
@@ -46,17 +69,24 @@ const Dashboard: React.FC = () => {
         setTasks(taskList);
         setServiceLogs(logList);
         setFuelLogs(fuelList);
+        
+        // Cache new data locally
+        localDb.saveTasksBatch(taskList);
+        logList.forEach(log => localDb.saveLog(log));
+        fuelList.forEach(fuel => localDb.saveFuelLog(fuel));
       })
       .finally(() => setIsLoadingDetails(false));
     }
-  }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
+  }, [activeVehicleId]);
 
+  // Phase 3: Update local score if not AI audited
   useEffect(() => {
-    if (activeVehicle && tasks.length > 0) {
+    if (activeVehicle && tasks.length > 0 && !activeVehicle.latestAiAudit) {
       const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
       if (newScore !== activeVehicle.healthScore) {
         updateVehicle(activeVehicle.id, { healthScore: newScore });
         updateVehicleStore({ ...activeVehicle, healthScore: newScore });
+        localDb.saveVehicle({ ...activeVehicle, healthScore: newScore });
       }
     }
   }, [tasks, activeVehicle?.mileage, activeFuelLogs, activeServiceLogs]);
@@ -79,9 +109,7 @@ const Dashboard: React.FC = () => {
           <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">System Status: Monitoring Active</p>
         </div>
         
-        {/* Slidable Vehicle Selection Bar */}
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
-          {/* Desktop Navigation Buttons */}
           <button 
             onClick={() => handleScroll('left')}
             className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/80 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-lg text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-5"
@@ -92,7 +120,7 @@ const Dashboard: React.FC = () => {
           
           <div 
             ref={scrollContainerRef}
-            className="flex gap-3 overflow-x-auto scrollbar-hide scrollbar-desktop-show py-1.5 px-0.5 -mx-0.5 flex-nowrap snap-x snap-mandatory scroll-smooth"
+            className="flex gap-3 overflow-x-auto scrollbar-hide py-1.5 px-0.5 -mx-0.5 flex-nowrap snap-x snap-mandatory scroll-smooth"
           >
             {vehicles.length > 0 && vehicles.map(v => (
               <button 
@@ -178,7 +206,7 @@ const Dashboard: React.FC = () => {
 
       {showOdometerModal && activeVehicle && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl">
-          <div className="w-full max-w-sm animate-slide-up">
+          <div className="w-full max-sm animate-slide-up">
             <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { 
               await updateMileage(activeVehicle.id, v); 
               updateStoreMileage(activeVehicle.id, v); 

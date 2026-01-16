@@ -4,6 +4,7 @@ import { Vehicle, MaintenanceTask, ServiceLog, FuelLog, AIValuationReport } from
 import { calculateResaleValue } from '../../services/valuationService.ts';
 import { generateAIValuation } from '../../services/geminiService.ts';
 import { updateVehicle } from '../../services/vehicleService.ts';
+import { localDb } from '../../services/localDb.ts';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { formatCurrency } from '../../shared/utils.ts';
 
@@ -32,13 +33,14 @@ export const ResaleValuationCard: React.FC<{
     try {
       const report = await generateAIValuation(vehicle, tasks, serviceLogs, fuelLogs);
       
-      // Save AI Audit to Cloud for 10k User Persistency
+      // Save AI Audit to Cloud
       const updatedVehicle = await updateVehicle(vehicle.id, { 
         latestAiAudit: report,
-        // Sync vitality score back to main health field for dash visibility
         healthScore: report.auditedScores.vitality 
       });
       
+      // Sync Local Stores (Dexie + Zustand)
+      await localDb.saveVehicle(updatedVehicle);
       updateVehicleStore(updatedVehicle);
     } catch (e) {
       console.error(e);
@@ -154,19 +156,6 @@ export const ResaleValuationCard: React.FC<{
               <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-2">
                 Neural Scan Verified ✓
               </span>
-            </div>
-          </div>
-        )}
-
-        {!cachedReport && (
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
-            <div>
-              <div className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Base Market</div>
-              <div className="text-lg font-bold text-slate-400">₦{deterministicValuation.baseValue.toLocaleString()}</div>
-            </div>
-            <div className="text-right">
-              <div className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Maint. Debt</div>
-              <div className="text-lg font-bold text-rose-500">-{deterministicValuation.maintenanceDebt.toLocaleString()}</div>
             </div>
           </div>
         )}
