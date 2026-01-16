@@ -1,4 +1,3 @@
-
 import { Vehicle, MaintenanceTask, ServiceLog, Priority, ServiceCategory, FuelLog, HealthBreakdown } from '../shared/types.ts';
 
 /**
@@ -48,7 +47,7 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
 };
 
 /**
- * METABOLIC ENGINE
+ * METABOLIC ENGINE (Now treated as Evidence for AI)
  */
 export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]): { score: number, status: 'optimal' | 'warning' | 'critical', waste: number, variance: number, isCalibrating: boolean } => {
   if (fuelLogs.length < 3) {
@@ -94,7 +93,7 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
 };
 
 /**
- * DETERMINISTIC INTELLIGENT HEALTH CHECK
+ * DETERMINISTIC INTELLIGENT HEALTH (Internal Evidence Only)
  */
 export const calculateIntelligentHealth = (
   vehicle: Vehicle, 
@@ -197,7 +196,7 @@ export const calculateDisciplineScore = (logs: ServiceLog[], tasks: MaintenanceT
 };
 
 /**
- * REFACTORED: Decoupled Expenditure Logic
+ * REFACTORED: Expenditure Logic
  */
 export const calculateFinancialLedger = (serviceLogs: ServiceLog[], fuelLogs: FuelLog[]): { maintenanceTotal: number, fuelTotal: number, grandTotal: number } => {
   const maintenanceTotal = serviceLogs.reduce((acc, l) => acc + (l.cost || 0), 0);
