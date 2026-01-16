@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { Vehicle, MaintenanceTask, ServiceLog, FuelLog, ServiceCategory } from '../../shared/types.ts';
 import { 
@@ -120,7 +119,7 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
               </div>
             </div>
             {displayVitality === null && (
-               <button className="text-[8px] font-black text-blue-600 uppercase tracking-widest border border-blue-100 px-4 py-2 rounded-lg hover:bg-blue-600 hover:text-white transition-all">Request Initial Audit</button>
+               <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Initial Audit Required</div>
             )}
           </div>
         </div>
