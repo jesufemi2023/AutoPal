@@ -10,6 +10,7 @@ export enum Priority {
   HIGH = 'high'
 }
 
+export type LogStatus = 'upcoming' | 'overdue' | 'completed';
 export type ServiceCategory = 'engine' | 'tires' | 'brakes' | 'fluids' | 'suspension' | 'other' | 'electrical' | 'cooling';
 export type VerificationLevel = 'self_declared' | 'receipt_verified' | 'mechanic_verified';
 
@@ -24,31 +25,47 @@ export interface UserProfile {
   createdAt: string;
 }
 
-export interface UnifiedAIDossier {
+export interface TransientVehicle {
+  make: string;
+  model: string;
+  year: number;
+  mileage: number;
+  vin?: string;
+}
+
+export interface AIValuationReport {
   vehicleId: string;
   timestamp: string;
-  valuation: {
-    marketValueNGN: number;
-    priceRange: { min: number; max: number };
-    marketGrade: 'A+' | 'A' | 'B' | 'C' | 'D';
-  };
-  health: {
-    vitalityScore: number; // 0-100: Internal mechanical state
-    disciplineScore: number; // 0-100: Maintenance adherence/verification
-    status: 'pristine' | 'stable' | 'degrading' | 'critical';
-  };
-  finance: {
-    totalOpEx: number; // Fuel only
-    totalCapEx: number; // Maintenance/Repairs
-    equityPreserved: number; // NGN value saved by verified logs
-    maintenanceDebt: number; // Upcoming costs
-  };
+  valuationNGN: number;
+  priceRange: { min: number; max: number };
+  marketGrade: 'A+' | 'A' | 'B' | 'C' | 'D';
   insights: {
-    metabolicState: string;
-    trustPremium: string;
+    trustPremium: { value: number; description: string };
+    mechanicalVitality: { score: number; description: string };
+    maintenanceDebt: { value: number; description: string };
     exitStrategy: string;
-    criticalAlert?: string;
+    marketComparison: string;
   };
+}
+
+export interface VehicleSpecs {
+  oilGrade?: string;
+  tireSize?: string;
+  batteryType?: string;
+  engineType?: 'petrol' | 'diesel' | 'hybrid' | 'electric';
+  transmission?: 'manual' | 'automatic';
+  recommendedFuel?: string;
+  sparkPlugGap?: string;
+  currency?: string;
+  [key: string]: any;
+}
+
+export interface HealthBreakdown {
+  metabolic: number; // Fuel efficiency score
+  hygiene: number;    // Maintenance adherence
+  provenance: number; // Trust/Verification score
+  metabolicStatus: 'optimal' | 'warning' | 'critical';
+  wasteMonthly: number; // Estimated ₦ wasted
 }
 
 export interface Vehicle {
@@ -60,15 +77,17 @@ export interface Vehicle {
   vin?: string;
   mileage: number; 
   healthScore: number;
+  healthBreakdown?: HealthBreakdown;
   bodyType: BodyType;
   imageUrl?: string;
   status: 'active' | 'archived' | 'sold';
+  specs: VehicleSpecs;
   fuelType?: string;
   engineSize?: string;
   createdAt?: string;
   updatedAt?: string;
-  specs: any;
   avgDailyKm?: number;
+  efficiencyBaseline?: number; 
   isDirty?: boolean;
 }
 
@@ -86,7 +105,6 @@ export interface FuelLog {
 export interface ServiceLog {
   id: string;
   vehicleId: string;
-  taskId?: string;
   serviceType: string;
   serviceDate: string;
   mileageAtService: number;
@@ -94,63 +112,54 @@ export interface ServiceLog {
   notes?: string;
   provider?: string;
   category: ServiceCategory;
+  createdAt?: string;
+  updatedAt?: string;
+  status?: string;
+  taskId?: string;
   verificationLevel?: VerificationLevel;
   receiptUrl?: string;
-  status: string;
-  createdAt: string;
-  updatedAt?: string;
 }
 
 export interface MaintenanceTask {
   id: string;
+  taskId?: string;
   vehicleId: string;
   title: string;
   description: string;
   dueMileage: number;
-  dueDate?: string;
+  dueDate?: string; 
   status: TaskStatus;
   priority: Priority;
   category: ServiceCategory;
   estimatedCost?: number;
-  intervalKm?: number;
-  intervalMonths?: number;
-  lastCompletedAt?: string;
+  lastCompletedAt?: string; 
+  intervalKm?: number; 
+  intervalMonths?: number; 
+  projectedDate?: string; 
   lastVerificationLevel?: VerificationLevel;
   lastReceiptUrl?: string;
 }
 
-// Added missing types
-export interface TransientVehicle {
-  make: string;
-  model: string;
-  year: number;
-  mileage: number;
-}
-
-export interface AIValuationReport {
-  marketValueNGN: number;
-  confidenceScore: number;
-  timestamp: string;
-}
-
 export interface AIResponse {
   advice: string;
-  severity: 'info' | 'warning' | 'critical';
   recommendations: string[];
+  severity: 'info' | 'warning' | 'critical';
   partsIdentified?: string[];
 }
 
 export interface MaintenanceScheduleResponse {
   summary: string;
-  tasks: Omit<MaintenanceTask, 'id' | 'vehicleId' | 'status'>[];
-}
-
-export interface HealthBreakdown {
-  metabolic: number;
-  hygiene: number;
-  provenance: number;
-  metabolicStatus: 'optimal' | 'warning' | 'critical';
-  wasteMonthly: number;
+  tasks: Array<{
+    title: string;
+    description: string;
+    dueMileage: number;
+    dueDate?: string;
+    priority: Priority;
+    category: ServiceCategory;
+    estimatedCost?: number;
+    intervalKm?: number;
+    intervalMonths?: number;
+  }>;
 }
 
 export interface MarketplaceProduct {

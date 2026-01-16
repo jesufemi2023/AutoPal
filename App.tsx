@@ -339,8 +339,8 @@ const App: React.FC = () => {
           <div className={`animate-slide-up w-full max-w-full ${currentView === 'landing' ? '!max-w-none' : ''}`}>
             {currentView === 'landing' && <LandingTerminal />}
             {currentView === 'garage' && <Dashboard />}
-            {currentView === 'service' && <ServiceIntelligenceCenter logs={vehicles.length > 0 ? useAutoPalStore.getState().serviceLogs.filter(l => l.vehicleId === activeVehicleId) : []} />}
-            {currentView === 'fuel' && <FuelIntelligenceCenter logs={vehicles.length > 0 ? useAutoPalStore.getState().fuelLogs.filter(l => l.vehicleId === activeVehicleId) : []} />}
+            {currentView === 'service' && <ServiceIntelligenceCenter />}
+            {currentView === 'fuel' && <FuelIntelligenceCenter />}
             {currentView === 'marketplace' && <Marketplace />}
             {currentView === 'admin' && <AdminPanel />}
             {currentView === 'profile' && <ProfileDossier />}

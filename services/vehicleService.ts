@@ -155,6 +155,7 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
 
 export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[]): Promise<void> => {
   if (!supabase) return;
+  // Fixed: Map MaintenanceTask properties to DB columns using correct camelCase properties
   const dbPayloads = tasks.map(t => ({
     vehicle_id: t.vehicleId,
     title: t.title,
@@ -187,6 +188,7 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   if (data.specs !== undefined) dbPayload.specs = data.specs;
   
   if (data.mileage !== undefined) dbPayload.current_mileage = data.mileage;
+  // Fixed: Access ownerId from Partial<Vehicle> using correct camelCase property
   if (data.ownerId !== undefined) dbPayload.owner_id = data.ownerId;
   if (data.bodyType !== undefined) dbPayload.body_type = data.bodyType;
   if (data.fuelType !== undefined) dbPayload.fuel_type = data.fuelType;
@@ -295,6 +297,7 @@ export const syncVehicleVitals = async (vehicleId: string): Promise<Vehicle> => 
   ]);
 
   const newAvgDailyKm = calculateAverageDailyKm(fuelLogs, serviceLogs);
+  // Pass all logs to ensure the vitality score is derived from full telemetry
   const newHealthScore = calculateVitalityScore({ ...vehicle, avgDailyKm: newAvgDailyKm }, tasks, fuelLogs, serviceLogs);
 
   return await updateVehicle(vehicleId, { avgDailyKm: newAvgDailyKm, healthScore: newHealthScore });
@@ -375,6 +378,7 @@ export const finalizeMaintenanceCompletion = async (
       due_mileage: nextMileage,
       due_date: nextDate,
       last_completed_at: completionData.serviceDate,
+      // Fixed: corrected undefined completionLevel to completionData.verificationLevel
       last_verification_level: completionData.verificationLevel,
       last_receipt_url: completionData.receiptUrl,
       status: 'pending' 
@@ -394,8 +398,7 @@ export const finalizeMaintenanceCompletion = async (
       dueDate: nextDate,
       lastCompletedAt: completionData.serviceDate,
       lastVerificationLevel: completionData.verificationLevel,
-      lastReceiptUrl: completionData.receiptUrl,
-      intervalMonths: targetIntervalMonths
+      lastReceiptUrl: completionData.receiptUrl
     },
     updatedVehicle
   };
