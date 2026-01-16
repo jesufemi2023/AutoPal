@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle } from './types.ts';
+import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
 
 interface AutoPalState {
   user: UserProfile | null;
@@ -17,6 +17,7 @@ interface AutoPalState {
   tasks: MaintenanceTask[];
   serviceLogs: ServiceLog[];
   fuelLogs: FuelLog[];
+  aiValuationReports: Record<string, AIValuationReport>;
   suggestedPartNames: string[];
   marketplace: any[];
   marketplaceFilter: string;
@@ -46,6 +47,7 @@ interface AutoPalState {
   addFuelLogStore: (log: FuelLog) => void;
   updateFuelLogStore: (log: FuelLog) => void;
   removeFuelLogStore: (logId: string) => void;
+  setAIValuationReport: (vehicleId: string, report: AIValuationReport) => void;
   setMarketplace: (items: any[]) => void;
   setSuggestedParts: (parts: string[]) => void;
   setMarketplaceFilter: (filter: string) => void;
@@ -67,6 +69,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   tasks: [],
   serviceLogs: [],
   fuelLogs: [],
+  aiValuationReports: {},
   suggestedPartNames: [],
   marketplace: [],
   marketplaceFilter: '',
@@ -81,7 +84,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const currentState = get();
     const meta = supabaseUser.user_metadata || {};
 
-    // Map metadata using the specific keys from the user's Supabase table ("Display name", "Phone")
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
@@ -93,7 +95,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       createdAt: supabaseUser.created_at || new Date().toISOString(),
     };
 
-    // Deep check to prevent re-render flickers. Only update if data is truly different.
     const isIdentityEqual = 
       currentState.user?.id === newUserObj.id &&
       currentState.user?.displayName === newUserObj.displayName &&
@@ -162,6 +163,9 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   removeFuelLogStore: (logId) => set((state) => ({
     fuelLogs: state.fuelLogs.filter(l => l.id !== logId)
   })),
+  setAIValuationReport: (vehicleId, report) => set((state) => ({
+    aiValuationReports: { ...state.aiValuationReports, [vehicleId]: report }
+  })),
   setMarketplace: (marketplace) => set({ marketplace }),
   setSuggestedParts: (parts: string[]) => set({ suggestedPartNames: parts }),
   setMarketplaceFilter: (filter: string) => set({ marketplaceFilter: filter }),
@@ -173,6 +177,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     tasks: [], 
     serviceLogs: [],
     fuelLogs: [],
+    aiValuationReports: {},
     activeVehicleId: null,
     transientVehicle: null,
     guestAttempts: 0,

@@ -34,8 +34,10 @@ export interface TransientVehicle {
 }
 
 export interface AIValuationReport {
+  vehicleId: string;
   timestamp: string;
   valuationNGN: number;
+  priceRange: { min: number; max: number };
   marketGrade: 'A+' | 'A' | 'B' | 'C' | 'D';
   insights: {
     trustPremium: { value: number; description: string };

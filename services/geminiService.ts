@@ -19,11 +19,10 @@ export const generateAIValuation = async (
 ): Promise<AIValuationReport> => {
   const ai = getAIClient();
   
-  // Data minimization: Pass only essential fields to AI
   const telemetry = {
-    vehicle: { make: vehicle.make, model: vehicle.model, year: vehicle.year, mileage: vehicle.mileage, bodyType: vehicle.bodyType },
+    vehicle: { make: vehicle.make, model: vehicle.model, year: vehicle.year, mileage: vehicle.mileage, bodyType: vehicle.bodyType, fuel: vehicle.fuelType },
     pendingTasks: tasks.filter(t => t.status === 'pending').map(t => ({ title: t.title, due: t.dueMileage, cost: t.estimatedCost, cat: t.category })),
-    recentService: serviceLogs.slice(0, 10).map(l => ({ type: l.serviceType, date: l.serviceDate, km: l.mileageAtService, cost: l.cost, ver: l.verificationLevel })),
+    recentService: serviceLogs.slice(0, 15).map(l => ({ type: l.serviceType, date: l.serviceDate, km: l.mileageAtService, cost: l.cost, ver: l.verificationLevel })),
     recentFuel: fuelLogs.slice(0, 10).map(l => ({ km: l.odometerKm, lit: l.liters, full: l.isFullTank }))
   };
 
@@ -32,20 +31,27 @@ export const generateAIValuation = async (
       model: 'gemini-3-flash-preview',
       contents: JSON.stringify(telemetry),
       config: {
-        systemInstruction: `You are the AutoPal NG Valuation Engine. Analyze the provided vehicle telemetry for the Nigerian market.
-        Itemize insights into:
-        1. trustPremium: NGN value added by verified logs.
-        2. mechanicalVitality: 0-100 score based on fuel stability and service frequency.
-        3. maintenanceDebt: NGN value of upcoming/overdue costs.
-        4. marketGrade: A+ to D based on condition vs mileage.
-        5. exitStrategy: Advise when to sell.
+        temperature: 0, // Deterministic Stabilizer
+        systemInstruction: `You are the AutoPal NG High-Confidence Valuation Engine. Analyze vehicle telemetry for the Nigerian used car market.
         
-        Market context: High tropical heat, dusty roads, currency: NGN.`,
+        CRITICAL RULES:
+        1. Base price must align with Lagos/Abuja market trends for 'Nigerian Used'.
+        2. trustPremium: Value added by verified service records.
+        3. mechanicalVitality: Score (0-100) based on fuel efficiency stability and service frequency.
+        4. maintenanceDebt: Estimated NGN deduction for pending/overdue high-cost maintenance (timing belt, tires, suspension).
+        5. exitStrategy: Advise user on the optimal window to sell to maximize ROI.
+        
+        Context: High heat, dust, stop-and-go traffic. Currency: NGN.`,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
           properties: {
             valuationNGN: { type: Type.NUMBER },
+            priceRange: {
+              type: Type.OBJECT,
+              properties: { min: { type: Type.NUMBER }, max: { type: Type.NUMBER } },
+              required: ["min", "max"]
+            },
             marketGrade: { type: Type.STRING, enum: ["A+", "A", "B", "C", "D"] },
             insights: {
               type: Type.OBJECT,
@@ -71,7 +77,7 @@ export const generateAIValuation = async (
               required: ["trustPremium", "mechanicalVitality", "maintenanceDebt", "exitStrategy", "marketComparison"]
             }
           },
-          required: ["valuationNGN", "marketGrade", "insights"]
+          required: ["valuationNGN", "priceRange", "marketGrade", "insights"]
         }
       }
     });
@@ -79,6 +85,7 @@ export const generateAIValuation = async (
     const report = JSON.parse(response.text || "{}");
     return {
       ...report,
+      vehicleId: vehicle.id,
       timestamp: new Date().toISOString()
     };
   } catch (error) {
