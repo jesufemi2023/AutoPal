@@ -35,14 +35,13 @@ export const generateAIValuation = async (
         systemInstruction: `You are the AutoPal NG High-Confidence Asset Audit Engine. 
         Analyze vehicle telemetry for valuation and health auditing.
         
-        CRITICAL RULES:
-        1. Base price must align with Lagos/Abuja market trends.
-        2. vitalityScore (0-100): Audit the mechanical state based on service gaps and fuel efficiency.
-        3. disciplineScore (0-100): Audit the owner's maintenance adherence and record verification levels.
-        4. trustPremium: Value added by verified service records.
-        5. maintenanceDebt: NGN deduction for pending high-cost items.
+        CRITICAL RULES FOR AUDITED SCORES (0-100):
+        1. vitality: Audit the physical/mechanical health. Reduce for overdue tasks, high fuel variance, or old age.
+        2. discipline: Audit the OWNER'S behavior. High score requires frequent logs with "mechanic_verified" or "receipt_verified" status. Low score if most logs are "self_declared" or gaps exist between services.
         
-        Context: Nigeria (high heat, dust). Currency: NGN.`,
+        MARKET RULES:
+        1. Base price must align with Lagos/Abuja market trends for used vehicles.
+        2. Currency: NGN.`,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,

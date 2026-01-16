@@ -40,8 +40,8 @@ export interface AIValuationReport {
   priceRange: { min: number; max: number };
   marketGrade: 'A+' | 'A' | 'B' | 'C' | 'D';
   auditedScores: {
-    vitality: number;
-    discipline: number;
+    vitality: number;   // Mechanical state & efficiency
+    discipline: number; // Owner's record-keeping & adherence
   };
   insights: {
     trustPremium: { value: number; description: string };
@@ -93,7 +93,7 @@ export interface Vehicle {
   avgDailyKm?: number;
   efficiencyBaseline?: number; 
   isDirty?: boolean;
-  latestAiAudit?: AIValuationReport; // Persisted AI audit result
+  latestAiAudit?: AIValuationReport; // Persisted AI audit result (Source of Truth)
 }
 
 export interface FuelLog {
