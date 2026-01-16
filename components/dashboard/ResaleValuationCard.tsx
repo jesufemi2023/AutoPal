@@ -3,6 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { Vehicle, MaintenanceTask, ServiceLog, FuelLog, AIValuationReport } from '../../shared/types.ts';
 import { calculateResaleValue } from '../../services/valuationService.ts';
 import { generateAIValuation } from '../../services/geminiService.ts';
+import { updateVehicle } from '../../services/vehicleService.ts';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { formatCurrency } from '../../shared/utils.ts';
 
@@ -12,10 +13,11 @@ export const ResaleValuationCard: React.FC<{
   serviceLogs: ServiceLog[];
   fuelLogs: FuelLog[];
 }> = ({ vehicle, tasks, serviceLogs, fuelLogs }) => {
-  const { aiValuationReports, setAIValuationReport } = useAutoPalStore();
+  const { updateVehicleStore } = useAutoPalStore();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const cachedReport = aiValuationReports[vehicle.id];
+  // Use persisted audit from vehicle object
+  const cachedReport = vehicle.latestAiAudit;
 
   const deterministicValuation = useMemo(() => 
     calculateResaleValue(vehicle, tasks, serviceLogs, fuelLogs), 
@@ -29,8 +31,17 @@ export const ResaleValuationCard: React.FC<{
     setIsAnalyzing(true);
     try {
       const report = await generateAIValuation(vehicle, tasks, serviceLogs, fuelLogs);
-      setAIValuationReport(vehicle.id, report);
+      
+      // Save AI Audit to Cloud for 10k User Persistency
+      const updatedVehicle = await updateVehicle(vehicle.id, { 
+        latestAiAudit: report,
+        // Sync vitality score back to main health field for dash visibility
+        healthScore: report.auditedScores.vitality 
+      });
+      
+      updateVehicleStore(updatedVehicle);
     } catch (e) {
+      console.error(e);
       alert("AI Analysis failed. Falling back to market average model.");
     } finally {
       setIsAnalyzing(false);
@@ -93,22 +104,24 @@ export const ResaleValuationCard: React.FC<{
             </div>
             <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col justify-between">
               <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Vitality Score</span>
-              <span className={`text-xs font-mono font-bold ${cachedReport.insights.mechanicalVitality.score > 80 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {cachedReport.insights.mechanicalVitality.score}/100
+              <span className={`text-xs font-mono font-bold ${cachedReport.auditedScores.vitality > 80 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {cachedReport.auditedScores.vitality}/100
               </span>
             </div>
           </div>
         )}
 
-        {!cachedReport ? (
-          <button 
-            onClick={handleAiAnalysis}
-            className="w-full bg-blue-600 text-white py-6 rounded-2xl flex items-center justify-center gap-4 transition-all shadow-xl shadow-blue-600/20 group/btn hover:bg-blue-500"
-          >
-            <span className="text-xl group-hover/btn:scale-125 transition-transform animate-pulse">✧</span>
-            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Request AI Financial Dossier</span>
-          </button>
-        ) : (
+        <button 
+          onClick={handleAiAnalysis}
+          className={`w-full ${cachedReport ? 'bg-white/10 border border-white/20' : 'bg-blue-600'} text-white py-6 rounded-2xl flex items-center justify-center gap-4 transition-all shadow-xl shadow-blue-600/20 group/btn hover:bg-blue-500`}
+        >
+          <span className="text-xl group-hover/btn:scale-125 transition-transform animate-pulse">✧</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.3em]">
+            {cachedReport ? 'Refresh Neural Audit' : 'Request AI Financial Dossier'}
+          </span>
+        </button>
+
+        {cachedReport && (
           <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
             <div className="p-5 bg-white/5 border border-white/10 rounded-2xl space-y-4">
                <div className="flex items-start gap-4">
@@ -138,12 +151,9 @@ export const ResaleValuationCard: React.FC<{
             
             <div className="flex justify-between items-center px-2">
               <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Last Dossier: {new Date(cachedReport.timestamp).toLocaleDateString()}</span>
-              <button 
-                onClick={handleAiAnalysis}
-                className="text-[8px] font-black text-blue-500 uppercase tracking-widest hover:text-white transition-colors flex items-center gap-2"
-              >
-                <span>↻ Refresh Insight</span>
-              </button>
+              <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest flex items-center gap-2">
+                Neural Scan Verified ✓
+              </span>
             </div>
           </div>
         )}

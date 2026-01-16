@@ -93,6 +93,7 @@ export interface Vehicle {
   avgDailyKm?: number;
   efficiencyBaseline?: number; 
   isDirty?: boolean;
+  latestAiAudit?: AIValuationReport; // Persisted AI audit result
 }
 
 export interface FuelLog {

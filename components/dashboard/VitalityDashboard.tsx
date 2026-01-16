@@ -7,7 +7,6 @@ import {
   calculateMetabolicStatus
 } from '../../services/maintenanceLogic.ts';
 import { formatCurrency } from '../../shared/utils.ts';
-import { useAutoPalStore } from '../../shared/store.ts';
 
 interface Props {
   vehicle: Vehicle;
@@ -17,15 +16,25 @@ interface Props {
 }
 
 export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelLogs }) => {
-  const { aiValuationReports } = useAutoPalStore();
-  const cachedReport = aiValuationReports[vehicle.id];
-
   const localHealth = useMemo(() => calculateIntelligentHealth(vehicle, tasks, fuelLogs, logs), [vehicle, tasks, fuelLogs, logs]);
   const metabolism = useMemo(() => calculateMetabolicStatus(vehicle, fuelLogs), [vehicle, fuelLogs]);
 
-  // Use AI audited scores if recent, otherwise fallback to local formulas
-  const displayVitality = cachedReport ? cachedReport.auditedScores.vitality : localHealth.total;
-  const isAiAudited = !!cachedReport;
+  // STRICT RULE: Use AI audited scores from persistence
+  const cachedAudit = vehicle.latestAiAudit;
+  const displayVitality = cachedAudit ? cachedAudit.auditedScores.vitality : null;
+  const isAiAudited = !!cachedAudit;
+
+  // Drift Detection: Check if new logs exist since last audit
+  const hasDrift = useMemo(() => {
+    if (!cachedAudit) return false;
+    const auditTime = new Date(cachedAudit.timestamp).getTime();
+    const latestLogTime = Math.max(
+      ...logs.map(l => new Date(l.createdAt || l.serviceDate).getTime()),
+      ...fuelLogs.map(l => new Date(l.createdAt).getTime()),
+      0
+    );
+    return latestLogTime > auditTime;
+  }, [cachedAudit, logs, fuelLogs]);
 
   const pillars: ServiceCategory[] = ['fluids', 'engine', 'brakes', 'suspension', 'tires', 'electrical', 'cooling', 'other'];
 
@@ -100,42 +109,57 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
               <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Neural Health Audit</h4>
               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest opacity-80">Component Health Status</p>
             </div>
-            <div className="bg-slate-900 text-white px-6 py-3 rounded-[1.25rem] text-[10px] font-black uppercase tracking-[0.15em] shadow-xl shrink-0">
-              Vitality: <span className="font-mono font-bold">{displayVitality}%</span>
+            <div className="bg-slate-900 text-white px-6 py-3 rounded-[1.25rem] text-[10px] font-black uppercase tracking-[0.15em] shadow-xl shrink-0 flex items-center gap-3">
+              Vitality: <span className="font-mono font-bold">{displayVitality !== null ? `${displayVitality}%` : 'Pending'}</span>
+              {hasDrift && <span className="text-amber-500 animate-pulse text-lg" title="Drift Detected: New telemetry since last audit">⚠</span>}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 lg:gap-10 flex-grow">
-            {pillars.map(pillar => {
-              const score = getPillarStatus(pillar);
-              return (
-                <div key={pillar} className="space-y-4 group/pillar">
-                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest items-center">
-                    <span className="text-slate-400 transition-colors group-hover/pillar:text-blue-600 whitespace-nowrap">{pillar}</span>
-                    <span className={`font-mono font-bold text-[11px] ${score > 80 ? 'text-emerald-500' : 'text-rose-500'}`}>{score}%</span>
+          {displayVitality === null ? (
+            <div className="flex-grow flex flex-col items-center justify-center p-8 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+               <div className="text-3xl mb-4">⚖</div>
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Neural Judge Awaiting Initial Audit</p>
+               <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest mt-2 text-center">Run a valuation report to generate your first audited vitality score.</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 lg:gap-10 flex-grow">
+                {pillars.map(pillar => {
+                  const score = getPillarStatus(pillar);
+                  return (
+                    <div key={pillar} className="space-y-4 group/pillar">
+                      <div className="flex justify-between text-[10px] font-black uppercase tracking-widest items-center">
+                        <span className="text-slate-400 transition-colors group-hover/pillar:text-blue-600 whitespace-nowrap">{pillar}</span>
+                        <span className={`font-mono font-bold text-[11px] ${score > 80 ? 'text-emerald-500' : 'text-rose-500'}`}>{score}%</span>
+                      </div>
+                      <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-full transition-all duration-1000 ${score > 80 ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${score}%` }}></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className={`mt-12 p-6 rounded-[2rem] border flex flex-col lg:flex-row items-center justify-between gap-6 transition-colors ${hasDrift ? 'bg-amber-50 border-amber-100' : 'bg-slate-50 border-slate-100'}`}>
+                <div className="flex items-center gap-4">
+                  <div className={`w-10 h-10 rounded-xl bg-white flex items-center justify-center font-black text-sm shadow-sm shrink-0 ${hasDrift ? 'text-amber-500' : 'text-blue-600'}`}>
+                    {hasDrift ? '!' : 'i'}
                   </div>
-                  <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
-                    <div className={`h-full transition-all duration-1000 ${score > 80 ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${score}%` }}></div>
+                  <div className="space-y-0.5">
+                    <p className={`text-[10px] font-black uppercase tracking-widest leading-relaxed ${hasDrift ? 'text-amber-700' : 'text-slate-500'}`}>
+                      {hasDrift ? 'Neural Score Drifting' : 'Neural Judge Active'}
+                    </p>
+                    <p className="text-[8px] text-slate-400 font-black uppercase tracking-[0.2em]">
+                      {hasDrift ? 'New logs detected since last audit. Scores may be stale.' : `Last Verified: ${new Date(cachedAudit?.timestamp || 0).toLocaleDateString()}`}
+                    </p>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-12 p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col lg:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-blue-600 font-black text-sm shadow-sm shrink-0">i</div>
-              <div className="space-y-0.5">
-                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed">
-                  Real-time Component Analysis
-                </p>
-                <p className="text-[8px] text-slate-300 font-black uppercase tracking-[0.2em]">{isAiAudited ? 'Verified by Global Audit Engine' : 'Calculating Local Probabilities'}</p>
+                {hasDrift && (
+                   <p className="text-[8px] font-bold text-amber-600 uppercase tracking-widest text-center">Re-Audit recommended for accuracy</p>
+                )}
               </div>
-            </div>
-            {!isAiAudited && (
-               <p className="text-[8px] font-bold text-blue-600 uppercase tracking-widest text-center">Request valuation to enable AI Audit</p>
-            )}
-          </div>
+            </>
+          )}
         </div>
       </div>
     </div>

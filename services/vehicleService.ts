@@ -60,7 +60,8 @@ const mapVehicleFromDb = (v: any): Vehicle => ({
   engineSize: v.engine_size,
   avgDailyKm: v.avg_daily_km || 30,
   createdAt: v.created_at,
-  updatedAt: v.updated_at
+  updatedAt: v.updated_at,
+  latestAiAudit: v.latest_ai_audit // Map persisted AI audit
 });
 
 const mapLogFromDb = (l: any): ServiceLog => ({
@@ -155,7 +156,6 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
 
 export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[]): Promise<void> => {
   if (!supabase) return;
-  // Fixed: Map MaintenanceTask properties to DB columns using correct camelCase properties
   const dbPayloads = tasks.map(t => ({
     vehicle_id: t.vehicleId,
     title: t.title,
@@ -167,6 +167,7 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
     category: t.category,
     estimated_cost: t.estimatedCost,
     interval_km: t.intervalKm,
+    // Fix: Access camelCase property intervalMonths from the task object
     interval_months: t.intervalMonths
   }));
   const { error } = await supabase
@@ -188,7 +189,6 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   if (data.specs !== undefined) dbPayload.specs = data.specs;
   
   if (data.mileage !== undefined) dbPayload.current_mileage = data.mileage;
-  // Fixed: Access ownerId from Partial<Vehicle> using correct camelCase property
   if (data.ownerId !== undefined) dbPayload.owner_id = data.ownerId;
   if (data.bodyType !== undefined) dbPayload.body_type = data.bodyType;
   if (data.fuelType !== undefined) dbPayload.fuel_type = data.fuelType;
@@ -196,6 +196,7 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   if (data.avgDailyKm !== undefined) dbPayload.avg_daily_km = data.avgDailyKm;
   if (data.healthScore !== undefined) dbPayload.health_score = data.healthScore;
   if (data.imageUrl !== undefined) dbPayload.image_url = data.imageUrl;
+  if (data.latestAiAudit !== undefined) dbPayload.latest_ai_audit = data.latestAiAudit;
 
   if (Object.keys(dbPayload).length === 0) {
     const { data: current } = await supabase.from(DB_TABLES.VEHICLES).select('*').eq('id', vehicleId).single();
@@ -214,6 +215,7 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
     if (errType === 'SCHEMA_MISMATCH') {
        delete dbPayload.avg_daily_km;
        delete dbPayload.health_score;
+       delete dbPayload.latest_ai_audit;
        const retry = await supabase
          .from(DB_TABLES.VEHICLES)
          .update(dbPayload)
@@ -276,6 +278,7 @@ export const createManualServiceLog = async (vehicle: Vehicle, log: Omit<Service
       category: log.category,
       status: log.status || 'completed',
       verification_level: log.verificationLevel,
+      // Fix: Access camelCase property receiptUrl from the log object
       receipt_url: log.receiptUrl
     }])
     .select()
@@ -297,7 +300,6 @@ export const syncVehicleVitals = async (vehicleId: string): Promise<Vehicle> => 
   ]);
 
   const newAvgDailyKm = calculateAverageDailyKm(fuelLogs, serviceLogs);
-  // Pass all logs to ensure the vitality score is derived from full telemetry
   const newHealthScore = calculateVitalityScore({ ...vehicle, avgDailyKm: newAvgDailyKm }, tasks, fuelLogs, serviceLogs);
 
   return await updateVehicle(vehicleId, { avgDailyKm: newAvgDailyKm, healthScore: newHealthScore });
@@ -378,7 +380,6 @@ export const finalizeMaintenanceCompletion = async (
       due_mileage: nextMileage,
       due_date: nextDate,
       last_completed_at: completionData.serviceDate,
-      // Fixed: corrected undefined completionLevel to completionData.verificationLevel
       last_verification_level: completionData.verificationLevel,
       last_receipt_url: completionData.receiptUrl,
       status: 'pending' 
