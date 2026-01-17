@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../services/vehicleService.ts';
@@ -103,6 +102,40 @@ const ServiceIntelligenceCenter: React.FC = () => {
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8] transition-all">
             Service <br/><span className="text-blue-600">Records</span>
           </h2>
+          {vehicles.length > 1 && (
+            <div className="relative group/scroll w-full max-w-sm mt-4">
+              <button 
+                onClick={() => handleScroll('left')}
+                className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-4"
+                aria-label="Scroll Left"
+              >
+                ←
+              </button>
+
+              <div 
+                ref={scrollContainerRef}
+                className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide scrollbar-desktop-show scroll-smooth px-1"
+              >
+                {vehicles.map(v => (
+                  <button 
+                    key={v.id}
+                    onClick={() => setActiveVehicleId(v.id)}
+                    className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all whitespace-nowrap ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}
+                  >
+                    {v.year} {v.make} {v.model}
+                  </button>
+                ))}
+              </div>
+
+              <button 
+                onClick={() => handleScroll('right')}
+                className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -mr-4"
+                aria-label="Scroll Right"
+              >
+                →
+              </button>
+            </div>
+          )}
         </div>
         <button disabled={!activeVehicle} onClick={() => setShowLogTerminal(true)} className="bg-slate-900 text-white px-8 sm:px-12 py-5 sm:py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-3xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
           <span className="text-lg sm:text-xl">🛠️</span>

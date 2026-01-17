@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../services/fuelService.ts';
@@ -150,15 +149,15 @@ const FuelIntelligenceCenter: React.FC = () => {
 
               <div 
                 ref={scrollContainerRef}
-                className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scrollbar-desktop-show scroll-smooth"
+                className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide scrollbar-desktop-show scroll-smooth px-1"
               >
                 {vehicles.map(v => (
                   <button 
                     key={v.id}
                     onClick={() => setActiveVehicleId(v.id)}
-                    className={`flex-shrink-0 px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400'}`}
+                    className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all whitespace-nowrap ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}
                   >
-                    {v.model}
+                    {v.year} {v.make} {v.model}
                   </button>
                 ))}
               </div>
