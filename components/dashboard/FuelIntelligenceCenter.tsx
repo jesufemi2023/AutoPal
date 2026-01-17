@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useAutoPalStore } from '../shared/store.ts';
-import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../services/fuelService.ts';
-import { formatCurrency, formatDate, kmlToMpg } from '../shared/utils.ts';
-import FuelEntryTerminal from './FuelEntryTerminal.tsx';
-import { FuelLog } from '../shared/types.ts';
-import { ENV } from '../services/envService.ts';
+import { useAutoPalStore } from '../../shared/store.ts';
+import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../../services/fuelService.ts';
+import { formatCurrency, formatDate, kmlToMpg, exportToCSV, triggerProfessionalPrint } from '../../shared/utils.ts';
+import FuelEntryTerminal from '../FuelEntryTerminal.tsx';
+import { FuelLog } from '../../shared/types.ts';
+import { ENV } from '../../services/envService.ts';
 
 const FuelIntelligenceCenter: React.FC = () => {
   const { 
@@ -14,6 +13,7 @@ const FuelIntelligenceCenter: React.FC = () => {
   } = useAutoPalStore();
   
   const [isLoading, setIsLoading] = useState(false);
+  const [hasRequestedHistory, setHasRequestedHistory] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showTerminal, setShowTerminal] = useState(false);
   const [editingLog, setEditingLog] = useState<FuelLog | null>(null);
@@ -23,6 +23,7 @@ const FuelIntelligenceCenter: React.FC = () => {
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
+  // Stats are always loaded for the dashboard counters
   useEffect(() => {
     const loadLogs = async () => {
       if (!activeVehicleId) return;
@@ -88,6 +89,23 @@ const FuelIntelligenceCenter: React.FC = () => {
 
   const totalFuelSpend = useMemo(() => fuelLogs.reduce((acc, l) => acc + (l.totalCost || 0), 0), [fuelLogs]);
   
+  const handleExportCSV = () => {
+    const exportData = logsWithAnalytics.map(l => ({
+      Date: formatDate(l.createdAt),
+      Liters: `${l.liters} L`,
+      Cost: formatCurrency(l.totalCost),
+      Odometer: `${l.odometerKm} KM`,
+      Vendor: l.vendor || 'N/A',
+      FullTank: l.isFullTank ? 'Yes' : 'No',
+      Efficiency: l.tripKml ? `${l.tripKml.toFixed(2)} KM/L` : 'Calculating...'
+    }));
+    exportToCSV(exportData, `Fuel_Tracker_${activeVehicle?.make}_${activeVehicle?.model}`);
+  };
+
+  const handleExportPDF = () => {
+    triggerProfessionalPrint('fuel-report-content');
+  };
+
   const handleDeleteRecord = async (logId: string) => {
     if (!window.confirm("CAUTION: Deleting this record will update your average efficiency. Proceed?")) return;
     try {
@@ -138,6 +156,50 @@ const FuelIntelligenceCenter: React.FC = () => {
 
   return (
     <div className="space-y-8 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
+       {/* Hidden Print Content */}
+       <div id="fuel-report-content" className="hidden">
+        <div className="flex justify-between items-center border-b-4 border-emerald-600 pb-8 mb-8">
+          <div>
+            <h1 className="text-3xl font-black uppercase tracking-tighter">AutoPal NG</h1>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Official Fuel Efficiency Report</p>
+          </div>
+          <div className="text-right">
+            <h2 className="text-xl font-black">{activeVehicle?.make} {activeVehicle?.model}</h2>
+            <p className="text-xs font-mono">{activeVehicle?.vin}</p>
+            <p className="text-xs text-slate-400">Generated: {new Date().toLocaleDateString()}</p>
+          </div>
+        </div>
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-100">
+              <th className="p-3 text-[10px] font-black uppercase border-b">Date</th>
+              <th className="p-3 text-[10px] font-black uppercase border-b">Vendor</th>
+              <th className="p-3 text-[10px] font-black uppercase border-b text-right">Liters</th>
+              <th className="p-3 text-[10px] font-black uppercase border-b text-right">Cost</th>
+              <th className="p-3 text-[10px] font-black uppercase border-b text-right">Trip Eff.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {logsWithAnalytics.map((log, i) => (
+              <tr key={log.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                <td className="p-3 text-xs border-b">{formatDate(log.createdAt)}</td>
+                <td className="p-3 text-xs font-bold border-b">{log.vendor || 'N/A'}</td>
+                <td className="p-3 text-xs border-b text-right">{log.liters.toFixed(2)} L</td>
+                <td className="p-3 text-xs font-bold border-b text-right">{formatCurrency(log.totalCost)}</td>
+                <td className="p-3 text-xs font-mono border-b text-right">{log.tripKml ? `${log.tripKml.toFixed(1)} KM/L` : '---'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="mt-12 pt-8 border-t border-slate-100 flex justify-between items-center">
+           <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Validated by AutoPal Energy Analytics</div>
+           <div className="text-right">
+              <p className="text-[10px] font-black uppercase text-slate-400">Total Fuel Expenditure</p>
+              <p className="text-2xl font-black">{formatCurrency(totalFuelSpend)}</p>
+           </div>
+        </div>
+      </div>
+
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
@@ -149,6 +211,14 @@ const FuelIntelligenceCenter: React.FC = () => {
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">
             Fuel <br/><span className="text-blue-600">Tracker</span>
           </h2>
+          <div className="flex gap-2 mt-4">
+             <button onClick={handleExportCSV} className="px-4 py-2 bg-white border border-slate-100 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2">
+               <span>📊</span> Excel Export
+             </button>
+             <button onClick={handleExportPDF} className="px-4 py-2 bg-white border border-slate-100 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2">
+               <span>📄</span> Professional PDF
+             </button>
+          </div>
           {vehicles.length > 1 && (
             <div className="relative group/scroll w-full max-w-sm mt-4">
               <button onClick={() => handleScroll('left')} className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-4">←</button>
@@ -231,7 +301,21 @@ const FuelIntelligenceCenter: React.FC = () => {
           </div>
 
           <div className="space-y-6 px-2">
-            {logsWithAnalytics.length > 0 ? (
+            {!hasRequestedHistory ? (
+              <div className="py-24 text-center bg-white card-radius border-2 border-slate-50 p-12 flex flex-col items-center gap-6">
+                 <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-3xl">🗓️</div>
+                 <div>
+                   <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tighter uppercase">History Standby</h3>
+                   <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest max-w-xs mx-auto">Historical records are not pre-loaded to optimize performance. Call history when needed.</p>
+                 </div>
+                 <button 
+                  onClick={() => setHasRequestedHistory(true)}
+                  className="bg-slate-900 text-white px-10 py-4 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-lg hover:bg-blue-600 transition-all"
+                 >
+                   Retrieve Historical Data
+                 </button>
+              </div>
+            ) : logsWithAnalytics.length > 0 ? (
               <div className="grid grid-cols-1 gap-4">
                 {logsWithAnalytics.map((log, idx) => (
                   <div key={log.id} className="bg-white border border-slate-100 p-6 sm:p-10 rounded-[2.5rem] hover:shadow-xl transition-all group flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between shadow-sm relative overflow-hidden">

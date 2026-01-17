@@ -1,4 +1,3 @@
-
 /**
  * Utility functions for formatting and calculations.
  */
@@ -92,4 +91,67 @@ export const compressImage = async (
     };
     reader.onerror = (err) => reject(err);
   });
+};
+
+/**
+ * Professional CSV Export Utility
+ */
+export const exportToCSV = (data: any[], filename: string) => {
+  if (!data || !data.length) return;
+  const headers = Object.keys(data[0]).join(',');
+  const rows = data.map(row => 
+    Object.values(row).map(val => {
+      let clean = String(val).replace(/"/g, '""');
+      if (clean.includes(',')) clean = `"${clean}"`;
+      return clean;
+    }).join(',')
+  );
+  
+  const csvContent = [headers, ...rows].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${filename}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+/**
+ * Professional PDF Trigger Utility
+ * Uses window.print with custom report styling
+ */
+export const triggerProfessionalPrint = (reportId: string) => {
+  const content = document.getElementById(reportId);
+  if (!content) return;
+  
+  const originalDisplay = content.style.display;
+  content.style.display = 'block';
+  
+  // Create a temporary print stylesheet
+  const style = document.createElement('style');
+  style.innerHTML = `
+    @media print {
+      body * { visibility: hidden; }
+      #${reportId}, #${reportId} * { visibility: visible; }
+      #${reportId} { 
+        position: absolute; 
+        left: 0; 
+        top: 0; 
+        width: 100%; 
+        background: white !important; 
+        color: black !important;
+        padding: 40px !important;
+      }
+      .no-print { display: none !important; }
+    }
+  `;
+  document.head.appendChild(style);
+  
+  window.print();
+  
+  document.head.removeChild(style);
+  content.style.display = originalDisplay;
 };

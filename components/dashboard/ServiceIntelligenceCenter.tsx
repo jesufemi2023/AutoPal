@@ -1,17 +1,16 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useAutoPalStore } from '../shared/store.ts';
-import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../services/vehicleService.ts';
-import { fetchFuelLogs } from '../services/fuelService.ts';
-import { deleteServiceLog } from '../services/logService.ts';
-import { formatCurrency, formatDate } from '../shared/utils.ts';
-import { MaintenanceTask, ServiceLog } from '../shared/types.ts';
+import { useAutoPalStore } from '../../shared/store.ts';
+import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../../services/vehicleService.ts';
+import { fetchFuelLogs } from '../../services/fuelService.ts';
+import { deleteServiceLog } from '../../services/logService.ts';
+import { formatCurrency, formatDate, exportToCSV, triggerProfessionalPrint } from '../../shared/utils.ts';
+import { MaintenanceTask, ServiceLog } from '../../shared/types.ts';
 import { 
   getSpendByCategory,
   calculateFinancialLedger
-} from '../services/maintenanceLogic.ts';
-import { MaintenanceRoadmap } from './dashboard/MaintenanceRoadmap.tsx';
-import { ServiceLogTerminal } from './ServiceLogTerminal.tsx';
+} from '../../services/maintenanceLogic.ts';
+import { MaintenanceRoadmap } from './MaintenanceRoadmap.tsx';
+import { ServiceLogTerminal } from '../ServiceLogTerminal.tsx';
 
 const ServiceIntelligenceCenter: React.FC = () => {
   const { 
@@ -61,6 +60,24 @@ const ServiceIntelligenceCenter: React.FC = () => {
       isAiAudited: !!cachedAudit
     };
   }, [activeVehicle, activeServiceLogs, activeFuelLogs]);
+
+  const handleExportCSV = () => {
+    const exportData = activeServiceLogs.map(l => ({
+      Date: formatDate(l.serviceDate),
+      Type: l.serviceType,
+      Category: l.category,
+      Provider: l.provider || 'N/A',
+      Odometer: `${l.mileageAtService} KM`,
+      Cost: formatCurrency(l.cost),
+      Status: l.status,
+      Verification: l.verificationLevel
+    }));
+    exportToCSV(exportData, `Service_History_${activeVehicle?.make}_${activeVehicle?.model}`);
+  };
+
+  const handleExportPDF = () => {
+    triggerProfessionalPrint('service-report-content');
+  };
 
   const handleDeleteLog = async (id: string) => {
     if (!confirm("Are you sure?")) return;
@@ -125,6 +142,50 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
   return (
     <div className="space-y-12 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
+      {/* Hidden Print Content */}
+      <div id="service-report-content" className="hidden">
+        <div className="flex justify-between items-center border-b-4 border-blue-600 pb-8 mb-8">
+          <div>
+            <h1 className="text-3xl font-black uppercase tracking-tighter">AutoPal NG</h1>
+            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Official Service Lifecycle Report</p>
+          </div>
+          <div className="text-right">
+            <h2 className="text-xl font-black">{activeVehicle?.make} {activeVehicle?.model}</h2>
+            <p className="text-xs font-mono">{activeVehicle?.vin}</p>
+            <p className="text-xs text-slate-400">Generated: {new Date().toLocaleDateString()}</p>
+          </div>
+        </div>
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-slate-100">
+              <th className="p-3 text-[10px] font-black uppercase border-b">Date</th>
+              <th className="p-3 text-[10px] font-black uppercase border-b">Service Type</th>
+              <th className="p-3 text-[10px] font-black uppercase border-b">Provider</th>
+              <th className="p-3 text-[10px] font-black uppercase border-b text-right">Mileage</th>
+              <th className="p-3 text-[10px] font-black uppercase border-b text-right">Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {activeServiceLogs.map((log, i) => (
+              <tr key={log.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                <td className="p-3 text-xs border-b">{formatDate(log.serviceDate)}</td>
+                <td className="p-3 text-xs font-bold border-b">{log.serviceType}</td>
+                <td className="p-3 text-xs border-b">{log.provider || 'N/A'}</td>
+                <td className="p-3 text-xs font-mono border-b text-right">{log.mileageAtService.toLocaleString()} KM</td>
+                <td className="p-3 text-xs font-bold border-b text-right">{formatCurrency(log.cost)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="mt-12 pt-8 border-t border-slate-100 flex justify-between items-center">
+           <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Validated by AutoPal Intelligence Systems</div>
+           <div className="text-right">
+              <p className="text-[10px] font-black uppercase text-slate-400">Total Lifecycle Investment</p>
+              <p className="text-2xl font-black">{formatCurrency(stats.maintenanceTotal)}</p>
+           </div>
+        </div>
+      </div>
+
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
@@ -132,19 +193,14 @@ const ServiceIntelligenceCenter: React.FC = () => {
             <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">{isLoading ? 'Loading records...' : 'Service History Active'}</span>
           </div>
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Service <br/><span className="text-blue-600">Records</span></h2>
-          {vehicles.length > 1 && (
-            <div className="relative group/scroll w-full max-w-sm mt-4">
-              <button onClick={() => handleScroll('left')} className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-4">←</button>
-              <div ref={scrollContainerRef} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide scrollbar-desktop-show scroll-smooth px-1">
-                {vehicles.map(v => (
-                  <button key={v.id} onClick={() => setActiveVehicleId(v.id)} className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all whitespace-nowrap ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}>
-                    {v.year} {v.make} {v.model}
-                  </button>
-                ))}
-              </div>
-              <button onClick={() => handleScroll('right')} className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -mr-4">→</button>
-            </div>
-          )}
+          <div className="flex gap-2 mt-4">
+             <button onClick={handleExportCSV} className="px-4 py-2 bg-white border border-slate-100 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2">
+               <span>📊</span> Excel Export
+             </button>
+             <button onClick={handleExportPDF} className="px-4 py-2 bg-white border border-slate-100 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2">
+               <span>📄</span> Professional PDF
+             </button>
+          </div>
         </div>
         <button disabled={!activeVehicle} onClick={() => setShowLogTerminal(true)} className="bg-slate-900 text-white px-8 sm:px-12 py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-3xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3">
           <span className="text-xl">🛠️</span> Record Service
