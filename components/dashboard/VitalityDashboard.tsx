@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { Vehicle, MaintenanceTask, ServiceLog, FuelLog, ServiceCategory } from '../../shared/types.ts';
 import { 
@@ -21,17 +20,6 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
   const cachedAudit = vehicle.latestAiAudit;
   const displayVitality = cachedAudit ? cachedAudit.auditedScores.vitality : null;
   const displayDiscipline = cachedAudit ? cachedAudit.auditedScores.discipline : null;
-
-  const hasDrift = useMemo(() => {
-    if (!cachedAudit) return false;
-    const auditTime = new Date(cachedAudit.timestamp).getTime();
-    const latestLogTime = Math.max(
-      ...logs.map(l => new Date(l.createdAt || l.serviceDate).getTime()),
-      ...fuelLogs.map(l => new Date(l.createdAt).getTime()),
-      0
-    );
-    return latestLogTime > auditTime;
-  }, [cachedAudit, logs, fuelLogs]);
 
   const pillars: ServiceCategory[] = ['fluids', 'engine', 'brakes', 'suspension', 'tires', 'electrical', 'cooling', 'other'];
 
@@ -57,22 +45,44 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
   const InfoIcon = ({ id, text }: { id: string, text: string }) => (
     <div className="relative inline-block ml-1">
       <button 
-        onClick={() => setActiveTooltip(activeTooltip === id ? null : id)}
+        onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === id ? null : id); }}
         className="text-slate-400 hover:text-blue-500 transition-colors"
       >
         ℹ️
       </button>
       {activeTooltip === id && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 bg-slate-900 text-white text-[9px] font-bold rounded-xl shadow-2xl z-[100] animate-in fade-in zoom-in duration-200 uppercase tracking-widest leading-relaxed">
-          {text}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-900"></div>
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setActiveTooltip(null)}
+        >
+          <div 
+            className="bg-slate-900 text-white p-6 sm:p-8 rounded-[2rem] shadow-3xl max-w-xs w-full border border-white/10 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-6">
+               <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-400 text-lg">ℹ️</div>
+               <button onClick={() => setActiveTooltip(null)} className="text-slate-500 hover:text-white text-2xl font-light">×</button>
+            </div>
+            <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-3">Metric Intelligence</h4>
+            <p className="text-[11px] font-bold uppercase tracking-widest leading-relaxed text-slate-200">
+              {text}
+            </p>
+            <div className="mt-8 pt-6 border-t border-white/5">
+               <button 
+                 onClick={() => setActiveTooltip(null)}
+                 className="w-full py-4 bg-white/5 hover:bg-white/10 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all"
+               >
+                 Got it
+               </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 
   return (
-    <div className="w-full h-full flex flex-col gap-6" onClick={() => activeTooltip && setActiveTooltip(null)}>
+    <div className="w-full h-full flex flex-col gap-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl border border-white/5 group">
           <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6 flex items-center">

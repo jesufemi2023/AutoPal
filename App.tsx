@@ -139,6 +139,41 @@ const App: React.FC = () => {
     </button>
   );
 
+  const ManageVehicleControls = () => (
+    <div className="space-y-0.5">
+      <button 
+        onClick={() => {
+          setCurrentView('onboarding');
+          setIsSettingsOpen(false);
+          setIsMobileMenuOpen(false);
+        }}
+        className="flex items-center gap-4 px-4 py-3.5 w-full text-blue-600 hover:bg-blue-50/50 transition-all group rounded-xl"
+      >
+        <span className="text-base group-hover:scale-110">➕</span>
+        <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add New Car</span>
+      </button>
+
+      {activeVehicle && (
+        <>
+          <button 
+            onClick={handleEditAsset}
+            className="flex items-center gap-4 px-4 py-3.5 w-full text-slate-600 hover:text-blue-600 hover:bg-slate-50 transition-all group rounded-xl"
+          >
+            <span className="text-base group-hover:scale-110">✎</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Update Details</span>
+          </button>
+          <button 
+            onClick={handleArchiveAsset}
+            className="flex items-center gap-4 px-4 py-3.5 w-full text-rose-500 hover:bg-rose-50 transition-all group rounded-xl"
+          >
+            <span className="text-base group-hover:scale-110">📁</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Remove from Garage</span>
+          </button>
+        </>
+      )}
+    </div>
+  );
+
   const NavigationMenu = () => (
     <>
       <div className="pb-4">
@@ -153,47 +188,19 @@ const App: React.FC = () => {
       <div className="pt-4 border-t border-slate-50 mx-2">
         <button 
           onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-          className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsOpen ? 'bg-slate-50 border-slate-100 text-slate-900' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}
+          className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsOpen ? 'bg-slate-900 border-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}
         >
           <div className="flex items-center gap-4">
-            <span className={`text-lg transition-transform ${isSettingsOpen ? 'rotate-90 text-blue-600' : 'group-hover:rotate-12'}`}>⚙</span>
+            <span className={`text-lg transition-transform ${isSettingsOpen ? 'rotate-90 text-blue-400' : 'group-hover:rotate-12'}`}>⚙</span>
             <span className="text-[9px] font-black uppercase tracking-[0.2em]">Manage Vehicles</span>
           </div>
           <span className={`text-[10px] transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}>▾</span>
         </button>
 
-        <div className={`transition-all duration-300 overflow-hidden ${isSettingsOpen ? 'max-h-[400px] opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
-          <div className="bg-slate-50/50 rounded-2xl p-2 space-y-0.5 border border-slate-100/50 ml-2">
-            <button 
-              onClick={() => {
-                setCurrentView('onboarding');
-                setIsSettingsOpen(false);
-                setIsMobileMenuOpen(false);
-              }}
-              className="flex items-center gap-4 px-4 py-3 w-full text-blue-600 hover:bg-white transition-all group rounded-xl"
-            >
-              <span className="text-base group-hover:scale-110">➕</span>
-              <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add New Car</span>
-            </button>
-
-            {activeVehicle && (
-              <>
-                <button 
-                  onClick={handleEditAsset}
-                  className="flex items-center gap-4 px-4 py-3 w-full text-slate-600 hover:text-blue-600 hover:bg-white transition-all group rounded-xl"
-                >
-                  <span className="text-base group-hover:scale-110">✎</span>
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Update Details</span>
-                </button>
-                <button 
-                  onClick={handleArchiveAsset}
-                  className="flex items-center gap-4 px-4 py-3 w-full text-rose-500 hover:bg-rose-50 transition-all group rounded-xl"
-                >
-                  <span className="text-base group-hover:scale-110">📁</span>
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Remove from Garage</span>
-                </button>
-              </>
-            )}
+        {/* Mobile Accordion Only */}
+        <div className={`lg:hidden transition-all duration-300 overflow-hidden ${isSettingsOpen ? 'max-h-[400px] opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
+          <div className="bg-slate-50/50 rounded-2xl p-2 border border-slate-100/50 ml-2">
+            <ManageVehicleControls />
           </div>
         </div>
       </div>
@@ -285,10 +292,10 @@ const App: React.FC = () => {
         </aside>
       </div>
 
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-50 overflow-hidden">
+      {/* Desktop Sidebar & Flyout Overlay */}
+      <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-[100] overflow-visible">
         {/* Fixed Header */}
-        <div className="p-8 pb-6 shrink-0">
+        <div className="p-8 pb-6 shrink-0 bg-white relative z-[101]">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
             <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-slate-900/20">A</div>
             <div>
@@ -299,12 +306,12 @@ const App: React.FC = () => {
         </div>
 
         {/* Scrollable Navigation Area */}
-        <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 space-y-0.5 pb-8">
+        <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 space-y-0.5 pb-8 bg-white relative z-[101]">
           <NavigationMenu />
         </nav>
 
         {/* Fixed Footer */}
-        <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white">
+        <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white relative z-[101]">
           <button 
             onClick={() => {
               setCurrentView('profile');
@@ -324,6 +331,27 @@ const App: React.FC = () => {
           >
             🚪 Sign Out
           </button>
+        </div>
+
+        {/* Desktop Slide-out Flyout Panel */}
+        <div 
+          className={`absolute top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-20px_rgba(0,0,0,0.1)] z-[90] transition-transform duration-500 ease-in-out flex flex-col pt-24 px-6
+            ${isSettingsOpen ? 'translate-x-[300px]' : 'translate-x-0'}
+          `}
+          style={{ left: 0 }}
+        >
+          <div className="mb-10 px-2">
+             <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Garage Controls</h4>
+             <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
+          </div>
+          <div className="flex-1 overflow-y-auto scrollbar-hide py-2">
+            <ManageVehicleControls />
+          </div>
+          <div className="py-8 px-2 border-t border-slate-50 mt-auto">
+             <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+               Modify your active vehicle digital twins or decommission assets from global sync.
+             </p>
+          </div>
         </div>
       </aside>
 
@@ -378,7 +406,10 @@ const App: React.FC = () => {
           <span className="text-[7px] font-black uppercase tracking-widest">Mechanic</span>
         </button>
         <button 
-          onClick={() => setCurrentView('onboarding')} 
+          onClick={() => {
+            setCurrentView('onboarding');
+            setIsSettingsOpen(false);
+          }} 
           className="flex flex-col items-center -translate-y-4 flex-none px-4"
         >
           <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl shadow-blue-600/30 border-4 border-white">

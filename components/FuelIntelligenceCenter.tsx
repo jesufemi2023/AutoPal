@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../services/fuelService.ts';
@@ -111,16 +110,38 @@ const FuelIntelligenceCenter: React.FC = () => {
         ℹ️
       </button>
       {activeTooltip === id && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 bg-slate-900 text-white text-[9px] font-bold rounded-xl shadow-2xl z-[100] animate-in fade-in zoom-in duration-200 uppercase tracking-widest leading-relaxed">
-          {text}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-900"></div>
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => setActiveTooltip(null)}
+        >
+          <div 
+            className="bg-slate-900 text-white p-6 sm:p-8 rounded-[2rem] shadow-3xl max-w-xs w-full border border-white/10 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start mb-6">
+               <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-400 text-lg">ℹ️</div>
+               <button onClick={() => setActiveTooltip(null)} className="text-slate-500 hover:text-white text-2xl font-light">×</button>
+            </div>
+            <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-3">Refill Intelligence</h4>
+            <p className="text-[11px] font-bold uppercase tracking-widest leading-relaxed text-slate-200">
+              {text}
+            </p>
+            <div className="mt-8 pt-6 border-t border-white/5">
+               <button 
+                 onClick={() => setActiveTooltip(null)}
+                 className="w-full py-4 bg-white/5 hover:bg-white/10 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all"
+               >
+                 Got it
+               </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
   );
 
   return (
-    <div className="space-y-8 sm:space-y-16 animate-slide-up pb-24 sm:pb-32" onClick={() => activeTooltip && setActiveTooltip(null)}>
+    <div className="space-y-8 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
