@@ -41,25 +41,16 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
       </button>
       {activeTooltip === id && (
         <div 
-          className="fixed inset-0 z-[10000] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
-          onClick={() => setActiveTooltip(null)}
+          className="absolute inset-x-0 top-0 z-20 bg-slate-900 text-white p-6 rounded-t-[2.5rem] border-b border-white/10 animate-in slide-in-from-top duration-300"
+          onClick={(e) => e.stopPropagation()}
         >
-          <div 
-            className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-3xl max-w-sm w-full border border-white/10 animate-in zoom-in-95 duration-200 text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-14 h-14 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400 text-2xl mx-auto mb-6">ℹ️</div>
-            <h4 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4">Engineering Insight</h4>
-            <p className="text-xs font-bold uppercase tracking-widest leading-relaxed text-slate-200 mb-8">
-              {text}
-            </p>
-            <button 
-              onClick={() => setActiveTooltip(null)}
-              className="w-full py-4 bg-white/5 hover:bg-blue-600 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
-            >
-              Acknowledged
-            </button>
+          <div className="flex justify-between items-start mb-2">
+            <h4 className="text-[9px] font-black text-blue-400 uppercase tracking-[0.3em]">Engineering Insight</h4>
+            <button onClick={() => setActiveTooltip(null)} className="text-slate-500 hover:text-white text-xl font-light leading-none">×</button>
           </div>
+          <p className="text-[10px] font-bold uppercase tracking-widest leading-relaxed text-slate-200">
+            {text}
+          </p>
         </div>
       )}
     </div>
@@ -108,7 +99,9 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
               className={`group relative border-2 rounded-[2.5rem] p-6 sm:p-8 transition-all duration-500 hover:shadow-2xl animate-slide-up ${isOverdue ? 'border-rose-100 bg-rose-50/20' : 'border-slate-50 bg-white hover:border-blue-100'}`}
               style={{ animationDelay: `${i * 0.05}s` }}
             >
-              <div className="flex flex-col lg:flex-row gap-8 items-start justify-between">
+              <InfoIcon id={`info-${task.id}`} text={`Regular maintenance of the ${task.category} system is critical in tropical environments. Neglect leads to overheating and permanent internal wear.`} />
+              
+              <div className="flex flex-col lg:flex-row gap-8 items-start justify-between relative z-10">
                 <div className="space-y-6 flex-grow w-full">
                   <div className="flex items-center gap-4">
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner shrink-0 ${isOverdue ? 'bg-rose-500 text-white shadow-rose-200' : 'bg-slate-900 text-white'}`}>
@@ -120,7 +113,6 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
                           {task.status === 'pending' ? (isOverdue ? 'Overdue' : derivedStatus) : task.status}
                         </span>
                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{task.category} System</span>
-                        <InfoIcon id={`info-${task.id}`} text={`Regular maintenance of the ${task.category} system is critical in tropical environments. Neglect leads to overheating and permanent internal wear.`} />
                       </div>
                       <h4 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter leading-none truncate">{task.title}</h4>
                     </div>
@@ -134,17 +126,17 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
                   </div>
                 </div>
 
-                <div className="w-full lg:w-56 flex flex-col gap-6 lg:items-end shrink-0 border-t lg:border-t-0 lg:border-l lg:border-slate-100 pt-8 lg:pt-0 lg:pl-10">
-                   <div className="flex flex-row lg:flex-col justify-between lg:justify-start w-full gap-4">
-                     <div className="space-y-1 lg:text-right flex-1 min-w-0">
-                        <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest truncate">Target Odometer</div>
+                <div className="w-full lg:w-64 flex flex-col gap-6 lg:items-end shrink-0 border-t lg:border-t-0 lg:border-l lg:border-slate-100 pt-8 lg:pt-0 lg:pl-10">
+                   <div className="flex flex-row lg:flex-col flex-wrap justify-between lg:justify-start w-full gap-4">
+                     <div className="space-y-1 lg:text-right flex-1 min-w-[120px]">
+                        <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Target Odometer</div>
                         <div className={`text-lg sm:text-2xl font-mono font-black truncate ${isOverdue ? 'text-rose-600' : 'text-slate-900'}`}>
                           {task.dueMileage.toLocaleString()} <span className="text-[10px] sm:text-xs font-sans text-slate-300">KM</span>
                         </div>
                      </div>
                      
-                     <div className="space-y-1 text-right flex-1 min-w-0">
-                        <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest truncate">Estimated Cost</div>
+                     <div className="space-y-1 text-right flex-1 min-w-[120px]">
+                        <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Estimated Cost</div>
                         <div className="text-lg sm:text-2xl font-black text-slate-900 truncate">
                           {formatCurrency(task.estimatedCost || 0)}
                         </div>

@@ -27,7 +27,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
 
   const [error, setError] = useState<string | null>(null);
 
-  // Auto-scroll to top on initial mount
+  // Auto-scroll to top on mount
   useEffect(() => {
     if (terminalRef.current) {
       terminalRef.current.scrollTo({ top: 0, behavior: 'smooth' });

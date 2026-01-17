@@ -35,7 +35,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     linkToTaskId: initialLog?.taskId || preselectedTask?.id || null as string | null
   });
 
-  // Auto-scroll to top on step change
+  // Programmatic Scroll Reset on Step Change
   useEffect(() => {
     if (terminalRef.current) {
       terminalRef.current.scrollTo({ top: 0, behavior: 'smooth' });
@@ -70,7 +70,6 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     try {
       let finalReceiptUrl = initialLog?.receiptUrl || '';
 
-      // Upload proof if selected
       if (selectedFile && user?.id) {
         try {
           const compressed = await compressImage(selectedFile, 1200, 0.7);
