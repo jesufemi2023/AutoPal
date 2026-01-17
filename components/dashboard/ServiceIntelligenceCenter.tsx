@@ -66,13 +66,12 @@ const ServiceIntelligenceCenter: React.FC = () => {
       Date: formatDate(l.serviceDate),
       Type: l.serviceType,
       Category: l.category,
-      Provider: l.provider || 'N/A',
-      Odometer: `${l.mileageAtService} KM`,
+      Provider: l.provider || 'Independent Mechanic',
+      Mileage: `${l.mileageAtService.toLocaleString()} KM`,
       Cost: formatCurrency(l.cost),
-      Status: l.status,
       Verification: l.verificationLevel
     }));
-    exportToCSV(exportData, `Service_History_${activeVehicle?.make}_${activeVehicle?.model}`);
+    exportToCSV(exportData, `AutoPal_ServiceHistory_${activeVehicle?.make}_${activeVehicle?.model}`);
   };
 
   const handleExportPDF = () => {
@@ -142,46 +141,55 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
   return (
     <div className="space-y-12 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
-      {/* Hidden Print Content */}
+      {/* Hidden Print Content - Professionally Styled */}
       <div id="service-report-content" className="hidden">
         <div className="flex justify-between items-center border-b-4 border-blue-600 pb-8 mb-8">
-          <div>
-            <h1 className="text-3xl font-black uppercase tracking-tighter">AutoPal NG</h1>
-            <p className="text-xs font-bold uppercase tracking-widest text-slate-500">Official Service Lifecycle Report</p>
+          <div className="space-y-1">
+            <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">AutoPal NG</h1>
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-blue-600">Verified Maintenance Lifecycle Dossier</p>
           </div>
           <div className="text-right">
-            <h2 className="text-xl font-black">{activeVehicle?.make} {activeVehicle?.model}</h2>
-            <p className="text-xs font-mono">{activeVehicle?.vin}</p>
-            <p className="text-xs text-slate-400">Generated: {new Date().toLocaleDateString()}</p>
+            <h2 className="text-xl font-black text-slate-900">{activeVehicle?.year} {activeVehicle?.make} {activeVehicle?.model}</h2>
+            <p className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-widest">CHASSIS: {activeVehicle?.vin || 'N/A'}</p>
           </div>
         </div>
+        
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-100">
-              <th className="p-3 text-[10px] font-black uppercase border-b">Date</th>
-              <th className="p-3 text-[10px] font-black uppercase border-b">Service Type</th>
-              <th className="p-3 text-[10px] font-black uppercase border-b">Provider</th>
-              <th className="p-3 text-[10px] font-black uppercase border-b text-right">Mileage</th>
-              <th className="p-3 text-[10px] font-black uppercase border-b text-right">Cost</th>
+            <tr className="bg-slate-50 border-y border-slate-200">
+              <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500">Date</th>
+              <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500">Service Type</th>
+              <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500">Service Center</th>
+              <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500 text-right">Odometer</th>
+              <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500 text-right">Investment</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-100">
             {activeServiceLogs.map((log, i) => (
-              <tr key={log.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                <td className="p-3 text-xs border-b">{formatDate(log.serviceDate)}</td>
-                <td className="p-3 text-xs font-bold border-b">{log.serviceType}</td>
-                <td className="p-3 text-xs border-b">{log.provider || 'N/A'}</td>
-                <td className="p-3 text-xs font-mono border-b text-right">{log.mileageAtService.toLocaleString()} KM</td>
-                <td className="p-3 text-xs font-bold border-b text-right">{formatCurrency(log.cost)}</td>
+              <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                <td className="p-4 text-[10px] font-bold text-slate-500">{formatDate(log.serviceDate)}</td>
+                <td className="p-4 text-[11px] font-black text-slate-900 uppercase tracking-tight">{log.serviceType}</td>
+                <td className="p-4 text-[10px] font-bold text-slate-400 italic">{log.provider || 'Independent Mechanic'}</td>
+                <td className="p-4 text-[11px] font-mono font-bold text-slate-900 text-right">{log.mileageAtService.toLocaleString()} KM</td>
+                <td className="p-4 text-[11px] font-black text-blue-600 text-right">{formatCurrency(log.cost)}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        <div className="mt-12 pt-8 border-t border-slate-100 flex justify-between items-center">
-           <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Validated by AutoPal Intelligence Systems</div>
-           <div className="text-right">
-              <p className="text-[10px] font-black uppercase text-slate-400">Total Lifecycle Investment</p>
-              <p className="text-2xl font-black">{formatCurrency(stats.maintenanceTotal)}</p>
+
+        <div className="mt-12 pt-8 border-t border-slate-100 flex justify-between items-end">
+           <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 italic">Report Generated: {new Date().toLocaleString()}</span>
+              </div>
+              <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest max-w-xs">
+                This document is a digital representation of verified maintenance events logged via the AutoPal NG platform. Discrepancies should be verified with physical invoices.
+              </p>
+           </div>
+           <div className="text-right space-y-1">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total Lifecycle Spend</p>
+              <p className="text-3xl font-black text-slate-900 tracking-tighter">{formatCurrency(stats.maintenanceTotal)}</p>
            </div>
         </div>
       </div>
@@ -193,14 +201,35 @@ const ServiceIntelligenceCenter: React.FC = () => {
             <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">{isLoading ? 'Loading records...' : 'Service History Active'}</span>
           </div>
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Service <br/><span className="text-blue-600">Records</span></h2>
-          <div className="flex gap-2 mt-4">
-             <button onClick={handleExportCSV} className="px-4 py-2 bg-white border border-slate-100 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2">
-               <span>📊</span> Excel Export
+          
+          <div className="flex gap-2 pt-4">
+             <button 
+              onClick={handleExportCSV}
+              className="px-5 py-2.5 bg-white border border-slate-100 rounded-xl text-[8px] font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2"
+             >
+               <span className="text-xs">📊</span> Excel Data
              </button>
-             <button onClick={handleExportPDF} className="px-4 py-2 bg-white border border-slate-100 rounded-lg text-[8px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2">
-               <span>📄</span> Professional PDF
+             <button 
+              onClick={handleExportPDF}
+              className="px-5 py-2.5 bg-white border border-slate-100 rounded-xl text-[8px] font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2"
+             >
+               <span className="text-xs">📄</span> Official PDF
              </button>
           </div>
+
+          {vehicles.length > 1 && (
+            <div className="relative group/scroll w-full max-w-sm mt-6">
+              <button onClick={() => handleScroll('left')} className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-4">←</button>
+              <div ref={scrollContainerRef} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide scrollbar-desktop-show scroll-smooth px-1">
+                {vehicles.map(v => (
+                  <button key={v.id} onClick={() => setActiveVehicleId(v.id)} className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all whitespace-nowrap ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}>
+                    {v.year} {v.make} {v.model}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => handleScroll('right')} className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -mr-4">→</button>
+            </div>
+          )}
         </div>
         <button disabled={!activeVehicle} onClick={() => setShowLogTerminal(true)} className="bg-slate-900 text-white px-8 sm:px-12 py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-3xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3">
           <span className="text-xl">🛠️</span> Record Service
