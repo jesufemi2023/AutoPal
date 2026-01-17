@@ -41,21 +41,21 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
       </button>
       {activeTooltip === id && (
         <div 
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed inset-0 z-[10000] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setActiveTooltip(null)}
         >
           <div 
             className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-3xl max-w-sm w-full border border-white/10 animate-in zoom-in-95 duration-200 text-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-14 h-14 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400 text-2xl mx-auto mb-6 shadow-lg shadow-blue-500/10">ℹ️</div>
+            <div className="w-14 h-14 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400 text-2xl mx-auto mb-6">ℹ️</div>
             <h4 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4">Engineering Insight</h4>
             <p className="text-xs font-bold uppercase tracking-widest leading-relaxed text-slate-200 mb-8">
               {text}
             </p>
             <button 
               onClick={() => setActiveTooltip(null)}
-              className="w-full py-4 bg-white/5 hover:bg-blue-600 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border border-white/5 hover:border-blue-400"
+              className="w-full py-4 bg-white/5 hover:bg-blue-600 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
             >
               Acknowledged
             </button>
