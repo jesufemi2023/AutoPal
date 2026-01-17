@@ -1,7 +1,16 @@
-
 import { create } from 'zustand';
-import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
+import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport, UsageLedger } from './types.ts';
 import { localDb } from '../services/localDb.ts';
+import { syncLedgerPeriod } from '../services/permissionService.ts';
+
+const INITIAL_LEDGER: UsageLedger = {
+  periodStart: new Date().toISOString(),
+  serviceLogsCount: 0,
+  fuelLogsCount: 0,
+  aiAuditsCount: 0,
+  aiDiagnosisCount: 0,
+  aiDiagnosisYearlyCount: 0
+};
 
 interface AutoPalState {
   user: UserProfile | null;
@@ -25,10 +34,11 @@ interface AutoPalState {
 
   setSession: (session: any) => void;
   setUser: (user: UserProfile | null) => void;
+  updateUsageLedger: (updates: Partial<UsageLedger>) => void;
   setInitialized: (initialized: boolean) => void;
   setRecovering: (isRecovering: boolean) => void;
   setLoading: (loading: boolean) => void;
-  setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service' | 'diagnostic' | 'landing' | 'profile' | 'report') => void;
+  setCurrentView: (view: any) => void;
   setEditingVehicle: (id: string | null) => void;
   setActiveVehicleId: (id: string | null) => void;
   setTransientVehicle: (vehicle: TransientVehicle | null) => void;
@@ -93,7 +103,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     }
 
     const { user: supabaseUser } = session;
-    const currentState = get();
     const meta = supabaseUser.user_metadata || {};
 
     const newUserObj: UserProfile = {
@@ -105,21 +114,23 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       role: meta.role || 'user',
       onboarded: meta.onboarded || false,
       createdAt: supabaseUser.created_at || new Date().toISOString(),
+      usageLedger: meta.usageLedger || INITIAL_LEDGER
     };
 
-    const isIdentityEqual = 
-      currentState.user?.id === newUserObj.id &&
-      currentState.user?.displayName === newUserObj.displayName &&
-      currentState.user?.phone === newUserObj.phone &&
-      currentState.user?.tier === newUserObj.tier &&
-      currentState.user?.role === newUserObj.role;
-
-    if (!isIdentityEqual || currentState.session?.access_token !== session.access_token) {
-      set({ session, user: newUserObj });
-    }
+    const syncedUser = syncLedgerPeriod(newUserObj);
+    set({ session, user: syncedUser });
   },
   
   setUser: (user) => set({ user }),
+
+  updateUsageLedger: (updates) => set((state) => {
+    if (!state.user) return state;
+    const newLedger = { ...state.user.usageLedger, ...updates };
+    return {
+      user: { ...state.user, usageLedger: newLedger }
+    };
+  }),
+
   setInitialized: (initialized) => set({ isInitialized: initialized }),
   setRecovering: (isRecovering) => set({ isRecovering }),
   setLoading: (loading) => set({ isLoading: loading }),
@@ -139,9 +150,9 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       vehicles,
       activeVehicleId: get().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
     });
-    // Update local cache
     vehicles.forEach(v => localDb.saveVehicle(v));
   },
+
   addVehicle: (vehicle) => {
     set((state) => ({ 
       vehicles: [vehicle, ...state.vehicles],
@@ -149,12 +160,14 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     }));
     localDb.saveVehicle(vehicle);
   },
+
   updateVehicleStore: (vehicle) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicle.id ? vehicle : v)
     }));
     localDb.saveVehicle(vehicle);
   },
+
   syncVehicleState: (vehicleId, updates) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, ...updates } : v)
@@ -162,6 +175,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const updated = get().vehicles.find(v => v.id === vehicleId);
     if (updated) localDb.saveVehicle(updated);
   },
+
   removeVehicleStore: (vehicleId) => {
     set((state) => ({
       vehicles: state.vehicles.filter(v => v.id !== vehicleId),
@@ -172,6 +186,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     }));
     localDb.deleteVehicle(vehicleId);
   },
+
   updateMileage: (vehicleId, mileage) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, mileage } : v)
@@ -179,6 +194,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const updated = get().vehicles.find(v => v.id === vehicleId);
     if (updated) localDb.saveVehicle(updated);
   },
+
   completeTask: (taskId, cost, currentMileage) => {
     set((state) => ({
       tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'completed' } : t)
@@ -186,45 +202,54 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const updatedTask = get().tasks.find(t => t.id === taskId);
     if (updatedTask) localDb.saveTask(updatedTask);
   },
+
   setTasks: (tasks) => {
     set({ tasks });
     localDb.saveTasksBatch(tasks);
   },
+
   setServiceLogs: (serviceLogs) => {
     set({ serviceLogs });
-    // Batch save to local
     serviceLogs.forEach(l => localDb.saveLog(l));
   },
+
   addServiceLog: (log) => {
     set((state) => ({ serviceLogs: [log, ...state.serviceLogs] }));
     localDb.saveLog(log);
   },
+
   updateServiceLogStore: (log) => {
     set((state) => ({
       serviceLogs: state.serviceLogs.map(l => l.id === log.id ? log : l)
     }));
     localDb.saveLog(log);
   },
+
   setFuelLogs: (fuelLogs) => {
     set({ fuelLogs });
     fuelLogs.forEach(l => localDb.saveFuelLog(l));
   },
+
   addFuelLogStore: (log) => {
     set((state) => ({ fuelLogs: [log, ...state.fuelLogs] }));
     localDb.saveFuelLog(log);
   },
+
   updateFuelLogStore: (log) => {
     set((state) => ({
       fuelLogs: state.fuelLogs.map(l => l.id === log.id ? log : l)
     }));
     localDb.saveFuelLog(log);
   },
+
   removeFuelLogStore: (logId) => set((state) => ({
     fuelLogs: state.fuelLogs.filter(l => l.id !== logId)
   })),
+
   setAIValuationReport: (vehicleId, report) => set((state) => ({
     aiValuationReports: { ...state.aiValuationReports, [vehicleId]: report }
   })),
+
   setMarketplace: (marketplace) => set({ marketplace }),
   setSuggestedParts: (parts: string[]) => set({ suggestedPartNames: parts }),
   setMarketplaceFilter: (filter: string) => set({ marketplaceFilter: filter }),

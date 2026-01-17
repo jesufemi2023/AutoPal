@@ -1,11 +1,6 @@
-
 import { supabase } from '../auth/supabaseClient.ts';
-import { ServiceLog } from '../shared/types.ts';
-
-/**
- * Log Intelligence Service
- * Handles CRUD for maintenance records.
- */
+import { ServiceLog, UserProfile } from '../shared/types.ts';
+import { canLogService } from './permissionService.ts';
 
 export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]> => {
   if (!supabase) return [];
@@ -37,7 +32,25 @@ export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]>
   }));
 };
 
-export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' | 'updatedAt'>): Promise<ServiceLog> => {
+export const createServiceLog = async (
+  log: Omit<ServiceLog, 'id' | 'createdAt' | 'updatedAt'>,
+  user: UserProfile
+): Promise<ServiceLog> => {
+  const permission = canLogService(user);
+  if (!permission.allowed) {
+    throw new Error(permission.reason);
+  }
+
+  // To achieve $0 cost for free tier, we only sync to cloud for paying users.
+  // Free tier uses localDb via the Zustand store (called in the component).
+  if (user.tier === 'free') {
+    return {
+      ...log,
+      id: `LOCAL-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    } as ServiceLog;
+  }
+
   if (!supabase) throw new Error("Cloud infrastructure not connected.");
   
   const { data, error } = await supabase
@@ -79,7 +92,11 @@ export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' 
   };
 };
 
-export const updateServiceLog = async (id: string, log: Partial<ServiceLog>): Promise<ServiceLog> => {
+export const updateServiceLog = async (id: string, log: Partial<ServiceLog>, user: UserProfile): Promise<ServiceLog> => {
+  if (user.tier === 'free') {
+     return { ...log, id } as ServiceLog;
+  }
+  
   if (!supabase) throw new Error("Cloud infrastructure not connected.");
 
   const payload: any = {};

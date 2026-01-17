@@ -76,6 +76,8 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
       const activeTask = form.linkToTaskId ? tasks.find(t => t.id === form.linkToTaskId) : preselectedTask;
 
       if (initialLog) {
+        // Fixed: added required user argument to updateServiceLog
+        if (!user) throw new Error("User context missing");
         const updated = await updateServiceLog(initialLog.id, {
           serviceType: form.type,
           serviceDate: form.date,
@@ -86,7 +88,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
           category: form.category,
           verificationLevel: form.verificationLevel,
           receiptUrl: finalReceiptUrl
-        });
+        }, user);
         updateServiceLogStore(updated);
         const syncedVehicle = await syncVehicleVitals(vehicle.id);
         updateVehicleStore(syncedVehicle);
