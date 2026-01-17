@@ -294,7 +294,6 @@ const App: React.FC = () => {
 
       {/* Desktop Sidebar & Flyout Overlay */}
       <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-[100] overflow-visible">
-        {/* Fixed Header */}
         <div className="p-8 pb-6 shrink-0 bg-white relative z-[101]">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
             <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-slate-900/20">A</div>
@@ -305,12 +304,10 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Scrollable Navigation Area */}
         <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 space-y-0.5 pb-8 bg-white relative z-[101]">
           <NavigationMenu />
         </nav>
 
-        {/* Fixed Footer */}
         <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white relative z-[101]">
           <button 
             onClick={() => {
@@ -333,10 +330,10 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        {/* Desktop Slide-out Flyout Panel */}
+        {/* Desktop Slide-out Flyout Panel - Positioned ABOVE Dashboard content via z-index */}
         <div 
-          className={`absolute top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-20px_rgba(0,0,0,0.1)] z-[90] transition-transform duration-500 ease-in-out flex flex-col pt-24 px-6
-            ${isSettingsOpen ? 'translate-x-[300px]' : 'translate-x-0'}
+          className={`absolute top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[20px_0_40px_rgba(0,0,0,0.05)] z-[90] transition-all duration-500 ease-in-out flex flex-col pt-24 px-6
+            ${isSettingsOpen ? 'translate-x-[300px] opacity-100' : 'translate-x-0 opacity-0 pointer-events-none'}
           `}
           style={{ left: 0 }}
         >
@@ -349,7 +346,7 @@ const App: React.FC = () => {
           </div>
           <div className="py-8 px-2 border-t border-slate-50 mt-auto">
              <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
-               Modify your active vehicle digital twins or decommission assets from global sync.
+               Modify active vehicle digital twins or decommission assets from global sync.
              </p>
           </div>
         </div>
@@ -359,8 +356,8 @@ const App: React.FC = () => {
       <div className="flex-grow lg:ml-[300px] flex flex-col min-h-screen w-full overflow-x-hidden">
         <main 
           onClick={() => {
-            setIsSettingsOpen(false);
-            setIsMobileMenuOpen(false);
+            if (isSettingsOpen) setIsSettingsOpen(false);
+            if (isMobileMenuOpen) setIsMobileMenuOpen(false);
           }}
           className={`p-4 sm:p-6 lg:p-10 xl:p-12 max-w-full lg:max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow flex flex-col items-center ${currentView === 'landing' ? '!p-0 !max-w-none' : ''}`}
         >
