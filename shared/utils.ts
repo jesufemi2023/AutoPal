@@ -130,7 +130,6 @@ export const triggerProfessionalPrint = (reportId: string) => {
   const originalDisplay = content.style.display;
   content.style.display = 'block';
   
-  // Create a temporary print stylesheet
   const style = document.createElement('style');
   style.innerHTML = `
     @media print {
