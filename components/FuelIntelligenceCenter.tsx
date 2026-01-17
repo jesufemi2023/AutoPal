@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../services/fuelService.ts';
@@ -17,6 +18,7 @@ const FuelIntelligenceCenter: React.FC = () => {
   const [showTerminal, setShowTerminal] = useState(false);
   const [editingLog, setEditingLog] = useState<FuelLog | null>(null);
   const [metric, setMetric] = useState<'KML' | 'MPG'>('KML');
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
@@ -30,8 +32,7 @@ const FuelIntelligenceCenter: React.FC = () => {
         const logs = await fetchFuelLogs(activeVehicleId);
         setFuelLogs(logs);
       } catch (err: any) {
-        console.error("Telemetry fetch failure", err);
-        setFetchError(err.message || "Connection failure: Unable to retrieve fuel records from cloud.");
+        setFetchError(err.message || "Connection failure.");
       } finally {
         setIsLoading(false);
       }
@@ -41,7 +42,6 @@ const FuelIntelligenceCenter: React.FC = () => {
 
   const logsWithAnalytics = useMemo(() => {
     const sorted = [...fuelLogs].sort((a, b) => (b.odometerKm || 0) - (a.odometerKm || 0));
-    
     return sorted.map((log, index) => {
       let tripKml: number | null = null;
       let tripDistance: number | null = null;
@@ -55,15 +55,11 @@ const FuelIntelligenceCenter: React.FC = () => {
           const actualPrevIndex = prevFullIndex + index + 1;
           const prevFull = sorted[actualPrevIndex];
           const dist = log.odometerKm - (prevFull.odometerKm || 0);
-          
           if (dist > 0) {
             tripDistance = dist;
             const blockLogs = sorted.slice(index, actualPrevIndex);
             const totalLitersInBlock = blockLogs.reduce((acc, l) => acc + (l.liters || 0), 0);
-            
-            if (totalLitersInBlock > 0) {
-              tripKml = dist / totalLitersInBlock;
-            }
+            if (totalLitersInBlock > 0) tripKml = dist / totalLitersInBlock;
           }
         }
       }
@@ -71,18 +67,12 @@ const FuelIntelligenceCenter: React.FC = () => {
     });
   }, [fuelLogs]);
 
-  const efficienciesKml = useMemo(() => 
-    logsWithAnalytics
-      .filter(l => l.tripKml !== null && !isNaN(l.tripKml) && isFinite(l.tripKml))
-      .map(l => l.tripKml as number),
-    [logsWithAnalytics]
-  );
-
   const currentEff = useMemo(() => {
-    const val = efficienciesKml[0] || null;
+    const sorted = [...logsWithAnalytics].filter(l => l.tripKml !== null);
+    const val = sorted[0]?.tripKml || null;
     if (val === null) return null;
     return metric === 'KML' ? val : kmlToMpg(val);
-  }, [efficienciesKml, metric]);
+  }, [logsWithAnalytics, metric]);
 
   const avgEfficiency = useMemo(() => {
     const val = calculateAverageEfficiency(fuelLogs);
@@ -96,32 +86,41 @@ const FuelIntelligenceCenter: React.FC = () => {
     return validLogs.reduce((acc, l) => acc + (l.totalCost / l.liters), 0) / validLogs.length;
   }, [fuelLogs]);
 
-  const totalFuelSpend = useMemo(() => {
-    return fuelLogs.reduce((acc, l) => acc + (l.totalCost || 0), 0);
-  }, [fuelLogs]);
+  const totalFuelSpend = useMemo(() => fuelLogs.reduce((acc, l) => acc + (l.totalCost || 0), 0), [fuelLogs]);
   
   const handleDeleteRecord = async (logId: string) => {
     if (!window.confirm("CAUTION: Deleting this record will update your average efficiency. Proceed?")) return;
     try {
       await deleteFuelLog(logId);
       removeFuelLogStore(logId);
-    } catch (err: any) {
-      alert("System Error: " + (err.message || "Failed to remove record."));
-    }
+    } catch (err: any) { alert("Failed to remove record."); }
   };
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
-      const scrollAmount = 200;
-      scrollContainerRef.current.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth'
-      });
+      scrollContainerRef.current.scrollBy({ left: direction === 'left' ? -200 : 200, behavior: 'smooth' });
     }
   };
 
+  const InfoIcon = ({ id, text }: { id: string, text: string }) => (
+    <div className="relative inline-block ml-1">
+      <button 
+        onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === id ? null : id); }}
+        className="text-slate-400 hover:text-blue-500 transition-colors"
+      >
+        ℹ️
+      </button>
+      {activeTooltip === id && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 bg-slate-900 text-white text-[9px] font-bold rounded-xl shadow-2xl z-[100] animate-in fade-in zoom-in duration-200 uppercase tracking-widest leading-relaxed">
+          {text}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-900"></div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div className="space-y-8 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
+    <div className="space-y-8 sm:space-y-16 animate-slide-up pb-24 sm:pb-32" onClick={() => activeTooltip && setActiveTooltip(null)}>
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
@@ -130,68 +129,32 @@ const FuelIntelligenceCenter: React.FC = () => {
               {isLoading ? 'Updating records...' : (fetchError ? 'Sync Error' : 'Fuel Monitor Active')}
             </span>
           </div>
-          <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8] transition-all">
+          <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">
             Fuel <br/><span className="text-blue-600">Tracker</span>
           </h2>
           {vehicles.length > 1 && (
             <div className="relative group/scroll w-full max-w-sm mt-4">
-              <button 
-                onClick={() => handleScroll('left')}
-                className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-4"
-                aria-label="Scroll Left"
-              >
-                ←
-              </button>
-
-              <div 
-                ref={scrollContainerRef}
-                className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide scrollbar-desktop-show scroll-smooth px-1"
-              >
+              <button onClick={() => handleScroll('left')} className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-4">←</button>
+              <div ref={scrollContainerRef} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide scrollbar-desktop-show scroll-smooth px-1">
                 {vehicles.map(v => (
-                  <button 
-                    key={v.id}
-                    onClick={() => setActiveVehicleId(v.id)}
-                    className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all whitespace-nowrap ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}
-                  >
+                  <button key={v.id} onClick={() => setActiveVehicleId(v.id)} className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all whitespace-nowrap ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}>
                     {v.year} {v.make} {v.model}
                   </button>
                 ))}
               </div>
-
-              <button 
-                onClick={() => handleScroll('right')}
-                className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -mr-4"
-                aria-label="Scroll Right"
-              >
-                →
-              </button>
+              <button onClick={() => handleScroll('right')} className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -mr-4">→</button>
             </div>
           )}
         </div>
         
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
           <div className="flex bg-white border-2 border-slate-100 p-1 rounded-2xl shadow-sm">
-            <button 
-              onClick={() => setMetric('KML')} 
-              className={`flex-1 sm:flex-none px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${metric === 'KML' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
-            >
-              KM/L
-            </button>
-            <button 
-              onClick={() => setMetric('MPG')} 
-              className={`flex-1 sm:flex-none px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${metric === 'MPG' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}
-            >
-              MPG
-            </button>
+            {['KML', 'MPG'].map(m => (
+              <button key={m} onClick={() => setMetric(m as any)} className={`px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${metric === m ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}>{m === 'KML' ? 'KM/L' : m}</button>
+            ))}
           </div>
-
-          <button 
-            disabled={!activeVehicle}
-            onClick={() => { setEditingLog(null); setShowTerminal(true); }}
-            className="bg-slate-900 text-white px-8 sm:px-12 py-5 sm:py-6 rounded-[1.5rem] sm:rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] sm:text-[11px] shadow-3xl hover:bg-blue-600 transition-all active:scale-95 group flex items-center justify-center gap-3 disabled:opacity-50"
-          >
-            <span className="text-lg sm:text-xl group-hover:rotate-90 transition-transform">⛽</span>
-            Add Fuel Log
+          <button disabled={!activeVehicle} onClick={() => { setEditingLog(null); setShowTerminal(true); }} className="bg-slate-900 text-white px-8 sm:px-12 py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-3xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3">
+            <span className="text-xl">⛽</span> Add Log
           </button>
         </div>
       </header>
@@ -203,40 +166,48 @@ const FuelIntelligenceCenter: React.FC = () => {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-2">
-            <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] shadow-sm">
-              <div className="relative z-10 space-y-4">
-                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Current Efficiency</h3>
+            <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm">
+              <div className="space-y-4">
+                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
+                  Recent Performance
+                  <InfoIcon id="recEff" text="Calculated efficiency from your last full tank refill." />
+                </h3>
                 <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
                   {currentEff ? currentEff.toFixed(1) : '--.-'}
-                  <span className="text-xs text-slate-300 ml-2 font-sans font-bold">{metric}</span>
+                  <span className="text-xs text-slate-300 ml-2 font-bold">{metric}</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] shadow-sm">
-              <div className="relative z-10 space-y-4">
-                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Avg. Fuel Price</h3>
-                <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
-                  {formatCurrency(avgPricePerLiter)}
-                </div>
+            <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm">
+              <div className="space-y-4">
+                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
+                  Avg Price/Liter
+                  <InfoIcon id="avgPrice" text="Average amount spent per liter across all your fuel logs." />
+                </h3>
+                <div className="text-4xl font-black text-slate-900 tracking-tighter">{formatCurrency(avgPricePerLiter)}</div>
               </div>
             </div>
 
-            <div className="bg-emerald-600 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] relative overflow-hidden shadow-xl">
-               <div className="relative z-10 space-y-4">
-                <h3 className="text-emerald-200 text-[8px] font-black uppercase tracking-[0.4em]">Total Fuel Expense</h3>
-                <div className="text-3xl font-black tracking-tighter">
-                  {formatCurrency(totalFuelSpend)}
-                </div>
+            <div className="bg-emerald-600 card-radius p-8 text-white flex flex-col justify-between shadow-xl relative overflow-hidden">
+               <div className="space-y-4 relative z-10">
+                <h3 className="text-emerald-200 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
+                  Total Spent
+                  <InfoIcon id="totalSpent" text="Cumulative investment in fuel for this vehicle." />
+                </h3>
+                <div className="text-3xl font-black tracking-tighter">{formatCurrency(totalFuelSpend)}</div>
               </div>
             </div>
 
-            <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] relative overflow-hidden shadow-xl">
-              <div className="relative z-10 space-y-4">
-                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Average Efficiency</h3>
+            <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between shadow-xl relative overflow-hidden">
+              <div className="space-y-4 relative z-10">
+                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
+                  Overall Efficiency
+                  <InfoIcon id="avgEff" text="Historical average performance over the life of your logs." />
+                </h3>
                 <div className="text-4xl font-black tracking-tighter flex items-baseline">
                   {avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}
-                  <span className="text-xs text-slate-600 ml-2 font-sans font-bold">{metric}</span>
+                  <span className="text-xs text-slate-600 ml-2 font-bold">{metric}</span>
                 </div>
               </div>
             </div>
@@ -249,10 +220,9 @@ const FuelIntelligenceCenter: React.FC = () => {
                   <div key={log.id} className="bg-white border border-slate-100 p-6 sm:p-10 rounded-[2.5rem] hover:shadow-xl transition-all group flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between shadow-sm relative overflow-hidden">
                     <div className="flex items-center gap-8 relative z-10">
                       <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center font-black shrink-0 ${log.isFullTank ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-50 text-slate-300 border border-slate-100'}`}>
-                        <span className="text-[10px] opacity-60 leading-none mb-1">#</span>
-                        <span className="text-xl leading-none">{fuelLogs.length - idx}</span>
+                        <span className="text-[10px] opacity-60 mb-1">#</span>
+                        <span className="text-xl">{fuelLogs.length - idx}</span>
                       </div>
-                      
                       <div className="space-y-2">
                         <div className="flex items-center gap-3">
                            <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded-md">{formatDate(log.createdAt)}</div>
@@ -261,41 +231,39 @@ const FuelIntelligenceCenter: React.FC = () => {
                         <h4 className="text-2xl font-black text-slate-900 tracking-tighter leading-none">{log.liters.toFixed(2)} <span className="text-sm text-slate-300">Liters</span></h4>
                         <div className="flex items-center gap-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">
                            <span className="flex items-center gap-1.5"><span className="text-slate-300">At</span> {log.vendor || 'Fuel Station'}</span>
-                           <span className="w-1 h-1 rounded-full bg-slate-200"></span>
-                           <span className="flex items-center gap-1.5"><span className="text-slate-300">Unit Price</span> {formatCurrency(log.costPerLiter)}/L</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-12 w-full lg:w-auto relative z-10 border-t lg:border-t-0 pt-6 lg:pt-0">
                        <div className="space-y-1">
-                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Investment</div>
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center">
+                            Spent
+                            <InfoIcon id={`spent-${log.id}`} text="Total cost for this refill entry." />
+                          </div>
                           <div className="text-xl font-black text-slate-900 tracking-tighter">{formatCurrency(log.totalCost)}</div>
                        </div>
-                       
                        <div className="space-y-1">
-                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Trip Efficiency</div>
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center">
+                            Trip Efficiency
+                            <InfoIcon id={`tripEff-${log.id}`} text="Efficiency calculated for this specific fuel interval." />
+                          </div>
                           <div className={`text-xl font-mono font-black ${log.tripKml && log.tripKml > 10 ? 'text-emerald-500' : 'text-slate-400'}`}>
                              {log.tripKml ? `${log.tripKml.toFixed(1)} ${metric}` : '---'}
                           </div>
                        </div>
-
                        <div className="space-y-1">
-                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Block Distance</div>
-                          <div className="text-xl font-mono font-black text-blue-600">
-                             {log.tripDistance ? `${log.tripDistance} KM` : '---'}
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center">
+                            Distance Covered
+                            <InfoIcon id={`tripDist-${log.id}`} text="Distance driven since the previous refill." />
                           </div>
+                          <div className="text-xl font-mono font-black text-blue-600">{log.tripDistance ? `${log.tripDistance} KM` : '---'}</div>
                        </div>
                     </div>
 
-                    <div className="flex gap-2 w-full lg:w-auto pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-50 relative z-10">
-                      <button onClick={() => { setEditingLog(log); setShowTerminal(true); }} className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-slate-50 text-[9px] font-black uppercase text-blue-600 hover:bg-blue-600 hover:text-white transition-all">Edit</button>
-                      <button onClick={() => handleDeleteRecord(log.id)} className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-rose-50 text-[9px] font-black uppercase text-rose-500 hover:bg-rose-500 hover:text-white transition-all">Delete</button>
-                    </div>
-
-                    {/* Subtle Background Icon */}
-                    <div className="absolute top-1/2 right-0 -translate-y-1/2 text-8xl font-black opacity-[0.02] pointer-events-none select-none translate-x-10 group-hover:translate-x-4 transition-transform duration-700">
-                      GAS
+                    <div className="flex gap-2 w-full lg:w-auto pt-4 lg:pt-0">
+                      <button onClick={() => { setEditingLog(log); setShowTerminal(true); }} className="px-6 py-3 rounded-xl bg-slate-50 text-[9px] font-black uppercase text-blue-600 hover:bg-blue-600 hover:text-white transition-all">Edit</button>
+                      <button onClick={() => handleDeleteRecord(log.id)} className="px-6 py-3 rounded-xl bg-rose-50 text-[9px] font-black uppercase text-rose-500 hover:bg-rose-500 hover:text-white transition-all">Delete</button>
                     </div>
                   </div>
                 ))}
@@ -311,12 +279,7 @@ const FuelIntelligenceCenter: React.FC = () => {
       )}
 
       {showTerminal && activeVehicle && (
-        <FuelEntryTerminal 
-          vehicleId={activeVehicle.id} 
-          currentOdo={activeVehicle.mileage} 
-          initialLog={editingLog || undefined} 
-          onClose={() => { setShowTerminal(false); setEditingLog(null); }} 
-        />
+        <FuelEntryTerminal vehicleId={activeVehicle.id} currentOdo={activeVehicle.mileage} initialLog={editingLog || undefined} onClose={() => { setShowTerminal(false); setEditingLog(null); }} />
       )}
     </div>
   );

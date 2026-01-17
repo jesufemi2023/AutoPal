@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../services/vehicleService.ts';
@@ -23,6 +24,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
   const [showLogTerminal, setShowLogTerminal] = useState(false);
   const [selectedTaskForLog, setSelectedTaskForLog] = useState<MaintenanceTask | undefined>();
   const [editingLog, setEditingLog] = useState<ServiceLog | undefined>();
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
@@ -50,12 +52,8 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
   const stats = useMemo(() => {
     if (!activeVehicle) return { vitality: 0, discipline: 0, maintenanceTotal: 0, isAiAudited: false };
-    
     const financial = calculateFinancialLedger(activeServiceLogs, activeFuelLogs);
-    
-    // SOURCE OF TRUTH: If the AI has spoken, we use its scores.
     const cachedAudit = activeVehicle.latestAiAudit;
-    
     return {
       vitality: cachedAudit ? cachedAudit.auditedScores.vitality : null,
       discipline: cachedAudit ? cachedAudit.auditedScores.discipline : null,
@@ -65,13 +63,11 @@ const ServiceIntelligenceCenter: React.FC = () => {
   }, [activeVehicle, activeServiceLogs, activeFuelLogs]);
 
   const handleDeleteLog = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this record? This cannot be undone.")) return;
+    if (!confirm("Are you sure?")) return;
     try {
       await deleteServiceLog(id);
       setServiceLogs(serviceLogs.filter(l => l.id !== id));
-    } catch (e) {
-      alert("Failed to delete record.");
-    }
+    } catch (e) { alert("Failed to delete record."); }
   };
 
   const handleEditLog = (log: ServiceLog) => {
@@ -81,76 +77,60 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
-      const scrollAmount = 200;
-      scrollContainerRef.current.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth'
-      });
+      scrollContainerRef.current.scrollBy({ left: direction === 'left' ? -200 : 200, behavior: 'smooth' });
     }
   };
 
+  const InfoIcon = ({ id, text }: { id: string, text: string }) => (
+    <div className="relative inline-block ml-1">
+      <button 
+        onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === id ? null : id); }}
+        className="text-slate-400 hover:text-blue-500 transition-colors"
+      >
+        ℹ️
+      </button>
+      {activeTooltip === id && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 bg-slate-900 text-white text-[9px] font-bold rounded-xl shadow-2xl z-[100] animate-in fade-in zoom-in duration-200 uppercase tracking-widest leading-relaxed">
+          {text}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-slate-900"></div>
+        </div>
+      )}
+    </div>
+  );
+
   const getVerificationBadge = (level?: string) => {
     switch (level) {
-      case 'mechanic_verified':
-        return <span className="text-[7px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded uppercase tracking-widest shadow-sm">Verified ✓</span>;
-      case 'receipt_verified':
-        return <span className="text-[7px] font-black bg-blue-600 text-white px-2 py-0.5 rounded uppercase tracking-widest shadow-sm">Receipt Scanned</span>;
-      default:
-        return <span className="text-[7px] font-black bg-slate-100 text-slate-400 px-2 py-0.5 rounded uppercase tracking-widest border border-slate-200">Self-Declared</span>;
+      case 'mechanic_verified': return <span className="text-[7px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded uppercase tracking-widest">Verified ✓</span>;
+      case 'receipt_verified': return <span className="text-[7px] font-black bg-blue-600 text-white px-2 py-0.5 rounded uppercase tracking-widest">Receipt Scanned</span>;
+      default: return <span className="text-[7px] font-black bg-slate-100 text-slate-400 px-2 py-0.5 rounded uppercase tracking-widest border border-slate-200">Self-Declared</span>;
     }
   };
 
   return (
-    <div className="space-y-12 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
+    <div className="space-y-12 sm:space-y-16 animate-slide-up pb-24 sm:pb-32" onClick={() => activeTooltip && setActiveTooltip(null)}>
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-spin' : 'bg-blue-600 animate-pulse'}`}></div>
-            <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">
-              {isLoading ? 'Loading records...' : 'Service History Active'}
-            </span>
+            <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">{isLoading ? 'Loading records...' : 'Service History Active'}</span>
           </div>
-          <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8] transition-all">
-            Service <br/><span className="text-blue-600">Records</span>
-          </h2>
+          <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Service <br/><span className="text-blue-600">Records</span></h2>
           {vehicles.length > 1 && (
             <div className="relative group/scroll w-full max-w-sm mt-4">
-              <button 
-                onClick={() => handleScroll('left')}
-                className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-4"
-                aria-label="Scroll Left"
-              >
-                ←
-              </button>
-
-              <div 
-                ref={scrollContainerRef}
-                className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide scrollbar-desktop-show scroll-smooth px-1"
-              >
+              <button onClick={() => handleScroll('left')} className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-4">←</button>
+              <div ref={scrollContainerRef} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide scrollbar-desktop-show scroll-smooth px-1">
                 {vehicles.map(v => (
-                  <button 
-                    key={v.id}
-                    onClick={() => setActiveVehicleId(v.id)}
-                    className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all whitespace-nowrap ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}
-                  >
+                  <button key={v.id} onClick={() => setActiveVehicleId(v.id)} className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all whitespace-nowrap ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}>
                     {v.year} {v.make} {v.model}
                   </button>
                 ))}
               </div>
-
-              <button 
-                onClick={() => handleScroll('right')}
-                className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -mr-4"
-                aria-label="Scroll Right"
-              >
-                →
-              </button>
+              <button onClick={() => handleScroll('right')} className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -mr-4">→</button>
             </div>
           )}
         </div>
-        <button disabled={!activeVehicle} onClick={() => setShowLogTerminal(true)} className="bg-slate-900 text-white px-8 sm:px-12 py-5 sm:py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-3xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
-          <span className="text-lg sm:text-xl">🛠️</span>
-          Record Service
+        <button disabled={!activeVehicle} onClick={() => setShowLogTerminal(true)} className="bg-slate-900 text-white px-8 sm:px-12 py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-3xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3">
+          <span className="text-xl">🛠️</span> Record Service
         </button>
       </header>
 
@@ -163,10 +143,10 @@ const ServiceIntelligenceCenter: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-2">
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm group">
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Health Score</h3>
-                  {stats.isAiAudited && <span className="text-[7px] text-blue-600 font-black uppercase">Verified</span>}
-                </div>
+                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
+                  Health Condition
+                  <InfoIcon id="sHealth" text="Overall condition based on recorded maintenance." />
+                </h3>
                 <div className={`text-4xl font-black tracking-tighter ${stats.vitality !== null ? 'text-blue-600' : 'text-slate-300'}`}>
                   {stats.vitality !== null ? `${stats.vitality}%` : '--'}
                 </div>
@@ -175,10 +155,10 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm group">
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Record Trust</h3>
-                  {stats.isAiAudited && <span className="text-[7px] text-emerald-600 font-black uppercase">Verified</span>}
-                </div>
+                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
+                  Record Integrity
+                  <InfoIcon id="sTrust" text="How trustworthy your maintenance history appears to buyers." />
+                </h3>
                 <div className={`text-4xl font-black tracking-tighter ${stats.discipline !== null ? 'text-emerald-600' : 'text-slate-300'}`}>
                   {stats.discipline !== null ? `${stats.discipline}%` : '--'}
                 </div>
@@ -186,11 +166,13 @@ const ServiceIntelligenceCenter: React.FC = () => {
             </div>
 
             <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between shadow-xl col-span-1 sm:col-span-2 relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-8 opacity-[0.03] text-8xl font-black pointer-events-none group-hover:scale-110 transition-transform">₦</div>
               <div className="space-y-4 relative z-10">
-                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Total Service Spend</h3>
+                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
+                  Total Maintenance Spend
+                  <InfoIcon id="sSpent" text="Cumulative amount spent on parts and labor across all logs." />
+                </h3>
                 <div className="text-4xl sm:text-5xl font-black tracking-tighter">{formatCurrency(stats.maintenanceTotal)}</div>
-                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Calculated across {activeServiceLogs.length} logged maintenance entries.</p>
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{activeServiceLogs.length} logged maintenance entries.</p>
               </div>
             </div>
           </div>
@@ -211,7 +193,6 @@ const ServiceIntelligenceCenter: React.FC = () => {
                       <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-2xl shrink-0 ${log.taskId ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-300 border border-slate-100'}`}>
                         {log.taskId ? '✓' : '🛠️'}
                       </div>
-                      
                       <div className="space-y-2 flex-grow">
                         <div className="flex flex-wrap items-center gap-3">
                           <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded-md">{formatDate(log.serviceDate)}</div>
@@ -227,33 +208,27 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
                     <div className="grid grid-cols-2 lg:grid-cols-2 gap-8 lg:gap-12 w-full lg:w-auto relative z-10 border-t lg:border-t-0 pt-6 lg:pt-0">
                        <div className="space-y-1">
-                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Lifecycle Point</div>
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center">
+                            Lifecycle Point
+                            <InfoIcon id={`mileage-${log.id}`} text="The odometer reading when this service was performed." />
+                          </div>
                           <div className="text-xl font-mono font-black text-slate-900 tracking-tighter">
                              {log.mileageAtService.toLocaleString()} <span className="text-xs text-slate-300 font-sans">KM</span>
                           </div>
                        </div>
-                       
                        <div className="space-y-1 text-right lg:text-left">
-                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Investment</div>
-                          <div className="text-xl font-black text-slate-900 tracking-tighter">
-                             {formatCurrency(log.cost)}
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center">
+                            Investment
+                            <InfoIcon id={`cost-${log.id}`} text="Total cost recorded for this maintenance event." />
                           </div>
+                          <div className="text-xl font-black text-slate-900 tracking-tighter">{formatCurrency(log.cost)}</div>
                        </div>
                     </div>
 
-                    <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-2 relative z-10 pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-50">
-                       <button onClick={() => handleEditLog(log)} className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-slate-50 text-[9px] font-black uppercase text-blue-600 hover:bg-blue-600 hover:text-white transition-all">Edit Record</button>
-                       <button onClick={() => handleDeleteLog(log.id)} className="flex-1 lg:flex-none px-4 py-3 rounded-xl bg-rose-50 text-[9px] font-black uppercase text-rose-500 hover:bg-rose-500 hover:text-white transition-all">×</button>
+                    <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-2">
+                       <button onClick={() => handleEditLog(log)} className="px-6 py-3 rounded-xl bg-slate-50 text-[9px] font-black uppercase text-blue-600">Edit</button>
+                       <button onClick={() => handleDeleteLog(log.id)} className="px-4 py-3 rounded-xl bg-rose-50 text-[9px] font-black uppercase text-rose-500">×</button>
                     </div>
-
-                    {log.notes && (
-                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-50 group-hover:h-auto group-hover:relative group-hover:mt-6 group-hover:p-4 group-hover:bg-slate-50 group-hover:rounded-xl group-hover:border group-hover:border-slate-100 group-hover:mx-2 transition-all duration-300 overflow-hidden">
-                        <p className="text-[10px] text-slate-500 font-medium italic truncate group-hover:whitespace-normal group-hover:line-clamp-none">
-                          <span className="font-black text-slate-400 uppercase not-italic mr-2">Note:</span>
-                          {log.notes}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 )) : (
                   <div className="py-24 text-center bg-white card-radius border-2 border-dashed border-slate-100 p-12">
