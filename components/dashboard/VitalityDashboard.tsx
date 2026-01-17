@@ -2,8 +2,7 @@ import React, { useMemo } from 'react';
 import { Vehicle, MaintenanceTask, ServiceLog, FuelLog, ServiceCategory } from '../../shared/types.ts';
 import { 
   calculateIntelligentHealth,
-  getTaskMaintenanceStatus,
-  calculateMetabolicStatus
+  getTaskMaintenanceStatus
 } from '../../services/maintenanceLogic.ts';
 import { formatCurrency } from '../../shared/utils.ts';
 
@@ -17,7 +16,6 @@ interface Props {
 export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelLogs }) => {
   const localEvidence = useMemo(() => calculateIntelligentHealth(vehicle, tasks, fuelLogs, logs), [vehicle, tasks, fuelLogs, logs]);
   
-  // STRICT AUDIT POLICY: Use AI audited scores from persistence only
   const cachedAudit = vehicle.latestAiAudit;
   const displayVitality = cachedAudit ? cachedAudit.auditedScores.vitality : null;
   const displayDiscipline = cachedAudit ? cachedAudit.auditedScores.discipline : null;
@@ -43,50 +41,62 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
     return Math.max(0, 100 - (overdue.length / pillarTasks.length) * 100);
   };
 
-  const metabolicInfo = {
-    optimal: { color: 'text-emerald-500', bg: 'bg-emerald-500', title: 'Optimal Performance' },
-    warning: { color: 'text-amber-500', bg: 'bg-amber-500', title: 'Efficiency Drift' },
-    critical: { color: 'text-rose-500', bg: 'bg-rose-500', title: 'High Consumption' }
-  };
-
-  const status = metabolicInfo[localEvidence.breakdown.metabolicStatus];
+  const metabolicStatus = localEvidence.breakdown.metabolicStatus;
+  const metabolicColor = metabolicStatus === 'optimal' ? 'text-emerald-500' : metabolicStatus === 'warning' ? 'text-amber-500' : 'text-rose-500';
 
   return (
     <div className="w-full h-full flex flex-col gap-6">
-      {/* Top-Level Audited Scores (THE JUDGE) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-slate-900 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-xl border border-white/5 group">
-          <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Audited Vitality</div>
+      {/* Top-Level Audited & Metabolic Scores */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Audited Vitality */}
+        <div className="bg-slate-900 rounded-[2rem] p-6 text-white relative overflow-hidden shadow-xl border border-white/5 group">
+          <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Audited Vitality</div>
           <div className="flex items-baseline gap-2">
-            <div className={`text-6xl font-black tracking-tighter ${displayVitality !== null ? 'text-blue-500' : 'text-slate-700'}`}>
+            <div className={`text-5xl font-black tracking-tighter ${displayVitality !== null ? 'text-blue-500' : 'text-slate-700'}`}>
               {displayVitality !== null ? `${displayVitality}%` : '--'}
             </div>
-            <div className="text-[10px] font-bold text-slate-500 uppercase">Verified</div>
           </div>
-          {hasDrift && <div className="mt-4 text-[8px] font-black text-amber-500 uppercase tracking-widest animate-pulse flex items-center gap-2"><span>⚠️</span> Evidence Drift</div>}
+          {hasDrift && <div className="mt-4 text-[7px] font-black text-amber-500 uppercase tracking-widest animate-pulse">Evidence Drift</div>}
         </div>
 
-        <div className="bg-slate-900 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-xl border border-white/5 group">
-          <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Audited Discipline</div>
+        {/* Audited Discipline */}
+        <div className="bg-slate-900 rounded-[2rem] p-6 text-white relative overflow-hidden shadow-xl border border-white/5 group">
+          <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Audited Discipline</div>
           <div className="flex items-baseline gap-2">
-            <div className={`text-6xl font-black tracking-tighter ${displayDiscipline !== null ? 'text-emerald-500' : 'text-slate-700'}`}>
+            <div className={`text-5xl font-black tracking-tighter ${displayDiscipline !== null ? 'text-emerald-500' : 'text-slate-700'}`}>
               {displayDiscipline !== null ? `${displayDiscipline}%` : '--'}
             </div>
-            <div className="text-[10px] font-bold text-slate-500 uppercase">Verified</div>
           </div>
-           {displayDiscipline === null && <div className="mt-4 text-[8px] font-black text-slate-600 uppercase tracking-widest italic">Awaiting AI Audit</div>}
+        </div>
+
+        {/* Metabolic Performance (Restored) */}
+        <div className="bg-slate-900 rounded-[2rem] p-6 text-white relative overflow-hidden shadow-xl border border-white/5 group">
+          <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.3em] mb-4">Metabolic State</div>
+          <div className="flex items-baseline gap-2">
+            <div className={`text-5xl font-black tracking-tighter ${localEvidence.breakdown.isCalibrating ? 'text-slate-700' : metabolicColor}`}>
+              {localEvidence.breakdown.isCalibrating ? '--' : `${localEvidence.breakdown.metabolic}%`}
+            </div>
+          </div>
+          {!localEvidence.breakdown.isCalibrating && localEvidence.breakdown.wasteMonthly > 0 && (
+             <div className="mt-3 text-[7px] font-black text-rose-400 uppercase tracking-widest leading-none">
+               Waste: {formatCurrency(localEvidence.breakdown.wasteMonthly)}/mo
+             </div>
+          )}
+          {localEvidence.breakdown.isCalibrating && (
+             <div className="mt-3 text-[7px] font-black text-slate-600 uppercase tracking-widest">Calibrating...</div>
+          )}
         </div>
       </div>
 
       {/* Telemetric Evidence (System Health) */}
-      <div className="bg-white p-8 sm:p-10 rounded-[2rem] border border-slate-100 shadow-sm relative group flex flex-col transition-all duration-500 hover:shadow-lg w-full flex-grow">
+      <div className="bg-white p-8 sm:p-10 rounded-[2.5rem] border border-slate-100 shadow-sm relative group flex flex-col transition-all duration-500 hover:shadow-lg w-full flex-grow">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 mb-10">
           <div className="space-y-1.5">
-            <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Telemetry Link</h4>
+            <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Telemetry Pillars</h4>
             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest opacity-80">Baseline Condition Evidence</p>
           </div>
           {displayVitality === null && (
-             <div className="bg-blue-600 text-white px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest animate-pulse">Request AI Audit to Activate Neural Twin</div>
+             <div className="bg-blue-600/10 text-blue-600 px-4 py-2 rounded-xl text-[8px] font-black uppercase tracking-widest animate-pulse border border-blue-600/20">Awaiting AI Verification</div>
           )}
         </div>
 

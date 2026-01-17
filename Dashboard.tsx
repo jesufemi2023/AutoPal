@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { 
@@ -32,7 +31,7 @@ const Dashboard: React.FC = () => {
   const activeServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
   const activeFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicleId);
 
-  // 1. Initial Local Load
+  // 1. Initial Local Load (Instant UX)
   useEffect(() => {
     loadLocalData();
   }, [loadLocalData]);
@@ -43,7 +42,9 @@ const Dashboard: React.FC = () => {
       setIsSyncing(true);
       try {
         const cloudVehicles = await fetchUserVehicles();
-        setVehicles(cloudVehicles);
+        if (cloudVehicles.length > 0) {
+          setVehicles(cloudVehicles);
+        }
       } catch (err) {
         console.warn("Cloud sync deferred: Network unstable or RLS restriction.");
       } finally {
@@ -54,7 +55,9 @@ const Dashboard: React.FC = () => {
   }, [setVehicles]);
 
   useEffect(() => {
-    if (vehicles.length > 0 && !activeVehicleId) setActiveVehicleId(vehicles[0].id);
+    if (vehicles.length > 0 && !activeVehicleId) {
+      setActiveVehicleId(vehicles[0].id);
+    }
   }, [vehicles, activeVehicleId, setActiveVehicleId]);
 
   useEffect(() => {
@@ -74,10 +77,12 @@ const Dashboard: React.FC = () => {
     }
   }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
 
+  // Real-time Health Recalculation (Local Evidence)
   useEffect(() => {
     if (activeVehicle && tasks.length > 0) {
       const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
       if (newScore !== activeVehicle.healthScore) {
+        // Sync to cloud but update store instantly
         updateVehicle(activeVehicle.id, { healthScore: newScore });
         updateVehicleStore({ ...activeVehicle, healthScore: newScore });
       }
@@ -105,7 +110,6 @@ const Dashboard: React.FC = () => {
           <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">System Status: Monitoring Active</p>
         </div>
         
-        {/* Slidable Vehicle Selection Bar */}
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
           <button 
             onClick={() => handleScroll('left')}
@@ -151,8 +155,8 @@ const Dashboard: React.FC = () => {
             <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
           </div>
           
-          <div className="w-full grid grid-cols-1 xl:grid-cols-2 gap-6 lg:gap-10 items-start">
-            <div className="w-full h-full">
+          <div className="w-full grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-10 items-stretch">
+            <div className="xl:col-span-5 flex flex-col h-full">
               <ResaleValuationCard 
                 vehicle={activeVehicle} 
                 tasks={tasks} 
@@ -160,8 +164,13 @@ const Dashboard: React.FC = () => {
                 fuelLogs={activeFuelLogs} 
               />
             </div>
-            <div className="w-full h-full">
-               <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
+            <div className="xl:col-span-7 flex flex-col h-full">
+               <VitalityDashboard 
+                 vehicle={activeVehicle} 
+                 tasks={tasks} 
+                 logs={activeServiceLogs} 
+                 fuelLogs={activeFuelLogs} 
+               />
             </div>
           </div>
 
@@ -174,19 +183,21 @@ const Dashboard: React.FC = () => {
             />
           </div>
 
-          <div className="bg-slate-50 rounded-[1.5rem] p-6 border border-slate-200 shadow-sm w-full">
-            <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Quick Insights</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-slate-50 rounded-[2rem] p-8 border border-slate-200 shadow-sm w-full">
+            <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Real-time Telemetry Insights</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
               <div className="space-y-4">
                 <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                  <span className="text-slate-500">Service Coverage</span>
-                  <span className="text-slate-900 font-mono">{vehicleTasks.filter(t => t.status === 'completed').length} / {vehicleTasks.length}</span>
+                  <span className="text-slate-500">Local Evidence Coverage</span>
+                  <span className="text-slate-900 font-mono">{activeServiceLogs.length} Records / {activeFuelLogs.length} Refills</span>
                 </div>
                 <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-600 rounded-full transition-all duration-1000" style={{ width: `${(vehicleTasks.filter(t => t.status === 'completed').length / (vehicleTasks.length || 1)) * 100}%` }}></div>
+                  <div className="h-full bg-blue-600 rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, (activeServiceLogs.length + activeFuelLogs.length) * 5)}%` }}></div>
                 </div>
               </div>
-              <p className="text-[8px] font-bold text-slate-400 uppercase leading-relaxed flex items-center">Health and efficiency scores are calculated in real-time based on your vehicle's maintenance history and fuel usage.</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed flex items-center">
+                Your vitality score is a blend of verified record discipline and metabolic fuel performance. New evidence detected locally triggers drift detection.
+              </p>
             </div>
           </div>
         </div>
