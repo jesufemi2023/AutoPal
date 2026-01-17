@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Vehicle, MaintenanceTask, ServiceCategory, TaskStatus } from '../../shared/types.ts';
 import { getTaskMaintenanceStatus, predictServiceDate } from '../../services/maintenanceLogic.ts';
@@ -42,7 +41,7 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
       </button>
       {activeTooltip === id && (
         <div 
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[10000] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
           onClick={() => setActiveTooltip(null)}
         >
           <div 
@@ -79,12 +78,12 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
           </div>
         </div>
         
-        <div className="flex bg-slate-50 p-1 rounded-2xl">
+        <div className="flex bg-slate-50 p-1 rounded-2xl overflow-x-auto scrollbar-hide max-w-full">
           {statuses.map(s => (
             <button 
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${statusFilter === s ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${statusFilter === s ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
             >
               {s}
             </button>
@@ -106,24 +105,24 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
           return (
             <div 
               key={task.id} 
-              className={`group relative border-2 rounded-[2.5rem] p-8 transition-all duration-500 hover:shadow-2xl animate-slide-up ${isOverdue ? 'border-rose-100 bg-rose-50/20' : 'border-slate-50 bg-white hover:border-blue-100'}`}
+              className={`group relative border-2 rounded-[2.5rem] p-6 sm:p-8 transition-all duration-500 hover:shadow-2xl animate-slide-up ${isOverdue ? 'border-rose-100 bg-rose-50/20' : 'border-slate-50 bg-white hover:border-blue-100'}`}
               style={{ animationDelay: `${i * 0.05}s` }}
             >
               <div className="flex flex-col lg:flex-row gap-8 items-start justify-between">
-                <div className="space-y-6 flex-grow">
+                <div className="space-y-6 flex-grow w-full">
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner ${isOverdue ? 'bg-rose-500 text-white shadow-rose-200' : 'bg-slate-900 text-white'}`}>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-xl shadow-inner shrink-0 ${isOverdue ? 'bg-rose-500 text-white shadow-rose-200' : 'bg-slate-900 text-white'}`}>
                       {task.category === 'fluids' ? '💧' : task.category === 'engine' ? '⚙️' : task.category === 'brakes' ? '🛑' : '🛠️'}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded ${isOverdue ? 'bg-rose-600 text-white' : 'bg-blue-600 text-white'}`}>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                        <span className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded whitespace-nowrap ${isOverdue ? 'bg-rose-600 text-white' : 'bg-blue-600 text-white'}`}>
                           {task.status === 'pending' ? (isOverdue ? 'Overdue' : derivedStatus) : task.status}
                         </span>
-                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{task.category} System</span>
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest whitespace-nowrap">{task.category} System</span>
                         <InfoIcon id={`info-${task.id}`} text={`Regular maintenance of the ${task.category} system is critical in tropical environments. Neglect leads to overheating and permanent internal wear.`} />
                       </div>
-                      <h4 className="text-2xl font-black text-slate-900 tracking-tighter leading-none">{task.title}</h4>
+                      <h4 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tighter leading-none truncate">{task.title}</h4>
                     </div>
                   </div>
 
@@ -135,22 +134,24 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
                   </div>
                 </div>
 
-                <div className="w-full lg:w-auto grid grid-cols-2 lg:flex lg:flex-col gap-6 lg:items-end shrink-0 border-t lg:border-t-0 lg:border-l lg:border-slate-100 pt-8 lg:pt-0 lg:pl-10">
-                   <div className="space-y-1 lg:text-right">
-                      <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Target Odometer</div>
-                      <div className={`text-2xl font-mono font-black ${isOverdue ? 'text-rose-600' : 'text-slate-900'}`}>
-                        {task.dueMileage.toLocaleString()} <span className="text-xs font-sans text-slate-300">KM</span>
-                      </div>
-                   </div>
-                   
-                   <div className="space-y-1 lg:text-right">
-                      <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Estimated Cost</div>
-                      <div className="text-2xl font-black text-slate-900">
-                        {formatCurrency(task.estimatedCost || 0)}
-                      </div>
+                <div className="w-full lg:w-56 flex flex-col gap-6 lg:items-end shrink-0 border-t lg:border-t-0 lg:border-l lg:border-slate-100 pt-8 lg:pt-0 lg:pl-10">
+                   <div className="flex flex-row lg:flex-col justify-between lg:justify-start w-full gap-4">
+                     <div className="space-y-1 lg:text-right flex-1 min-w-0">
+                        <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest truncate">Target Odometer</div>
+                        <div className={`text-lg sm:text-2xl font-mono font-black truncate ${isOverdue ? 'text-rose-600' : 'text-slate-900'}`}>
+                          {task.dueMileage.toLocaleString()} <span className="text-[10px] sm:text-xs font-sans text-slate-300">KM</span>
+                        </div>
+                     </div>
+                     
+                     <div className="space-y-1 text-right flex-1 min-w-0">
+                        <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest truncate">Estimated Cost</div>
+                        <div className="text-lg sm:text-2xl font-black text-slate-900 truncate">
+                          {formatCurrency(task.estimatedCost || 0)}
+                        </div>
+                     </div>
                    </div>
 
-                   <div className="col-span-2 w-full space-y-3">
+                   <div className="w-full space-y-3">
                       {task.status === 'pending' && (
                         <button 
                           onClick={() => onLog(task)}
