@@ -23,7 +23,7 @@ const FuelIntelligenceCenter: React.FC = () => {
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
-  // RESET on-demand state when vehicle changes
+  // Strictly reset on-demand state when vehicle changes
   useEffect(() => {
     setHasRequestedHistory(false);
   }, [activeVehicleId]);
@@ -48,10 +48,6 @@ const FuelIntelligenceCenter: React.FC = () => {
     return sorted.map((log, index) => {
       let tripKml: number | null = null;
       let tripDistance: number | null = null;
-      const liters = log.liters || 0;
-      const totalCost = log.totalCost || 0;
-      const costPerLiter = liters > 0 ? totalCost / liters : 0;
-      
       if (log.isFullTank && log.odometerKm) {
         const prevFullIndex = sorted.slice(index + 1).findIndex(l => l.isFullTank && l.odometerKm);
         if (prevFullIndex !== -1) {
@@ -66,7 +62,7 @@ const FuelIntelligenceCenter: React.FC = () => {
           }
         }
       }
-      return { ...log, tripKml, costPerLiter, tripDistance };
+      return { ...log, tripKml, tripDistance };
     });
   }, [fuelLogs]);
 
@@ -108,11 +104,11 @@ const FuelIntelligenceCenter: React.FC = () => {
   };
 
   const handleDeleteRecord = async (logId: string) => {
-    if (!window.confirm("CAUTION: Deleting this record will update your average efficiency. Proceed?")) return;
+    if (!window.confirm("Delete this refill log? History will update instantly.")) return;
     try {
       await deleteFuelLog(logId);
       removeFuelLogStore(logId);
-    } catch (err: any) { alert("Failed to remove record."); }
+    } catch (err: any) { alert("Action failed."); }
   };
 
   const handleScroll = (direction: 'left' | 'right') => {
@@ -121,188 +117,128 @@ const FuelIntelligenceCenter: React.FC = () => {
     }
   };
 
-  const InfoIcon = ({ id, text }: { id: string, text: string }) => (
-    <div className="relative inline-block ml-1">
-      <button 
-        onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === id ? null : id); }}
-        className="text-slate-400 hover:text-blue-500 transition-colors"
-      >
-        ℹ️
-      </button>
-      {activeTooltip === id && (
-        <div 
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200"
-          onClick={() => setActiveTooltip(null)}
-        >
-          <div 
-            className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-3xl max-w-sm w-full border border-white/10 animate-in zoom-in-95 duration-200 text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-14 h-14 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400 text-2xl mx-auto mb-6">ℹ️</div>
-            <h4 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4">Refill Intelligence</h4>
-            <p className="text-xs font-bold uppercase tracking-widest leading-relaxed text-slate-200 mb-8">
-              {text}
-            </p>
-            <button 
-              onClick={() => setActiveTooltip(null)}
-              className="w-full py-4 bg-white/5 hover:bg-blue-600 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
-            >
-              Acknowledged
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div className="space-y-8 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
       {/* Hidden PDF Template */}
-      <div id="fuel-report-content" className="hidden">
-        <div className="flex justify-between items-center border-b-4 border-emerald-600 pb-8 mb-8">
-          <div>
-            <h1 className="text-3xl font-black uppercase tracking-tighter text-slate-900">AutoPal NG</h1>
-            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-emerald-600">Official Energy Efficiency Telemetry</p>
+      <div id="fuel-report-content" className="hidden" style={{ width: '100%' }}>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @media print {
+            #fuel-report-content { display: block !important; }
+            .no-print { display: none !important; }
+            body { background: white !important; }
+            table { -webkit-print-color-adjust: exact; }
+          }
+        `}} />
+        <div className="p-12" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+          <div className="flex justify-between items-center border-b-4 border-emerald-600 pb-10 mb-10">
+            <div className="space-y-1">
+              <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900">AutoPal NG</h1>
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-600">Energy & metabolic Telemetry Audit</p>
+            </div>
+            <div className="text-right">
+              <h2 className="text-2xl font-black text-slate-900">{activeVehicle?.year} {activeVehicle?.make} {activeVehicle?.model}</h2>
+              <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest">VIN: {activeVehicle?.vin || 'UNAVAILABLE'}</p>
+            </div>
           </div>
-          <div className="text-right">
-            <h2 className="text-xl font-black text-slate-900">{activeVehicle?.year} {activeVehicle?.make} {activeVehicle?.model}</h2>
-            <p className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-widest">VIN: {activeVehicle?.vin || 'N/A'}</p>
-          </div>
-        </div>
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-50 border-y border-slate-200">
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Date</th>
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Vendor</th>
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Liters</th>
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Odometer</th>
-              <th className="p-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-right">Trip Eff.</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {logsWithAnalytics.map((log) => (
-              <tr key={log.id}>
-                <td className="p-4 text-[11px] font-bold text-slate-500">{formatDate(log.createdAt)}</td>
-                <td className="p-4 text-[12px] font-black text-slate-900 uppercase tracking-tight">{log.vendor || 'Fuel Station'}</td>
-                <td className="p-4 text-[11px] font-mono text-slate-900 text-right">{log.liters.toFixed(2)} L</td>
-                <td className="p-4 text-[11px] font-mono font-bold text-slate-900 text-right">{log.odometerKm.toLocaleString()} KM</td>
-                <td className="p-4 text-[11px] font-black text-emerald-600 text-right">{log.tripKml ? `${log.tripKml.toFixed(1)} KML` : '---'}</td>
+          
+          <table className="w-full text-left border-collapse border-spacing-0 mb-12">
+            <thead>
+              <tr className="bg-slate-100">
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500">Date</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500">Vendor</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500 text-right">Liters</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500 text-right">Trip Eff.</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500 text-right">Price</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="mt-12 pt-8 border-t border-slate-100 flex justify-between items-end">
-           <div className="text-right">
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total Expenditure</p>
-              <p className="text-3xl font-black text-slate-900 tracking-tighter">{formatCurrency(totalFuelSpend)}</p>
-           </div>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {logsWithAnalytics.map((log) => (
+                <tr key={log.id} className="hover:bg-slate-50/50">
+                  <td className="p-4 text-[10px] font-bold text-slate-500">{formatDate(log.createdAt)}</td>
+                  <td className="p-4 text-[11px] font-black text-slate-900 uppercase tracking-tight">{log.vendor || 'Station'}</td>
+                  <td className="p-4 text-[11px] font-mono text-slate-600 text-right">{log.liters.toFixed(2)} L</td>
+                  <td className="p-4 text-[11px] font-mono font-black text-emerald-600 text-right">{log.tripKml ? `${log.tripKml.toFixed(1)} KML` : '---'}</td>
+                  <td className="p-4 text-[11px] font-black text-slate-900 text-right">{formatCurrency(log.totalCost)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="mt-20 pt-10 border-t-2 border-slate-100 text-right">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Lifetime Energy Investment</p>
+              <p className="text-4xl font-black text-slate-900 tracking-tighter">{formatCurrency(totalFuelSpend)}</p>
+          </div>
         </div>
       </div>
 
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2">
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2 no-print">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-spin' : (fetchError ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse')}`}></div>
-            <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">
-              {isLoading ? 'Syncing...' : (fetchError ? 'Sync Error' : 'Fuel Monitor Live')}
-            </span>
+            <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">{isLoading ? 'Syncing...' : (fetchError ? 'Sync Error' : 'Metabolic Link Active')}</span>
           </div>
-          <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">
-            Fuel <br/><span className="text-blue-600">Tracker</span>
-          </h2>
+          <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Fuel <br/><span className="text-blue-600">Tracker</span></h2>
           
-          <div className="flex gap-2 pt-4 no-print">
-             <button onClick={handleExportCSV} className="px-6 py-3 bg-white border border-slate-100 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
-               📊 Excel Data
+          <div className="flex gap-3 pt-6">
+             <button onClick={handleExportCSV} className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-3">
+               <span className="text-base">📊</span> Export Excel (CSV)
              </button>
-             <button onClick={handleExportPDF} className="px-6 py-3 bg-white border border-slate-100 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-sm hover:bg-slate-50 transition-all flex items-center gap-2">
-               📄 Performance PDF
+             <button onClick={handleExportPDF} className="bg-blue-50 text-blue-600 border border-blue-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-blue-600 hover:text-white transition-all flex items-center gap-3">
+               <span className="text-base">📄</span> Performance PDF
              </button>
           </div>
         </div>
-        
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 no-print">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
           <div className="flex bg-white border-2 border-slate-100 p-1 rounded-2xl shadow-sm">
             {['KML', 'MPG'].map(m => (
               <button key={m} onClick={() => setMetric(m as any)} className={`px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${metric === m ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}>{m === 'KML' ? 'KM/L' : m}</button>
             ))}
           </div>
-          <button disabled={!activeVehicle} onClick={() => { setEditingLog(null); setShowTerminal(true); }} className="bg-slate-900 text-white px-8 sm:px-12 py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-3xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3">
-            <span className="text-xl">⛽</span> Add Log
+          <button disabled={!activeVehicle} onClick={() => { setEditingLog(null); setShowTerminal(true); }} className="bg-slate-900 text-white px-8 sm:px-12 py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-4xl hover:bg-blue-600 transition-all flex items-center justify-center gap-4">
+            <span className="text-2xl">⛽</span> Log Refill
           </button>
         </div>
       </header>
 
       {!activeVehicle ? (
-        <div className="py-24 text-center bg-white card-radius border-2 border-slate-50 p-12">
-           <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest">No Vehicle Selected</h3>
+        <div className="py-24 text-center bg-white card-radius border-2 border-slate-50 p-12 no-print">
+           <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest">No Asset Linked</h3>
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-2 no-print">
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm">
               <div className="space-y-4">
-                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
-                  Recent Performance
-                  <InfoIcon id="recEff" text="Calculated efficiency from your last full tank refill." />
-                </h3>
-                <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
-                  {currentEff ? currentEff.toFixed(1) : '--.-'}
-                  <span className="text-xs text-slate-300 ml-2 font-bold">{metric}</span>
-                </div>
+                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Current Performance</h3>
+                <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">{currentEff ? currentEff.toFixed(1) : '--.-'}<span className="text-xs text-slate-300 ml-2 font-bold">{metric}</span></div>
               </div>
             </div>
-
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm">
               <div className="space-y-4">
-                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
-                  Avg Price/Liter
-                  <InfoIcon id="avgPrice" text="Average amount spent per liter across all your fuel logs." />
-                </h3>
+                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Market Price Avg</h3>
                 <div className="text-4xl font-black text-slate-900 tracking-tighter">{formatCurrency(avgPricePerLiter)}</div>
               </div>
             </div>
-
             <div className="bg-emerald-600 card-radius p-8 text-white flex flex-col justify-between shadow-xl relative overflow-hidden">
-               <div className="space-y-4 relative z-10">
-                <h3 className="text-emerald-200 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
-                  Total Spent
-                  <InfoIcon id="totalSpent" text="Cumulative investment in fuel for this vehicle." />
-                </h3>
+                <h3 className="text-emerald-200 text-[8px] font-black uppercase tracking-[0.4em]">Total Spent</h3>
                 <div className="text-3xl font-black tracking-tighter">{formatCurrency(totalFuelSpend)}</div>
-              </div>
             </div>
-
             <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between shadow-xl relative overflow-hidden">
-              <div className="space-y-4 relative z-10">
-                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
-                  Overall Efficiency
-                  <InfoIcon id="avgEff" text="Historical average performance over the life of your logs." />
-                </h3>
-                <div className="text-4xl font-black tracking-tighter flex items-baseline">
-                  {avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}
-                  <span className="text-xs text-slate-600 ml-2 font-bold">{metric}</span>
-                </div>
-              </div>
+                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Life-to-Date Efficiency</h3>
+                <div className="text-4xl font-black tracking-tighter flex items-baseline">{avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}<span className="text-xs text-slate-600 ml-2 font-bold">{metric}</span></div>
             </div>
           </div>
 
           <div className="space-y-6 px-2 no-print">
             {!hasRequestedHistory ? (
-              <div className="py-24 text-center bg-white card-radius border-2 border-slate-50 p-12 flex flex-col items-center gap-6 animate-in slide-in-from-bottom-4 duration-500">
-                 <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-3xl">🗓️</div>
-                 <div className="space-y-2">
-                   <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">History Standby</h3>
-                   <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest max-w-xs mx-auto leading-relaxed">
-                     To optimize network load, historical logs are not pre-fetched. Synchronize your telemetry manually.
-                   </p>
+              <div className="py-24 text-center bg-white card-radius border-2 border-slate-50 p-12 flex flex-col items-center gap-8 animate-in slide-in-from-bottom-4">
+                 <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-4xl shadow-inner">🗓️</div>
+                 <div className="space-y-3">
+                   <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">History Standby</h3>
+                   <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest max-w-xs mx-auto leading-relaxed">Historical logs are not pre-fetched to optimize performance. Click below to synchronize telemetry.</p>
                  </div>
-                 <button 
-                  onClick={loadHistoryLogs}
-                  disabled={isLoading}
-                  className="bg-slate-900 text-white px-12 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-600 transition-all flex items-center gap-3"
-                 >
-                   {isLoading ? '📡 Syncing...' : '📡 Retrieve Historical Data'}
+                 <button onClick={loadHistoryLogs} disabled={isLoading} className="bg-slate-900 text-white px-12 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] shadow-4xl hover:bg-blue-600 transition-all flex items-center gap-4">
+                   {isLoading ? '📡 Synchronizing...' : '📡 Retrieve Historical Data'}
                  </button>
               </div>
             ) : logsWithAnalytics.length > 0 ? (
@@ -317,7 +253,7 @@ const FuelIntelligenceCenter: React.FC = () => {
                       <div className="space-y-2">
                         <div className="flex items-center gap-3">
                            <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded-md">{formatDate(log.createdAt)}</div>
-                           {log.isFullTank && <div className="text-[7px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">Full Refill</div>}
+                           {log.isFullTank && <div className="text-[7px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">Full Tank</div>}
                         </div>
                         <h4 className="text-2xl font-black text-slate-900 tracking-tighter leading-none">{log.liters.toFixed(2)} <span className="text-sm text-slate-300">Liters</span></h4>
                         <div className="flex items-center gap-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">
@@ -325,33 +261,20 @@ const FuelIntelligenceCenter: React.FC = () => {
                         </div>
                       </div>
                     </div>
-
                     <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-12 w-full lg:w-auto relative z-10 border-t lg:border-t-0 pt-6 lg:pt-0">
                        <div className="space-y-1">
-                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center">
-                            Spent
-                            <InfoIcon id={`spent-${log.id}`} text="Total cost for this refill entry." />
-                          </div>
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Total Spent</div>
                           <div className="text-xl font-black text-slate-900 tracking-tighter">{formatCurrency(log.totalCost)}</div>
                        </div>
                        <div className="space-y-1">
-                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center">
-                            Trip Efficiency
-                            <InfoIcon id={`tripEff-${log.id}`} text="Efficiency calculated for this specific fuel interval." />
-                          </div>
-                          <div className={`text-xl font-mono font-black ${log.tripKml && log.tripKml > 10 ? 'text-emerald-500' : 'text-slate-400'}`}>
-                             {log.tripKml ? `${log.tripKml.toFixed(1)} ${metric}` : '---'}
-                          </div>
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Efficiency</div>
+                          <div className={`text-xl font-mono font-black ${log.tripKml && log.tripKml > 10 ? 'text-emerald-500' : 'text-slate-400'}`}>{log.tripKml ? `${log.tripKml.toFixed(1)} ${metric}` : '---'}</div>
                        </div>
                        <div className="space-y-1">
-                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center">
-                            Distance Covered
-                            <InfoIcon id={`tripDist-${log.id}`} text="Distance driven since the previous refill." />
-                          </div>
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Trip Distance</div>
                           <div className="text-xl font-mono font-black text-blue-600">{log.tripDistance ? `${log.tripDistance} KM` : '---'}</div>
                        </div>
                     </div>
-
                     <div className="flex gap-2 w-full lg:w-auto pt-4 lg:pt-0">
                       <button onClick={() => { setEditingLog(log); setShowTerminal(true); }} className="px-6 py-3 rounded-xl bg-slate-50 text-[9px] font-black uppercase text-blue-600 hover:bg-blue-600 hover:text-white transition-all">Edit</button>
                       <button onClick={() => handleDeleteRecord(log.id)} className="px-6 py-3 rounded-xl bg-rose-50 text-[9px] font-black uppercase text-rose-500 hover:bg-rose-500 hover:text-white transition-all">Delete</button>
@@ -361,8 +284,8 @@ const FuelIntelligenceCenter: React.FC = () => {
               </div>
             ) : (
               <div className="py-24 text-center bg-white card-radius border-2 border-dashed border-slate-100 p-12">
-                 <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tighter uppercase">No fuel records yet</h3>
-                 <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Start logging your refills to track performance</p>
+                 <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tighter uppercase">No records detected</h3>
+                 <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Refill logs will be archived here once manually requested</p>
               </div>
             )}
           </div>

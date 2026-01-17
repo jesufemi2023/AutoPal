@@ -3,7 +3,6 @@ import { useAutoPalStore } from './shared/store.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, updateMileage, updateVehicle, fetchUserVehicles
 } from './services/vehicleService.ts';
-import { fetchFuelLogs } from './services/fuelService.ts';
 import { OdometerInput } from './components/OdometerInput.tsx';
 
 import { VehicleOverview } from './components/dashboard/VehicleOverview.tsx';
@@ -63,26 +62,24 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (activeVehicleId) {
       setIsLoadingDetails(true);
+      // Removed fetchFuelLogs from auto-fetch to satisfy on-demand requirement
       Promise.all([
         fetchVehicleTasks(activeVehicleId),
-        fetchVehicleServiceLogs(activeVehicleId),
-        fetchFuelLogs(activeVehicleId)
+        fetchVehicleServiceLogs(activeVehicleId)
       ])
-      .then(([taskList, logList, fuelList]) => {
+      .then(([taskList, logList]) => {
         setTasks(taskList);
         setServiceLogs(logList);
-        setFuelLogs(fuelList);
       })
       .finally(() => setIsLoadingDetails(false));
     }
-  }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
+  }, [activeVehicleId, setTasks, setServiceLogs]);
 
   // Real-time Health Recalculation (Local Evidence)
   useEffect(() => {
     if (activeVehicle && tasks.length > 0) {
       const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
       if (newScore !== activeVehicle.healthScore) {
-        // Sync to cloud but update store instantly
         updateVehicle(activeVehicle.id, { healthScore: newScore });
         updateVehicleStore({ ...activeVehicle, healthScore: newScore });
       }
@@ -114,7 +111,6 @@ const Dashboard: React.FC = () => {
           <button 
             onClick={() => handleScroll('left')}
             className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/80 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-lg text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-5"
-            aria-label="Scroll Left"
           >
             ←
           </button>
@@ -123,7 +119,7 @@ const Dashboard: React.FC = () => {
             ref={scrollContainerRef}
             className="flex gap-3 overflow-x-auto scrollbar-hide scrollbar-desktop-show py-1.5 px-0.5 -mx-0.5 flex-nowrap snap-x snap-mandatory scroll-smooth"
           >
-            {vehicles.length > 0 && vehicles.map(v => (
+            {vehicles.map(v => (
               <button 
                 key={v.id}
                 onClick={() => setActiveVehicleId(v.id)}
@@ -142,7 +138,6 @@ const Dashboard: React.FC = () => {
           <button 
             onClick={() => handleScroll('right')}
             className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/80 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-lg text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -mr-5"
-            aria-label="Scroll Right"
           >
             →
           </button>
@@ -151,55 +146,18 @@ const Dashboard: React.FC = () => {
 
       {activeVehicle ? (
         <div className="w-full flex flex-col gap-6 lg:gap-10">
-          <div className="w-full">
-            <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
-          </div>
+          <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
           
-          <div className="w-full grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-10 items-stretch">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-10 items-stretch">
             <div className="xl:col-span-5 flex flex-col h-full">
-              <ResaleValuationCard 
-                vehicle={activeVehicle} 
-                tasks={tasks} 
-                serviceLogs={activeServiceLogs} 
-                fuelLogs={activeFuelLogs} 
-              />
+              <ResaleValuationCard vehicle={activeVehicle} tasks={tasks} serviceLogs={activeServiceLogs} fuelLogs={activeFuelLogs} />
             </div>
             <div className="xl:col-span-7 flex flex-col h-full">
-               <VitalityDashboard 
-                 vehicle={activeVehicle} 
-                 tasks={tasks} 
-                 logs={activeServiceLogs} 
-                 fuelLogs={activeFuelLogs} 
-               />
+               <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
             </div>
           </div>
 
-          <div className="w-full">
-            <MaintenanceRoadmap 
-              vehicle={activeVehicle} 
-              tasks={vehicleTasks} 
-              isLoading={isLoadingDetails}
-              onLog={() => setCurrentView('service')} 
-            />
-          </div>
-
-          <div className="bg-slate-50 rounded-[2rem] p-8 border border-slate-200 shadow-sm w-full">
-            <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Real-time Telemetry Insights</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-              <div className="space-y-4">
-                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                  <span className="text-slate-500">Local Evidence Coverage</span>
-                  <span className="text-slate-900 font-mono">{activeServiceLogs.length} Records / {activeFuelLogs.length} Refills</span>
-                </div>
-                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-600 rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, (activeServiceLogs.length + activeFuelLogs.length) * 5)}%` }}></div>
-                </div>
-              </div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed flex items-center">
-                Your vitality score is a blend of verified record discipline and metabolic fuel performance. New evidence detected locally triggers drift detection.
-              </p>
-            </div>
-          </div>
+          <MaintenanceRoadmap vehicle={activeVehicle} tasks={vehicleTasks} isLoading={isLoadingDetails} onLog={() => setCurrentView('service')} />
         </div>
       ) : (
         !isLoadingDetails && (
