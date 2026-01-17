@@ -5,10 +5,6 @@ import { formatCurrency, formatDate, kmlToMpg } from '../shared/utils.ts';
 import FuelEntryTerminal from './FuelEntryTerminal.tsx';
 import { FuelLog } from '../shared/types.ts';
 import { ENV } from '../services/envService.ts';
-import { 
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  ReferenceLine 
-} from 'recharts';
 
 const FuelIntelligenceCenter: React.FC = () => {
   const { 
@@ -250,20 +246,56 @@ const FuelIntelligenceCenter: React.FC = () => {
             {logsWithAnalytics.length > 0 ? (
               <div className="grid grid-cols-1 gap-4">
                 {logsWithAnalytics.map((log, idx) => (
-                  <div key={log.id} className="bg-white border border-slate-100 p-6 sm:p-8 rounded-[2rem] hover:shadow-xl transition-all group flex flex-col lg:flex-row gap-6 items-start lg:items-center justify-between shadow-sm">
-                    <div className="flex items-center gap-6">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black ${log.isFullTank ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-300'}`}>
-                        {fuelLogs.length - idx}
+                  <div key={log.id} className="bg-white border border-slate-100 p-6 sm:p-10 rounded-[2.5rem] hover:shadow-xl transition-all group flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between shadow-sm relative overflow-hidden">
+                    <div className="flex items-center gap-8 relative z-10">
+                      <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center font-black shrink-0 ${log.isFullTank ? 'bg-slate-900 text-white shadow-lg' : 'bg-slate-50 text-slate-300 border border-slate-100'}`}>
+                        <span className="text-[10px] opacity-60 leading-none mb-1">#</span>
+                        <span className="text-xl leading-none">{fuelLogs.length - idx}</span>
                       </div>
-                      <div className="space-y-1">
-                        <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest">{formatDate(log.createdAt)}</div>
-                        <h4 className="text-xl font-black text-slate-900 tracking-tighter">{log.liters.toFixed(2)} Liters</h4>
-                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{log.vendor || 'Fuel Station'}</div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                           <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded-md">{formatDate(log.createdAt)}</div>
+                           {log.isFullTank && <div className="text-[7px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">Full Refill</div>}
+                        </div>
+                        <h4 className="text-2xl font-black text-slate-900 tracking-tighter leading-none">{log.liters.toFixed(2)} <span className="text-sm text-slate-300">Liters</span></h4>
+                        <div className="flex items-center gap-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                           <span className="flex items-center gap-1.5"><span className="text-slate-300">At</span> {log.vendor || 'Fuel Station'}</span>
+                           <span className="w-1 h-1 rounded-full bg-slate-200"></span>
+                           <span className="flex items-center gap-1.5"><span className="text-slate-300">Unit Price</span> {formatCurrency(log.costPerLiter)}/L</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex gap-4">
-                      <button onClick={() => { setEditingLog(log); setShowTerminal(true); }} className="px-4 py-2 rounded-xl bg-slate-50 text-[8px] font-black uppercase text-blue-600">Edit</button>
-                      <button onClick={() => handleDeleteRecord(log.id)} className="px-4 py-2 rounded-xl bg-rose-50 text-[8px] font-black uppercase text-rose-500">Delete</button>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-12 w-full lg:w-auto relative z-10 border-t lg:border-t-0 pt-6 lg:pt-0">
+                       <div className="space-y-1">
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Investment</div>
+                          <div className="text-xl font-black text-slate-900 tracking-tighter">{formatCurrency(log.totalCost)}</div>
+                       </div>
+                       
+                       <div className="space-y-1">
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Trip Efficiency</div>
+                          <div className={`text-xl font-mono font-black ${log.tripKml && log.tripKml > 10 ? 'text-emerald-500' : 'text-slate-400'}`}>
+                             {log.tripKml ? `${log.tripKml.toFixed(1)} ${metric}` : '---'}
+                          </div>
+                       </div>
+
+                       <div className="space-y-1">
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Block Distance</div>
+                          <div className="text-xl font-mono font-black text-blue-600">
+                             {log.tripDistance ? `${log.tripDistance} KM` : '---'}
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className="flex gap-2 w-full lg:w-auto pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-50 relative z-10">
+                      <button onClick={() => { setEditingLog(log); setShowTerminal(true); }} className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-slate-50 text-[9px] font-black uppercase text-blue-600 hover:bg-blue-600 hover:text-white transition-all">Edit</button>
+                      <button onClick={() => handleDeleteRecord(log.id)} className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-rose-50 text-[9px] font-black uppercase text-rose-500 hover:bg-rose-500 hover:text-white transition-all">Delete</button>
+                    </div>
+
+                    {/* Subtle Background Icon */}
+                    <div className="absolute top-1/2 right-0 -translate-y-1/2 text-8xl font-black opacity-[0.02] pointer-events-none select-none translate-x-10 group-hover:translate-x-4 transition-transform duration-700">
+                      GAS
                     </div>
                   </div>
                 ))}

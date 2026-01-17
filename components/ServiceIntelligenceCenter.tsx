@@ -89,6 +89,17 @@ const ServiceIntelligenceCenter: React.FC = () => {
     }
   };
 
+  const getVerificationBadge = (level?: string) => {
+    switch (level) {
+      case 'mechanic_verified':
+        return <span className="text-[7px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded uppercase tracking-widest shadow-sm">Verified ✓</span>;
+      case 'receipt_verified':
+        return <span className="text-[7px] font-black bg-blue-600 text-white px-2 py-0.5 rounded uppercase tracking-widest shadow-sm">Receipt Scanned</span>;
+      default:
+        return <span className="text-[7px] font-black bg-slate-100 text-slate-400 px-2 py-0.5 rounded uppercase tracking-widest border border-slate-200">Self-Declared</span>;
+    }
+  };
+
   return (
     <div className="space-y-12 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2">
@@ -184,19 +195,6 @@ const ServiceIntelligenceCenter: React.FC = () => {
             </div>
           </div>
 
-          {!stats.isAiAudited && (
-            <div className="mx-2 p-6 bg-blue-50 border border-blue-100 rounded-[2rem] flex flex-col sm:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
-                <div className="text-2xl">📋</div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest">Audit Your Records</p>
-                  <p className="text-[9px] text-blue-600 font-bold uppercase tracking-tight">Run a resale report on the dashboard to verify your car's value.</p>
-                </div>
-              </div>
-              <button onClick={() => setActiveTab('roadmap')} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg">View Plan</button>
-            </div>
-          )}
-
           <div className="space-y-8 px-2">
             <div className="flex bg-slate-100/50 p-2 rounded-2xl w-full sm:w-max">
               <button onClick={() => setActiveTab('roadmap')} className={`flex-1 sm:flex-none px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'roadmap' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Maintenance Plan</button>
@@ -206,29 +204,63 @@ const ServiceIntelligenceCenter: React.FC = () => {
             {activeTab === 'roadmap' && <MaintenanceRoadmap vehicle={activeVehicle} tasks={vehicleTasks} onLog={(t) => { setSelectedTaskForLog(t); setShowLogTerminal(true); }} />}
 
             {activeTab === 'ledger' && (
-              <div className="grid grid-cols-1 gap-4">
-                {activeServiceLogs.map((log) => (
-                  <div key={log.id} className="bg-white border border-slate-100 p-8 rounded-[2.5rem] shadow-sm flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between group">
-                    <div className="flex items-center gap-6">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl ${log.taskId ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'}`}>{log.taskId ? '✓' : '🛠️'}</div>
-                      <div className="space-y-1">
-                        <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest">{formatDate(log.serviceDate)}</div>
-                        <h4 className="text-2xl font-black text-slate-900 tracking-tighter leading-none">{log.serviceType}</h4>
-                        <p className="text-slate-400 text-[9px] font-bold uppercase tracking-widest">{log.category}</p>
+              <div className="grid grid-cols-1 gap-6">
+                {activeServiceLogs.length > 0 ? activeServiceLogs.map((log) => (
+                  <div key={log.id} className="bg-white border border-slate-100 p-6 sm:p-10 rounded-[2.5rem] shadow-sm flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between group relative overflow-hidden transition-all hover:shadow-xl">
+                    <div className="flex items-center gap-8 relative z-10 w-full lg:w-auto">
+                      <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-2xl shrink-0 ${log.taskId ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-300 border border-slate-100'}`}>
+                        {log.taskId ? '✓' : '🛠️'}
+                      </div>
+                      
+                      <div className="space-y-2 flex-grow">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest bg-blue-50 px-2 py-0.5 rounded-md">{formatDate(log.serviceDate)}</div>
+                          {getVerificationBadge(log.verificationLevel)}
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest border border-slate-100 px-2 py-0.5 rounded-md">{log.category} System</span>
+                        </div>
+                        <h4 className="text-2xl font-black text-slate-900 tracking-tighter leading-none group-hover:text-blue-600 transition-colors">{log.serviceType}</h4>
+                        <div className="flex items-center gap-4 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                           <span className="flex items-center gap-1.5"><span className="text-slate-300">Provider:</span> {log.provider || 'Independent Mechanic'}</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-6">
-                       <div className="text-right">
-                          <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Cost</div>
-                          <div className="text-xl font-black text-slate-900 tracking-tighter">{formatCurrency(log.cost)}</div>
+
+                    <div className="grid grid-cols-2 lg:grid-cols-2 gap-8 lg:gap-12 w-full lg:w-auto relative z-10 border-t lg:border-t-0 pt-6 lg:pt-0">
+                       <div className="space-y-1">
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Lifecycle Point</div>
+                          <div className="text-xl font-mono font-black text-slate-900 tracking-tighter">
+                             {log.mileageAtService.toLocaleString()} <span className="text-xs text-slate-300 font-sans">KM</span>
+                          </div>
                        </div>
-                       <div className="flex gap-2">
-                         <button onClick={() => handleEditLog(log)} className="w-10 h-10 rounded-xl bg-slate-50 text-blue-600 flex items-center justify-center text-[10px] font-black">Edit</button>
-                         <button onClick={() => handleDeleteLog(log.id)} className="w-10 h-10 rounded-xl bg-rose-50 text-rose-500 flex items-center justify-center text-sm">×</button>
+                       
+                       <div className="space-y-1 text-right lg:text-left">
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Investment</div>
+                          <div className="text-xl font-black text-slate-900 tracking-tighter">
+                             {formatCurrency(log.cost)}
+                          </div>
                        </div>
                     </div>
+
+                    <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-2 relative z-10 pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-50">
+                       <button onClick={() => handleEditLog(log)} className="flex-1 lg:flex-none px-6 py-3 rounded-xl bg-slate-50 text-[9px] font-black uppercase text-blue-600 hover:bg-blue-600 hover:text-white transition-all">Edit Record</button>
+                       <button onClick={() => handleDeleteLog(log.id)} className="flex-1 lg:flex-none px-4 py-3 rounded-xl bg-rose-50 text-[9px] font-black uppercase text-rose-500 hover:bg-rose-500 hover:text-white transition-all">×</button>
+                    </div>
+
+                    {log.notes && (
+                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-50 group-hover:h-auto group-hover:relative group-hover:mt-6 group-hover:p-4 group-hover:bg-slate-50 group-hover:rounded-xl group-hover:border group-hover:border-slate-100 group-hover:mx-2 transition-all duration-300 overflow-hidden">
+                        <p className="text-[10px] text-slate-500 font-medium italic truncate group-hover:whitespace-normal group-hover:line-clamp-none">
+                          <span className="font-black text-slate-400 uppercase not-italic mr-2">Note:</span>
+                          {log.notes}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                ))}
+                )) : (
+                  <div className="py-24 text-center bg-white card-radius border-2 border-dashed border-slate-100 p-12">
+                     <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tighter uppercase">No service history</h3>
+                     <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Logged repairs and maintenance will appear here</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
