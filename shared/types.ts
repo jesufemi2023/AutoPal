@@ -70,6 +70,10 @@ export interface HealthBreakdown {
   provenance: number; // Trust/Verification score
   metabolicStatus: 'optimal' | 'warning' | 'critical';
   wasteMonthly: number; // Estimated ₦ wasted
+  /**
+   * Variance percentage from the genetic baseline of the vehicle class.
+   */
+  variance: number;
 }
 
 export interface Vehicle {

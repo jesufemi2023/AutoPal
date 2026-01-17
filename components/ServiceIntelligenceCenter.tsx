@@ -49,7 +49,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
   const activeFuelLogs = useMemo(() => fuelLogs.filter(l => l.vehicleId === activeVehicleId), [fuelLogs, activeVehicleId]);
 
   const stats = useMemo(() => {
-    if (!activeVehicle) return { vitality: 0, discipline: 0, maintenanceTotal: 0, fuelTotal: 0, isAiAudited: false };
+    if (!activeVehicle) return { vitality: 0, discipline: 0, maintenanceTotal: 0, isAiAudited: false };
     
     const financial = calculateFinancialLedger(activeServiceLogs, activeFuelLogs);
     
@@ -60,7 +60,6 @@ const ServiceIntelligenceCenter: React.FC = () => {
       vitality: cachedAudit ? cachedAudit.auditedScores.vitality : null,
       discipline: cachedAudit ? cachedAudit.auditedScores.discipline : null,
       maintenanceTotal: financial.maintenanceTotal,
-      fuelTotal: financial.fuelTotal,
       isAiAudited: !!cachedAudit
     };
   }, [activeVehicle, activeServiceLogs, activeFuelLogs]);
@@ -141,16 +140,12 @@ const ServiceIntelligenceCenter: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between shadow-xl col-span-1 sm:col-span-2">
-              <div className="grid grid-cols-2 gap-8 h-full items-center">
-                <div className="space-y-4">
-                  <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Service Investment</h3>
-                  <div className="text-3xl font-black tracking-tighter">{formatCurrency(stats.maintenanceTotal)}</div>
-                </div>
-                <div className="space-y-4 border-l border-white/5 pl-8">
-                  <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Fuel Consumption</h3>
-                  <div className="text-3xl font-black tracking-tighter">{formatCurrency(stats.fuelTotal)}</div>
-                </div>
+            <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between shadow-xl col-span-1 sm:col-span-2 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-8 opacity-[0.03] text-8xl font-black pointer-events-none group-hover:scale-110 transition-transform">₦</div>
+              <div className="space-y-4 relative z-10">
+                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Service Investment Total</h3>
+                <div className="text-4xl sm:text-5xl font-black tracking-tighter">{formatCurrency(stats.maintenanceTotal)}</div>
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Calculated across {activeServiceLogs.length} verified lifecycle records.</p>
               </div>
             </div>
           </div>

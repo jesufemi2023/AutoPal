@@ -134,6 +134,8 @@ export const calculateIntelligentHealth = (
       provenance: provenanceScore,
       metabolicStatus: metabolism.status,
       wasteMonthly: metabolism.waste,
+      // Fixed: variance must be explicitly mapped to satisfy HealthBreakdown interface
+      variance: metabolism.variance,
       isCalibrating: metabolism.isCalibrating
     }
   };
