@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -10,6 +9,7 @@ import FuelIntelligenceCenter from './components/FuelIntelligenceCenter.tsx';
 import ServiceIntelligenceCenter from './components/ServiceIntelligenceCenter.tsx';
 import AssetIntelligenceCenter from './components/AssetIntelligenceCenter.tsx';
 import ProfileDossier from './components/ProfileDossier.tsx';
+import GlobalReportingCenter from './components/GlobalReportingCenter.tsx';
 import LandingTerminal from './components/LandingTerminal.tsx';
 import GuestReport from './components/GuestReport.tsx';
 import { validateEnv } from './services/envService.ts';
@@ -186,9 +186,12 @@ const App: React.FC = () => {
       </div>
 
       <div className="pt-4 border-t border-slate-50 mx-2">
+        <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Reports & Audit</p>
+        <NavItem view="report" label="Ownership Report" icon="📄" />
+        
         <button 
           onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-          className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsOpen ? 'bg-slate-900 border-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}
+          className={`mt-2 flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsOpen ? 'bg-slate-900 border-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}
         >
           <div className="flex items-center gap-4">
             <span className={`text-lg transition-transform ${isSettingsOpen ? 'rotate-90 text-blue-400' : 'group-hover:rotate-12'}`}>⚙</span>
@@ -330,7 +333,7 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        {/* Desktop Slide-out Flyout Panel - Positioned ABOVE Dashboard content via z-index */}
+        {/* Desktop Slide-out Flyout Panel */}
         <div 
           className={`absolute top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[20px_0_40px_rgba(0,0,0,0.05)] z-[90] transition-all duration-500 ease-in-out flex flex-col pt-24 px-6
             ${isSettingsOpen ? 'translate-x-[300px] opacity-100' : 'translate-x-0 opacity-0 pointer-events-none'}
@@ -369,6 +372,7 @@ const App: React.FC = () => {
             {currentView === 'marketplace' && <Marketplace />}
             {currentView === 'admin' && <AdminPanel />}
             {currentView === 'profile' && <ProfileDossier />}
+            {currentView === 'report' && <GlobalReportingCenter />}
             {currentView === 'diagnostic' && activeVehicle && (
               <div className="max-w-4xl mx-auto w-full space-y-8">
                 <header className="px-1">
@@ -417,9 +421,9 @@ const App: React.FC = () => {
           <span className="text-lg">⛽</span>
           <span className="text-[7px] font-black uppercase tracking-widest">Fuel</span>
         </button>
-        <button onClick={() => setCurrentView('profile')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'profile' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
-          <span className="text-lg">👤</span>
-          <span className="text-[7px] font-black uppercase tracking-widest">Account</span>
+        <button onClick={() => setCurrentView('report')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'report' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
+          <span className="text-lg">📄</span>
+          <span className="text-[7px] font-black uppercase tracking-widest">Report</span>
         </button>
       </nav>
     </div>
