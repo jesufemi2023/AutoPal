@@ -131,26 +131,29 @@ const FuelIntelligenceCenter: React.FC = () => {
       </button>
       {activeTooltip === id && (
         <div 
-          className="fixed inset-0 z-[10000] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setActiveTooltip(null)}
         >
           <div 
-            className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-3xl max-w-sm w-full border border-white/10 animate-in zoom-in-95 duration-200 text-center"
+            className="bg-slate-900 text-white p-6 sm:p-8 rounded-[2rem] shadow-3xl max-w-xs w-full border border-white/10 animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-start mb-6">
-               <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-400 text-lg mx-auto">ℹ️</div>
+               <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-400 text-lg">ℹ️</div>
+               <button onClick={() => setActiveTooltip(null)} className="text-slate-500 hover:text-white text-2xl font-light">×</button>
             </div>
             <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-3">Refill Intelligence</h4>
-            <p className="text-[11px] font-bold uppercase tracking-widest leading-relaxed text-slate-200 mb-8">
+            <p className="text-[11px] font-bold uppercase tracking-widest leading-relaxed text-slate-200">
               {text}
             </p>
-            <button 
-              onClick={() => setActiveTooltip(null)}
-              className="w-full py-4 bg-white/5 hover:bg-blue-600 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all"
-            >
-              Got it
-            </button>
+            <div className="mt-8 pt-6 border-t border-white/5">
+               <button 
+                 onClick={() => setActiveTooltip(null)}
+                 className="w-full py-4 bg-white/5 hover:bg-white/10 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all"
+               >
+                 Got it
+               </button>
+            </div>
           </div>
         </div>
       )}
@@ -305,7 +308,7 @@ const FuelIntelligenceCenter: React.FC = () => {
                   Overall Efficiency
                   <InfoIcon id="avgEff" text="Historical average performance over the life of your logs." />
                 </h3>
-                <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
+                <div className="text-4xl font-black tracking-tighter flex items-baseline">
                   {avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}
                   <span className="text-xs text-slate-600 ml-2 font-bold">{metric}</span>
                 </div>
@@ -356,12 +359,14 @@ const FuelIntelligenceCenter: React.FC = () => {
                        <div className="space-y-1">
                           <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center">
                             Spent
+                            <InfoIcon id={`spent-${log.id}`} text="Total cost for this refill entry." />
                           </div>
                           <div className="text-xl font-black text-slate-900 tracking-tighter">{formatCurrency(log.totalCost)}</div>
                        </div>
                        <div className="space-y-1">
                           <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center">
                             Trip Efficiency
+                            <InfoIcon id={`tripEff-${log.id}`} text="Efficiency calculated for this specific fuel interval." />
                           </div>
                           <div className={`text-xl font-mono font-black ${log.tripKml && log.tripKml > 10 ? 'text-emerald-500' : 'text-slate-400'}`}>
                              {log.tripKml ? `${log.tripKml.toFixed(1)} ${metric}` : '---'}
@@ -370,6 +375,7 @@ const FuelIntelligenceCenter: React.FC = () => {
                        <div className="space-y-1">
                           <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center">
                             Distance Covered
+                            <InfoIcon id={`tripDist-${log.id}`} text="Distance driven since the previous refill." />
                           </div>
                           <div className="text-xl font-mono font-black text-blue-600">{log.tripDistance ? `${log.tripDistance} KM` : '---'}</div>
                        </div>
