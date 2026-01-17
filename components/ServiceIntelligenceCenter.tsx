@@ -6,8 +6,6 @@ import { deleteServiceLog } from '../services/logService.ts';
 import { formatCurrency, formatDate } from '../shared/utils.ts';
 import { MaintenanceTask, ServiceLog } from '../shared/types.ts';
 import { 
-  calculateIntelligentHealth,
-  calculateDisciplineScore, 
   getSpendByCategory,
   calculateFinancialLedger
 } from '../services/maintenanceLogic.ts';
@@ -17,7 +15,7 @@ import { ServiceLogTerminal } from './ServiceLogTerminal.tsx';
 const ServiceIntelligenceCenter: React.FC = () => {
   const { 
     vehicles, tasks, serviceLogs, fuelLogs, setTasks, setServiceLogs, setFuelLogs,
-    activeVehicleId, setActiveVehicleId, aiValuationReports
+    activeVehicleId, setActiveVehicleId
   } = useAutoPalStore();
   
   const [isLoading, setIsLoading] = useState(false);
@@ -28,7 +26,6 @@ const ServiceIntelligenceCenter: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
-  const cachedReport = activeVehicle ? aiValuationReports[activeVehicle.id] : null;
 
   useEffect(() => {
     if (activeVehicleId) {
@@ -52,20 +49,21 @@ const ServiceIntelligenceCenter: React.FC = () => {
   const activeFuelLogs = useMemo(() => fuelLogs.filter(l => l.vehicleId === activeVehicleId), [fuelLogs, activeVehicleId]);
 
   const stats = useMemo(() => {
-    if (!activeVehicle) return { vitality: 0, discipline: 0, maintenanceTotal: 0, fuelTotal: 0, spendByCat: {} };
+    if (!activeVehicle) return { vitality: 0, discipline: 0, maintenanceTotal: 0, fuelTotal: 0, isAiAudited: false };
     
     const financial = calculateFinancialLedger(activeServiceLogs, activeFuelLogs);
-    const health = calculateIntelligentHealth(activeVehicle, vehicleTasks, activeFuelLogs, activeServiceLogs);
-
+    
+    // SOURCE OF TRUTH: If the AI has spoken, we use its scores.
+    const cachedAudit = activeVehicle.latestAiAudit;
+    
     return {
-      vitality: cachedReport ? cachedReport.auditedScores.vitality : health.total,
-      discipline: cachedReport ? cachedReport.auditedScores.discipline : Math.round(calculateDisciplineScore(activeServiceLogs, vehicleTasks)),
+      vitality: cachedAudit ? cachedAudit.auditedScores.vitality : null,
+      discipline: cachedAudit ? cachedAudit.auditedScores.discipline : null,
       maintenanceTotal: financial.maintenanceTotal,
       fuelTotal: financial.fuelTotal,
-      spendByCat: getSpendByCategory(activeServiceLogs),
-      isAiAudited: !!cachedReport
+      isAiAudited: !!cachedAudit
     };
-  }, [activeVehicle, vehicleTasks, activeServiceLogs, activeFuelLogs, cachedReport]);
+  }, [activeVehicle, activeServiceLogs, activeFuelLogs]);
 
   const handleDeleteLog = async (id: string) => {
     if (!confirm("Are you sure? This will permanently delete the record.")) return;
@@ -105,17 +103,6 @@ const ServiceIntelligenceCenter: React.FC = () => {
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8] transition-all">
             Service <br/><span className="text-blue-600">Module</span>
           </h2>
-          {vehicles.length > 1 && (
-            <div className="relative group/scroll w-full max-sm mt-4">
-              <div ref={scrollContainerRef} className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide scroll-smooth">
-                {vehicles.map(v => (
-                  <button key={v.id} onClick={() => setActiveVehicleId(v.id)} className={`flex-shrink-0 px-4 py-2 rounded-full text-[8px] font-black uppercase tracking-widest border transition-all ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400'}`}>
-                    {v.model}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
         <button disabled={!activeVehicle} onClick={() => setShowLogTerminal(true)} className="bg-slate-900 text-white px-8 sm:px-12 py-5 sm:py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-3xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
           <span className="text-lg sm:text-xl">🛠️</span>
@@ -130,20 +117,27 @@ const ServiceIntelligenceCenter: React.FC = () => {
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-2">
-            <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm">
+            <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm group">
               <div className="space-y-4">
-                <div className="flex justify-between">
-                  <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Asset Vitality</h3>
-                  {stats.isAiAudited && <span className="text-[7px] text-blue-500 font-black">AI Audited</span>}
+                <div className="flex justify-between items-center">
+                  <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Audited Vitality</h3>
+                  {stats.isAiAudited && <span className="text-[7px] text-blue-600 font-black uppercase">Audited</span>}
                 </div>
-                <div className="text-4xl font-black text-slate-900 tracking-tighter">{stats.vitality}%</div>
+                <div className={`text-4xl font-black tracking-tighter ${stats.vitality !== null ? 'text-blue-600' : 'text-slate-300'}`}>
+                  {stats.vitality !== null ? `${stats.vitality}%` : '--'}
+                </div>
               </div>
             </div>
 
-            <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm">
+            <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm group">
               <div className="space-y-4">
-                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Discipline</h3>
-                <div className="text-4xl font-black text-slate-900 tracking-tighter">{stats.discipline}%</div>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Audited Discipline</h3>
+                  {stats.isAiAudited && <span className="text-[7px] text-emerald-600 font-black uppercase">Audited</span>}
+                </div>
+                <div className={`text-4xl font-black tracking-tighter ${stats.discipline !== null ? 'text-emerald-600' : 'text-slate-300'}`}>
+                  {stats.discipline !== null ? `${stats.discipline}%` : '--'}
+                </div>
               </div>
             </div>
 
@@ -160,6 +154,19 @@ const ServiceIntelligenceCenter: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {!stats.isAiAudited && (
+            <div className="mx-2 p-6 bg-blue-50 border border-blue-100 rounded-[2rem] flex flex-col sm:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="text-2xl">⚖️</div>
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest">Neural Audit Required</p>
+                  <p className="text-[9px] text-blue-600 font-bold uppercase tracking-tight">Run a resale valuation report to activate your audited health scores.</p>
+                </div>
+              </div>
+              <button onClick={() => setActiveTab('roadmap')} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg">Run Audit Now</button>
+            </div>
+          )}
 
           <div className="space-y-8 px-2">
             <div className="flex bg-slate-100/50 p-2 rounded-2xl w-full sm:w-max">
@@ -206,5 +213,4 @@ const ServiceIntelligenceCenter: React.FC = () => {
   );
 };
 
-// Add missing default export
 export default ServiceIntelligenceCenter;
