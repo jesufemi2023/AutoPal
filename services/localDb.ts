@@ -5,6 +5,7 @@ import { Vehicle, MaintenanceTask, ServiceLog, FuelLog } from '../shared/types.t
 /**
  * AutoPal Local Persistence Engine (IndexedDB)
  * Ensures the app works offline and data persists across refreshes.
+ * Stores the full Vehicle object including latestAiAudit.
  */
 
 const db = new Dexie('AutoPalGarage') as Dexie & {
@@ -14,7 +15,9 @@ const db = new Dexie('AutoPalGarage') as Dexie & {
   fuelLogs: EntityTable<FuelLog, 'id'>;
 };
 
-db.version(1).stores({
+// We index keys we need to query by frequently.
+// Dexie stores the entire object, so fields like `latestAiAudit` are safe.
+db.version(2).stores({
   vehicles: 'id, ownerId, vin, isDirty',
   tasks: 'id, vehicleId, status, isDirty',
   serviceLogs: 'id, vehicleId, isDirty',
@@ -50,7 +53,6 @@ export const localDb = {
     return { vehicles, tasks, logs, fuel };
   },
   
-  // Fix: Cast table to any to correctly call update on different entity types
   clearDirtyFlag: async (id: string, table: 'vehicles' | 'tasks' | 'serviceLogs' | 'fuelLogs') => {
     return (db[table] as any).update(id, { isDirty: false, lastSyncedAt: new Date().toISOString() });
   }

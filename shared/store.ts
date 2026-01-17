@@ -1,6 +1,7 @@
 
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
+import { localDb } from '../services/localDb.ts';
 
 interface AutoPalState {
   user: UserProfile | null;
@@ -52,6 +53,7 @@ interface AutoPalState {
   setSuggestedParts: (parts: string[]) => void;
   setMarketplaceFilter: (filter: string) => void;
   reset: () => void;
+  loadLocalData: () => Promise<void>;
 }
 
 export const useAutoPalStore = create<AutoPalState>((set, get) => ({
@@ -73,6 +75,16 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   suggestedPartNames: [],
   marketplace: [],
   marketplaceFilter: '',
+
+  loadLocalData: async () => {
+    const localVehicles = await localDb.getVehicles();
+    if (localVehicles.length > 0) {
+      set({ 
+        vehicles: localVehicles,
+        activeVehicleId: get().activeVehicleId || localVehicles[0].id
+      });
+    }
+  },
 
   setSession: (session) => {
     if (!session) {
@@ -122,44 +134,91 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     return { guestAttempts: newCount };
   }),
 
-  setVehicles: (vehicles) => set({ 
-    vehicles,
-    activeVehicleId: get().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
-  }),
-  addVehicle: (vehicle) => set((state) => ({ 
-    vehicles: [vehicle, ...state.vehicles],
-    activeVehicleId: vehicle.id 
-  })),
-  updateVehicleStore: (vehicle) => set((state) => ({
-    vehicles: state.vehicles.map(v => v.id === vehicle.id ? vehicle : v)
-  })),
-  syncVehicleState: (vehicleId, updates) => set((state) => ({
-    vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, ...updates } : v)
-  })),
-  removeVehicleStore: (vehicleId) => set((state) => ({
-    vehicles: state.vehicles.filter(v => v.id !== vehicleId),
-    tasks: state.tasks.filter(t => t.vehicleId !== vehicleId),
-    serviceLogs: state.serviceLogs.filter(l => l.vehicleId !== vehicleId),
-    fuelLogs: state.fuelLogs.filter(l => l.vehicleId !== vehicleId),
-    activeVehicleId: state.activeVehicleId === vehicleId ? (state.vehicles.length > 1 ? state.vehicles.find(v => v.id !== vehicleId)?.id || null : null) : state.activeVehicleId
-  })),
-  updateMileage: (vehicleId, mileage) => set((state) => ({
-    vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, mileage } : v)
-  })),
-  completeTask: (taskId, cost, currentMileage) => set((state) => ({
-    tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'completed' } : t)
-  })),
-  setTasks: (tasks) => set({ tasks }),
-  setServiceLogs: (serviceLogs) => set({ serviceLogs }),
-  addServiceLog: (log) => set((state) => ({ serviceLogs: [log, ...state.serviceLogs] })),
-  updateServiceLogStore: (log) => set((state) => ({
-    serviceLogs: state.serviceLogs.map(l => l.id === log.id ? log : l)
-  })),
-  setFuelLogs: (fuelLogs) => set({ fuelLogs }),
-  addFuelLogStore: (log) => set((state) => ({ fuelLogs: [log, ...state.fuelLogs] })),
-  updateFuelLogStore: (log) => set((state) => ({
-    fuelLogs: state.fuelLogs.map(l => l.id === log.id ? log : l)
-  })),
+  setVehicles: (vehicles) => {
+    set({ 
+      vehicles,
+      activeVehicleId: get().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
+    });
+    // Update local cache
+    vehicles.forEach(v => localDb.saveVehicle(v));
+  },
+  addVehicle: (vehicle) => {
+    set((state) => ({ 
+      vehicles: [vehicle, ...state.vehicles],
+      activeVehicleId: vehicle.id 
+    }));
+    localDb.saveVehicle(vehicle);
+  },
+  updateVehicleStore: (vehicle) => {
+    set((state) => ({
+      vehicles: state.vehicles.map(v => v.id === vehicle.id ? vehicle : v)
+    }));
+    localDb.saveVehicle(vehicle);
+  },
+  syncVehicleState: (vehicleId, updates) => {
+    set((state) => ({
+      vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, ...updates } : v)
+    }));
+    const updated = get().vehicles.find(v => v.id === vehicleId);
+    if (updated) localDb.saveVehicle(updated);
+  },
+  removeVehicleStore: (vehicleId) => {
+    set((state) => ({
+      vehicles: state.vehicles.filter(v => v.id !== vehicleId),
+      tasks: state.tasks.filter(t => t.vehicleId !== vehicleId),
+      serviceLogs: state.serviceLogs.filter(l => l.vehicleId !== vehicleId),
+      fuelLogs: state.fuelLogs.filter(l => l.vehicleId !== vehicleId),
+      activeVehicleId: state.activeVehicleId === vehicleId ? (state.vehicles.length > 1 ? state.vehicles.find(v => v.id !== vehicleId)?.id || null : null) : state.activeVehicleId
+    }));
+    localDb.deleteVehicle(vehicleId);
+  },
+  updateMileage: (vehicleId, mileage) => {
+    set((state) => ({
+      vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, mileage } : v)
+    }));
+    const updated = get().vehicles.find(v => v.id === vehicleId);
+    if (updated) localDb.saveVehicle(updated);
+  },
+  completeTask: (taskId, cost, currentMileage) => {
+    set((state) => ({
+      tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'completed' } : t)
+    }));
+    const updatedTask = get().tasks.find(t => t.id === taskId);
+    if (updatedTask) localDb.saveTask(updatedTask);
+  },
+  setTasks: (tasks) => {
+    set({ tasks });
+    localDb.saveTasksBatch(tasks);
+  },
+  setServiceLogs: (serviceLogs) => {
+    set({ serviceLogs });
+    // Batch save to local
+    serviceLogs.forEach(l => localDb.saveLog(l));
+  },
+  addServiceLog: (log) => {
+    set((state) => ({ serviceLogs: [log, ...state.serviceLogs] }));
+    localDb.saveLog(log);
+  },
+  updateServiceLogStore: (log) => {
+    set((state) => ({
+      serviceLogs: state.serviceLogs.map(l => l.id === log.id ? log : l)
+    }));
+    localDb.saveLog(log);
+  },
+  setFuelLogs: (fuelLogs) => {
+    set({ fuelLogs });
+    fuelLogs.forEach(l => localDb.saveFuelLog(l));
+  },
+  addFuelLogStore: (log) => {
+    set((state) => ({ fuelLogs: [log, ...state.fuelLogs] }));
+    localDb.saveFuelLog(log);
+  },
+  updateFuelLogStore: (log) => {
+    set((state) => ({
+      fuelLogs: state.fuelLogs.map(l => l.id === log.id ? log : l)
+    }));
+    localDb.saveFuelLog(log);
+  },
   removeFuelLogStore: (logId) => set((state) => ({
     fuelLogs: state.fuelLogs.filter(l => l.id !== logId)
   })),

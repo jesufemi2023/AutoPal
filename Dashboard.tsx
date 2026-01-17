@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { 
-  fetchVehicleTasks, fetchVehicleServiceLogs, updateMileage, updateVehicle
+  fetchVehicleTasks, fetchVehicleServiceLogs, updateMileage, updateVehicle, fetchUserVehicles
 } from './services/vehicleService.ts';
 import { fetchFuelLogs } from './services/fuelService.ts';
 import { OdometerInput } from './components/OdometerInput.tsx';
@@ -18,17 +18,40 @@ const Dashboard: React.FC = () => {
     vehicles, tasks, serviceLogs, fuelLogs,
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
-    updateMileage: updateStoreMileage, updateVehicleStore
+    updateMileage: updateStoreMileage, updateVehicleStore,
+    loadLocalData, setVehicles
   } = useAutoPalStore();
 
   const [showOdometerModal, setShowOdometerModal] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
   const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicleId);
   const activeServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
   const activeFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicleId);
+
+  // 1. Initial Local Load
+  useEffect(() => {
+    loadLocalData();
+  }, [loadLocalData]);
+
+  // 2. Background Sync (Silent Update)
+  useEffect(() => {
+    const syncVehicles = async () => {
+      setIsSyncing(true);
+      try {
+        const cloudVehicles = await fetchUserVehicles();
+        setVehicles(cloudVehicles);
+      } catch (err) {
+        console.warn("Cloud sync deferred: Network unstable or RLS restriction.");
+      } finally {
+        setIsSyncing(false);
+      }
+    };
+    syncVehicles();
+  }, [setVehicles]);
 
   useEffect(() => {
     if (vehicles.length > 0 && !activeVehicleId) setActiveVehicleId(vehicles[0].id);
@@ -75,13 +98,15 @@ const Dashboard: React.FC = () => {
     <div className="space-y-6 sm:space-y-10 lg:space-y-14 w-full max-w-full overflow-x-hidden pb-10 px-1">
       <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 px-1">
         <div className="shrink-0">
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter mb-1.5 leading-none uppercase">My <span className="text-blue-600">Garage</span></h1>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">My <span className="text-blue-600">Garage</span></h1>
+            {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2" title="Syncing with Cloud"></div>}
+          </div>
           <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">System Status: Monitoring Active</p>
         </div>
         
         {/* Slidable Vehicle Selection Bar */}
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
-          {/* Desktop Navigation Buttons */}
           <button 
             onClick={() => handleScroll('left')}
             className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/80 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-lg text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-5"
