@@ -1,10 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, updateMileage, updateVehicle
 } from './services/vehicleService.ts';
 import { fetchFuelLogs } from './services/fuelService.ts';
-import { localDb } from './services/localDb.ts';
 import { OdometerInput } from './components/OdometerInput.tsx';
 
 import { VehicleOverview } from './components/dashboard/VehicleOverview.tsx';
@@ -18,7 +18,7 @@ const Dashboard: React.FC = () => {
     vehicles, tasks, serviceLogs, fuelLogs,
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
-    updateMileage: updateStoreMileage, updateVehicleStore, setVehicles
+    updateMileage: updateStoreMileage, updateVehicleStore
   } = useAutoPalStore();
 
   const [showOdometerModal, setShowOdometerModal] = useState(false);
@@ -30,35 +30,13 @@ const Dashboard: React.FC = () => {
   const activeServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
   const activeFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicleId);
 
-  // Phase 1: Local-First Load
   useEffect(() => {
-    const loadFromCache = async () => {
-      const cachedVehicles = await localDb.getVehicles();
-      if (cachedVehicles.length > 0) {
-        setVehicles(cachedVehicles);
-        if (!activeVehicleId) setActiveVehicleId(cachedVehicles[0].id);
-      }
-    };
-    loadFromCache();
-  }, []);
+    if (vehicles.length > 0 && !activeVehicleId) setActiveVehicleId(vehicles[0].id);
+  }, [vehicles, activeVehicleId, setActiveVehicleId]);
 
-  // Phase 2: Background Cloud Sync
   useEffect(() => {
     if (activeVehicleId) {
       setIsLoadingDetails(true);
-      
-      // Pull local telemetry first for 0ms UI pop
-      Promise.all([
-        localDb.getTasks(activeVehicleId),
-        localDb.getLogs(activeVehicleId),
-        localDb.getFuelLogs(activeVehicleId)
-      ]).then(([t, l, f]) => {
-        if (t.length > 0) setTasks(t);
-        if (l.length > 0) setServiceLogs(l);
-        if (f.length > 0) setFuelLogs(f);
-      });
-
-      // Background Fetch from Cloud (Master Copy)
       Promise.all([
         fetchVehicleTasks(activeVehicleId),
         fetchVehicleServiceLogs(activeVehicleId),
@@ -68,24 +46,17 @@ const Dashboard: React.FC = () => {
         setTasks(taskList);
         setServiceLogs(logList);
         setFuelLogs(fuelList);
-        
-        // Persist Master Copy to Browser Cache
-        localDb.saveTasksBatch(taskList);
-        logList.forEach(log => localDb.saveLog(log));
-        fuelList.forEach(fuel => localDb.saveFuelLog(fuel));
       })
       .finally(() => setIsLoadingDetails(false));
     }
-  }, [activeVehicleId]);
+  }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
 
-  // Phase 3: Update local score if not AI audited (Fallback only)
   useEffect(() => {
-    if (activeVehicle && tasks.length > 0 && !activeVehicle.latestAiAudit) {
+    if (activeVehicle && tasks.length > 0) {
       const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
       if (newScore !== activeVehicle.healthScore) {
         updateVehicle(activeVehicle.id, { healthScore: newScore });
         updateVehicleStore({ ...activeVehicle, healthScore: newScore });
-        localDb.saveVehicle({ ...activeVehicle, healthScore: newScore });
       }
     }
   }, [tasks, activeVehicle?.mileage, activeFuelLogs, activeServiceLogs]);
@@ -105,13 +76,23 @@ const Dashboard: React.FC = () => {
       <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 px-1">
         <div className="shrink-0">
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter mb-1.5 leading-none uppercase">My <span className="text-blue-600">Garage</span></h1>
-          <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">Status: Monitoring Node {activeVehicleId?.split('-')[0]}</p>
+          <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">System Status: Monitoring Active</p>
         </div>
         
+        {/* Slidable Vehicle Selection Bar */}
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
+          {/* Desktop Navigation Buttons */}
+          <button 
+            onClick={() => handleScroll('left')}
+            className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/80 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-lg text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-5"
+            aria-label="Scroll Left"
+          >
+            ←
+          </button>
+          
           <div 
             ref={scrollContainerRef}
-            className="flex gap-3 overflow-x-auto scrollbar-hide py-1.5 px-0.5 -mx-0.5 flex-nowrap snap-x snap-mandatory scroll-smooth"
+            className="flex gap-3 overflow-x-auto scrollbar-hide scrollbar-desktop-show py-1.5 px-0.5 -mx-0.5 flex-nowrap snap-x snap-mandatory scroll-smooth"
           >
             {vehicles.length > 0 && vehicles.map(v => (
               <button 
@@ -128,6 +109,14 @@ const Dashboard: React.FC = () => {
               </button>
             ))}
           </div>
+
+          <button 
+            onClick={() => handleScroll('right')}
+            className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/80 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-lg text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -mr-5"
+            aria-label="Scroll Right"
+          >
+            →
+          </button>
         </div>
       </header>
 
@@ -159,13 +148,29 @@ const Dashboard: React.FC = () => {
               onLog={() => setCurrentView('service')} 
             />
           </div>
+
+          <div className="bg-slate-50 rounded-[1.5rem] p-6 border border-slate-200 shadow-sm w-full">
+            <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Quick Insights</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                  <span className="text-slate-500">Service Coverage</span>
+                  <span className="text-slate-900 font-mono">{vehicleTasks.filter(t => t.status === 'completed').length} / {vehicleTasks.length}</span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-600 rounded-full transition-all duration-1000" style={{ width: `${(vehicleTasks.filter(t => t.status === 'completed').length / (vehicleTasks.length || 1)) * 100}%` }}></div>
+                </div>
+              </div>
+              <p className="text-[8px] font-bold text-slate-400 uppercase leading-relaxed flex items-center">Health and efficiency scores are calculated in real-time based on your vehicle's maintenance history and fuel usage.</p>
+            </div>
+          </div>
         </div>
       ) : (
         !isLoadingDetails && (
           <div className="py-20 sm:py-24 text-center bg-white rounded-[2.5rem] border border-slate-100 p-8 sm:p-14 shadow-sm mx-auto max-w-2xl w-full">
              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-3xl mx-auto mb-6 sm:mb-8 shadow-inner">🚙</div>
-             <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-1.5">No Vehicles Linked</h3>
-             <p className="text-slate-400 mb-8 text-[8px] sm:text-[9px] font-black uppercase tracking-widest max-w-xs mx-auto">Deploy a digital twin to start monitoring.</p>
+             <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-1.5">No Vehicles Found</h3>
+             <p className="text-slate-400 mb-8 text-[8px] sm:text-[9px] font-black uppercase tracking-widest max-w-xs mx-auto">Get started by adding your vehicle to the system.</p>
              <button onClick={() => setCurrentView('onboarding')} className="w-full sm:w-auto bg-slate-900 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-[1.25rem] font-black uppercase tracking-widest text-[9px] shadow-lg hover:bg-blue-600 transition-all">Add Your Vehicle →</button>
           </div>
         )

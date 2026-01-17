@@ -1,3 +1,4 @@
+
 import { Vehicle, MaintenanceTask, ServiceLog, Priority, ServiceCategory, FuelLog, HealthBreakdown } from '../shared/types.ts';
 
 /**
@@ -15,16 +16,6 @@ const GENETIC_BASELINES: Record<string, number> = {
 };
 
 const REGIONAL_STRESS_FACTOR = 1.2; 
-
-/**
- * TELEMETRY DRIFT ENGINE
- * Returns the timestamp of the most recent data point in the system.
- */
-export const getLatestTelemetryTimestamp = (serviceLogs: ServiceLog[], fuelLogs: FuelLog[]): number => {
-  const serviceTimes = serviceLogs.map(l => new Date(l.createdAt || l.serviceDate).getTime());
-  const fuelTimes = fuelLogs.map(l => new Date(l.createdAt).getTime());
-  return Math.max(0, ...serviceTimes, ...fuelTimes);
-};
 
 /**
  * VELOCITY ENGINE
@@ -47,7 +38,7 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
 };
 
 /**
- * METABOLIC ENGINE (Now treated as Evidence for AI)
+ * METABOLIC ENGINE
  */
 export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]): { score: number, status: 'optimal' | 'warning' | 'critical', waste: number, variance: number, isCalibrating: boolean } => {
   if (fuelLogs.length < 3) {
@@ -93,7 +84,7 @@ export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]):
 };
 
 /**
- * DETERMINISTIC INTELLIGENT HEALTH (Internal Evidence Only)
+ * DETERMINISTIC INTELLIGENT HEALTH CHECK
  */
 export const calculateIntelligentHealth = (
   vehicle: Vehicle, 
@@ -196,7 +187,7 @@ export const calculateDisciplineScore = (logs: ServiceLog[], tasks: MaintenanceT
 };
 
 /**
- * REFACTORED: Expenditure Logic
+ * REFACTORED: Decoupled Expenditure Logic
  */
 export const calculateFinancialLedger = (serviceLogs: ServiceLog[], fuelLogs: FuelLog[]): { maintenanceTotal: number, fuelTotal: number, grandTotal: number } => {
   const maintenanceTotal = serviceLogs.reduce((acc, l) => acc + (l.cost || 0), 0);
