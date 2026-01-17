@@ -1,3 +1,4 @@
+
 import { ENV } from './envService.ts';
 
 /**
@@ -26,7 +27,7 @@ export const PROMPTS = {
 
     For EACH task, provide:
     - A technical 'title'
-    - A 'description' that EXPLAINS THE ENGINEERING LOGIC and the CONSEQUENCE of neglect in high-heat environments.
+    - A 'description' that explains THE ENGINEERING LOGIC and THE CONSEQUENCE of neglect.
     - 'dueMileage' (number)
     - 'priority' (low/medium/high)
     - 'category' (fluids, engine, brakes, suspension, tires, other)

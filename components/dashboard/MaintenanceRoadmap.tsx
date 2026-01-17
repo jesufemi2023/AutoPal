@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Vehicle, MaintenanceTask, ServiceCategory, TaskStatus } from '../../shared/types.ts';
 import { getTaskMaintenanceStatus, predictServiceDate } from '../../services/maintenanceLogic.ts';
