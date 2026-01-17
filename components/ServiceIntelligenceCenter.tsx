@@ -3,7 +3,7 @@ import { useAutoPalStore } from '../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../services/vehicleService.ts';
 import { fetchFuelLogs } from '../services/fuelService.ts';
 import { deleteServiceLog } from '../services/logService.ts';
-import { formatCurrency, formatDate } from '../shared/utils.ts';
+import { formatCurrency, formatDate, exportToCSV, triggerProfessionalPrint } from '../shared/utils.ts';
 import { MaintenanceTask, ServiceLog } from '../shared/types.ts';
 import { 
   getSpendByCategory,
@@ -60,6 +60,23 @@ const ServiceIntelligenceCenter: React.FC = () => {
       isAiAudited: !!cachedAudit
     };
   }, [activeVehicle, activeServiceLogs, activeFuelLogs]);
+
+  const handleExportCSV = () => {
+    const exportData = activeServiceLogs.map(l => ({
+      Date: formatDate(l.serviceDate),
+      Type: l.serviceType,
+      Category: l.category,
+      Provider: l.provider || 'Independent Mechanic',
+      Mileage: `${l.mileageAtService.toLocaleString()} KM`,
+      Cost: formatCurrency(l.cost),
+      Verification: l.verificationLevel
+    }));
+    exportToCSV(exportData, `AutoPal_ServiceHistory_${activeVehicle?.make}_${activeVehicle?.model}`);
+  };
+
+  const handleExportPDF = () => {
+    triggerProfessionalPrint('service-report-content');
+  };
 
   const handleDeleteLog = async (id: string) => {
     if (!confirm("Are you sure?")) return;
@@ -129,15 +146,85 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
   return (
     <div className="space-y-12 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2">
+      {/* Hidden Print Template */}
+      <div id="service-report-content" className="hidden" style={{ width: '100%' }}>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @media print {
+            #service-report-content { display: block !important; }
+            .no-print { display: none !important; }
+            body { background: white !important; }
+            table { -webkit-print-color-adjust: exact; width: 100%; border-collapse: collapse; }
+          }
+        `}} />
+        <div className="p-12" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+          <div className="flex justify-between items-center border-b-4 border-blue-600 pb-10 mb-10">
+            <div className="space-y-1">
+              <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900">AutoPal NG</h1>
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-600">Official Asset Maintenance Dossier</p>
+            </div>
+            <div className="text-right">
+              <h2 className="text-2xl font-black text-slate-900">{activeVehicle?.year} {activeVehicle?.make} {activeVehicle?.model}</h2>
+              <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest">VIN: {activeVehicle?.vin || 'UNAVAILABLE'}</p>
+            </div>
+          </div>
+          
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-100">
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500">Date</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500">Service Operation</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500">Facility</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500 text-right">Odometer</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500 text-right">Investment</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {activeServiceLogs.map((log) => (
+                <tr key={log.id}>
+                  <td className="p-4 text-[10px] font-bold text-slate-500">{formatDate(log.serviceDate)}</td>
+                  <td className="p-4 text-[11px] font-black text-slate-900 uppercase tracking-tight">{log.serviceType}</td>
+                  <td className="p-4 text-[10px] font-bold text-slate-400 italic">{log.provider || 'Independent'}</td>
+                  <td className="p-4 text-[11px] font-mono font-bold text-slate-900 text-right">{log.mileageAtService.toLocaleString()} KM</td>
+                  <td className="p-4 text-[11px] font-black text-blue-600 text-right">{formatCurrency(log.cost)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="mt-20 pt-10 border-t-2 border-slate-100 flex justify-between items-end">
+             <div className="space-y-4">
+                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Generated: {new Date().toLocaleString()} // Verified Digital Ledger</p>
+                <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest max-w-sm leading-relaxed">
+                  This document serves as an official maintenance record for the identified asset.
+                </p>
+             </div>
+             <div className="text-right">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Maintenance Spend</p>
+                <p className="text-4xl font-black text-slate-900 tracking-tighter">{formatCurrency(stats.maintenanceTotal)}</p>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2 no-print">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-spin' : 'bg-blue-600 animate-pulse'}`}></div>
             <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">{isLoading ? 'Loading records...' : 'Service History Active'}</span>
           </div>
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Service <br/><span className="text-blue-600">Records</span></h2>
+          
+          <div className="flex gap-3 pt-6">
+             <button onClick={handleExportCSV} className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-3">
+               <span className="text-base">📊</span> Export Excel (CSV)
+             </button>
+             <button onClick={handleExportPDF} className="bg-blue-50 text-blue-600 border border-blue-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-blue-600 hover:text-white transition-all flex items-center gap-3">
+               <span className="text-base">📄</span> Official PDF Dossier
+             </button>
+          </div>
+
           {vehicles.length > 1 && (
-            <div className="relative group/scroll w-full max-w-sm mt-4">
+            <div className="relative group/scroll w-full max-w-sm mt-6">
               <button onClick={() => handleScroll('left')} className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-4">←</button>
               <div ref={scrollContainerRef} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide scrollbar-desktop-show scroll-smooth px-1">
                 {vehicles.map(v => (
@@ -156,11 +243,11 @@ const ServiceIntelligenceCenter: React.FC = () => {
       </header>
 
       {!activeVehicle ? (
-        <div className="py-24 text-center bg-white card-radius border-2 border-slate-50 p-12">
+        <div className="py-24 text-center bg-white card-radius border-2 border-slate-50 p-12 no-print">
            <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest">No Active Asset Selected</h3>
         </div>
       ) : (
-        <>
+        <div className="space-y-12 no-print">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-2">
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm group">
               <div className="space-y-4">
@@ -209,7 +296,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
             {activeTab === 'ledger' && (
               <div className="grid grid-cols-1 gap-6">
                 {activeServiceLogs.length > 0 ? activeServiceLogs.map((log) => (
-                  <div key={log.id} className="bg-white border border-slate-100 p-6 sm:p-10 rounded-[2.5rem] shadow-sm flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between group relative overflow-hidden transition-all hover:shadow-xl">
+                  <div key={log.id} className="bg-white border border-slate-100 p-6 sm:p-10 rounded-[2.5rem] shadow-sm flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between group relative transition-all hover:shadow-xl">
                     <div className="flex items-center gap-8 relative z-10 w-full lg:w-auto">
                       <div className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center text-2xl shrink-0 ${log.taskId ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-50 text-slate-300 border border-slate-100'}`}>
                         {log.taskId ? '✓' : '🛠️'}
@@ -229,26 +316,20 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
                     <div className="grid grid-cols-2 lg:grid-cols-2 gap-8 lg:gap-12 w-full lg:w-auto relative z-10 border-t lg:border-t-0 pt-6 lg:pt-0">
                        <div className="space-y-1">
-                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center">
-                            Lifecycle Point
-                            <InfoIcon id={`mileage-${log.id}`} text="The odometer reading when this service was performed." />
-                          </div>
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Odometer</div>
                           <div className="text-xl font-mono font-black text-slate-900 tracking-tighter">
                              {log.mileageAtService.toLocaleString()} <span className="text-xs text-slate-300 font-sans">KM</span>
                           </div>
                        </div>
                        <div className="space-y-1 text-right lg:text-left">
-                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest flex items-center">
-                            Investment
-                            <InfoIcon id={`cost-${log.id}`} text="Total cost recorded for this maintenance event." />
-                          </div>
+                          <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Investment</div>
                           <div className="text-xl font-black text-slate-900 tracking-tighter">{formatCurrency(log.cost)}</div>
                        </div>
                     </div>
 
                     <div className="w-full lg:w-auto flex flex-col sm:flex-row gap-2">
-                       <button onClick={() => handleEditLog(log)} className="px-6 py-3 rounded-xl bg-slate-50 text-[9px] font-black uppercase text-blue-600">Edit</button>
-                       <button onClick={() => handleDeleteLog(log.id)} className="px-4 py-3 rounded-xl bg-rose-50 text-[9px] font-black uppercase text-rose-500">×</button>
+                       <button onClick={() => handleEditLog(log)} className="px-6 py-3 rounded-xl bg-slate-50 text-[9px] font-black uppercase text-blue-600 hover:bg-blue-600 hover:text-white transition-all">Edit</button>
+                       <button onClick={() => handleDeleteLog(log.id)} className="px-4 py-3 rounded-xl bg-rose-50 text-[9px] font-black uppercase text-rose-500 hover:bg-rose-500 hover:text-white transition-all">×</button>
                     </div>
                   </div>
                 )) : (
@@ -260,7 +341,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
               </div>
             )}
           </div>
-        </>
+        </div>
       )}
 
       {showLogTerminal && activeVehicle && (

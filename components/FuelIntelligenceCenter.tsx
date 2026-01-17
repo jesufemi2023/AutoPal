@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../services/fuelService.ts';
-import { formatCurrency, formatDate, kmlToMpg } from '../shared/utils.ts';
+import { formatCurrency, formatDate, kmlToMpg, exportToCSV, triggerProfessionalPrint } from '../shared/utils.ts';
 import FuelEntryTerminal from './FuelEntryTerminal.tsx';
 import { FuelLog } from '../shared/types.ts';
 import { ENV } from '../services/envService.ts';
@@ -13,6 +13,7 @@ const FuelIntelligenceCenter: React.FC = () => {
   } = useAutoPalStore();
   
   const [isLoading, setIsLoading] = useState(false);
+  const [hasRequestedHistory, setHasRequestedHistory] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showTerminal, setShowTerminal] = useState(false);
   const [editingLog, setEditingLog] = useState<FuelLog | null>(null);
@@ -22,22 +23,25 @@ const FuelIntelligenceCenter: React.FC = () => {
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
+  // RESET on-demand state when vehicle changes to prevent automatic display
   useEffect(() => {
-    const loadLogs = async () => {
-      if (!activeVehicleId) return;
-      setIsLoading(true);
-      setFetchError(null);
-      try {
-        const logs = await fetchFuelLogs(activeVehicleId);
-        setFuelLogs(logs);
-      } catch (err: any) {
-        setFetchError(err.message || "Connection failure.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadLogs();
-  }, [activeVehicleId, setFuelLogs]);
+    setHasRequestedHistory(false);
+  }, [activeVehicleId]);
+
+  const loadHistoryLogs = async () => {
+    if (!activeVehicleId) return;
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const logs = await fetchFuelLogs(activeVehicleId);
+      setFuelLogs(logs);
+      setHasRequestedHistory(true);
+    } catch (err: any) {
+      setFetchError(err.message || "Connection failure.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const logsWithAnalytics = useMemo(() => {
     const sorted = [...fuelLogs].sort((a, b) => (b.odometerKm || 0) - (a.odometerKm || 0));
@@ -87,6 +91,22 @@ const FuelIntelligenceCenter: React.FC = () => {
 
   const totalFuelSpend = useMemo(() => fuelLogs.reduce((acc, l) => acc + (l.totalCost || 0), 0), [fuelLogs]);
   
+  const handleExportCSV = () => {
+    const exportData = logsWithAnalytics.map(l => ({
+      Date: formatDate(l.createdAt),
+      Liters: `${l.liters.toFixed(2)} L`,
+      Cost: formatCurrency(l.totalCost),
+      Odometer: `${l.odometerKm} KM`,
+      Vendor: l.vendor || 'N/A',
+      Efficiency: l.tripKml ? `${l.tripKml.toFixed(2)} KM/L` : '---'
+    }));
+    exportToCSV(exportData, `AutoPal_FuelHistory_${activeVehicle?.make}_${activeVehicle?.model}`);
+  };
+
+  const handleExportPDF = () => {
+    triggerProfessionalPrint('fuel-report-content');
+  };
+
   const handleDeleteRecord = async (logId: string) => {
     if (!window.confirm("CAUTION: Deleting this record will update your average efficiency. Proceed?")) return;
     try {
@@ -142,7 +162,59 @@ const FuelIntelligenceCenter: React.FC = () => {
 
   return (
     <div className="space-y-8 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2">
+      {/* Hidden PDF Template for Professional Export */}
+      <div id="fuel-report-content" className="hidden" style={{ width: '100%' }}>
+        <style dangerouslySetInnerHTML={{ __html: `
+          @media print {
+            #fuel-report-content { display: block !important; }
+            .no-print { display: none !important; }
+            body { background: white !important; }
+            table { -webkit-print-color-adjust: exact; width: 100%; border-collapse: collapse; }
+          }
+        `}} />
+        <div className="p-12" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+          <div className="flex justify-between items-center border-b-4 border-emerald-600 pb-10 mb-10">
+            <div className="space-y-1">
+              <h1 className="text-4xl font-black uppercase tracking-tighter text-slate-900">AutoPal NG</h1>
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-600">Energy & Metabolic Telemetry Audit</p>
+            </div>
+            <div className="text-right">
+              <h2 className="text-2xl font-black text-slate-900">{activeVehicle?.year} {activeVehicle?.make} {activeVehicle?.model}</h2>
+              <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest">VIN: {activeVehicle?.vin || 'UNAVAILABLE'}</p>
+            </div>
+          </div>
+          
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-slate-100">
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500">Date</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500">Vendor</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500 text-right">Liters</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500 text-right">Trip Eff.</th>
+                <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500 text-right">Price</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {logsWithAnalytics.map((log) => (
+                <tr key={log.id}>
+                  <td className="p-4 text-[10px] font-bold text-slate-500">{formatDate(log.createdAt)}</td>
+                  <td className="p-4 text-[11px] font-black text-slate-900 uppercase tracking-tight">{log.vendor || 'Station'}</td>
+                  <td className="p-4 text-[11px] font-mono text-slate-600 text-right">{log.liters.toFixed(2)} L</td>
+                  <td className="p-4 text-[11px] font-mono font-black text-emerald-600 text-right">{log.tripKml ? `${log.tripKml.toFixed(1)} KML` : '---'}</td>
+                  <td className="p-4 text-[11px] font-black text-slate-900 text-right">{formatCurrency(log.totalCost)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div className="mt-20 pt-10 border-t-2 border-slate-100 text-right">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Lifetime Energy Investment</p>
+              <p className="text-4xl font-black text-slate-900 tracking-tighter">{formatCurrency(totalFuelSpend)}</p>
+          </div>
+        </div>
+      </div>
+
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2 no-print">
         <div className="space-y-3">
           <div className="flex items-center gap-3">
             <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-spin' : (fetchError ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse')}`}></div>
@@ -153,6 +225,16 @@ const FuelIntelligenceCenter: React.FC = () => {
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">
             Fuel <br/><span className="text-blue-600">Tracker</span>
           </h2>
+          
+          <div className="flex gap-3 pt-6">
+             <button onClick={handleExportCSV} className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-3">
+               <span className="text-base">📊</span> Export Excel (CSV)
+             </button>
+             <button onClick={handleExportPDF} className="bg-blue-50 text-blue-600 border border-blue-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-blue-600 hover:text-white transition-all flex items-center gap-3">
+               <span className="text-base">📄</span> Performance PDF
+             </button>
+          </div>
+
           {vehicles.length > 1 && (
             <div className="relative group/scroll w-full max-w-sm mt-4">
               <button onClick={() => handleScroll('left')} className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-4">←</button>
@@ -181,12 +263,12 @@ const FuelIntelligenceCenter: React.FC = () => {
       </header>
 
       {!activeVehicle ? (
-        <div className="py-24 text-center bg-white card-radius border-2 border-slate-50 p-12">
+        <div className="py-24 text-center bg-white card-radius border-2 border-slate-50 p-12 no-print">
            <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest">No Vehicle Selected</h3>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-2 no-print">
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm">
               <div className="space-y-4">
                 <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
@@ -234,8 +316,25 @@ const FuelIntelligenceCenter: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-6 px-2">
-            {logsWithAnalytics.length > 0 ? (
+          <div className="space-y-6 px-2 no-print">
+            {!hasRequestedHistory ? (
+              <div className="py-24 text-center bg-white card-radius border-2 border-slate-50 p-12 flex flex-col items-center gap-8 animate-in slide-in-from-bottom-4 duration-500">
+                 <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-4xl shadow-inner">🗓️</div>
+                 <div className="space-y-3">
+                   <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">History Standby</h3>
+                   <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest max-w-xs mx-auto leading-relaxed">
+                     To optimize network load and performance, historical logs are not loaded automatically. Synchronize your telemetry manually.
+                   </p>
+                 </div>
+                 <button 
+                  onClick={loadHistoryLogs}
+                  disabled={isLoading}
+                  className="bg-slate-900 text-white px-12 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] shadow-4xl hover:bg-blue-600 transition-all flex items-center gap-4"
+                 >
+                   {isLoading ? '📡 Synchronizing...' : '📡 Retrieve Historical Data'}
+                 </button>
+              </div>
+            ) : logsWithAnalytics.length > 0 ? (
               <div className="grid grid-cols-1 gap-4">
                 {logsWithAnalytics.map((log, idx) => (
                   <div key={log.id} className="bg-white border border-slate-100 p-6 sm:p-10 rounded-[2.5rem] hover:shadow-xl transition-all group flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between shadow-sm relative overflow-hidden">
