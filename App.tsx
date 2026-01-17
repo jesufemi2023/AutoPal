@@ -143,11 +143,11 @@ const App: React.FC = () => {
     <>
       <div className="pb-4">
         <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2 mt-2">Navigation</p>
-        <NavItem view="garage" label="Dashboard" icon="🏠" />
-        <NavItem view="diagnostic" label="AI Diagnostic" icon="✧" isNeural />
+        <NavItem view="garage" label="Garage Overview" icon="🏠" />
+        <NavItem view="diagnostic" label="AI Mechanic" icon="✧" isNeural />
         <NavItem view="service" label="Service History" icon="🛠️" />
         <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
-        <NavItem view="marketplace" label="Shop Parts" icon="🛒" />
+        <NavItem view="marketplace" label="Find Parts" icon="🛒" />
       </div>
 
       <div className="pt-4 border-t border-slate-50 mx-2">
@@ -157,7 +157,7 @@ const App: React.FC = () => {
         >
           <div className="flex items-center gap-4">
             <span className={`text-lg transition-transform ${isSettingsOpen ? 'rotate-90 text-blue-600' : 'group-hover:rotate-12'}`}>⚙</span>
-            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Vehicle Settings</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Manage Vehicles</span>
           </div>
           <span className={`text-[10px] transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}>▾</span>
         </button>
@@ -173,7 +173,7 @@ const App: React.FC = () => {
               className="flex items-center gap-4 px-4 py-3 w-full text-blue-600 hover:bg-white transition-all group rounded-xl"
             >
               <span className="text-base group-hover:scale-110">➕</span>
-              <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add a Vehicle</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.2em]">Add New Car</span>
             </button>
 
             {activeVehicle && (
@@ -190,7 +190,7 @@ const App: React.FC = () => {
                   className="flex items-center gap-4 px-4 py-3 w-full text-rose-500 hover:bg-rose-50 transition-all group rounded-xl"
                 >
                   <span className="text-base group-hover:scale-110">📁</span>
-                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Remove Vehicle</span>
+                  <span className="text-[9px] font-black uppercase tracking-[0.2em]">Remove from Garage</span>
                 </button>
               </>
             )}
@@ -347,8 +347,8 @@ const App: React.FC = () => {
             {currentView === 'diagnostic' && activeVehicle && (
               <div className="max-w-4xl mx-auto w-full space-y-8">
                 <header className="px-1">
-                  <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter mb-1 leading-none uppercase">AI Diagnostic Assistant</h1>
-                  <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[9px]">Intelligent System Analysis</p>
+                  <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter mb-1 leading-none uppercase">AI Mechanic Assistant</h1>
+                  <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[9px]">Intelligent Troubleshooting</p>
                 </header>
                 <DiagnosticsPanel 
                   vehicle={activeVehicle} 
@@ -371,11 +371,11 @@ const App: React.FC = () => {
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-2xl">
         <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
           <span className="text-lg">🏠</span>
-          <span className="text-[7px] font-black uppercase tracking-widest">Dash</span>
+          <span className="text-[7px] font-black uppercase tracking-widest">Garage</span>
         </button>
         <button onClick={() => setCurrentView('diagnostic')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
           <span className="text-lg">✧</span>
-          <span className="text-[7px] font-black uppercase tracking-widest">AI</span>
+          <span className="text-[7px] font-black uppercase tracking-widest">Mechanic</span>
         </button>
         <button 
           onClick={() => setCurrentView('onboarding')} 
@@ -391,7 +391,7 @@ const App: React.FC = () => {
         </button>
         <button onClick={() => setCurrentView('profile')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'profile' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
           <span className="text-lg">👤</span>
-          <span className="text-[7px] font-black uppercase tracking-widest">Profile</span>
+          <span className="text-[7px] font-black uppercase tracking-widest">Account</span>
         </button>
       </nav>
     </div>

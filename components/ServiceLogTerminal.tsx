@@ -131,7 +131,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
       }
       onClose();
     } catch (e) {
-      alert("Neural Link Error: Sync failure.");
+      alert("Failed to save service log.");
     } finally {
       setIsSaving(false);
     }
@@ -149,9 +149,9 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
             )}
             <div>
               <h3 className="text-3xl font-black uppercase tracking-tighter">
-                {initialLog ? 'Recalibration' : 'Neural Link'}
+                {initialLog ? 'Update Entry' : 'Log Service'}
               </h3>
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Digital Twin Service Entry</p>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Maintenance Record</p>
             </div>
           </div>
           <button onClick={onClose} className="text-4xl text-slate-600">×</button>
@@ -159,7 +159,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
 
         {step === 1 && (
           <div className="space-y-6 animate-slide-up">
-            <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center">Select Pillar</h4>
+            <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center">Which part of the car was serviced?</h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               {categories.map(cat => (
                 <button 
@@ -177,10 +177,10 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         {step === 2 && (
           <div className="space-y-8 animate-slide-up">
             <div className="space-y-4">
-               <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Describe Task</label>
+               <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Service Description</label>
                <input 
                 type="text" 
-                placeholder="What did you do?" 
+                placeholder="e.g. Changed engine oil and filter" 
                 className="w-full bg-slate-900 text-white p-8 rounded-3xl border-2 border-slate-800 font-black text-center text-xl outline-none focus:border-blue-600"
                 value={form.type}
                 onChange={e => setForm({...form, type: e.target.value})}
@@ -191,14 +191,14 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                   onClick={() => setForm({...form, linkToTaskId: suggestion.id, type: suggestion.title, category: suggestion.category})}
                   className="w-full bg-blue-600/10 border border-blue-500/20 text-blue-500 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 animate-pulse"
                  >
-                   <span>✦ Did you mean: {suggestion.title}?</span>
+                   <span>✦ Matching Task Found: {suggestion.title}</span>
                    <span className="bg-blue-600 text-white px-2 py-0.5 rounded">LINK NOW</span>
                  </button>
                )}
             </div>
 
             <div className="space-y-4">
-               <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Service Odometer (KM)</label>
+               <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Mileage at Service (KM)</label>
                <input 
                 type="number" 
                 className="w-full bg-transparent border-b-4 border-blue-600 text-6xl font-mono font-black text-white text-center py-4 outline-none tracking-tighter"
@@ -208,7 +208,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
             </div>
 
             <div className="flex gap-4">
-              <button onClick={() => setStep(3)} className="flex-1 bg-white text-slate-950 py-6 rounded-3xl font-black uppercase tracking-widest text-[11px] shadow-3xl">Next Step →</button>
+              <button onClick={() => setStep(3)} className="flex-1 bg-white text-slate-950 py-6 rounded-3xl font-black uppercase tracking-widest text-[11px] shadow-3xl">Continue →</button>
             </div>
           </div>
         )}
@@ -216,9 +216,10 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         {step === 3 && (
           <div className="space-y-8 animate-slide-up">
              <div className="space-y-4">
-                <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Cost (₦)</label>
+                <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Service Cost (₦)</label>
                 <input 
                   type="number" 
+                  placeholder="0.00"
                   className="w-full bg-slate-900 text-white p-8 rounded-3xl border-2 border-slate-800 font-black text-center text-3xl outline-none"
                   value={form.cost}
                   onChange={e => setForm({...form, cost: e.target.value})}
@@ -226,10 +227,10 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
              </div>
 
              <div className="space-y-4">
-                <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Service Provider / Workshop Name</label>
+                <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Service Center / Mechanic Name</label>
                 <input 
                   type="text" 
-                  placeholder="e.g. Mandilas Motors"
+                  placeholder="e.g. Total Service, Mechanic shop"
                   className="w-full bg-slate-900 text-white p-6 rounded-2xl border-2 border-slate-800 font-bold outline-none"
                   value={form.provider}
                   onChange={e => setForm({...form, provider: e.target.value})}
@@ -237,26 +238,26 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
              </div>
              
              <div className="space-y-4">
-                <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Bond to Roadmap (Optional)</label>
+                <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Link to Maintenance Task (Optional)</label>
                 <select 
                   className="w-full bg-slate-900 text-white p-6 rounded-2xl border-2 border-slate-800 font-bold outline-none"
                   value={form.linkToTaskId || ''}
                   onChange={e => setForm({...form, linkToTaskId: e.target.value || null})}
                 >
-                  <option value="">-- No Link (Unscheduled Service) --</option>
+                  <option value="">-- Manual Entry (Unscheduled) --</option>
                   {availableTasks.map(t => (
-                    <option key={t.id} value={t.id}>{t.title} ({t.dueMileage}km)</option>
+                    <option key={t.id} value={t.id}>{t.title} (Due at {t.dueMileage}km)</option>
                   ))}
                 </select>
              </div>
 
-             <button onClick={() => setStep(4)} className="w-full bg-white text-slate-950 py-6 rounded-3xl font-black uppercase tracking-widest text-[11px] shadow-3xl">Next Step →</button>
+             <button onClick={() => setStep(4)} className="w-full bg-white text-slate-950 py-6 rounded-3xl font-black uppercase tracking-widest text-[11px] shadow-3xl">Final Step →</button>
           </div>
         )}
 
         {step === 4 && (
           <div className="space-y-10 animate-slide-up">
-            <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center">Verification Protocol</h4>
+            <h4 className="text-slate-400 text-[10px] font-black uppercase tracking-widest text-center">Proof of Service</h4>
             
             <div className="grid grid-cols-1 gap-4">
               <button 
@@ -267,7 +268,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                   <span className="font-black text-xs uppercase tracking-widest">Self-Declared</span>
                   {form.verificationLevel === 'self_declared' && <span>✓</span>}
                 </div>
-                <p className="text-[8px] font-bold uppercase opacity-60">Manual entry, zero proof required.</p>
+                <p className="text-[8px] font-bold uppercase opacity-60">I did this myself or have no receipt.</p>
               </button>
 
               <button 
@@ -275,10 +276,10 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 className={`p-6 rounded-[2rem] border-2 text-left transition-all ${form.verificationLevel === 'receipt_verified' ? 'bg-blue-600 border-blue-600 text-white shadow-xl' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-black text-xs uppercase tracking-widest">Receipt-Verified</span>
+                  <span className="font-black text-xs uppercase tracking-widest">Receipt Scanned</span>
                   {form.verificationLevel === 'receipt_verified' && <span>✓</span>}
                 </div>
-                <p className="text-[8px] font-bold uppercase opacity-60">Attach invoice to boost asset trust score.</p>
+                <p className="text-[8px] font-bold uppercase opacity-60">I have a photo of the receipt/invoice.</p>
               </button>
 
               <button 
@@ -286,10 +287,10 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 className={`p-6 rounded-[2rem] border-2 text-left transition-all ${form.verificationLevel === 'mechanic_verified' ? 'bg-blue-600 border-blue-600 text-white shadow-xl' : 'bg-slate-900 border-slate-800 text-slate-500'}`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-black text-xs uppercase tracking-widest">Mechanic-Verified</span>
+                  <span className="font-black text-xs uppercase tracking-widest">Mechanic Verified</span>
                   {form.verificationLevel === 'mechanic_verified' && <span>✓</span>}
                 </div>
-                <p className="text-[8px] font-bold uppercase opacity-60">Verified by a certified workshop.</p>
+                <p className="text-[8px] font-bold uppercase opacity-60">Done at a registered workshop.</p>
               </button>
             </div>
 
@@ -305,7 +306,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                   onClick={() => fileInputRef.current?.click()}
                   className="w-full py-6 border-2 border-dashed border-slate-800 rounded-[2rem] text-slate-500 text-[10px] font-black uppercase tracking-widest hover:border-blue-500 hover:text-blue-500 transition-all"
                 >
-                  + Attach Proof (Optional)
+                  + Add Receipt Photo (Recommended)
                 </button>
               )}
             </div>
@@ -317,7 +318,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
              >
                {isSaving ? (
                  <div className="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
-               ) : 'Finalize & Commit Protocol'}
+               ) : 'Save Service Record'}
              </button>
           </div>
         )}

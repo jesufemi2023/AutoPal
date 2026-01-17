@@ -37,11 +37,11 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
       return;
     }
     if (isNaN(lit) || lit <= 0) {
-      setError("Please specify fuel volume.");
+      setError("Please enter the amount of fuel in liters.");
       return;
     }
     if (!form.vendor.trim()) {
-      setError("Please specify the fuel station brand.");
+      setError("Please enter the name of the fuel station.");
       return;
     }
 
@@ -83,7 +83,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
 
       onClose();
     } catch (err: any) {
-      setError(err.message || "Refill Synchronization Failed.");
+      setError(err.message || "Failed to save fuel record.");
     } finally {
       setIsProcessing(false);
     }
@@ -95,8 +95,8 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black">⛽</div>
           <div>
-            <h2 className="text-white text-xl font-black tracking-tighter uppercase">{initialLog ? "Edit Record" : "Refill Terminal"}</h2>
-            <p className="text-slate-500 text-[8px] font-black uppercase tracking-widest">Pump Telemetry v1.0.4</p>
+            <h2 className="text-white text-xl font-black tracking-tighter uppercase">{initialLog ? "Edit Fuel Log" : "Log New Refill"}</h2>
+            <p className="text-slate-500 text-[8px] font-black uppercase tracking-widest">Efficiency Tracking</p>
           </div>
         </div>
         <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors text-3xl font-black">×</button>
@@ -111,7 +111,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
 
         <div className="space-y-6">
           <div className="space-y-2">
-            <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] ml-2">Current Odometer (KM)</label>
+            <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] ml-2">Current KM Reading</label>
             <input 
               type="number" 
               placeholder={currentOdo.toString()}
@@ -123,7 +123,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
 
           <div className="grid grid-cols-2 gap-4">
              <div className="space-y-2">
-                <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] ml-2">Liters</label>
+                <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] ml-2">Liters Added</label>
                 <input 
                   type="number" 
                   step="0.01"
@@ -134,7 +134,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
                 />
              </div>
              <div className="space-y-2">
-                <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] ml-2">Total {ENV.CURRENCY}</label>
+                <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] ml-2">Total Price ({ENV.CURRENCY})</label>
                 <input 
                   type="number" 
                   placeholder="0"
@@ -147,10 +147,10 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] ml-2">Fuel Station (Brand)</label>
+              <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] ml-2">Fuel Station Name</label>
               <input 
                 type="text" 
-                placeholder="e.g. TotalEnergies"
+                placeholder="e.g. Total, NNPC"
                 className="w-full bg-slate-900 border-2 border-slate-800 rounded-2xl p-5 text-sm font-bold text-slate-300 focus:border-blue-600 outline-none transition-all"
                 value={form.vendor}
                 onChange={e => setForm({...form, vendor: e.target.value})}
@@ -161,7 +161,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
               onClick={() => setForm({...form, isFull: !form.isFull})}
               className={`mt-6 w-full py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] border-2 transition-all ${form.isFull ? 'bg-blue-600/10 border-blue-600 text-blue-500' : 'bg-slate-900 border-slate-800 text-slate-600'}`}
             >
-              {form.isFull ? "✓ Filled to Full" : "Partial Refill"}
+              {form.isFull ? "✓ Filled to Full" : "Partial Tank"}
             </button>
           </div>
         </div>
@@ -174,7 +174,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
            >
              {isProcessing ? (
                <div className="w-5 h-5 border-4 border-slate-900/20 border-t-slate-900 rounded-full animate-spin"></div>
-             ) : (initialLog ? "Update Telemetry" : "Commit Telemetry")}
+             ) : (initialLog ? "Update Record" : "Save Fuel Entry")}
            </button>
         </div>
       </div>

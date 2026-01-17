@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../services/vehicleService.ts';
@@ -65,12 +66,12 @@ const ServiceIntelligenceCenter: React.FC = () => {
   }, [activeVehicle, activeServiceLogs, activeFuelLogs]);
 
   const handleDeleteLog = async (id: string) => {
-    if (!confirm("Are you sure? This will permanently delete the record.")) return;
+    if (!confirm("Are you sure you want to delete this record? This cannot be undone.")) return;
     try {
       await deleteServiceLog(id);
       setServiceLogs(serviceLogs.filter(l => l.id !== id));
     } catch (e) {
-      alert("System Sync Failure.");
+      alert("Failed to delete record.");
     }
   };
 
@@ -96,16 +97,16 @@ const ServiceIntelligenceCenter: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-spin' : 'bg-blue-600 animate-pulse'}`}></div>
             <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">
-              {isLoading ? 'Scanning Engineering Nodes...' : 'Neural Maintenance Link Active'}
+              {isLoading ? 'Loading records...' : 'Service History Active'}
             </span>
           </div>
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8] transition-all">
-            Service <br/><span className="text-blue-600">Module</span>
+            Service <br/><span className="text-blue-600">Records</span>
           </h2>
         </div>
         <button disabled={!activeVehicle} onClick={() => setShowLogTerminal(true)} className="bg-slate-900 text-white px-8 sm:px-12 py-5 sm:py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-3xl hover:bg-blue-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
           <span className="text-lg sm:text-xl">🛠️</span>
-          Log Protocol
+          Record Service
         </button>
       </header>
 
@@ -119,8 +120,8 @@ const ServiceIntelligenceCenter: React.FC = () => {
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm group">
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Audited Vitality</h3>
-                  {stats.isAiAudited && <span className="text-[7px] text-blue-600 font-black uppercase">Audited</span>}
+                  <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Health Score</h3>
+                  {stats.isAiAudited && <span className="text-[7px] text-blue-600 font-black uppercase">Verified</span>}
                 </div>
                 <div className={`text-4xl font-black tracking-tighter ${stats.vitality !== null ? 'text-blue-600' : 'text-slate-300'}`}>
                   {stats.vitality !== null ? `${stats.vitality}%` : '--'}
@@ -131,8 +132,8 @@ const ServiceIntelligenceCenter: React.FC = () => {
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm group">
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Audited Discipline</h3>
-                  {stats.isAiAudited && <span className="text-[7px] text-emerald-600 font-black uppercase">Audited</span>}
+                  <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Record Trust</h3>
+                  {stats.isAiAudited && <span className="text-[7px] text-emerald-600 font-black uppercase">Verified</span>}
                 </div>
                 <div className={`text-4xl font-black tracking-tighter ${stats.discipline !== null ? 'text-emerald-600' : 'text-slate-300'}`}>
                   {stats.discipline !== null ? `${stats.discipline}%` : '--'}
@@ -143,9 +144,9 @@ const ServiceIntelligenceCenter: React.FC = () => {
             <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between shadow-xl col-span-1 sm:col-span-2 relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-8 opacity-[0.03] text-8xl font-black pointer-events-none group-hover:scale-110 transition-transform">₦</div>
               <div className="space-y-4 relative z-10">
-                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Service Investment Total</h3>
+                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Total Service Spend</h3>
                 <div className="text-4xl sm:text-5xl font-black tracking-tighter">{formatCurrency(stats.maintenanceTotal)}</div>
-                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Calculated across {activeServiceLogs.length} verified lifecycle records.</p>
+                <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Calculated across {activeServiceLogs.length} logged maintenance entries.</p>
               </div>
             </div>
           </div>
@@ -153,20 +154,20 @@ const ServiceIntelligenceCenter: React.FC = () => {
           {!stats.isAiAudited && (
             <div className="mx-2 p-6 bg-blue-50 border border-blue-100 rounded-[2rem] flex flex-col sm:flex-row items-center justify-between gap-6">
               <div className="flex items-center gap-4">
-                <div className="text-2xl">⚖️</div>
+                <div className="text-2xl">📋</div>
                 <div className="space-y-1">
-                  <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest">Neural Audit Required</p>
-                  <p className="text-[9px] text-blue-600 font-bold uppercase tracking-tight">Run a resale valuation report to activate your audited health scores.</p>
+                  <p className="text-[10px] font-black text-blue-900 uppercase tracking-widest">Audit Your Records</p>
+                  <p className="text-[9px] text-blue-600 font-bold uppercase tracking-tight">Run a resale report on the dashboard to verify your car's value.</p>
                 </div>
               </div>
-              <button onClick={() => setActiveTab('roadmap')} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg">Run Audit Now</button>
+              <button onClick={() => setActiveTab('roadmap')} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg">View Plan</button>
             </div>
           )}
 
           <div className="space-y-8 px-2">
             <div className="flex bg-slate-100/50 p-2 rounded-2xl w-full sm:w-max">
-              <button onClick={() => setActiveTab('roadmap')} className={`flex-1 sm:flex-none px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'roadmap' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Roadmap</button>
-              <button onClick={() => setActiveTab('ledger')} className={`flex-1 sm:flex-none px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'ledger' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>History Ledger</button>
+              <button onClick={() => setActiveTab('roadmap')} className={`flex-1 sm:flex-none px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'roadmap' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Maintenance Plan</button>
+              <button onClick={() => setActiveTab('ledger')} className={`flex-1 sm:flex-none px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'ledger' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>History Log</button>
             </div>
 
             {activeTab === 'roadmap' && <MaintenanceRoadmap vehicle={activeVehicle} tasks={vehicleTasks} onLog={(t) => { setSelectedTaskForLog(t); setShowLogTerminal(true); }} />}
@@ -185,7 +186,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-6">
                        <div className="text-right">
-                          <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Investment</div>
+                          <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Cost</div>
                           <div className="text-xl font-black text-slate-900 tracking-tighter">{formatCurrency(log.cost)}</div>
                        </div>
                        <div className="flex gap-2">

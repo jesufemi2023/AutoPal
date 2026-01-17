@@ -36,7 +36,7 @@ const FuelIntelligenceCenter: React.FC = () => {
         setFuelLogs(logs);
       } catch (err: any) {
         console.error("Telemetry fetch failure", err);
-        setFetchError(err.message || "Synchronization failure: Unable to retrieve fuel ledger from cloud.");
+        setFetchError(err.message || "Connection failure: Unable to retrieve fuel records from cloud.");
       } finally {
         setIsLoading(false);
       }
@@ -106,12 +106,12 @@ const FuelIntelligenceCenter: React.FC = () => {
   }, [fuelLogs]);
   
   const handleDeleteRecord = async (logId: string) => {
-    if (!window.confirm("CAUTION: Purging this record will permanently alter efficiency telemetry. Proceed?")) return;
+    if (!window.confirm("CAUTION: Deleting this record will update your average efficiency. Proceed?")) return;
     try {
       await deleteFuelLog(logId);
       removeFuelLogStore(logId);
     } catch (err: any) {
-      alert("System Error: " + (err.message || "Failed to purge record."));
+      alert("System Error: " + (err.message || "Failed to remove record."));
     }
   };
 
@@ -132,11 +132,11 @@ const FuelIntelligenceCenter: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-spin' : (fetchError ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse')}`}></div>
             <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">
-              {isLoading ? 'Synchronizing Sensors...' : (fetchError ? 'Telemetry Node Fault' : 'Neural Telemetry Active')}
+              {isLoading ? 'Updating records...' : (fetchError ? 'Sync Error' : 'Fuel Monitor Active')}
             </span>
           </div>
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8] transition-all">
-            Fuel <br/><span className="text-blue-600">Logic</span>
+            Fuel <br/><span className="text-blue-600">Tracker</span>
           </h2>
           {vehicles.length > 1 && (
             <div className="relative group/scroll w-full max-w-sm mt-4">
@@ -196,21 +196,21 @@ const FuelIntelligenceCenter: React.FC = () => {
             className="bg-slate-900 text-white px-8 sm:px-12 py-5 sm:py-6 rounded-[1.5rem] sm:rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] sm:text-[11px] shadow-3xl hover:bg-blue-600 transition-all active:scale-95 group flex items-center justify-center gap-3 disabled:opacity-50"
           >
             <span className="text-lg sm:text-xl group-hover:rotate-90 transition-transform">⛽</span>
-            Log Refill
+            Add Fuel Log
           </button>
         </div>
       </header>
 
       {!activeVehicle ? (
         <div className="py-24 text-center bg-white card-radius border-2 border-slate-50 p-12">
-           <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest">No Active Telemetry Node</h3>
+           <h3 className="text-xl font-black text-slate-400 uppercase tracking-widest">No Vehicle Selected</h3>
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-2">
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] shadow-sm">
               <div className="relative z-10 space-y-4">
-                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Last Efficiency</h3>
+                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Current Efficiency</h3>
                 <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
                   {currentEff ? currentEff.toFixed(1) : '--.-'}
                   <span className="text-xs text-slate-300 ml-2 font-sans font-bold">{metric}</span>
@@ -220,7 +220,7 @@ const FuelIntelligenceCenter: React.FC = () => {
 
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between min-h-[180px] shadow-sm">
               <div className="relative z-10 space-y-4">
-                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Avg. Price / L</h3>
+                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Avg. Fuel Price</h3>
                 <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
                   {formatCurrency(avgPricePerLiter)}
                 </div>
@@ -229,7 +229,7 @@ const FuelIntelligenceCenter: React.FC = () => {
 
             <div className="bg-emerald-600 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] relative overflow-hidden shadow-xl">
                <div className="relative z-10 space-y-4">
-                <h3 className="text-emerald-200 text-[8px] font-black uppercase tracking-[0.4em]">OpEx Lifetime Spend</h3>
+                <h3 className="text-emerald-200 text-[8px] font-black uppercase tracking-[0.4em]">Total Fuel Expense</h3>
                 <div className="text-3xl font-black tracking-tighter">
                   {formatCurrency(totalFuelSpend)}
                 </div>
@@ -238,7 +238,7 @@ const FuelIntelligenceCenter: React.FC = () => {
 
             <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between min-h-[180px] relative overflow-hidden shadow-xl">
               <div className="relative z-10 space-y-4">
-                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Fleet Average</h3>
+                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Average Efficiency</h3>
                 <div className="text-4xl font-black tracking-tighter flex items-baseline">
                   {avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}
                   <span className="text-xs text-slate-600 ml-2 font-sans font-bold">{metric}</span>
@@ -259,19 +259,20 @@ const FuelIntelligenceCenter: React.FC = () => {
                       <div className="space-y-1">
                         <div className="text-[8px] font-black text-blue-500 uppercase tracking-widest">{formatDate(log.createdAt)}</div>
                         <h4 className="text-xl font-black text-slate-900 tracking-tighter">{log.liters.toFixed(2)} Liters</h4>
-                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{log.vendor || 'Station Node'}</div>
+                        <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{log.vendor || 'Fuel Station'}</div>
                       </div>
                     </div>
                     <div className="flex gap-4">
                       <button onClick={() => { setEditingLog(log); setShowTerminal(true); }} className="px-4 py-2 rounded-xl bg-slate-50 text-[8px] font-black uppercase text-blue-600">Edit</button>
-                      <button onClick={() => handleDeleteRecord(log.id)} className="px-4 py-2 rounded-xl bg-rose-50 text-[8px] font-black uppercase text-rose-500">Purge</button>
+                      <button onClick={() => handleDeleteRecord(log.id)} className="px-4 py-2 rounded-xl bg-rose-50 text-[8px] font-black uppercase text-rose-500">Delete</button>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="py-24 text-center bg-white card-radius border-2 border-dashed border-slate-100 p-12">
-                 <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tighter uppercase">Fuel Ledger Empty</h3>
+                 <h3 className="text-2xl font-black text-slate-900 mb-2 tracking-tighter uppercase">No fuel records yet</h3>
+                 <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Start logging your refills to track performance</p>
               </div>
             )}
           </div>
