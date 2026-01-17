@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Vehicle, MaintenanceTask, ServiceCategory, TaskStatus } from '../../shared/types.ts';
 import { getTaskMaintenanceStatus, predictServiceDate } from '../../services/maintenanceLogic.ts';
@@ -33,7 +32,7 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
   }, [filteredTasks]);
 
   const InfoIcon = ({ id, text }: { id: string, text: string }) => (
-    <div className="relative inline-block">
+    <div className="relative inline-block ml-1">
       <button 
         onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === id ? null : id); }}
         className="text-slate-300 hover:text-blue-500 transition-colors"
@@ -121,7 +120,7 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
                           {task.status === 'pending' ? (isOverdue ? 'Overdue' : derivedStatus) : task.status}
                         </span>
                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{task.category} System</span>
-                        <InfoIcon id={`info-${task.id}`} text={`Regular maintenance of the ${task.category} system prevents catastrophic failure in extreme climates and high-traffic conditions.`} />
+                        <InfoIcon id={`info-${task.id}`} text={`Regular maintenance of the ${task.category} system is critical in tropical environments. Neglect leads to overheating and permanent internal wear.`} />
                       </div>
                       <h4 className="text-2xl font-black text-slate-900 tracking-tighter leading-none">{task.title}</h4>
                     </div>

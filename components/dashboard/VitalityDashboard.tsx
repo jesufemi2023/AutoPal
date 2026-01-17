@@ -56,25 +56,20 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
           onClick={() => setActiveTooltip(null)}
         >
           <div 
-            className="bg-slate-900 text-white p-6 sm:p-8 rounded-[2rem] shadow-3xl max-w-xs w-full border border-white/10 animate-in zoom-in-95 duration-200"
+            className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-3xl max-w-sm w-full border border-white/10 animate-in zoom-in-95 duration-200 text-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-start mb-6">
-               <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center text-blue-400 text-lg">ℹ️</div>
-               <button onClick={() => setActiveTooltip(null)} className="text-slate-500 hover:text-white text-2xl font-light">×</button>
-            </div>
-            <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.3em] mb-3">Metric Intelligence</h4>
-            <p className="text-[11px] font-bold uppercase tracking-widest leading-relaxed text-slate-200">
+            <div className="w-14 h-14 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400 text-2xl mx-auto mb-6">ℹ️</div>
+            <h4 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4">Metric Intelligence</h4>
+            <p className="text-xs font-bold uppercase tracking-widest leading-relaxed text-slate-200 mb-8">
               {text}
             </p>
-            <div className="mt-8 pt-6 border-t border-white/5">
-               <button 
-                 onClick={() => setActiveTooltip(null)}
-                 className="w-full py-4 bg-white/5 hover:bg-white/10 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all"
-               >
-                 Got it
-               </button>
-            </div>
+            <button 
+              onClick={() => setActiveTooltip(null)}
+              className="w-full py-4 bg-white/5 hover:bg-blue-600 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
+            >
+              Acknowledged
+            </button>
           </div>
         </div>
       )}
