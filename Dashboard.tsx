@@ -6,7 +6,6 @@ import {
 } from './services/vehicleService.ts';
 import { OdometerInput } from './components/OdometerInput.tsx';
 import { localDb } from './services/localDb.ts';
-import { QUOTAS } from './services/permissionService.ts';
 
 import { VehicleOverview } from './components/dashboard/VehicleOverview.tsx';
 import { MaintenanceRoadmap } from './components/dashboard/MaintenanceRoadmap.tsx';
@@ -33,9 +32,8 @@ const Dashboard: React.FC = () => {
   const activeServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
   const activeFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicleId);
 
-  // Background Sync - Only for cloud-enabled tiers
   useEffect(() => {
-    if (!user || !QUOTAS[user.tier].isCloudSynced) return;
+    if (!user) return;
 
     const syncVehicles = async () => {
       setIsSyncing(true);
@@ -49,7 +47,7 @@ const Dashboard: React.FC = () => {
       }
     };
     syncVehicles();
-  }, [setVehicles, user?.tier, user?.id]);
+  }, [setVehicles, user?.id]);
 
   useEffect(() => {
     if (vehicles.length > 0 && !activeVehicleId) {
@@ -57,15 +55,11 @@ const Dashboard: React.FC = () => {
     }
   }, [vehicles, activeVehicleId, setActiveVehicleId]);
 
-  // Unified Hydration Logic
   useEffect(() => {
     if (activeVehicleId && user) {
-      const isCloudEnabled = QUOTAS[user.tier].isCloudSynced;
-      
       const hydrateData = async () => {
         setIsLoadingDetails(true);
         try {
-          // 1. Always load from Local DB first (Source of Truth for Free tier)
           const [lTasks, lLogs, lFuel] = await Promise.all([
             localDb.getTasks(activeVehicleId),
             localDb.getLogs(activeVehicleId),
@@ -76,15 +70,12 @@ const Dashboard: React.FC = () => {
           setServiceLogs(lLogs);
           setFuelLogs(lFuel);
 
-          // 2. Fetch from Cloud only if permitted
-          if (isCloudEnabled) {
-            const [taskList, logList] = await Promise.all([
-              fetchVehicleTasks(activeVehicleId),
-              fetchVehicleServiceLogs(activeVehicleId)
-            ]);
-            setTasks(taskList);
-            setServiceLogs(logList);
-          }
+          const [taskList, logList] = await Promise.all([
+            fetchVehicleTasks(activeVehicleId),
+            fetchVehicleServiceLogs(activeVehicleId)
+          ]);
+          setTasks(taskList);
+          setServiceLogs(logList);
         } catch (err) {
           console.error("Hydration fault:", err);
         } finally {
@@ -96,12 +87,11 @@ const Dashboard: React.FC = () => {
     }
   }, [activeVehicleId, user?.id, setTasks, setServiceLogs, setFuelLogs]);
 
-  // Real-time Health Recalculation
   useEffect(() => {
     if (activeVehicle && tasks.length > 0) {
       const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
       if (newScore !== activeVehicle.healthScore) {
-        updateVehicle(activeVehicle.id, { healthScore: newScore }, user?.tier || 'free');
+        updateVehicle(activeVehicle.id, { healthScore: newScore });
         updateVehicleStore({ ...activeVehicle, healthScore: newScore });
       }
     }
@@ -188,7 +178,7 @@ const Dashboard: React.FC = () => {
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl">
           <div className="w-full max-w-sm">
             <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { 
-              await updateMileage(activeVehicle.id, v, user?.tier || 'free'); 
+              await updateMileage(activeVehicle.id, v); 
               updateStoreMileage(activeVehicle.id, v); 
               setShowOdometerModal(false); 
             }} onCancel={() => setShowOdometerModal(false)} />

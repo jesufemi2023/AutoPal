@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
 import AuthScreen from './components/AuthScreen.tsx';
@@ -17,12 +17,11 @@ import { validateEnv } from './services/envService.ts';
 import { fetchUserVehicles, archiveVehicle } from './services/vehicleService.ts';
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
-import { syncLedgerPeriod, QUOTAS } from './services/permissionService.ts';
 
 const App: React.FC = () => {
   const { 
     session, setSession, isInitialized, setInitialized, 
-    user, setUser, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
+    user, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
     setSuggestedParts, transientVehicle, removeVehicleStore
   } = useAutoPalStore();
 
@@ -37,24 +36,6 @@ const App: React.FC = () => {
 
   useEffect(() => { validateEnv(); }, []);
 
-  /**
-   * ACTIVE SESSION QUOTA RESET
-   */
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (user) {
-        const synced = syncLedgerPeriod(user);
-        if (synced.usageLedger.periodStart !== user.usageLedger.periodStart) {
-          setUser(synced);
-        }
-      }
-    }, 1000 * 60 * 60);
-    return () => clearInterval(interval);
-  }, [user, setUser]);
-
-  /**
-   * INITIAL AUTH LOAD
-   */
   useEffect(() => {
     const initAuth = async () => {
       if (!isSupabaseConfigured) {
@@ -78,36 +59,19 @@ const App: React.FC = () => {
     initAuth();
   }, [setSession, setInitialized]);
 
-  /**
-   * STRATEGIC ROUTING & CLOUD SYNC
-   */
   useEffect(() => {
     if (session && user) {
-      const isCloudEnabled = QUOTAS[user.tier].isCloudSynced;
-      
-      if (isCloudEnabled) {
-        fetchUserVehicles().then((fetchedVehicles) => {
-          setVehicles(fetchedVehicles);
-          const isTransitioning = currentView === 'landing' || currentView === 'garage';
-          if (isTransitioning) {
-            if (fetchedVehicles.length === 0 && vehicles.length === 0) {
-              setCurrentView('onboarding');
-            } else {
-              setCurrentView('garage');
-            }
-          }
-        }).catch(console.error);
-      } else {
-        // For Free tier, we already hydrated in setSession via loadLocalData
+      fetchUserVehicles().then((fetchedVehicles) => {
+        setVehicles(fetchedVehicles);
         const isTransitioning = currentView === 'landing' || currentView === 'garage';
         if (isTransitioning) {
-          if (vehicles.length === 0) {
+          if (fetchedVehicles.length === 0) {
             setCurrentView('onboarding');
           } else {
             setCurrentView('garage');
           }
         }
-      }
+      }).catch(console.error);
     }
   }, [session?.user?.id, user?.id, setVehicles]);
 
@@ -119,7 +83,7 @@ const App: React.FC = () => {
     if (!confirmed) return;
 
     try {
-      await archiveVehicle(activeVehicleId, user.tier);
+      await archiveVehicle(activeVehicleId);
       removeVehicleStore(activeVehicleId);
       setIsSettingsOpen(false);
       setIsMobileMenuOpen(false);
@@ -251,7 +215,7 @@ const App: React.FC = () => {
     if (!activeVehicle) return;
     setIsAskingAI(true);
     try {
-      const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
+      const advice = await getAdvancedDiagnostic(activeVehicle, symptom, true, diagImage || undefined);
       setAiAdvice(advice);
       if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
     } catch (e) { 
@@ -310,7 +274,6 @@ const App: React.FC = () => {
               <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-[10px] font-black uppercase shadow-inner">{user?.email?.[0]}</div>
               <div className="text-left overflow-hidden">
                 <span className="block text-[9px] font-black text-slate-900 truncate">{user?.displayName || user?.email}</span>
-                <span className="block text-[7px] font-black text-blue-500 uppercase tracking-widest">{user?.tier} Member</span>
               </div>
             </button>
             <button 
@@ -349,7 +312,6 @@ const App: React.FC = () => {
             <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-[10px] font-black uppercase shadow-inner">{user?.email?.[0]}</div>
             <div className="overflow-hidden text-left">
               <span className="block text-[9px] font-black text-slate-900 truncate">{user?.displayName || user?.email}</span>
-              <span className="block text-[7px] font-black text-blue-500 uppercase tracking-widest">{user?.tier} Member</span>
             </div>
           </button>
           <button 
@@ -372,11 +334,6 @@ const App: React.FC = () => {
           </div>
           <div className="flex-1 overflow-y-auto scrollbar-hide py-2">
             <ManageVehicleControls />
-          </div>
-          <div className="py-8 px-2 border-t border-slate-50 mt-auto">
-             <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
-               Modify active vehicle digital twins or decommission assets from global sync.
-             </p>
           </div>
         </div>
       </aside>

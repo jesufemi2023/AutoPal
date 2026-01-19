@@ -1,5 +1,6 @@
-export type Tier = 'free' | 'standard' | 'premium';
+
 export type UserRole = 'user' | 'admin';
+export type Tier = 'free' | 'standard' | 'premium';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback' | 'other';
 export type TaskStatus = 'pending' | 'completed' | 'skipped';
 
@@ -13,31 +14,15 @@ export type LogStatus = 'upcoming' | 'overdue' | 'completed';
 export type ServiceCategory = 'engine' | 'tires' | 'brakes' | 'fluids' | 'suspension' | 'other' | 'electrical' | 'cooling';
 export type VerificationLevel = 'self_declared' | 'receipt_verified' | 'mechanic_verified';
 
-/**
- * Usage Ledger: Tracks quotas and cooldowns to enforce tiered access.
- * Resets every 30 days based on periodStart.
- */
-export interface UsageLedger {
-  periodStart: string;
-  serviceLogsCount: number;
-  fuelLogsCount: number;
-  aiAuditsCount: number;
-  aiDiagnosisCount: number;
-  aiDiagnosisYearlyCount: number;
-  lastServiceLogAt?: string;
-  lastAiAuditAt?: string;
-}
-
 export interface UserProfile {
   id: string;
   email: string;
   displayName?: string;
   phone?: string;
-  tier: Tier;
   role: UserRole;
+  tier?: Tier;
   onboarded: boolean;
   createdAt: string;
-  usageLedger: UsageLedger;
 }
 
 export interface TransientVehicle {
