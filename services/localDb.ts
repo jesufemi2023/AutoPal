@@ -1,6 +1,6 @@
 
 import Dexie, { type EntityTable } from 'dexie';
-import { Vehicle, MaintenanceTask, ServiceLog, FuelLog } from '../shared/types.ts';
+import { Vehicle, MaintenanceTask, ServiceLog, FuelLog, UsageLedger } from '../shared/types.ts';
 
 /**
  * AutoPal Local Persistence Engine (IndexedDB)
@@ -13,15 +13,17 @@ const db = new Dexie('AutoPalGarage') as Dexie & {
   tasks: EntityTable<MaintenanceTask, 'id'>;
   serviceLogs: EntityTable<ServiceLog, 'id'>;
   fuelLogs: EntityTable<FuelLog, 'id'>;
+  usageLedgers: EntityTable<UsageLedger & { id: string }, 'id'>;
 };
 
 // We index keys we need to query by frequently.
 // ownerId is critical for multi-tenant isolation.
-db.version(2).stores({
+db.version(3).stores({
   vehicles: 'id, ownerId, vin, isDirty',
   tasks: 'id, vehicleId, ownerId, status, isDirty',
   serviceLogs: 'id, vehicleId, ownerId, isDirty',
-  fuelLogs: 'id, vehicleId, ownerId, isDirty'
+  fuelLogs: 'id, vehicleId, ownerId, isDirty',
+  usageLedgers: 'id'
 });
 
 export const localDb = {
@@ -43,6 +45,10 @@ export const localDb = {
   // Fuel Logs
   saveFuelLog: (l: FuelLog) => db.fuelLogs.put(l),
   getFuelLogs: (vehicleId: string) => db.fuelLogs.where('vehicleId').equals(vehicleId).toArray(),
+
+  // Usage Ledger (Local Mirror for Free Tier)
+  saveUsageLedger: (userId: string, ledger: UsageLedger) => db.usageLedgers.put({ ...ledger, id: userId }),
+  getUsageLedger: (userId: string) => db.usageLedgers.get(userId),
   
   // Dirty Records (for Sync Engine)
   getDirtyRecords: async (ownerId: string) => {
@@ -63,6 +69,7 @@ export const localDb = {
     await db.tasks.clear();
     await db.serviceLogs.clear();
     await db.fuelLogs.clear();
+    await db.usageLedgers.clear();
   }
 };
 

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -16,11 +17,12 @@ import { validateEnv } from './services/envService.ts';
 import { fetchUserVehicles, archiveVehicle } from './services/vehicleService.ts';
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
+import { syncLedgerPeriod } from './services/permissionService.ts';
 
 const App: React.FC = () => {
   const { 
     session, setSession, isInitialized, setInitialized, 
-    user, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
+    user, setUser, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
     setSuggestedParts, transientVehicle, removeVehicleStore
   } = useAutoPalStore();
 
@@ -34,6 +36,22 @@ const App: React.FC = () => {
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
   useEffect(() => { validateEnv(); }, []);
+
+  /**
+   * ACTIVE SESSION QUOTA RESET
+   * Runs periodically to ensure 30-day limits reset without manual logout.
+   */
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (user) {
+        const synced = syncLedgerPeriod(user);
+        if (synced.usageLedger.periodStart !== user.usageLedger.periodStart) {
+          setUser(synced);
+        }
+      }
+    }, 1000 * 60 * 60); // Check every hour
+    return () => clearInterval(interval);
+  }, [user, setUser]);
 
   /**
    * INITIAL AUTH LOAD
@@ -81,14 +99,14 @@ const App: React.FC = () => {
   }, [session?.user?.id, user?.id, setVehicles]);
 
   const handleArchiveAsset = async () => {
-    if (!activeVehicleId || !activeVehicle) return;
+    if (!activeVehicleId || !activeVehicle || !user) return;
     const confirmed = confirm(
       `DELETE VEHICLE: Are you sure you want to remove the ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}? This will archive all service and fuel history.`
     );
     if (!confirmed) return;
 
     try {
-      await archiveVehicle(activeVehicleId);
+      await archiveVehicle(activeVehicleId, user.tier);
       removeVehicleStore(activeVehicleId);
       setIsSettingsOpen(false);
       setIsMobileMenuOpen(false);
@@ -200,7 +218,6 @@ const App: React.FC = () => {
           <span className={`text-[10px] transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}>▾</span>
         </button>
 
-        {/* Mobile Accordion Only */}
         <div className={`lg:hidden transition-all duration-300 overflow-hidden ${isSettingsOpen ? 'max-h-[400px] opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
           <div className="bg-slate-50/50 rounded-2xl p-2 border border-slate-100/50 ml-2">
             <ManageVehicleControls />
@@ -233,7 +250,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
-      {/* Mobile Header */}
       <header className="lg:hidden h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 z-[100] w-full">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
           <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-md">A</div>
@@ -252,7 +268,6 @@ const App: React.FC = () => {
         </button>
       </header>
 
-      {/* Mobile Drawer Overlay */}
       <div 
         className={`lg:hidden fixed inset-0 bg-slate-950/20 backdrop-blur-sm z-[110] transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsMobileMenuOpen(false)}
@@ -295,7 +310,6 @@ const App: React.FC = () => {
         </aside>
       </div>
 
-      {/* Desktop Sidebar & Flyout Overlay */}
       <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-[100] overflow-visible">
         <div className="p-8 pb-6 shrink-0 bg-white relative z-[101]">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
@@ -333,7 +347,6 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        {/* Desktop Slide-out Flyout Panel */}
         <div 
           className={`absolute top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[20px_0_40px_rgba(0,0,0,0.05)] z-[90] transition-all duration-500 ease-in-out flex flex-col pt-24 px-6
             ${isSettingsOpen ? 'translate-x-[300px] opacity-100' : 'translate-x-0 opacity-0 pointer-events-none'}
@@ -355,7 +368,6 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <div className="flex-grow lg:ml-[300px] flex flex-col min-h-screen w-full overflow-x-hidden">
         <main 
           onClick={() => {
@@ -396,7 +408,6 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-2xl">
         <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
           <span className="text-lg">🏠</span>

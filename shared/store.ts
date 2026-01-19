@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport, UsageLedger } from './types.ts';
 import { localDb } from '../services/localDb.ts';
-import { syncLedgerPeriod } from '../services/permissionService.ts';
+import { syncLedgerPeriod, QUOTAS } from '../services/permissionService.ts';
 import { supabase } from '../auth/supabaseClient.ts';
 
 const INITIAL_LEDGER: UsageLedger = {
@@ -91,15 +91,19 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   loadLocalData: async (userId: string) => {
     // Strictly filter by current user ID to prevent data leakage
     const localVehicles = await localDb.getVehicles(userId);
-    set({ 
+    
+    // Load local ledger if user is free to ensure persistence
+    const localLedger = await localDb.getUsageLedger(userId);
+    
+    set((state) => ({ 
       vehicles: localVehicles,
-      activeVehicleId: get().activeVehicleId || (localVehicles.length > 0 ? localVehicles[0].id : null)
-    });
+      activeVehicleId: state.activeVehicleId || (localVehicles.length > 0 ? localVehicles[0].id : null),
+      user: state.user && localLedger ? { ...state.user, usageLedger: localLedger } : state.user
+    }));
   },
 
   setSession: async (session) => {
     if (!session) {
-      // CLEAR ALL STATE ON LOGOUT
       get().reset();
       return;
     }
@@ -127,6 +131,14 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     }
 
     const meta = supabaseUser.user_metadata || {};
+    
+    // Merge remote ledger with local one if local is fresher (for Free tier)
+    let remoteLedger = profile?.usage_ledger || INITIAL_LEDGER;
+    const localL = await localDb.getUsageLedger(supabaseUser.id);
+    
+    // If user is free, local ledger is the source of truth for counts
+    const activeLedger = (profile?.tier === 'free' && localL) ? localL : remoteLedger;
+
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
@@ -136,12 +148,15 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       role: meta.role || 'user',
       onboarded: meta.onboarded || false,
       createdAt: supabaseUser.created_at || new Date().toISOString(),
-      usageLedger: profile?.usage_ledger || INITIAL_LEDGER
+      usageLedger: activeLedger
     };
 
     const syncedUser = syncLedgerPeriod(newUserObj);
     
-    if (syncedUser.usageLedger.periodStart !== newUserObj.usageLedger.periodStart) {
+    // Save locally immediately
+    await localDb.saveUsageLedger(syncedUser.id, syncedUser.usageLedger);
+
+    if (syncedUser.usageLedger.periodStart !== activeLedger.periodStart) {
       await supabase
         .from('Users')
         .update({ usage_ledger: syncedUser.usageLedger })
@@ -149,12 +164,13 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     }
 
     set({ session, user: syncedUser });
-    
-    // Now that user is set, trigger a filtered local data load
     await get().loadLocalData(syncedUser.id);
   },
   
-  setUser: (user) => set({ user }),
+  setUser: (user) => {
+    if (user) localDb.saveUsageLedger(user.id, user.usageLedger);
+    set({ user });
+  },
 
   updateUsageLedger: async (updates) => {
     const state = get();
@@ -165,8 +181,12 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     
     set({ user: updatedUser });
 
-    if (supabase) {
-      const { error } = await supabase
+    // 1. Always save locally (critical for Free Tier)
+    await localDb.saveUsageLedger(state.user.id, newLedger);
+
+    // 2. Save to cloud only if synced tier
+    if (QUOTAS[state.user.tier].isCloudSynced && supabase) {
+      await supabase
         .from('Users')
         .update({ usage_ledger: newLedger })
         .eq('id', state.user.id);
@@ -192,10 +212,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     if (!currentUser) return;
 
     set((state) => {
-      // PREVENT LEAKAGE: Ensure cloud vehicles actually belong to this user session
       const filteredCloud = cloudVehicles.filter(v => v.ownerId === currentUser.id);
-      
-      // Merge with local state that was ALREADY filtered by ownerId in loadLocalData
       const merged = [...filteredCloud];
       state.vehicles.forEach(localV => {
         if (localV.ownerId === currentUser.id && !merged.find(m => m.id === localV.id)) {
@@ -267,7 +284,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   setTasks: (tasks) => {
     const user = get().user;
     if (!user) return;
-    const filtered = tasks.filter(t => t.ownerId === user.id || t.vehicleId); // Ensure vehicle linkage
+    const filtered = tasks.filter(t => t.ownerId === user.id || t.vehicleId);
     set({ tasks: filtered });
     localDb.saveTasksBatch(filtered);
   },
