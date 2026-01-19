@@ -18,7 +18,7 @@ const Dashboard: React.FC = () => {
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
     updateMileage: updateStoreMileage, updateVehicleStore,
-    loadLocalData, setVehicles
+    setVehicles
   } = useAutoPalStore();
 
   const [showOdometerModal, setShowOdometerModal] = useState(false);
@@ -31,21 +31,16 @@ const Dashboard: React.FC = () => {
   const activeServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
   const activeFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicleId);
 
-  // 1. Initial Local Load (Instant UX)
-  useEffect(() => {
-    loadLocalData();
-  }, [loadLocalData]);
-
-  // 2. Background Sync (Silent Update)
+  // Background Sync (Silent Update)
   useEffect(() => {
     // Only attempt cloud sync for Standard/Premium to avoid unnecessary RLS errors for Free users
-    if (user && user.tier === 'free') return;
+    if (!user || user.tier === 'free') return;
 
     const syncVehicles = async () => {
       setIsSyncing(true);
       try {
         const cloudVehicles = await fetchUserVehicles();
-        // The store handles the logic of merging cloud and local
+        // The store handles the logic of merging cloud and local with ownerId verification
         setVehicles(cloudVehicles);
       } catch (err) {
         console.warn("Cloud sync deferred: Check network or tier permissions.");
@@ -54,7 +49,7 @@ const Dashboard: React.FC = () => {
       }
     };
     syncVehicles();
-  }, [setVehicles, user?.tier]);
+  }, [setVehicles, user?.tier, user?.id]);
 
   useEffect(() => {
     if (vehicles.length > 0 && !activeVehicleId) {

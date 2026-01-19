@@ -5,7 +5,7 @@ import { Vehicle, MaintenanceTask, ServiceLog, FuelLog } from '../shared/types.t
 /**
  * AutoPal Local Persistence Engine (IndexedDB)
  * Ensures the app works offline and data persists across refreshes.
- * Stores the full Vehicle object including latestAiAudit.
+ * UPDATED: Strictly enforced ownerId partitioning for multi-user isolation.
  */
 
 const db = new Dexie('AutoPalGarage') as Dexie & {
@@ -16,18 +16,18 @@ const db = new Dexie('AutoPalGarage') as Dexie & {
 };
 
 // We index keys we need to query by frequently.
-// Dexie stores the entire object, so fields like `latestAiAudit` are safe.
+// ownerId is critical for multi-tenant isolation.
 db.version(2).stores({
   vehicles: 'id, ownerId, vin, isDirty',
-  tasks: 'id, vehicleId, status, isDirty',
-  serviceLogs: 'id, vehicleId, isDirty',
-  fuelLogs: 'id, vehicleId, isDirty'
+  tasks: 'id, vehicleId, ownerId, status, isDirty',
+  serviceLogs: 'id, vehicleId, ownerId, isDirty',
+  fuelLogs: 'id, vehicleId, ownerId, isDirty'
 });
 
 export const localDb = {
   // Vehicles
   saveVehicle: (v: Vehicle) => db.vehicles.put(v),
-  getVehicles: () => db.vehicles.toArray(),
+  getVehicles: (ownerId: string) => db.vehicles.where('ownerId').equals(ownerId).toArray(),
   getVehicle: (id: string) => db.vehicles.get(id),
   deleteVehicle: (id: string) => db.vehicles.delete(id),
   
@@ -45,16 +45,24 @@ export const localDb = {
   getFuelLogs: (vehicleId: string) => db.fuelLogs.where('vehicleId').equals(vehicleId).toArray(),
   
   // Dirty Records (for Sync Engine)
-  getDirtyRecords: async () => {
-    const vehicles = await db.vehicles.where('isDirty').equals(1).toArray();
-    const tasks = await db.tasks.where('isDirty').equals(1).toArray();
-    const logs = await db.serviceLogs.where('isDirty').equals(1).toArray();
-    const fuel = await db.fuelLogs.where('isDirty').equals(1).toArray();
+  getDirtyRecords: async (ownerId: string) => {
+    const vehicles = await db.vehicles.where('ownerId').equals(ownerId).and(v => v.isDirty === true).toArray();
+    const tasks = await db.tasks.where('ownerId').equals(ownerId).and(t => t.isDirty === true).toArray();
+    const logs = await db.serviceLogs.where('ownerId').equals(ownerId).and(l => l.isDirty === true).toArray();
+    const fuel = await db.fuelLogs.where('ownerId').equals(ownerId).and(f => f.isDirty === true).toArray();
     return { vehicles, tasks, logs, fuel };
   },
   
   clearDirtyFlag: async (id: string, table: 'vehicles' | 'tasks' | 'serviceLogs' | 'fuelLogs') => {
     return (db[table] as any).update(id, { isDirty: false, lastSyncedAt: new Date().toISOString() });
+  },
+
+  /** Purge logic for security/privacy */
+  purgeAllUserData: async () => {
+    await db.vehicles.clear();
+    await db.tasks.clear();
+    await db.serviceLogs.clear();
+    await db.fuelLogs.clear();
   }
 };
 

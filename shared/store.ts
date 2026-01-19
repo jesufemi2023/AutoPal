@@ -65,7 +65,7 @@ interface AutoPalState {
   setSuggestedParts: (parts: string[]) => void;
   setMarketplaceFilter: (filter: string) => void;
   reset: () => void;
-  loadLocalData: () => Promise<void>;
+  loadLocalData: (userId: string) => Promise<void>;
 }
 
 export const useAutoPalStore = create<AutoPalState>((set, get) => ({
@@ -88,34 +88,31 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   marketplace: [],
   marketplaceFilter: '',
 
-  loadLocalData: async () => {
-    const localVehicles = await localDb.getVehicles();
-    if (localVehicles.length > 0) {
-      set({ 
-        vehicles: localVehicles,
-        activeVehicleId: get().activeVehicleId || localVehicles[0].id
-      });
-    }
+  loadLocalData: async (userId: string) => {
+    // Strictly filter by current user ID to prevent data leakage
+    const localVehicles = await localDb.getVehicles(userId);
+    set({ 
+      vehicles: localVehicles,
+      activeVehicleId: get().activeVehicleId || (localVehicles.length > 0 ? localVehicles[0].id : null)
+    });
   },
 
   setSession: async (session) => {
     if (!session) {
-      set({ session: null, user: null });
+      // CLEAR ALL STATE ON LOGOUT
+      get().reset();
       return;
     }
 
     const { user: supabaseUser } = session;
     
-    // 1. Fetch Extended Profile from our custom "Users" table
     let { data: profile, error } = await supabase
       .from('Users')
       .select('*')
       .eq('id', supabaseUser.id)
       .single();
 
-    // 2. PROFILE GENESIS: If user exists in Auth but not in public.Users, create it.
     if (error && error.code === 'PGRST116') {
-      console.log("[AutoPal Store] Initializing new user profile in public database...");
       const { data: newProfile, error: createError } = await supabase
         .from('Users')
         .insert([{
@@ -127,9 +124,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
         .single();
       
       if (!createError) profile = newProfile;
-      else console.error("[AutoPal Store] Profile Genesis Failure:", createError);
-    } else if (error) {
-      console.error("Profile Fetch Error:", error);
     }
 
     const meta = supabaseUser.user_metadata || {};
@@ -147,7 +141,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
 
     const syncedUser = syncLedgerPeriod(newUserObj);
     
-    // If ledger was reset by syncLedgerPeriod, update DB
     if (syncedUser.usageLedger.periodStart !== newUserObj.usageLedger.periodStart) {
       await supabase
         .from('Users')
@@ -156,6 +149,9 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     }
 
     set({ session, user: syncedUser });
+    
+    // Now that user is set, trigger a filtered local data load
+    await get().loadLocalData(syncedUser.id);
   },
   
   setUser: (user) => set({ user }),
@@ -169,14 +165,11 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     
     set({ user: updatedUser });
 
-    // Persist to DB for 10k User scaling
     if (supabase) {
       const { error } = await supabase
         .from('Users')
         .update({ usage_ledger: newLedger })
         .eq('id', state.user.id);
-      
-      if (error) console.error("[AutoPal Store] Ledger Sync Failure:", error);
     }
   },
 
@@ -195,11 +188,17 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   }),
 
   setVehicles: (cloudVehicles) => {
+    const currentUser = get().user;
+    if (!currentUser) return;
+
     set((state) => {
-      // 3. INTELLIGENT MERGE: Prefer cloud data but keep local-only Free tier data
-      const merged = [...cloudVehicles];
+      // PREVENT LEAKAGE: Ensure cloud vehicles actually belong to this user session
+      const filteredCloud = cloudVehicles.filter(v => v.ownerId === currentUser.id);
+      
+      // Merge with local state that was ALREADY filtered by ownerId in loadLocalData
+      const merged = [...filteredCloud];
       state.vehicles.forEach(localV => {
-        if (!merged.find(m => m.id === localV.id)) {
+        if (localV.ownerId === currentUser.id && !merged.find(m => m.id === localV.id)) {
           merged.push(localV);
         }
       });
@@ -210,7 +209,9 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       };
     });
     
-    cloudVehicles.forEach(v => localDb.saveVehicle(v));
+    cloudVehicles.forEach(v => {
+      if (v.ownerId === currentUser.id) localDb.saveVehicle(v);
+    });
   },
 
   addVehicle: (vehicle) => {
@@ -264,8 +265,11 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   },
 
   setTasks: (tasks) => {
-    set({ tasks });
-    localDb.saveTasksBatch(tasks);
+    const user = get().user;
+    if (!user) return;
+    const filtered = tasks.filter(t => t.ownerId === user.id || t.vehicleId); // Ensure vehicle linkage
+    set({ tasks: filtered });
+    localDb.saveTasksBatch(filtered);
   },
 
   setServiceLogs: (serviceLogs) => {

@@ -10,9 +10,11 @@ import { QUOTAS } from './permissionService.ts';
  * Minimizes cloud hits by only syncing "dirty" or milestone-reaching data.
  */
 
-export const performSync = async (userTier: Tier = 'free') => {
+// Added userId to identify which owner's records to fetch for synchronization
+export const performSync = async (userId: string, userTier: Tier = 'free') => {
   const isCloudEnabled = QUOTAS[userTier].isCloudSynced;
-  const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords();
+  // Fixed: Passed userId to getDirtyRecords as it expects one argument
+  const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords(userId);
   
   console.log(`SyncEngine: Processing ${vehicles.length + tasks.length + (isCloudEnabled ? logs.length + fuel.length : 0)} updates...`);
 
