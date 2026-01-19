@@ -1,6 +1,9 @@
 
-export type Tier = 'free' | 'standard' | 'premium';
 export type UserRole = 'user' | 'admin';
+/**
+ * operational license tiers
+ */
+export type Tier = 'free' | 'standard' | 'premium';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback' | 'other';
 export type TaskStatus = 'pending' | 'completed' | 'skipped';
 
@@ -19,8 +22,11 @@ export interface UserProfile {
   email: string;
   displayName?: string;
   phone?: string;
-  tier: Tier;
   role: UserRole;
+  /**
+   * The current subscription tier of the user
+   */
+  tier: Tier;
   onboarded: boolean;
   createdAt: string;
 }
@@ -65,14 +71,11 @@ export interface VehicleSpecs {
 }
 
 export interface HealthBreakdown {
-  metabolic: number; // Fuel efficiency score
-  hygiene: number;    // Maintenance adherence
-  provenance: number; // Trust/Verification score
+  metabolic: number;
+  hygiene: number;
+  provenance: number;
   metabolicStatus: 'optimal' | 'warning' | 'critical';
-  wasteMonthly: number; // Estimated ₦ wasted
-  /**
-   * Variance percentage from the genetic baseline of the vehicle class.
-   */
+  wasteMonthly: number;
   variance: number;
 }
 
@@ -97,7 +100,7 @@ export interface Vehicle {
   avgDailyKm?: number;
   efficiencyBaseline?: number; 
   isDirty?: boolean;
-  latestAiAudit?: AIValuationReport; // Persisted AI audit result
+  latestAiAudit?: AIValuationReport;
 }
 
 export interface FuelLog {
