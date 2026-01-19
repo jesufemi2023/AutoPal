@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -48,23 +47,11 @@ const App: React.FC = () => {
       try {
         if (!supabase) return;
         const { data: { session: currentSession } } = await supabase.auth.getSession();
-        
-        if (currentSession) {
-          // If logged in, move away from landing immediately
-          setCurrentView('garage');
-          await setSession(currentSession);
-        }
-        
+        setSession(currentSession);
         setInitialized(true);
         
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-          if (newSession) {
-            await setSession(newSession);
-            // If just signed in, force transition
-            if (event === 'SIGNED_IN') setCurrentView('garage');
-          } else {
-            setSession(null);
-          }
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          setSession(session);
         });
         return () => subscription.unsubscribe();
       } catch (err) {
@@ -72,21 +59,22 @@ const App: React.FC = () => {
       }
     };
     initAuth();
-  }, [setSession, setInitialized, setCurrentView]);
+  }, [setSession, setInitialized]);
 
   /**
-   * STRATEGIC ROUTING (Automatic redirects based on assets)
+   * STRATEGIC ROUTING
    */
   useEffect(() => {
     if (session && user) {
       fetchUserVehicles().then((fetchedVehicles) => {
         setVehicles(fetchedVehicles);
-        
-        // Auto-onboard if no cars found and they are on a generic view
-        if (fetchedVehicles.length === 0 && (currentView === 'landing' || currentView === 'garage')) {
-          setCurrentView('onboarding');
-        } else if (fetchedVehicles.length > 0 && currentView === 'landing') {
-          setCurrentView('garage');
+        const isTransitioning = currentView === 'landing' || currentView === 'garage';
+        if (isTransitioning) {
+          if (fetchedVehicles.length === 0) {
+            setCurrentView('onboarding');
+          } else {
+            setCurrentView('garage');
+          }
         }
       }).catch(console.error);
     }
@@ -124,14 +112,12 @@ const App: React.FC = () => {
     </div>
   );
 
-  // GUEST / AUTH GATES
   if (!session) {
     if (currentView === 'report' && transientVehicle) return <GuestReport />;
     if (currentView === 'garage') return <AuthScreen />;
     return <LandingTerminal />;
   }
 
-  // ONBOARDING GATE
   if (currentView === 'onboarding' || currentView === 'edit') {
     return <AssetIntelligenceCenter mode={currentView} />;
   }
@@ -249,7 +235,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
       {/* Mobile Header */}
       <header className="lg:hidden h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 z-[100] w-full">
-        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('garage')}>
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
           <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-md">A</div>
           <span className="font-black tracking-tighter text-slate-900 text-sm">AutoPal NG</span>
         </div>
@@ -312,7 +298,7 @@ const App: React.FC = () => {
       {/* Desktop Sidebar & Flyout Overlay */}
       <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-[100] overflow-visible">
         <div className="p-8 pb-6 shrink-0 bg-white relative z-[101]">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('garage')}>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
             <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg shadow-slate-900/20">A</div>
             <div>
               <span className="block font-black tracking-tighter text-slate-900 text-base leading-none mb-1">AutoPal NG</span>
