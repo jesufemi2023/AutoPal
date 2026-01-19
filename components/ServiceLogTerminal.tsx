@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { finalizeMaintenanceCompletion, createManualServiceLog, syncVehicleVitals, uploadVehicleImage } from '../services/vehicleService.ts';
 import { updateServiceLog } from '../services/logService.ts';
 import { MaintenanceTask, ServiceCategory, VerificationLevel, Vehicle, ServiceLog } from '../shared/types.ts';
 import { compressImage } from '../shared/utils.ts';
+import { canLogService } from '../services/permissionService.ts';
 
 interface Props {
   vehicle: Vehicle;
@@ -14,7 +14,7 @@ interface Props {
 }
 
 export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, initialLog, onClose }) => {
-  const { user, addServiceLog, updateServiceLogStore, tasks, setTasks, updateMileage, updateVehicleStore } = useAutoPalStore();
+  const { user, addServiceLog, updateServiceLogStore, tasks, setTasks, updateMileage, updateVehicleStore, updateUsageLedger } = useAutoPalStore();
   const [step, setStep] = useState(initialLog ? 2 : (preselectedTask ? 2 : 1));
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +59,17 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
   };
 
   const handleSave = async () => {
+    if (!user) return;
+
+    // Check Permissions for NEW logs
+    if (!initialLog) {
+      const permission = canLogService(user);
+      if (!permission.allowed) {
+        alert(permission.reason);
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
       let finalReceiptUrl = initialLog?.receiptUrl || '';
@@ -76,8 +87,6 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
       const activeTask = form.linkToTaskId ? tasks.find(t => t.id === form.linkToTaskId) : preselectedTask;
 
       if (initialLog) {
-        // Fixed: added required user argument to updateServiceLog
-        if (!user) throw new Error("User context missing");
         const updated = await updateServiceLog(initialLog.id, {
           serviceType: form.type,
           serviceDate: form.date,
@@ -108,6 +117,12 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         addServiceLog(log);
         setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
         updateVehicleStore(updatedVehicle);
+        
+        // Track Usage
+        updateUsageLedger({
+          serviceLogsCount: (user.usageLedger.serviceLogsCount || 0) + 1,
+          lastServiceLogAt: new Date().toISOString()
+        });
       } else {
         const log = await createManualServiceLog(vehicle, {
           vehicleId: vehicle.id,
@@ -126,6 +141,12 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         addServiceLog(log);
         const syncedVehicle = await syncVehicleVitals(vehicle.id);
         updateVehicleStore(syncedVehicle);
+
+        // Track Usage
+        updateUsageLedger({
+          serviceLogsCount: (user.usageLedger.serviceLogsCount || 0) + 1,
+          lastServiceLogAt: new Date().toISOString()
+        });
       }
       
       if (form.mileage > vehicle.mileage) {

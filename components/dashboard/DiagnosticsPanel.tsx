@@ -1,6 +1,8 @@
-
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { AIResponse, Vehicle } from '../../shared/types.ts';
+import { canUseAiDiagnosis } from '../../services/permissionService.ts';
+import { useAutoPalStore } from '../../shared/store.ts';
+import UpgradeModal from '../UpgradeModal.tsx';
 
 interface Props {
   vehicle: Vehicle;
@@ -18,6 +20,27 @@ export const DiagnosticsPanel: React.FC<Props> = ({
   vehicle, symptom, setSymptom, diagImage, setDiagImage, isAskingAI, onAnalyze, aiAdvice, compact = false 
 }) => {
   const diagImageRef = useRef<HTMLInputElement>(null);
+  const { user, updateUsageLedger } = useAutoPalStore();
+  const [showUpgrade, setShowUpgrade] = useState(false);
+
+  const handleAuditRun = () => {
+    if (!user) return;
+    const permission = canUseAiDiagnosis(user);
+    if (!permission.allowed) {
+      alert(permission.reason);
+      if (user.tier === 'free') setShowUpgrade(true);
+      return;
+    }
+
+    // Call the original analyze function
+    onAnalyze();
+    
+    // Update usage (The app.tsx handleAnalyze would also call this if we wanted, but we keep it here for direct control)
+    updateUsageLedger({
+      aiDiagnosisCount: (user.usageLedger.aiDiagnosisCount || 0) + 1,
+      aiDiagnosisYearlyCount: (user.usageLedger.aiDiagnosisYearlyCount || 0) + 1
+    });
+  };
 
   const containerClasses = compact 
     ? "bg-slate-950 text-white rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col border border-white/10"
@@ -45,6 +68,13 @@ export const DiagnosticsPanel: React.FC<Props> = ({
               <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Diagnostic</h3>
               <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Active Link: {vehicle.make} {vehicle.model}</p>
             </div>
+          </div>
+        )}
+
+        {user?.tier === 'free' && !compact && (
+          <div className="mb-6 bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl text-center">
+            <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-3">Upgrade to Standard to Unlock AI Troubleshooting</p>
+            <button onClick={() => setShowUpgrade(true)} className="bg-blue-600 text-white px-6 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg">View Plans</button>
           </div>
         )}
         
@@ -87,8 +117,8 @@ export const DiagnosticsPanel: React.FC<Props> = ({
             </div>
 
             <button 
-              disabled={isAskingAI || !symptom}
-              onClick={onAnalyze}
+              disabled={isAskingAI || !symptom || user?.tier === 'free'}
+              onClick={handleAuditRun}
               className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl disabled:opacity-20 transition-all hover:bg-blue-700 active:scale-95"
             >
               Analyze Symptoms
@@ -135,6 +165,7 @@ export const DiagnosticsPanel: React.FC<Props> = ({
           </div>
         </div>
       </div>
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
     </div>
   );
 };

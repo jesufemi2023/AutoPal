@@ -1,8 +1,7 @@
-
 import { generateMaintenanceSchedule } from './geminiService.ts';
 import { createVehicle, createMaintenanceTasksBatch } from './vehicleService.ts';
 import { getCachedRoadmap, saveRoadmapTemplate } from './templateService.ts';
-import { Vehicle, BodyType, MaintenanceTask, Priority } from '../shared/types.ts';
+import { Vehicle, BodyType, MaintenanceTask, Priority, MaintenanceScheduleResponse } from '../shared/types.ts';
 
 /**
  * Vehicle Registration Orchestrator
@@ -44,7 +43,7 @@ export const initializeVehicleAsset = async (
 };
 
 /** Phase 2: Generate proposed tasks (Template -> AI) */
-export const prepareProposedRoadmap = async (vehicle: Vehicle): Promise<{ tasks: Omit<MaintenanceTask, 'id'>[], isNewTemplate: boolean }> => {
+export const prepareProposedRoadmap = async (vehicle: Vehicle): Promise<{ tasks: Omit<MaintenanceTask, 'id'>[], isNewTemplate: boolean, rawRoadmap?: MaintenanceScheduleResponse }> => {
   try {
     let roadmap = await getCachedRoadmap(vehicle.make, vehicle.model, vehicle.year);
     let isNewTemplate = false;
@@ -66,7 +65,7 @@ export const prepareProposedRoadmap = async (vehicle: Vehicle): Promise<{ tasks:
       isDirty: false
     }));
 
-    return { tasks, isNewTemplate };
+    return { tasks, isNewTemplate, rawRoadmap: roadmap };
   } catch (e) {
     console.error("Roadmap generation failed, falling back to empty list", e);
     return { tasks: [], isNewTemplate: false };
@@ -74,9 +73,11 @@ export const prepareProposedRoadmap = async (vehicle: Vehicle): Promise<{ tasks:
 };
 
 /** Phase 3: Commit the user-audited roadmap */
-export const commitFinalRoadmap = async (vehicle: Vehicle, tasks: Omit<MaintenanceTask, 'id'>[], isNewTemplate: boolean) => {
+export const commitFinalRoadmap = async (vehicle: Vehicle, tasks: Omit<MaintenanceTask, 'id'>[], isNewTemplate: boolean, rawRoadmap?: MaintenanceScheduleResponse) => {
   await createMaintenanceTasksBatch(tasks);
   
   // If this was a fresh AI generation, we cache it for the next user of this car model
-  // Note: We don't cache user's 'custom' manual additions to prevent cluttering the global template.
+  if (isNewTemplate && rawRoadmap) {
+    await saveRoadmapTemplate(vehicle.make, vehicle.model, vehicle.year, rawRoadmap);
+  }
 };

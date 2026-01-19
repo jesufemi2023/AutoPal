@@ -1,9 +1,8 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { initializeVehicleAsset, prepareProposedRoadmap, commitFinalRoadmap } from '../services/vehicleRegistrationService.ts';
 import { uploadVehicleImage, updateVehicle, archiveVehicle, syncVehicleVitals } from '../services/vehicleService.ts';
-import { BodyType, Vehicle, MaintenanceTask, Priority, ServiceCategory } from '../shared/types.ts';
+import { BodyType, Vehicle, MaintenanceTask, Priority, ServiceCategory, MaintenanceScheduleResponse } from '../shared/types.ts';
 import { compressImage } from '../shared/utils.ts';
 import { VehicleBlueprint } from './VehicleBlueprint.tsx';
 
@@ -28,6 +27,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
   const [proposedTasks, setProposedTasks] = useState<Omit<MaintenanceTask, 'id'>[]>([]);
   const [activeVehicle, setActiveVehicle] = useState<Vehicle | null>(null);
   const [isNewTemplate, setIsNewTemplate] = useState(false);
+  const [rawRoadmap, setRawRoadmap] = useState<MaintenanceScheduleResponse | undefined>();
 
   const initialVehicle = mode === 'edit' ? vehicles.find(v => v.id === editingVehicleId) : null;
 
@@ -79,9 +79,10 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
       const vehicle = await initializeVehicleAsset(user?.id || 'guest', form.vin, { ...form });
       setActiveVehicle(vehicle);
 
-      const { tasks, isNewTemplate: isNew } = await prepareProposedRoadmap(vehicle);
+      const { tasks, isNewTemplate: isNew, rawRoadmap: raw } = await prepareProposedRoadmap(vehicle);
       setProposedTasks(tasks);
       setIsNewTemplate(isNew);
+      setRawRoadmap(raw);
 
       if (imageFile && user?.id) {
         try {
@@ -166,7 +167,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
     if (!activeVehicle) return;
     setIsProcessing(true);
     try {
-      await commitFinalRoadmap(activeVehicle, proposedTasks, isNewTemplate);
+      await commitFinalRoadmap(activeVehicle, proposedTasks, isNewTemplate, rawRoadmap);
       addVehicle(activeVehicle);
       setCurrentStep('success');
     } catch (err: any) {

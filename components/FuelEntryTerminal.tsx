@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { addFuelLog, updateFuelLog } from '../services/fuelService.ts';
 import { updateMileage as syncOdometerBridge } from '../services/vehicleService.ts';
 import { ENV } from '../services/envService.ts';
 import { FuelLog } from '../shared/types.ts';
+import { canLogFuel } from '../services/permissionService.ts';
 
 interface FuelEntryTerminalProps {
   vehicleId: string;
@@ -14,7 +14,7 @@ interface FuelEntryTerminalProps {
 }
 
 const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, currentOdo, initialLog, onClose }) => {
-  const { addFuelLogStore, updateFuelLogStore, syncVehicleState } = useAutoPalStore();
+  const { addFuelLogStore, updateFuelLogStore, syncVehicleState, user, updateUsageLedger } = useAutoPalStore();
   const [isProcessing, setIsProcessing] = useState(false);
   
   const [form, setForm] = useState({
@@ -28,6 +28,16 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
   const [error, setError] = useState<string | null>(null);
 
   const handleCommit = async () => {
+    if (!user) return;
+
+    if (!initialLog) {
+      const permission = canLogFuel(user);
+      if (!permission.allowed) {
+        setError(permission.reason || "Quota reached.");
+        return;
+      }
+    }
+
     const odo = parseInt(form.odometer);
     const lit = parseFloat(form.liters);
     const cost = parseFloat(form.cost);
@@ -76,6 +86,11 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
 
         addFuelLogStore(log);
         
+        // Track Usage
+        updateUsageLedger({
+          fuelLogsCount: (user.usageLedger.fuelLogsCount || 0) + 1
+        });
+
         // Push the update through the Golden Thread Bridge
         const updatedVehicle = await syncOdometerBridge(vehicleId, odo);
         syncVehicleState(vehicleId, updatedVehicle);

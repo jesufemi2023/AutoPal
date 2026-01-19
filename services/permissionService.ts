@@ -12,7 +12,7 @@ export const QUOTAS = {
     maxVehicles: 1,
     serviceLogsMonthly: 4,
     fuelLogsMonthly: 2,
-    aiAuditsMonthly: 1,
+    aiAuditsMonthly: 2,
     aiDiagnosisMonthly: 0,
     aiDiagnosisYearly: 0,
     hasReports: false,
@@ -68,7 +68,7 @@ export const syncLedgerPeriod = (user: UserProfile): UserProfile => {
 export const canAddVehicle = (user: UserProfile, currentCount: number): PermissionResult => {
   const quota = QUOTAS[user.tier].maxVehicles;
   if (currentCount >= quota) {
-    return { allowed: false, reason: `Tier limit reached. Your plan allows ${quota} active vehicle.` };
+    return { allowed: false, reason: `Tier limit reached. Your plan allows ${quota} active vehicle${quota > 1 ? 's' : ''}.` };
   }
   return { allowed: true, remaining: quota - currentCount };
 };
@@ -79,7 +79,7 @@ export const canLogService = (user: UserProfile): PermissionResult => {
 
   // 1. Check Monthly Quota
   if (ledger.serviceLogsCount >= quota) {
-    return { allowed: false, reason: `Monthly log limit (${quota}) reached.` };
+    return { allowed: false, reason: `Monthly log limit (${quota}) reached for your tier.` };
   }
 
   // 2. Check Weekly Cooldown (1 per week)
@@ -89,7 +89,7 @@ export const canLogService = (user: UserProfile): PermissionResult => {
     if (diff < 7) {
       return { 
         allowed: false, 
-        reason: `Maintenance Cooldown Active. Next log available in ${Math.ceil(7 - diff)} days.`,
+        reason: `Frequency Limit: You can only log service once per week. Available in ${Math.ceil(7 - diff)} days.`,
         cooldownDays: Math.ceil(7 - diff)
       };
     }
@@ -113,15 +113,15 @@ export const canRunAiAudit = (user: UserProfile): PermissionResult => {
   const ledger = user.usageLedger;
 
   if (ledger.aiAuditsCount >= quota) {
-    return { allowed: false, reason: `Monthly AI Audit limit reached.` };
+    return { allowed: false, reason: `Monthly AI Audit limit (${quota}) reached.` };
   }
 
-  // AI Audits also have a 7-day cooldown (1 per week)
-  if (ledger.lastAiAuditAt) {
+  // AI Audits also have a 7-day cooldown (1 per week) for non-premium
+  if (user.tier !== 'premium' && ledger.lastAiAuditAt) {
     const last = new Date(ledger.lastAiAuditAt);
     const diff = (new Date().getTime() - last.getTime()) / (1000 * 60 * 60 * 24);
     if (diff < 7) {
-      return { allowed: false, reason: `AI Audit cooldown active. Try again in ${Math.ceil(7 - diff)} days.` };
+      return { allowed: false, reason: `Weekly Audit limit reached. Try again in ${Math.ceil(7 - diff)} days.` };
     }
   }
 
