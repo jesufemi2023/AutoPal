@@ -1,5 +1,6 @@
 
 export type UserRole = 'user' | 'admin';
+/** Fix: Added Tier type definition */
 export type Tier = 'free' | 'standard' | 'premium';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback' | 'other';
 export type TaskStatus = 'pending' | 'completed' | 'skipped';
@@ -20,7 +21,6 @@ export interface UserProfile {
   displayName?: string;
   phone?: string;
   role: UserRole;
-  tier?: Tier;
   onboarded: boolean;
   createdAt: string;
 }

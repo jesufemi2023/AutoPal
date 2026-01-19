@@ -125,13 +125,12 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       email: supabaseUser.email || '',
       displayName: profile?.['Display name'] || meta.displayName || '',
       phone: profile?.['Phone'] || meta.phone || '',
-      role: meta.role || 'user',
+      role: profile?.role || meta.role || 'user',
       onboarded: meta.onboarded || false,
       createdAt: supabaseUser.created_at || new Date().toISOString(),
     };
 
     set({ session, user: newUserObj });
-    // Fixed: Corrected reference from undefined 'syncedUser' to 'newUserObj'.
     await get().loadLocalData(newUserObj.id);
   },
   

@@ -1,9 +1,9 @@
+
 import { getEnv } from '../shared/utils.ts';
 
 /**
  * AutoPal Environment Registry
  * This is the single source of truth for all infrastructure and feature flags.
- * It uses the utility getEnv to pull from process.env or window shims.
  */
 export const ENV = {
   // Infrastructure
@@ -13,22 +13,22 @@ export const ENV = {
   // AI Keys (Always use process.env.API_KEY directly for GoogleGenAI)
   MOCK_AI: getEnv('MOCK_AI') === 'true',
 
-  // Feature Limits
-  ENABLE_PREMIUM_AI: getEnv('ENABLE_PREMIUM_AI') === 'true',
-  // Fix: Added MAINTENANCE_STEPS required for prompt generation logic
+  // Feature Configuration
   MAINTENANCE_STEPS: parseInt(getEnv('MAINTENANCE_STEPS') || '5'),
-  MAX_VEHICLES_FREE: parseInt(getEnv('MAX_VEHICLES_FREE') || '1'),
-  MAX_VEHICLES_STANDARD: parseInt(getEnv('MAX_VEHICLES_STANDARD') || '3'),
-  MAX_VEHICLES_PREMIUM: parseInt(getEnv('MAX_VEHICLES_PREMIUM') || '10'),
   
   // Logic Parameters
   REGIONAL_CONTEXT: getEnv('REGIONAL_CONTEXT') || 'Nigeria',
   CURRENCY: getEnv('CURRENCY') || 'NGN',
+
+  /** Fix: Added missing tiered limits used by configService */
+  MAX_VEHICLES_FREE: parseInt(getEnv('MAX_VEHICLES_FREE') || '1'),
+  MAX_VEHICLES_STANDARD: parseInt(getEnv('MAX_VE_STANDARD') || '3'),
+  MAX_VEHICLES_PREMIUM: parseInt(getEnv('MAX_VE_PREMIUM') || '10'),
+  ENABLE_PREMIUM_AI: getEnv('ENABLE_PREMIUM_AI') === 'true',
 };
 
 /**
- * Validates that essential infrastructure keys are present.
- * Fails gracefully to prevent app-wide crashes.
+ * Validates essential infrastructure keys.
  */
 export const validateEnv = (): { isValid: boolean; missing: string[] } => {
   const critical = ['SUPABASE_URL', 'SUPABASE_ANON_KEY'];

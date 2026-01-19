@@ -5,7 +5,6 @@ import { calculateResaleValue } from '../../services/valuationService.ts';
 import { generateAIValuation } from '../../services/geminiService.ts';
 import { updateVehicle } from '../../services/vehicleService.ts';
 import { useAutoPalStore } from '../../shared/store.ts';
-import { formatCurrency } from '../../shared/utils.ts';
 
 export const ResaleValuationCard: React.FC<{
   vehicle: Vehicle;
@@ -33,6 +32,7 @@ export const ResaleValuationCard: React.FC<{
       updateVehicleStore(updatedVehicle);
     } catch (e) {
       console.error("[AutoPal AI] Analysis Failure:", e);
+      alert("Neural Market Audit failed. Please try again.");
     } finally {
       setIsAnalyzing(false);
     }
