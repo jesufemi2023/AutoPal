@@ -1,3 +1,4 @@
+
 export type Tier = 'free' | 'standard' | 'premium';
 export type UserRole = 'user' | 'admin';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback' | 'other';
@@ -13,21 +14,6 @@ export type LogStatus = 'upcoming' | 'overdue' | 'completed';
 export type ServiceCategory = 'engine' | 'tires' | 'brakes' | 'fluids' | 'suspension' | 'other' | 'electrical' | 'cooling';
 export type VerificationLevel = 'self_declared' | 'receipt_verified' | 'mechanic_verified';
 
-/**
- * Usage Ledger: Tracks quotas and cooldowns to enforce tiered access.
- * Resets every 30 days based on periodStart.
- */
-export interface UsageLedger {
-  periodStart: string;
-  serviceLogsCount: number;
-  fuelLogsCount: number;
-  aiAuditsCount: number;
-  aiDiagnosisCount: number;
-  aiDiagnosisYearlyCount: number;
-  lastServiceLogAt?: string;
-  lastAiAuditAt?: string;
-}
-
 export interface UserProfile {
   id: string;
   email: string;
@@ -37,7 +23,6 @@ export interface UserProfile {
   role: UserRole;
   onboarded: boolean;
   createdAt: string;
-  usageLedger: UsageLedger;
 }
 
 export interface TransientVehicle {
@@ -80,11 +65,14 @@ export interface VehicleSpecs {
 }
 
 export interface HealthBreakdown {
-  metabolic: number;
-  hygiene: number;
-  provenance: number;
+  metabolic: number; // Fuel efficiency score
+  hygiene: number;    // Maintenance adherence
+  provenance: number; // Trust/Verification score
   metabolicStatus: 'optimal' | 'warning' | 'critical';
-  wasteMonthly: number;
+  wasteMonthly: number; // Estimated ₦ wasted
+  /**
+   * Variance percentage from the genetic baseline of the vehicle class.
+   */
   variance: number;
 }
 
@@ -109,7 +97,7 @@ export interface Vehicle {
   avgDailyKm?: number;
   efficiencyBaseline?: number; 
   isDirty?: boolean;
-  latestAiAudit?: AIValuationReport;
+  latestAiAudit?: AIValuationReport; // Persisted AI audit result
 }
 
 export interface FuelLog {

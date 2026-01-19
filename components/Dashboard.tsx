@@ -146,19 +146,17 @@ const Dashboard: React.FC = () => {
                 updateTaskStatus(t.id, 'completed')
                   .then(() => {
                     completeTask(t.id, t.estimatedCost || 0, activeVehicle.mileage);
-                    // Fixed: used createServiceLogEntry with required user argument
-                    if (user) {
-                      createServiceLogEntry({
-                        vehicleId: activeVehicle.id, 
-                        taskId: t.id, 
-                        serviceDate: new Date().toISOString(),
-                        serviceType: t.title, 
-                        cost: t.estimatedCost || 0, 
-                        mileageAtService: activeVehicle.mileage, 
-                        status: 'completed',
-                        category: t.category
-                      }, user);
-                    }
+                    // Fixed: used createServiceLogEntry from logService
+                    createServiceLogEntry({
+                      vehicleId: activeVehicle.id, 
+                      taskId: t.id, 
+                      serviceDate: new Date().toISOString(),
+                      serviceType: t.title, 
+                      cost: t.estimatedCost || 0, 
+                      mileageAtService: activeVehicle.mileage, 
+                      status: 'completed',
+                      category: t.category
+                    });
                   });
               }} 
             />

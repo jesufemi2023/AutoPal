@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { Vehicle, MaintenanceTask, ServiceLog, FuelLog, AIValuationReport } from '../../shared/types.ts';
 import { calculateResaleValue } from '../../services/valuationService.ts';
@@ -5,8 +6,6 @@ import { generateAIValuation } from '../../services/geminiService.ts';
 import { updateVehicle } from '../../services/vehicleService.ts';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { formatCurrency } from '../../shared/utils.ts';
-import { canRunAiAudit } from '../../services/permissionService.ts';
-import UpgradeModal from '../UpgradeModal.tsx';
 
 export const ResaleValuationCard: React.FC<{
   vehicle: Vehicle;
@@ -14,39 +13,21 @@ export const ResaleValuationCard: React.FC<{
   serviceLogs: ServiceLog[];
   fuelLogs: FuelLog[];
 }> = ({ vehicle, tasks, serviceLogs, fuelLogs }) => {
-  const { updateVehicleStore, user, updateUsageLedger } = useAutoPalStore();
+  const { updateVehicleStore } = useAutoPalStore();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [showUpgrade, setShowUpgrade] = useState(false);
 
   // Use persisted audit from vehicle object
   const cachedReport = vehicle.latestAiAudit;
-
-  // Audit Expiry Check (30 days)
-  const isAuditExpired = useMemo(() => {
-    if (!cachedReport) return false;
-    const auditDate = new Date(cachedReport.timestamp);
-    const diffDays = (new Date().getTime() - auditDate.getTime()) / (1000 * 60 * 60 * 24);
-    return diffDays > 30;
-  }, [cachedReport]);
 
   const deterministicValuation = useMemo(() => 
     calculateResaleValue(vehicle, tasks, serviceLogs, fuelLogs), 
     [vehicle, tasks, serviceLogs, fuelLogs]
   );
   
-  const displayValuation = (cachedReport && !isAuditExpired) ? cachedReport.valuationNGN : deterministicValuation.finalValue;
-  const displayGrade = (cachedReport && !isAuditExpired) ? cachedReport.marketGrade : deterministicValuation.marketGrade;
+  const displayValuation = cachedReport ? cachedReport.valuationNGN : deterministicValuation.finalValue;
+  const displayGrade = cachedReport ? cachedReport.marketGrade : deterministicValuation.marketGrade;
   
   const handleAiAnalysis = async () => {
-    if (!user) return;
-    
-    const permission = canRunAiAudit(user);
-    if (!permission.allowed) {
-      alert(permission.reason);
-      if (user.tier === 'free') setShowUpgrade(true);
-      return;
-    }
-
     setIsAnalyzing(true);
     try {
       const report = await generateAIValuation(vehicle, tasks, serviceLogs, fuelLogs);
@@ -54,13 +35,8 @@ export const ResaleValuationCard: React.FC<{
       // Save AI Audit to Cloud for 10k User Persistency
       const updatedVehicle = await updateVehicle(vehicle.id, { 
         latestAiAudit: report,
+        // Sync vitality score back to main health field for dash visibility
         healthScore: report.auditedScores.vitality 
-      });
-      
-      // Update usage tracking
-      updateUsageLedger({
-        aiAuditsCount: (user.usageLedger.aiAuditsCount || 0) + 1,
-        lastAiAuditAt: new Date().toISOString()
       });
       
       updateVehicleStore(updatedVehicle);
@@ -92,13 +68,6 @@ export const ResaleValuationCard: React.FC<{
         </div>
       )}
 
-      {isAuditExpired && (
-        <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm z-40 flex flex-col items-center justify-center p-6 text-center group-hover:backdrop-blur-none transition-all">
-           <div className="bg-rose-600 text-white px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest mb-4">Audit Expired (30d)</div>
-           <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest max-w-[180px]">Telemetry data has shifted. Refresh audit for accuracy.</p>
-        </div>
-      )}
-
       <div className="relative z-10 flex flex-col gap-8 lg:gap-10 w-full">
         <div className="flex justify-between items-start">
           <div className="space-y-4">
@@ -112,9 +81,9 @@ export const ResaleValuationCard: React.FC<{
             </div>
             <div className="flex items-center gap-3">
               <p className="text-blue-500/80 text-[10px] font-black uppercase tracking-[0.3em] font-mono font-bold">
-                { (cachedReport && !isAuditExpired) ? 'AI High-Confidence' : 'Market Algorithmic Avg'}
+                {cachedReport ? 'AI High-Confidence' : 'Market Algorithmic Avg'}
               </p>
-              {cachedReport && !isAuditExpired && (
+              {cachedReport && (
                 <div className="px-2 py-0.5 bg-blue-600/20 text-blue-400 text-[8px] font-black uppercase rounded">Stabilized</div>
               )}
             </div>
@@ -125,7 +94,7 @@ export const ResaleValuationCard: React.FC<{
           </div>
         </div>
 
-        {cachedReport && !isAuditExpired && (
+        {cachedReport && (
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white/5 border border-white/10 p-4 rounded-2xl flex flex-col justify-between">
               <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Price Range</span>
@@ -144,15 +113,15 @@ export const ResaleValuationCard: React.FC<{
 
         <button 
           onClick={handleAiAnalysis}
-          className={`w-full ${(cachedReport && !isAuditExpired) ? 'bg-white/10 border border-white/20' : 'bg-blue-600'} text-white py-6 rounded-2xl flex items-center justify-center gap-4 transition-all shadow-xl shadow-blue-600/20 group/btn hover:bg-blue-500 z-50`}
+          className={`w-full ${cachedReport ? 'bg-white/10 border border-white/20' : 'bg-blue-600'} text-white py-6 rounded-2xl flex items-center justify-center gap-4 transition-all shadow-xl shadow-blue-600/20 group/btn hover:bg-blue-500`}
         >
           <span className="text-xl group-hover/btn:scale-125 transition-transform animate-pulse">✧</span>
           <span className="text-[10px] font-black uppercase tracking-[0.3em]">
-            {(cachedReport && !isAuditExpired) ? 'Refresh Neural Audit' : 'Request AI Financial Dossier'}
+            {cachedReport ? 'Refresh Neural Audit' : 'Request AI Financial Dossier'}
           </span>
         </button>
 
-        {cachedReport && !isAuditExpired && (
+        {cachedReport && (
           <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
             <div className="p-5 bg-white/5 border border-white/10 rounded-2xl space-y-4">
                <div className="flex items-start gap-4">
@@ -189,7 +158,7 @@ export const ResaleValuationCard: React.FC<{
           </div>
         )}
 
-        {(!cachedReport || isAuditExpired) && (
+        {!cachedReport && (
           <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
             <div>
               <div className="text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Base Market</div>
@@ -202,7 +171,6 @@ export const ResaleValuationCard: React.FC<{
           </div>
         )}
       </div>
-      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
     </section>
   );
 };

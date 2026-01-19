@@ -8,8 +8,8 @@ import AdminPanel from './components/AdminPanel.tsx';
 import FuelIntelligenceCenter from './components/FuelIntelligenceCenter.tsx';
 import ServiceIntelligenceCenter from './components/ServiceIntelligenceCenter.tsx';
 import AssetIntelligenceCenter from './components/AssetIntelligenceCenter.tsx';
-import ProfileDossier from './components/ProfileDossier.tsx';
 import GlobalReportingCenter from './components/GlobalReportingCenter.tsx';
+import ProfileDossier from './components/ProfileDossier.tsx';
 import LandingTerminal from './components/LandingTerminal.tsx';
 import GuestReport from './components/GuestReport.tsx';
 import { validateEnv } from './services/envService.ts';
@@ -186,12 +186,11 @@ const App: React.FC = () => {
       </div>
 
       <div className="pt-4 border-t border-slate-50 mx-2">
-        <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Reports & Audit</p>
-        <NavItem view="report" label="Ownership Report" icon="📄" />
-        
+        <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Audit & Control</p>
+        <NavItem view="report" label="Garage Report" icon="📄" />
         <button 
           onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-          className={`mt-2 flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsOpen ? 'bg-slate-900 border-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}
+          className={`flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsOpen ? 'bg-slate-900 border-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}
         >
           <div className="flex items-center gap-4">
             <span className={`text-lg transition-transform ${isSettingsOpen ? 'rotate-90 text-blue-400' : 'group-hover:rotate-12'}`}>⚙</span>
@@ -423,7 +422,7 @@ const App: React.FC = () => {
         </button>
         <button onClick={() => setCurrentView('report')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'report' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
           <span className="text-lg">📄</span>
-          <span className="text-[7px] font-black uppercase tracking-widest">Report</span>
+          <span className="text-[7px] font-black uppercase tracking-widest">Reports</span>
         </button>
       </nav>
     </div>
