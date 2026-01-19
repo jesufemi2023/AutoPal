@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { addFuelLog, updateFuelLog } from '../services/fuelService.ts';
@@ -62,14 +61,13 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
     try {
       if (initialLog) {
         // Edit Mode
-        // Fix: Pass user as the third argument to updateFuelLog
         const updated = await updateFuelLog(initialLog.id, {
           liters: lit,
           totalCost: isNaN(cost) ? 0 : cost,
           odometerKm: odo,
           isFullTank: form.isFull,
           vendor: form.vendor.trim()
-        }, user);
+        });
         updateFuelLogStore(updated);
         
         // Push the update through the Golden Thread Bridge
@@ -77,7 +75,6 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
         syncVehicleState(vehicleId, updatedVehicle);
       } else {
         // Create Mode
-        // Fix: Pass user as the second argument to addFuelLog
         const log = await addFuelLog({
           vehicleId,
           liters: lit,
@@ -85,7 +82,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
           odometerKm: odo,
           isFullTank: form.isFull,
           vendor: form.vendor.trim()
-        }, user);
+        });
 
         addFuelLogStore(log);
         

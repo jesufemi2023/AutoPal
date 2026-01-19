@@ -1,7 +1,6 @@
-
 import { supabase } from '../auth/supabaseClient.ts';
 import { ServiceLog, UserProfile } from '../shared/types.ts';
-import { canLogService, QUOTAS } from './permissionService.ts';
+import { canLogService } from './permissionService.ts';
 
 export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]> => {
   if (!supabase) return [];
@@ -29,7 +28,6 @@ export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]>
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     verificationLevel: row.verification_level,
-    // Fix: use camelCase property name to match ServiceLog type
     receiptUrl: row.receipt_url
   }));
 };
@@ -43,10 +41,9 @@ export const createServiceLog = async (
     throw new Error(permission.reason);
   }
 
-  // ENFORCE "CLOUD PASSPORT" MODEL
-  // Free tier users are hard-blocked at the DB level, so we save locally only.
-  if (!QUOTAS[user.tier].isCloudSynced) {
-    console.log("[AutoPal NG] Local-Only Entry (Free Tier)");
+  // To achieve $0 cost for free tier, we only sync to cloud for paying users.
+  // Free tier uses localDb via the Zustand store (called in the component).
+  if (user.tier === 'free') {
     return {
       ...log,
       id: `LOCAL-${Date.now()}`,
@@ -69,19 +66,12 @@ export const createServiceLog = async (
       provider: log.provider,
       category: log.category,
       status: log.status,
-      verification_level: log.verificationLevel,
-      receipt_url: log.receiptUrl
+      verification_level: log.verificationLevel
     }])
     .select()
     .single();
 
-  if (error) {
-    // Graceful catch for unexpected RLS rejection
-    if (error.code === '42501') {
-      throw new Error("Cloud sync failed. Your current tier only allows local storage.");
-    }
-    throw error;
-  }
+  if (error) throw error;
   
   return {
     id: data.id,
@@ -98,13 +88,12 @@ export const createServiceLog = async (
     createdAt: data.created_at,
     updatedAt: data.updated_at,
     verificationLevel: data.verification_level,
-    // Fix: use camelCase property name to match ServiceLog type
     receiptUrl: data.receipt_url
   };
 };
 
 export const updateServiceLog = async (id: string, log: Partial<ServiceLog>, user: UserProfile): Promise<ServiceLog> => {
-  if (!QUOTAS[user.tier].isCloudSynced) {
+  if (user.tier === 'free') {
      return { ...log, id } as ServiceLog;
   }
   
@@ -119,7 +108,6 @@ export const updateServiceLog = async (id: string, log: Partial<ServiceLog>, use
   if (log.provider !== undefined) payload.provider = log.provider;
   if (log.category !== undefined) payload.category = log.category;
   if (log.verificationLevel !== undefined) payload.verification_level = log.verificationLevel;
-  if (log.receiptUrl !== undefined) payload.receipt_url = log.receiptUrl;
 
   const { data, error } = await supabase
     .from('service_logs')
@@ -145,7 +133,6 @@ export const updateServiceLog = async (id: string, log: Partial<ServiceLog>, use
     createdAt: data.created_at,
     updatedAt: data.updated_at,
     verificationLevel: data.verification_level,
-    // Fix: use camelCase property name to match ServiceLog type
     receiptUrl: data.receipt_url
   };
 };

@@ -1,9 +1,7 @@
-
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport, UsageLedger } from './types.ts';
 import { localDb } from '../services/localDb.ts';
-import { syncLedgerPeriod, QUOTAS } from '../services/permissionService.ts';
-import { supabase } from '../auth/supabaseClient.ts';
+import { syncLedgerPeriod } from '../services/permissionService.ts';
 
 const INITIAL_LEDGER: UsageLedger = {
   periodStart: new Date().toISOString(),
@@ -34,9 +32,9 @@ interface AutoPalState {
   marketplace: any[];
   marketplaceFilter: string;
 
-  setSession: (session: any) => Promise<void>;
+  setSession: (session: any) => void;
   setUser: (user: UserProfile | null) => void;
-  updateUsageLedger: (updates: Partial<UsageLedger>) => Promise<void>;
+  updateUsageLedger: (updates: Partial<UsageLedger>) => void;
   setInitialized: (initialized: boolean) => void;
   setRecovering: (isRecovering: boolean) => void;
   setLoading: (loading: boolean) => void;
@@ -65,7 +63,7 @@ interface AutoPalState {
   setSuggestedParts: (parts: string[]) => void;
   setMarketplaceFilter: (filter: string) => void;
   reset: () => void;
-  loadLocalData: (userId: string) => Promise<void>;
+  loadLocalData: () => Promise<void>;
 }
 
 export const useAutoPalStore = create<AutoPalState>((set, get) => ({
@@ -88,123 +86,50 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   marketplace: [],
   marketplaceFilter: '',
 
-  loadLocalData: async (userId: string) => {
-    // 1. Fetch all local records for this user
-    const localVehicles = await localDb.getVehicles(userId);
-    
-    // Aggregate all tasks and logs for all vehicles owned by this user
-    let allTasks: MaintenanceTask[] = [];
-    let allServiceLogs: ServiceLog[] = [];
-    let allFuelLogs: FuelLog[] = [];
-
-    for (const v of localVehicles) {
-      const [vTasks, vLogs, vFuel] = await Promise.all([
-        localDb.getTasks(v.id),
-        localDb.getLogs(v.id),
-        localDb.getFuelLogs(v.id)
-      ]);
-      allTasks = [...allTasks, ...vTasks];
-      allServiceLogs = [...allServiceLogs, ...vLogs];
-      allFuelLogs = [...allFuelLogs, ...vFuel];
+  loadLocalData: async () => {
+    const localVehicles = await localDb.getVehicles();
+    if (localVehicles.length > 0) {
+      set({ 
+        vehicles: localVehicles,
+        activeVehicleId: get().activeVehicleId || localVehicles[0].id
+      });
     }
-    
-    const localLedger = await localDb.getUsageLedger(userId);
-    
-    set((state) => ({ 
-      vehicles: localVehicles,
-      tasks: allTasks,
-      serviceLogs: allServiceLogs,
-      fuelLogs: allFuelLogs,
-      activeVehicleId: state.activeVehicleId || (localVehicles.length > 0 ? localVehicles[0].id : null),
-      user: state.user ? { ...state.user, usageLedger: localLedger || state.user.usageLedger } : state.user
-    }));
   },
 
-  setSession: async (session) => {
+  setSession: (session) => {
     if (!session) {
-      get().reset();
+      if (get().session !== null) set({ session: null, user: null });
       return;
     }
 
     const { user: supabaseUser } = session;
-    
-    let { data: profile, error } = await supabase
-      .from('Users')
-      .select('*')
-      .eq('id', supabaseUser.id)
-      .single();
-
-    if (error && error.code === 'PGRST116') {
-      const { data: newProfile, error: createError } = await supabase
-        .from('Users')
-        .insert([{
-          id: supabaseUser.id,
-          tier: 'free',
-          usage_ledger: INITIAL_LEDGER
-        }])
-        .select()
-        .single();
-      
-      if (!createError) profile = newProfile;
-    }
-
     const meta = supabaseUser.user_metadata || {};
-    
-    let remoteLedger = profile?.usage_ledger || INITIAL_LEDGER;
-    const localL = await localDb.getUsageLedger(supabaseUser.id);
-    
-    const activeLedger = (profile?.tier === 'free' && localL) ? localL : remoteLedger;
 
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
-      displayName: profile?.['Display name'] || meta.displayName || '',
-      phone: profile?.['Phone'] || meta.phone || '',
-      tier: profile?.tier || 'free',
+      displayName: meta['Display name'] || meta.displayName || meta.full_name || '',
+      phone: meta['Phone'] || meta.phone || '',
+      tier: meta.tier || 'free',
       role: meta.role || 'user',
       onboarded: meta.onboarded || false,
       createdAt: supabaseUser.created_at || new Date().toISOString(),
-      usageLedger: activeLedger
+      usageLedger: meta.usageLedger || INITIAL_LEDGER
     };
 
     const syncedUser = syncLedgerPeriod(newUserObj);
-    
-    await localDb.saveUsageLedger(syncedUser.id, syncedUser.usageLedger);
-
-    if (syncedUser.usageLedger.periodStart !== activeLedger.periodStart) {
-      await supabase
-        .from('Users')
-        .update({ usage_ledger: syncedUser.usageLedger })
-        .eq('id', syncedUser.id);
-    }
-
     set({ session, user: syncedUser });
-    // LOAD EVERYTHING FROM DISK IMMEDIATELY
-    await get().loadLocalData(syncedUser.id);
   },
   
-  setUser: (user) => {
-    if (user) localDb.saveUsageLedger(user.id, user.usageLedger);
-    set({ user });
-  },
+  setUser: (user) => set({ user }),
 
-  updateUsageLedger: async (updates) => {
-    const state = get();
-    if (!state.user) return;
-    
+  updateUsageLedger: (updates) => set((state) => {
+    if (!state.user) return state;
     const newLedger = { ...state.user.usageLedger, ...updates };
-    const updatedUser = { ...state.user, usageLedger: newLedger };
-    
-    set({ user: updatedUser });
-    await localDb.saveUsageLedger(state.user.id, newLedger);
-
-    if (QUOTAS[state.user.tier].isCloudSynced && supabase) {
-      await supabase
-        .from('Users')
-        .update({ usage_ledger: newLedger })
-        .eq('id', state.user.id);
-    }
-  },
+    return {
+      user: { ...state.user, usageLedger: newLedger }
+    };
+  }),
 
   setInitialized: (initialized) => set({ isInitialized: initialized }),
   setRecovering: (isRecovering) => set({ isRecovering }),
@@ -220,34 +145,12 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     return { guestAttempts: newCount };
   }),
 
-  setVehicles: (cloudVehicles) => {
-    const currentUser = get().user;
-    if (!currentUser) return;
-
-    set((state) => {
-      const filteredCloud = cloudVehicles.filter(v => v.ownerId === currentUser.id);
-      
-      // If we are Free tier, we strictly keep local data and don't let empty cloud arrays wipe it
-      if (!QUOTAS[currentUser.tier].isCloudSynced && filteredCloud.length === 0) {
-        return state;
-      }
-
-      const merged = [...filteredCloud];
-      state.vehicles.forEach(localV => {
-        if (localV.ownerId === currentUser.id && !merged.find(m => m.id === localV.id)) {
-          merged.push(localV);
-        }
-      });
-      
-      return { 
-        vehicles: merged,
-        activeVehicleId: state.activeVehicleId || (merged.length > 0 ? merged[0].id : null)
-      };
+  setVehicles: (vehicles) => {
+    set({ 
+      vehicles,
+      activeVehicleId: get().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
     });
-    
-    cloudVehicles.forEach(v => {
-      if (v.ownerId === currentUser.id) localDb.saveVehicle(v);
-    });
+    vehicles.forEach(v => localDb.saveVehicle(v));
   },
 
   addVehicle: (vehicle) => {
@@ -301,11 +204,8 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   },
 
   setTasks: (tasks) => {
-    const user = get().user;
-    if (!user) return;
-    const filtered = tasks.filter(t => t.ownerId === user.id || t.vehicleId);
-    set({ tasks: filtered });
-    filtered.forEach(t => localDb.saveTask(t));
+    set({ tasks });
+    localDb.saveTasksBatch(tasks);
   },
 
   setServiceLogs: (serviceLogs) => {

@@ -1,12 +1,9 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, updateMileage, updateVehicle, fetchUserVehicles
 } from './services/vehicleService.ts';
 import { OdometerInput } from './components/OdometerInput.tsx';
-import { localDb } from './services/localDb.ts';
-import { QUOTAS } from './services/permissionService.ts';
 
 import { VehicleOverview } from './components/dashboard/VehicleOverview.tsx';
 import { MaintenanceRoadmap } from './components/dashboard/MaintenanceRoadmap.tsx';
@@ -16,11 +13,11 @@ import { ResaleValuationCard } from './components/dashboard/ResaleValuationCard.
 
 const Dashboard: React.FC = () => {
   const { 
-    vehicles, tasks, serviceLogs, fuelLogs, user,
+    vehicles, tasks, serviceLogs, fuelLogs,
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
     updateMileage: updateStoreMileage, updateVehicleStore,
-    setVehicles
+    loadLocalData, setVehicles
   } = useAutoPalStore();
 
   const [showOdometerModal, setShowOdometerModal] = useState(false);
@@ -33,23 +30,28 @@ const Dashboard: React.FC = () => {
   const activeServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
   const activeFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicleId);
 
-  // Background Sync - Only for cloud-enabled tiers
+  // 1. Initial Local Load (Instant UX)
   useEffect(() => {
-    if (!user || !QUOTAS[user.tier].isCloudSynced) return;
+    loadLocalData();
+  }, [loadLocalData]);
 
+  // 2. Background Sync (Silent Update)
+  useEffect(() => {
     const syncVehicles = async () => {
       setIsSyncing(true);
       try {
         const cloudVehicles = await fetchUserVehicles();
-        setVehicles(cloudVehicles);
+        if (cloudVehicles.length > 0) {
+          setVehicles(cloudVehicles);
+        }
       } catch (err) {
-        console.warn("Sync deferred.");
+        console.warn("Cloud sync deferred: Network unstable or RLS restriction.");
       } finally {
         setIsSyncing(false);
       }
     };
     syncVehicles();
-  }, [setVehicles, user?.tier, user?.id]);
+  }, [setVehicles]);
 
   useEffect(() => {
     if (vehicles.length > 0 && !activeVehicleId) {
@@ -57,51 +59,28 @@ const Dashboard: React.FC = () => {
     }
   }, [vehicles, activeVehicleId, setActiveVehicleId]);
 
-  // Unified Hydration Logic
   useEffect(() => {
-    if (activeVehicleId && user) {
-      const isCloudEnabled = QUOTAS[user.tier].isCloudSynced;
-      
-      const hydrateData = async () => {
-        setIsLoadingDetails(true);
-        try {
-          // 1. Always load from Local DB first (Source of Truth for Free tier)
-          const [lTasks, lLogs, lFuel] = await Promise.all([
-            localDb.getTasks(activeVehicleId),
-            localDb.getLogs(activeVehicleId),
-            localDb.getFuelLogs(activeVehicleId)
-          ]);
-          
-          setTasks(lTasks);
-          setServiceLogs(lLogs);
-          setFuelLogs(lFuel);
-
-          // 2. Fetch from Cloud only if permitted
-          if (isCloudEnabled) {
-            const [taskList, logList] = await Promise.all([
-              fetchVehicleTasks(activeVehicleId),
-              fetchVehicleServiceLogs(activeVehicleId)
-            ]);
-            setTasks(taskList);
-            setServiceLogs(logList);
-          }
-        } catch (err) {
-          console.error("Hydration fault:", err);
-        } finally {
-          setIsLoadingDetails(false);
-        }
-      };
-
-      hydrateData();
+    if (activeVehicleId) {
+      setIsLoadingDetails(true);
+      // Removed fetchFuelLogs from auto-fetch to satisfy on-demand requirement
+      Promise.all([
+        fetchVehicleTasks(activeVehicleId),
+        fetchVehicleServiceLogs(activeVehicleId)
+      ])
+      .then(([taskList, logList]) => {
+        setTasks(taskList);
+        setServiceLogs(logList);
+      })
+      .finally(() => setIsLoadingDetails(false));
     }
-  }, [activeVehicleId, user?.id, setTasks, setServiceLogs, setFuelLogs]);
+  }, [activeVehicleId, setTasks, setServiceLogs]);
 
-  // Real-time Health Recalculation
+  // Real-time Health Recalculation (Local Evidence)
   useEffect(() => {
     if (activeVehicle && tasks.length > 0) {
       const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
       if (newScore !== activeVehicle.healthScore) {
-        updateVehicle(activeVehicle.id, { healthScore: newScore }, user?.tier || 'free');
+        updateVehicle(activeVehicle.id, { healthScore: newScore });
         updateVehicleStore({ ...activeVehicle, healthScore: newScore });
       }
     }
@@ -118,14 +97,14 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-10 sm:space-y-14 lg:space-y-16 w-full max-w-full overflow-x-hidden pb-10 px-1">
-      <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-8 px-1">
+    <div className="space-y-6 sm:space-y-10 lg:space-y-14 w-full max-w-full overflow-x-hidden pb-10 px-1">
+      <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 px-1">
         <div className="shrink-0">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-slate-900 tracking-tighter uppercase">My <span className="text-blue-600">Garage</span></h1>
-            {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2" title="Syncing..."></div>}
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">My <span className="text-blue-600">Garage</span></h1>
+            {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2" title="Syncing with Cloud"></div>}
           </div>
-          <p className="text-slate-400 font-black uppercase tracking-widest text-[8px] sm:text-[9px]">Neural Link: System Stable</p>
+          <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">System Status: Monitoring Active</p>
         </div>
         
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
@@ -138,17 +117,20 @@ const Dashboard: React.FC = () => {
           
           <div 
             ref={scrollContainerRef}
-            className="flex gap-4 overflow-x-auto scrollbar-hide py-2 px-1 flex-nowrap snap-x snap-mandatory scroll-smooth"
+            className="flex gap-3 overflow-x-auto scrollbar-hide scrollbar-desktop-show py-1.5 px-0.5 -mx-0.5 flex-nowrap snap-x snap-mandatory scroll-smooth"
           >
             {vehicles.map(v => (
               <button 
                 key={v.id}
                 onClick={() => setActiveVehicleId(v.id)}
-                className={`flex-shrink-0 px-8 py-6 rounded-[2rem] border-2 transition-all min-w-[200px] text-left relative overflow-hidden flex flex-col justify-center snap-center ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-2xl scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200 hover:bg-slate-50'}`}
+                className={`flex-shrink-0 px-6 py-5 rounded-[1.75rem] border-2 transition-all min-w-[180px] sm:min-w-[200px] text-left relative overflow-hidden flex flex-col justify-center snap-center ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200 hover:bg-slate-50'}`}
               >
-                <div className="text-[8px] font-black uppercase opacity-50 mb-1 tracking-widest">{v.make}</div>
-                <div className="text-xl font-black tracking-tight truncate w-full">{v.model}</div>
-                <div className={`w-2 h-2 rounded-full mt-4 ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_8px_#3b82f6]' : 'bg-slate-200'}`}></div>
+                <div className="text-[7px] font-black uppercase opacity-50 mb-1 tracking-widest">{v.make}</div>
+                <div className="text-base font-black tracking-tight truncate w-full">{v.model}</div>
+                <div className="flex items-center gap-2 mt-3">
+                   <div className={`w-2 h-2 rounded-full ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_8px_#3b82f6]' : 'bg-slate-200'}`}></div>
+                   <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year} model</div>
+                </div>
               </button>
             ))}
           </div>
@@ -163,32 +145,36 @@ const Dashboard: React.FC = () => {
       </header>
 
       {activeVehicle ? (
-        <div className="w-full space-y-10 lg:space-y-14">
+        <div className="w-full flex flex-col gap-6 lg:gap-10">
           <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-stretch min-h-[500px]">
-            <ResaleValuationCard vehicle={activeVehicle} tasks={tasks} serviceLogs={activeServiceLogs} fuelLogs={activeFuelLogs} />
-            <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-10 items-stretch">
+            <div className="xl:col-span-5 flex flex-col h-full">
+              <ResaleValuationCard vehicle={activeVehicle} tasks={tasks} serviceLogs={activeServiceLogs} fuelLogs={activeFuelLogs} />
+            </div>
+            <div className="xl:col-span-7 flex flex-col h-full">
+               <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
+            </div>
           </div>
 
           <MaintenanceRoadmap vehicle={activeVehicle} tasks={vehicleTasks} isLoading={isLoadingDetails} onLog={() => setCurrentView('service')} />
         </div>
       ) : (
         !isLoadingDetails && (
-          <div className="py-24 text-center bg-white rounded-[3rem] border border-slate-100 p-12 shadow-sm max-w-2xl mx-auto">
-             <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-4xl mx-auto mb-8 shadow-inner">🚙</div>
-             <h3 className="text-2xl font-black text-slate-900 mb-2">Command Center Offline</h3>
-             <p className="text-slate-400 mb-10 text-[10px] font-black uppercase tracking-widest">No Active Assets Detected</p>
-             <button onClick={() => setCurrentView('onboarding')} className="bg-slate-900 text-white px-12 py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-3xl hover:bg-blue-600 transition-all">Deploy Asset →</button>
+          <div className="py-20 sm:py-24 text-center bg-white rounded-[2.5rem] border border-slate-100 p-8 sm:p-14 shadow-sm mx-auto max-w-2xl w-full">
+             <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-3xl mx-auto mb-6 sm:mb-8 shadow-inner">🚙</div>
+             <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-1.5">No Vehicles Found</h3>
+             <p className="text-slate-400 mb-8 text-[8px] sm:text-[9px] font-black uppercase tracking-widest max-w-xs mx-auto">Get started by adding your vehicle to the system.</p>
+             <button onClick={() => setCurrentView('onboarding')} className="w-full sm:w-auto bg-slate-900 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-[1.25rem] font-black uppercase tracking-widest text-[9px] shadow-lg hover:bg-blue-600 transition-all">Add Your Vehicle →</button>
           </div>
         )
       )}
 
       {showOdometerModal && activeVehicle && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl">
-          <div className="w-full max-w-sm">
+          <div className="w-full max-w-sm animate-slide-up">
             <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { 
-              await updateMileage(activeVehicle.id, v, user?.tier || 'free'); 
+              await updateMileage(activeVehicle.id, v); 
               updateStoreMileage(activeVehicle.id, v); 
               setShowOdometerModal(false); 
             }} onCancel={() => setShowOdometerModal(false)} />

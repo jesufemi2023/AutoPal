@@ -3,8 +3,6 @@ import { supabase } from '../auth/supabaseClient.ts';
 import { Vehicle, MaintenanceTask, ServiceLog, VerificationLevel, FuelLog, Priority, TaskStatus } from '../shared/types.ts';
 import { calculateNextMilestone, calculateAverageDailyKm, calculateVitalityScore } from './maintenanceLogic.ts';
 import { fetchFuelLogs } from './fuelService.ts';
-import { QUOTAS } from './permissionService.ts';
-import { localDb } from './localDb.ts';
 
 /**
  * Vehicle Lifecycle Service
@@ -79,13 +77,11 @@ const mapLogFromDb = (l: any): ServiceLog => ({
   status: l.status,
   category: l.category,
   verificationLevel: l.verification_level,
-  // Fix: changed 'receipt_url' to 'receiptUrl' to match ServiceLog type definition
   receiptUrl: l.receipt_url,
   createdAt: l.created_at
 });
 
 export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceTask[]> => {
-  // If no cloud sync, we strictly rely on store which populates from localDb
   if (!supabase) return [];
   const { data, error } = await supabase
     .from(DB_TABLES.RULES)
@@ -132,14 +128,7 @@ export const fetchUserVehicles = async (): Promise<Vehicle[]> => {
   return (data || []).map(mapVehicleFromDb);
 };
 
-export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt' | 'healthScore'>, tier: string = 'free'): Promise<Vehicle> => {
-  const localId = `V-${Date.now()}`;
-  const mockVehicle = { ...vehicle, id: localId, healthScore: 100, createdAt: new Date().toISOString() } as Vehicle;
-  
-  if (!QUOTAS[tier as keyof typeof QUOTAS].isCloudSynced) {
-    return mockVehicle;
-  }
-
+export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt' | 'healthScore'>): Promise<Vehicle> => {
   if (!supabase) throw new Error("Supabase client missing.");
   const dbPayload = {
     owner_id: vehicle.ownerId,
@@ -154,7 +143,6 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
     status: vehicle.status,
     image_url: vehicle.imageUrl,
     specs: vehicle.specs,
-    // Fix: Using camelCase 'avgDailyKm' to match Omit<Vehicle, ...> property
     avg_daily_km: vehicle.avgDailyKm || 30
   };
   const { data, error } = await supabase
@@ -166,16 +154,12 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
   return mapVehicleFromDb(data);
 };
 
-export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[], tier: string = 'free'): Promise<void> => {
-  if (!QUOTAS[tier as keyof typeof QUOTAS].isCloudSynced || !supabase) {
-    // Store handles local save
-    return;
-  }
+export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[]): Promise<void> => {
+  if (!supabase) return;
   const dbPayloads = tasks.map(t => ({
     vehicle_id: t.vehicleId,
     title: t.title,
     description: t.description,
-    // Fix: changed 't.due_mileage' to 't.dueMileage' to match Omit<MaintenanceTask, 'id'> property name
     due_mileage: t.dueMileage,
     due_date: t.dueDate,
     status: t.status,
@@ -183,6 +167,7 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
     category: t.category,
     estimated_cost: t.estimatedCost,
     interval_km: t.intervalKm,
+    // Fix: Access camelCase property intervalMonths from the task object
     interval_months: t.intervalMonths
   }));
   const { error } = await supabase
@@ -191,10 +176,8 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
   if (error) handleSupabaseError(error, 'createMaintenanceTasksBatch');
 };
 
-export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>, tier: string = 'free'): Promise<Vehicle> => {
-  if (!QUOTAS[tier as keyof typeof QUOTAS].isCloudSynced || !supabase) {
-    return data as Vehicle;
-  }
+export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): Promise<Vehicle> => {
+  if (!supabase) throw new Error("Supabase not configured");
 
   const dbPayload: any = {};
   
@@ -204,6 +187,7 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>, t
   if (data.vin !== undefined) dbPayload.vin = data.vin;
   if (data.status !== undefined) dbPayload.status = data.status;
   if (data.specs !== undefined) dbPayload.specs = data.specs;
+  
   if (data.mileage !== undefined) dbPayload.current_mileage = data.mileage;
   if (data.ownerId !== undefined) dbPayload.owner_id = data.ownerId;
   if (data.bodyType !== undefined) dbPayload.body_type = data.bodyType;
@@ -215,7 +199,8 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>, t
   if (data.latestAiAudit !== undefined) dbPayload.latest_ai_audit = data.latestAiAudit;
 
   if (Object.keys(dbPayload).length === 0) {
-    return data as Vehicle;
+    const { data: current } = await supabase.from(DB_TABLES.VEHICLES).select('*').eq('id', vehicleId).single();
+    return current ? mapVehicleFromDb(current) : (data as Vehicle);
   }
 
   let { data: updated, error } = await supabase
@@ -246,8 +231,8 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>, t
   return mapVehicleFromDb(updated);
 };
 
-export const updateTaskStatus = async (taskId: string, status: TaskStatus, tier: string = 'free'): Promise<void> => {
-  if (!QUOTAS[tier as keyof typeof QUOTAS].isCloudSynced || !supabase) return;
+export const updateTaskStatus = async (taskId: string, status: TaskStatus): Promise<void> => {
+  if (!supabase) return;
   const { error } = await supabase
     .from(DB_TABLES.RULES)
     .update({ status })
@@ -255,8 +240,8 @@ export const updateTaskStatus = async (taskId: string, status: TaskStatus, tier:
   if (error) handleSupabaseError(error, 'updateTaskStatus');
 };
 
-export const archiveVehicle = async (vehicleId: string, tier: string = 'free'): Promise<void> => {
-  if (!QUOTAS[tier as keyof typeof QUOTAS].isCloudSynced || !supabase) return;
+export const archiveVehicle = async (vehicleId: string): Promise<void> => {
+  if (!supabase) return;
   const { error } = await supabase
     .from(DB_TABLES.VEHICLES)
     .update({ status: 'archived' })
@@ -265,8 +250,6 @@ export const archiveVehicle = async (vehicleId: string, tier: string = 'free'): 
 };
 
 export const uploadVehicleImage = async (userId: string, vehicleId: string, blob: Blob): Promise<string> => {
-  // If offline/Free, we'd ideally use local storage but currently we just return empty string or fail gracefully
-  // This MVP currently assumes Cloud for storage if URL is generated
   if (!supabase) throw new Error("Supabase client missing.");
   const path = `${userId}/${vehicleId}/${Date.now()}.jpg`;
   const { error } = await supabase.storage
@@ -279,13 +262,8 @@ export const uploadVehicleImage = async (userId: string, vehicleId: string, blob
   return publicUrl;
 };
 
-export const createManualServiceLog = async (vehicle: Vehicle, log: Omit<ServiceLog, 'id' | 'createdAt' | 'updatedAt'>, tier: string = 'free'): Promise<ServiceLog> => {
-  const localId = `LOG-${Date.now()}`;
-  const mockLog = { ...log, id: localId, createdAt: new Date().toISOString() } as ServiceLog;
-
-  if (!QUOTAS[tier as keyof typeof QUOTAS].isCloudSynced || !supabase) {
-    return mockLog;
-  }
+export const createManualServiceLog = async (vehicle: Vehicle, log: Omit<ServiceLog, 'id' | 'createdAt' | 'updatedAt'>): Promise<ServiceLog> => {
+  if (!supabase) throw new Error("Supabase client missing.");
   const { data, error } = await supabase
     .from(DB_TABLES.RECORDS)
     .insert([{
@@ -300,6 +278,7 @@ export const createManualServiceLog = async (vehicle: Vehicle, log: Omit<Service
       category: log.category,
       status: log.status || 'completed',
       verification_level: log.verificationLevel,
+      // Fix: Access camelCase property receiptUrl from the log object
       receipt_url: log.receiptUrl
     }])
     .select()
@@ -308,47 +287,49 @@ export const createManualServiceLog = async (vehicle: Vehicle, log: Omit<Service
   return mapLogFromDb(data);
 };
 
-export const syncVehicleVitals = async (vehicleId: string, tier: string = 'free'): Promise<Vehicle> => {
-  const localV = await localDb.getVehicle(vehicleId);
-  if (!localV) throw new Error("Asset not found");
+export const syncVehicleVitals = async (vehicleId: string): Promise<Vehicle> => {
+  if (!supabase) throw new Error("Cloud infrastructure missing.");
+  const { data: vData, error: vError } = await supabase.from(DB_TABLES.VEHICLES).select('*').eq('id', vehicleId).single();
+  if (vError) throw vError;
+  const vehicle = mapVehicleFromDb(vData);
 
   const [fuelLogs, serviceLogs, tasks] = await Promise.all([
-    localDb.getFuelLogs(vehicleId),
-    localDb.getLogs(vehicleId),
-    localDb.getTasks(vehicleId)
+    fetchFuelLogs(vehicleId),
+    fetchVehicleServiceLogs(vehicleId),
+    fetchVehicleTasks(vehicleId)
   ]);
 
   const newAvgDailyKm = calculateAverageDailyKm(fuelLogs, serviceLogs);
-  const newHealthScore = calculateVitalityScore({ ...localV, avgDailyKm: newAvgDailyKm }, tasks, fuelLogs, serviceLogs);
+  const newHealthScore = calculateVitalityScore({ ...vehicle, avgDailyKm: newAvgDailyKm }, tasks, fuelLogs, serviceLogs);
 
-  if (QUOTAS[tier as keyof typeof QUOTAS].isCloudSynced && supabase) {
-     return await updateVehicle(vehicleId, { avgDailyKm: newAvgDailyKm, healthScore: newHealthScore }, tier);
-  }
-  
-  const updated = { ...localV, avgDailyKm: newAvgDailyKm, healthScore: newHealthScore };
-  await localDb.saveVehicle(updated);
-  return updated;
+  return await updateVehicle(vehicleId, { avgDailyKm: newAvgDailyKm, healthScore: newHealthScore });
 };
 
-export const updateMileage = async (vehicleId: string, mileage: number, tier: string = 'free', force: boolean = false): Promise<Vehicle> => {
-  const localV = await localDb.getVehicle(vehicleId);
-  if (!localV) throw new Error("Asset not found");
+export const updateMileage = async (vehicleId: string, mileage: number, force: boolean = false): Promise<Vehicle> => {
+  if (!supabase) throw new Error("Supabase client missing.");
   
-  if (!force && mileage <= localV.mileage) {
-    return await syncVehicleVitals(vehicleId, tier);
+  const { data: current, error: fetchError } = await supabase
+    .from(DB_TABLES.VEHICLES)
+    .select('current_mileage')
+    .eq('id', vehicleId)
+    .single();
+
+  if (fetchError) handleSupabaseError(fetchError, 'updateMileage-Fetch');
+
+  const currentMileage = parseFloat(current.current_mileage || '0');
+  
+  if (!force && mileage <= currentMileage) {
+    return await syncVehicleVitals(vehicleId);
   }
 
-  const updatedMileage = { ...localV, mileage };
-  await localDb.saveVehicle(updatedMileage);
+  const { error: updateError } = await supabase
+    .from(DB_TABLES.VEHICLES)
+    .update({ current_mileage: mileage })
+    .eq('id', vehicleId);
 
-  if (QUOTAS[tier as keyof typeof QUOTAS].isCloudSynced && supabase) {
-    await supabase
-      .from(DB_TABLES.VEHICLES)
-      .update({ current_mileage: mileage })
-      .eq('id', vehicleId);
-  }
+  if (updateError) handleSupabaseError(updateError, 'updateMileage-Update');
 
-  return await syncVehicleVitals(vehicleId, tier);
+  return await syncVehicleVitals(vehicleId);
 };
 
 export const finalizeMaintenanceCompletion = async (
@@ -364,79 +345,62 @@ export const finalizeMaintenanceCompletion = async (
     receiptUrl?: string;
     intervalKm?: number;
     intervalMonths?: number;
-  },
-  tier: string = 'free'
+  }
 ): Promise<{ log: ServiceLog; updatedTask: MaintenanceTask; updatedVehicle: Vehicle }> => {
+  if (!supabase) throw new Error("Supabase client missing.");
+
   const targetIntervalKm = completionData.intervalKm ?? task.intervalKm ?? 5000;
   const targetIntervalMonths = completionData.intervalMonths ?? task.intervalMonths ?? 6;
 
   const { nextMileage, nextDate } = calculateNextMilestone(completionData.mileageAtService, completionData.serviceDate, targetIntervalKm, targetIntervalMonths);
 
-  let log: ServiceLog;
-  let updatedTask: MaintenanceTask = {
-    ...task,
-    dueMileage: nextMileage,
-    dueDate: nextDate,
-    lastCompletedAt: completionData.serviceDate,
-    lastVerificationLevel: completionData.verificationLevel,
-    lastReceiptUrl: completionData.receiptUrl,
-    status: 'pending'
-  };
-
-  if (QUOTAS[tier as keyof typeof QUOTAS].isCloudSynced && supabase) {
-    const { data: logData, error: logError } = await supabase
-      .from(DB_TABLES.RECORDS)
-      .insert([{
-        vehicle_id: vehicle.id,
-        task_id: task.id,
-        service_type: task.title,
-        service_date: completionData.serviceDate,
-        mileage_at_service: completionData.mileageAtService,
-        cost: completionData.cost,
-        notes: completionData.notes,
-        provider: completionData.provider,
-        category: task.category,
-        verification_level: completionData.verificationLevel,
-        receipt_url: completionData.receiptUrl,
-        status: 'completed'
-      }])
-      .select()
-      .single();
-    if (logError) handleSupabaseError(logError, 'finalize-Log');
-    log = mapLogFromDb(logData);
-
-    const { error: taskError } = await supabase
-      .from(DB_TABLES.RULES)
-      .update({
-        due_mileage: nextMileage,
-        due_date: nextDate,
-        last_completed_at: completionData.serviceDate,
-        last_verification_level: completionData.verificationLevel,
-        last_receipt_url: completionData.receiptUrl,
-        status: 'pending' 
-      })
-      .eq('id', task.id);
-    if (taskError) handleSupabaseError(taskError, 'finalize-Task');
-  } else {
-    log = {
-      id: `LOG-${Date.now()}`,
-      vehicleId: vehicle.id,
-      taskId: task.id,
-      serviceType: task.title,
-      serviceDate: completionData.serviceDate,
-      mileageAtService: completionData.mileageAtService,
+  const { data: logData, error: logError } = await supabase
+    .from(DB_TABLES.RECORDS)
+    .insert([{
+      vehicle_id: vehicle.id,
+      task_id: task.id,
+      service_type: task.title,
+      service_date: completionData.serviceDate,
+      mileage_at_service: completionData.mileageAtService,
       cost: completionData.cost,
       notes: completionData.notes,
       provider: completionData.provider,
       category: task.category,
-      verificationLevel: completionData.verificationLevel,
-      receiptUrl: completionData.receiptUrl,
-      status: 'completed',
-      createdAt: new Date().toISOString()
-    };
-  }
+      verification_level: completionData.verificationLevel,
+      receipt_url: completionData.receiptUrl,
+      status: 'completed'
+    }])
+    .select()
+    .single();
+  if (logError) handleSupabaseError(logError, 'finalize-Log');
 
-  const updatedVehicle = await updateMileage(vehicle.id, Math.max(vehicle.mileage, completionData.mileageAtService), tier);
+  const { data: taskData, error: taskError } = await supabase
+    .from(DB_TABLES.RULES)
+    .update({
+      due_mileage: nextMileage,
+      due_date: nextDate,
+      last_completed_at: completionData.serviceDate,
+      last_verification_level: completionData.verificationLevel,
+      last_receipt_url: completionData.receiptUrl,
+      status: 'pending' 
+    })
+    .eq('id', task.id)
+    .select()
+    .single();
+  if (taskError) handleSupabaseError(taskError, 'finalize-Task');
 
-  return { log, updatedTask, updatedVehicle };
+  const updatedVehicle = await updateMileage(vehicle.id, Math.max(vehicle.mileage, completionData.mileageAtService));
+
+  return {
+    log: mapLogFromDb(logData),
+    updatedTask: {
+      ...task,
+      dueMileage: nextMileage,
+      dueDate: nextDate,
+      lastCompletedAt: completionData.serviceDate,
+      lastVerificationLevel: completionData.verificationLevel,
+      lastReceiptUrl: completionData.receiptUrl
+    },
+    updatedVehicle
+  };
 };
