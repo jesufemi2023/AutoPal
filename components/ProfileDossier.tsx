@@ -45,21 +45,23 @@ const ProfileDossier: React.FC = () => {
       if (!supabase) throw new Error("Connection Error: Unable to reach the server.");
       
       // 1. UPDATE PUBLIC SQL TABLE (public.Users)
+      // Fix: Use correct snake_case column names as defined in Supabase schema
       const { error: dbError } = await supabase
         .from('Users')
         .update({ 
-          "Display name": formData.displayName, 
-          "Phone": formData.phone 
+          "display_name": formData.displayName, 
+          "phone": formData.phone 
         })
         .eq('id', user.id);
       
       if (dbError) throw dbError;
 
       // 2. UPDATE AUTH METADATA (auth.users)
+      // Keeping metadata keys consistent with schema for the trigger to map correctly
       const { data: authData, error: authError } = await supabase.auth.updateUser({
         data: {
-          "Display name": formData.displayName,
-          "Phone": formData.phone
+          "display_name": formData.displayName,
+          "phone": formData.phone
         }
       });
       
@@ -68,8 +70,8 @@ const ProfileDossier: React.FC = () => {
       if (authData?.user) {
         const updatedProfile: UserProfile = {
           ...user,
-          displayName: authData.user.user_metadata?.['Display name'] || formData.displayName,
-          phone: authData.user.user_metadata?.['Phone'] || formData.phone
+          displayName: authData.user.user_metadata?.['display_name'] || formData.displayName,
+          phone: authData.user.user_metadata?.['phone'] || formData.phone
         };
         
         setUser(updatedProfile);
@@ -87,6 +89,12 @@ const ProfileDossier: React.FC = () => {
     }
   };
 
+  const TIER_BENEFITS: Record<Tier, string[]> = {
+    free: ["1 Vehicle Profile", "Manual Maintenance Logs", "Basic Fuel Tracking"],
+    standard: ["3 Vehicle Profiles", "AI Maintenance Roadmap", "Advanced Fuel Analytics"],
+    premium: ["Unlimited Vehicles", "Expert AI Diagnostics", "Full History Reports", "Priority Support"]
+  };
+
   const handleAccountDeletion = async () => {
     const confirmed = confirm(
       "Are you sure? This will permanently delete your account and all vehicle data. This action cannot be undone."
@@ -100,12 +108,6 @@ const ProfileDossier: React.FC = () => {
     } catch (err: any) {
       alert("Error deleting account: " + err.message);
     }
-  };
-
-  const TIER_BENEFITS: Record<Tier, string[]> = {
-    free: ["1 Vehicle Profile", "Manual Maintenance Logs", "Basic Fuel Tracking"],
-    standard: ["3 Vehicle Profiles", "AI Maintenance Roadmap", "Advanced Fuel Analytics"],
-    premium: ["Unlimited Vehicles", "Expert AI Diagnostics", "Full History Reports", "Priority Support"]
   };
 
   return (

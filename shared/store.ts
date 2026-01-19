@@ -96,11 +96,12 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const currentState = get();
     const meta = supabaseUser.user_metadata || {};
 
+    // Fix: Prioritize snake_case metadata keys to match Supabase schema standards
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
-      displayName: meta['Display name'] || meta.displayName || meta.full_name || '',
-      phone: meta['Phone'] || meta.phone || '',
+      displayName: meta.display_name || meta['Display name'] || meta.displayName || meta.full_name || '',
+      phone: meta.phone || meta['Phone'] || '',
       tier: meta.tier || 'free',
       role: meta.role || 'user',
       onboarded: meta.onboarded || false,
