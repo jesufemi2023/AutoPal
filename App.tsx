@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
 import AuthScreen from './components/AuthScreen.tsx';
@@ -36,6 +35,9 @@ const App: React.FC = () => {
 
   useEffect(() => { validateEnv(); }, []);
 
+  /**
+   * INITIAL AUTH LOAD
+   */
   useEffect(() => {
     const initAuth = async () => {
       if (!isSupabaseConfigured) {
@@ -59,6 +61,9 @@ const App: React.FC = () => {
     initAuth();
   }, [setSession, setInitialized]);
 
+  /**
+   * STRATEGIC ROUTING
+   */
   useEffect(() => {
     if (session && user) {
       fetchUserVehicles().then((fetchedVehicles) => {
@@ -76,7 +81,7 @@ const App: React.FC = () => {
   }, [session?.user?.id, user?.id, setVehicles]);
 
   const handleArchiveAsset = async () => {
-    if (!activeVehicleId || !activeVehicle || !user) return;
+    if (!activeVehicleId || !activeVehicle) return;
     const confirmed = confirm(
       `DELETE VEHICLE: Are you sure you want to remove the ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}? This will archive all service and fuel history.`
     );
@@ -195,6 +200,7 @@ const App: React.FC = () => {
           <span className={`text-[10px] transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}>▾</span>
         </button>
 
+        {/* Mobile Accordion Only */}
         <div className={`lg:hidden transition-all duration-300 overflow-hidden ${isSettingsOpen ? 'max-h-[400px] opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
           <div className="bg-slate-50/50 rounded-2xl p-2 border border-slate-100/50 ml-2">
             <ManageVehicleControls />
@@ -215,7 +221,7 @@ const App: React.FC = () => {
     if (!activeVehicle) return;
     setIsAskingAI(true);
     try {
-      const advice = await getAdvancedDiagnostic(activeVehicle, symptom, true, diagImage || undefined);
+      const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
       setAiAdvice(advice);
       if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
     } catch (e) { 
@@ -227,6 +233,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
+      {/* Mobile Header */}
       <header className="lg:hidden h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 z-[100] w-full">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
           <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-md">A</div>
@@ -245,6 +252,7 @@ const App: React.FC = () => {
         </button>
       </header>
 
+      {/* Mobile Drawer Overlay */}
       <div 
         className={`lg:hidden fixed inset-0 bg-slate-950/20 backdrop-blur-sm z-[110] transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsMobileMenuOpen(false)}
@@ -274,6 +282,7 @@ const App: React.FC = () => {
               <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-[10px] font-black uppercase shadow-inner">{user?.email?.[0]}</div>
               <div className="text-left overflow-hidden">
                 <span className="block text-[9px] font-black text-slate-900 truncate">{user?.displayName || user?.email}</span>
+                <span className="block text-[7px] font-black text-blue-500 uppercase tracking-widest">{user?.tier} Member</span>
               </div>
             </button>
             <button 
@@ -286,6 +295,7 @@ const App: React.FC = () => {
         </aside>
       </div>
 
+      {/* Desktop Sidebar & Flyout Overlay */}
       <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-[100] overflow-visible">
         <div className="p-8 pb-6 shrink-0 bg-white relative z-[101]">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
@@ -312,6 +322,7 @@ const App: React.FC = () => {
             <div className="w-8 h-8 rounded-full bg-slate-900 flex items-center justify-center text-white text-[10px] font-black uppercase shadow-inner">{user?.email?.[0]}</div>
             <div className="overflow-hidden text-left">
               <span className="block text-[9px] font-black text-slate-900 truncate">{user?.displayName || user?.email}</span>
+              <span className="block text-[7px] font-black text-blue-500 uppercase tracking-widest">{user?.tier} Member</span>
             </div>
           </button>
           <button 
@@ -322,6 +333,7 @@ const App: React.FC = () => {
           </button>
         </div>
 
+        {/* Desktop Slide-out Flyout Panel */}
         <div 
           className={`absolute top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[20px_0_40px_rgba(0,0,0,0.05)] z-[90] transition-all duration-500 ease-in-out flex flex-col pt-24 px-6
             ${isSettingsOpen ? 'translate-x-[300px] opacity-100' : 'translate-x-0 opacity-0 pointer-events-none'}
@@ -335,9 +347,15 @@ const App: React.FC = () => {
           <div className="flex-1 overflow-y-auto scrollbar-hide py-2">
             <ManageVehicleControls />
           </div>
+          <div className="py-8 px-2 border-t border-slate-50 mt-auto">
+             <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+               Modify active vehicle digital twins or decommission assets from global sync.
+             </p>
+          </div>
         </div>
       </aside>
 
+      {/* Main Content Area */}
       <div className="flex-grow lg:ml-[300px] flex flex-col min-h-screen w-full overflow-x-hidden">
         <main 
           onClick={() => {
@@ -378,6 +396,7 @@ const App: React.FC = () => {
         </main>
       </div>
 
+      {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-2xl">
         <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
           <span className="text-lg">🏠</span>

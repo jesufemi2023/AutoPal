@@ -2,8 +2,14 @@
 import { supabase } from '../auth/supabaseClient.ts';
 import { ServiceLog } from '../shared/types.ts';
 
+/**
+ * Log Intelligence Service
+ * Handles CRUD for maintenance records.
+ */
+
 export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]> => {
   if (!supabase) return [];
+  
   const { data, error } = await supabase
     .from('service_logs')
     .select('*')
@@ -11,6 +17,7 @@ export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]>
     .order('service_date', { ascending: false });
 
   if (error) throw error;
+  
   return (data || []).map(row => ({
     id: row.id,
     vehicleId: row.vehicle_id,
@@ -32,6 +39,7 @@ export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]>
 
 export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' | 'updatedAt'>): Promise<ServiceLog> => {
   if (!supabase) throw new Error("Cloud infrastructure not connected.");
+  
   const { data, error } = await supabase
     .from('service_logs')
     .insert([{
@@ -45,13 +53,13 @@ export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' 
       provider: log.provider,
       category: log.category,
       status: log.status,
-      verification_level: log.verificationLevel,
-      receipt_url: log.receiptUrl
+      verification_level: log.verificationLevel
     }])
     .select()
     .single();
 
   if (error) throw error;
+  
   return {
     id: data.id,
     vehicleId: data.vehicle_id,
@@ -73,6 +81,7 @@ export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' 
 
 export const updateServiceLog = async (id: string, log: Partial<ServiceLog>): Promise<ServiceLog> => {
   if (!supabase) throw new Error("Cloud infrastructure not connected.");
+
   const payload: any = {};
   if (log.serviceType !== undefined) payload.service_type = log.serviceType;
   if (log.serviceDate !== undefined) payload.service_date = log.serviceDate;
@@ -82,7 +91,6 @@ export const updateServiceLog = async (id: string, log: Partial<ServiceLog>): Pr
   if (log.provider !== undefined) payload.provider = log.provider;
   if (log.category !== undefined) payload.category = log.category;
   if (log.verificationLevel !== undefined) payload.verification_level = log.verificationLevel;
-  if (log.receiptUrl !== undefined) payload.receipt_url = log.receiptUrl;
 
   const { data, error } = await supabase
     .from('service_logs')
@@ -92,6 +100,7 @@ export const updateServiceLog = async (id: string, log: Partial<ServiceLog>): Pr
     .single();
 
   if (error) throw error;
+
   return {
     id: data.id,
     vehicleId: data.vehicle_id,

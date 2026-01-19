@@ -123,9 +123,9 @@ const Dashboard: React.FC = () => {
             <button 
               key={v.id}
               onClick={() => setActiveVehicleId(v.id)}
-              className={`flex-shrink-0 px-8 sm:px-10 py-6 sm:py-8 rounded-2xl sm:rounded-[3rem] border-2 transition-all min-w-[180px] sm:min-w-[240px] text-left relative overflow-hidden group ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-3xl' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200 hover:bg-slate-50'}`}
+              className={`flex-shrink-0 px-8 sm:px-10 py-6 sm:py-8 rounded-2xl sm:rounded-[3rem] border-2 transition-all min-w-[180px] sm:min-w-[240px] text-left relative overflow-hidden group ${activeVehicleId === v.id ? 'bg-slate-900 border-slate-900 text-white shadow-3xl' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300'}`}
             >
-              <div className="text-[8px] font-black uppercase opacity-40 mb-1 tracking-widest truncate">{v.make}</div>
+              <div className="text-[8px] sm:text-[9px] font-black uppercase opacity-40 mb-1 tracking-widest truncate">{v.make}</div>
               <div className="text-lg sm:text-2xl font-black tracking-tighter truncate">{v.model}</div>
               <div className={`w-2.5 h-2.5 rounded-full mt-4 sm:mt-6 ${activeVehicleId === v.id ? 'bg-blue-500' : 'bg-slate-200'}`}></div>
             </button>
@@ -146,19 +146,17 @@ const Dashboard: React.FC = () => {
                 updateTaskStatus(t.id, 'completed')
                   .then(() => {
                     completeTask(t.id, t.estimatedCost || 0, activeVehicle.mileage);
-                    // Fixed: Removed undefined 'user' argument to match createServiceLog signature.
-                    if (user) {
-                      createServiceLogEntry({
-                        vehicleId: activeVehicle.id, 
-                        taskId: t.id, 
-                        serviceDate: new Date().toISOString(),
-                        serviceType: t.title, 
-                        cost: t.estimatedCost || 0, 
-                        mileageAtService: activeVehicle.mileage, 
-                        status: 'completed',
-                        category: t.category
-                      });
-                    }
+                    // Fixed: used createServiceLogEntry from logService
+                    createServiceLogEntry({
+                      vehicleId: activeVehicle.id, 
+                      taskId: t.id, 
+                      serviceDate: new Date().toISOString(),
+                      serviceType: t.title, 
+                      cost: t.estimatedCost || 0, 
+                      mileageAtService: activeVehicle.mileage, 
+                      status: 'completed',
+                      category: t.category
+                    });
                   });
               }} 
             />

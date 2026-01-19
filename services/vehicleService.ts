@@ -1,8 +1,13 @@
 
 import { supabase } from '../auth/supabaseClient.ts';
-import { Vehicle, MaintenanceTask, ServiceLog, VerificationLevel, Priority, TaskStatus } from '../shared/types.ts';
+import { Vehicle, MaintenanceTask, ServiceLog, VerificationLevel, FuelLog, Priority, TaskStatus } from '../shared/types.ts';
 import { calculateNextMilestone, calculateAverageDailyKm, calculateVitalityScore } from './maintenanceLogic.ts';
-import { localDb } from './localDb.ts';
+import { fetchFuelLogs } from './fuelService.ts';
+
+/**
+ * Vehicle Lifecycle Service
+ * Manages the "Digital Twin" state in Supabase.
+ */
 
 const DB_TABLES = {
   VEHICLES: 'vehicles',
@@ -11,7 +16,30 @@ const DB_TABLES = {
 };
 
 const handleSupabaseError = (error: any, context: string) => {
-  console.error(`Supabase Error [${context}]:`, error);
+  const message = error?.message || "Unknown Database Error";
+  const details = error?.details || "";
+  
+  console.error(`Supabase Error [${context}]:`, { message, details, code: error?.code });
+
+  if (
+    error.message?.toLowerCase().includes('row-level security') || 
+    error.message?.toLowerCase().includes('permission denied') ||
+    error.code === '42501' || 
+    error.status === 403
+  ) {
+    throw new Error(`Permission Denied: ${context} failed due to RLS policies. Check SUPABASE_GUIDE.md.`);
+  }
+
+  if (error.code === 'PGRST116') return null; 
+  if (error.code === '42P01') {
+    throw new Error(`Database table missing. Please run migrations in Supabase SQL Editor.`);
+  }
+  if (error.code === '23505') {
+    throw new Error(`A vehicle with this Chassis ID (VIN) already exists in the system.`);
+  }
+  if (error.code === 'PGRST204' || error.code === '42703' || error.status === 400) {
+    return 'SCHEMA_MISMATCH';
+  }
   throw error;
 };
 
@@ -33,7 +61,7 @@ const mapVehicleFromDb = (v: any): Vehicle => ({
   avgDailyKm: v.avg_daily_km || 30,
   createdAt: v.created_at,
   updatedAt: v.updated_at,
-  latestAiAudit: v.latest_ai_audit
+  latestAiAudit: v.latest_ai_audit // Map persisted AI audit
 });
 
 const mapLogFromDb = (l: any): ServiceLog => ({
@@ -139,6 +167,7 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
     category: t.category,
     estimated_cost: t.estimatedCost,
     interval_km: t.intervalKm,
+    // Fix: Access camelCase property intervalMonths from the task object
     interval_months: t.intervalMonths
   }));
   const { error } = await supabase
@@ -148,15 +177,17 @@ export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, '
 };
 
 export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): Promise<Vehicle> => {
-  if (!supabase) throw new Error("Supabase client missing.");
+  if (!supabase) throw new Error("Supabase not configured");
 
   const dbPayload: any = {};
+  
   if (data.make !== undefined) dbPayload.make = data.make;
   if (data.model !== undefined) dbPayload.model = data.model;
   if (data.year !== undefined) dbPayload.year = data.year;
   if (data.vin !== undefined) dbPayload.vin = data.vin;
   if (data.status !== undefined) dbPayload.status = data.status;
   if (data.specs !== undefined) dbPayload.specs = data.specs;
+  
   if (data.mileage !== undefined) dbPayload.current_mileage = data.mileage;
   if (data.ownerId !== undefined) dbPayload.owner_id = data.ownerId;
   if (data.bodyType !== undefined) dbPayload.body_type = data.bodyType;
@@ -167,14 +198,36 @@ export const updateVehicle = async (vehicleId: string, data: Partial<Vehicle>): 
   if (data.imageUrl !== undefined) dbPayload.image_url = data.imageUrl;
   if (data.latestAiAudit !== undefined) dbPayload.latest_ai_audit = data.latestAiAudit;
 
-  const { data: updated, error } = await supabase
+  if (Object.keys(dbPayload).length === 0) {
+    const { data: current } = await supabase.from(DB_TABLES.VEHICLES).select('*').eq('id', vehicleId).single();
+    return current ? mapVehicleFromDb(current) : (data as Vehicle);
+  }
+
+  let { data: updated, error } = await supabase
     .from(DB_TABLES.VEHICLES)
     .update(dbPayload)
     .eq('id', vehicleId)
     .select()
     .single();
 
-  if (error) handleSupabaseError(error, 'updateVehicle');
+  if (error) {
+    const errType = handleSupabaseError(error, 'updateVehicle');
+    if (errType === 'SCHEMA_MISMATCH') {
+       delete dbPayload.avg_daily_km;
+       delete dbPayload.health_score;
+       delete dbPayload.latest_ai_audit;
+       const retry = await supabase
+         .from(DB_TABLES.VEHICLES)
+         .update(dbPayload)
+         .eq('id', vehicleId)
+         .select()
+         .single();
+       if (retry.error) throw retry.error;
+       updated = retry.data;
+    } else {
+      throw error;
+    }
+  }
   return mapVehicleFromDb(updated);
 };
 
@@ -225,6 +278,7 @@ export const createManualServiceLog = async (vehicle: Vehicle, log: Omit<Service
       category: log.category,
       status: log.status || 'completed',
       verification_level: log.verificationLevel,
+      // Fix: Access camelCase property receiptUrl from the log object
       receipt_url: log.receiptUrl
     }])
     .select()
@@ -234,38 +288,46 @@ export const createManualServiceLog = async (vehicle: Vehicle, log: Omit<Service
 };
 
 export const syncVehicleVitals = async (vehicleId: string): Promise<Vehicle> => {
-  const localV = await localDb.getVehicle(vehicleId);
-  if (!localV) throw new Error("Asset not found");
+  if (!supabase) throw new Error("Cloud infrastructure missing.");
+  const { data: vData, error: vError } = await supabase.from(DB_TABLES.VEHICLES).select('*').eq('id', vehicleId).single();
+  if (vError) throw vError;
+  const vehicle = mapVehicleFromDb(vData);
 
   const [fuelLogs, serviceLogs, tasks] = await Promise.all([
-    localDb.getFuelLogs(vehicleId),
-    localDb.getLogs(vehicleId),
-    localDb.getTasks(vehicleId)
+    fetchFuelLogs(vehicleId),
+    fetchVehicleServiceLogs(vehicleId),
+    fetchVehicleTasks(vehicleId)
   ]);
 
   const newAvgDailyKm = calculateAverageDailyKm(fuelLogs, serviceLogs);
-  const newHealthScore = calculateVitalityScore({ ...localV, avgDailyKm: newAvgDailyKm }, tasks, fuelLogs, serviceLogs);
+  const newHealthScore = calculateVitalityScore({ ...vehicle, avgDailyKm: newAvgDailyKm }, tasks, fuelLogs, serviceLogs);
 
   return await updateVehicle(vehicleId, { avgDailyKm: newAvgDailyKm, healthScore: newHealthScore });
 };
 
 export const updateMileage = async (vehicleId: string, mileage: number, force: boolean = false): Promise<Vehicle> => {
-  const localV = await localDb.getVehicle(vehicleId);
-  if (!localV) throw new Error("Asset not found");
+  if (!supabase) throw new Error("Supabase client missing.");
   
-  if (!force && mileage <= localV.mileage) {
+  const { data: current, error: fetchError } = await supabase
+    .from(DB_TABLES.VEHICLES)
+    .select('current_mileage')
+    .eq('id', vehicleId)
+    .single();
+
+  if (fetchError) handleSupabaseError(fetchError, 'updateMileage-Fetch');
+
+  const currentMileage = parseFloat(current.current_mileage || '0');
+  
+  if (!force && mileage <= currentMileage) {
     return await syncVehicleVitals(vehicleId);
   }
 
-  const updatedMileage = { ...localV, mileage };
-  await localDb.saveVehicle(updatedMileage);
+  const { error: updateError } = await supabase
+    .from(DB_TABLES.VEHICLES)
+    .update({ current_mileage: mileage })
+    .eq('id', vehicleId);
 
-  if (supabase) {
-    await supabase
-      .from(DB_TABLES.VEHICLES)
-      .update({ current_mileage: mileage })
-      .eq('id', vehicleId);
-  }
+  if (updateError) handleSupabaseError(updateError, 'updateMileage-Update');
 
   return await syncVehicleVitals(vehicleId);
 };
@@ -285,6 +347,8 @@ export const finalizeMaintenanceCompletion = async (
     intervalMonths?: number;
   }
 ): Promise<{ log: ServiceLog; updatedTask: MaintenanceTask; updatedVehicle: Vehicle }> => {
+  if (!supabase) throw new Error("Supabase client missing.");
+
   const targetIntervalKm = completionData.intervalKm ?? task.intervalKm ?? 5000;
   const targetIntervalMonths = completionData.intervalMonths ?? task.intervalMonths ?? 6;
 
@@ -310,7 +374,7 @@ export const finalizeMaintenanceCompletion = async (
     .single();
   if (logError) handleSupabaseError(logError, 'finalize-Log');
 
-  await supabase
+  const { data: taskData, error: taskError } = await supabase
     .from(DB_TABLES.RULES)
     .update({
       due_mileage: nextMileage,
@@ -320,9 +384,23 @@ export const finalizeMaintenanceCompletion = async (
       last_receipt_url: completionData.receiptUrl,
       status: 'pending' 
     })
-    .eq('id', task.id);
+    .eq('id', task.id)
+    .select()
+    .single();
+  if (taskError) handleSupabaseError(taskError, 'finalize-Task');
 
   const updatedVehicle = await updateMileage(vehicle.id, Math.max(vehicle.mileage, completionData.mileageAtService));
 
-  return { log: mapLogFromDb(logData), updatedTask: { ...task, status: 'pending', dueMileage: nextMileage, dueDate: nextDate }, updatedVehicle };
+  return {
+    log: mapLogFromDb(logData),
+    updatedTask: {
+      ...task,
+      dueMileage: nextMileage,
+      dueDate: nextDate,
+      lastCompletedAt: completionData.serviceDate,
+      lastVerificationLevel: completionData.verificationLevel,
+      lastReceiptUrl: completionData.receiptUrl
+    },
+    updatedVehicle
+  };
 };

@@ -1,13 +1,24 @@
-
 import { localDb } from './localDb.ts';
-import { updateVehicle, updateTaskStatus } from './vehicleService.ts';
+// Replaced updateVehicleData with updateVehicle
+import { updateVehicle, createVehicle, createMaintenanceTasksBatch, updateTaskStatus } from './vehicleService.ts';
 import { getConfig } from './configService.ts';
+import { Tier } from '../shared/types.ts';
 
-export const performSync = async (userId: string) => {
-  const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords(userId);
+/**
+ * Sync Engine - Checkpoint Implementation
+ * Minimizes cloud hits by only syncing "dirty" or milestone-reaching data.
+ */
+
+export const performSync = async (userTier: Tier = 'free') => {
+  const config = getConfig(userTier);
+  const { vehicles, tasks, logs } = await localDb.getDirtyRecords();
   
+  console.log(`SyncEngine: Processing ${vehicles.length + tasks.length + logs.length} updates...`);
+
+  // 1. Sync Vehicles
   for (const v of vehicles) {
     try {
+      // Replaced updateVehicleData with updateVehicle
       await updateVehicle(v.id, v);
       await localDb.clearDirtyFlag(v.id, 'vehicles');
     } catch (e) {
@@ -15,6 +26,7 @@ export const performSync = async (userId: string) => {
     }
   }
 
+  // 2. Sync Tasks
   for (const t of tasks) {
     try {
       await updateTaskStatus(t.id, t.status);
@@ -24,13 +36,14 @@ export const performSync = async (userId: string) => {
     }
   }
 
-  for (const l of logs) await localDb.clearDirtyFlag(l.id, 'serviceLogs');
-  for (const f of fuel) await localDb.clearDirtyFlag(f.id, 'fuelLogs');
-
+  // Note: Logs are typically append-only and handled via dedicated batch service.
   return { status: 'success', timestamp: new Date().toISOString() };
 };
 
-export const shouldSyncMileage = (oldVal: number, newVal: number, tier: any = 'free'): boolean => {
+/**
+ * Determines if a mileage update warrants a cloud sync based on tier delta.
+ */
+export const shouldSyncMileage = (oldVal: number, newVal: number, tier: Tier): boolean => {
   const delta = Math.abs(newVal - oldVal);
-  return delta >= getConfig().mileageSyncDelta;
+  return delta >= getConfig(tier).mileageSyncDelta;
 };
