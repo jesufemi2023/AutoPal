@@ -19,10 +19,9 @@ export const ResaleValuationCard: React.FC<{
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showUpgrade, setShowUpgrade] = useState(false);
 
-  // Persistence logic for the AI Audit
+  // Use persisted audit from vehicle object
   const cachedReport = vehicle.latestAiAudit;
 
-  // Calculate the local algorithmic fallback
   const deterministicValuation = useMemo(() => 
     calculateResaleValue(vehicle, tasks, serviceLogs, fuelLogs), 
     [vehicle, tasks, serviceLogs, fuelLogs]
@@ -49,13 +48,13 @@ export const ResaleValuationCard: React.FC<{
     try {
       const report = await generateAIValuation(vehicle, tasks, serviceLogs, fuelLogs);
       
-      // 2. Persist the audit to the cloud record
+      // 2. Persist to Cloud
       const updatedVehicle = await updateVehicle(vehicle.id, { 
         latestAiAudit: report,
         healthScore: report.auditedScores.vitality 
       });
       
-      // 3. Update the user's usage ledger
+      // 3. Update Ledger
       await updateUsageLedger({
         aiAuditsCount: (user.usageLedger.aiAuditsCount || 0) + 1,
         lastAiAuditAt: new Date().toISOString()
@@ -64,14 +63,14 @@ export const ResaleValuationCard: React.FC<{
       updateVehicleStore(updatedVehicle);
     } catch (e) {
       console.error("[AutoPal AI] Analysis Failure:", e);
-      alert("Neural Analysis Error: System overloaded. Please try again later.");
+      alert("Neural Analysis Link Interrupted. Please retry.");
     } finally {
       setIsAnalyzing(false);
     }
   };
 
   const gradeColors = {
-    'A+': 'text-emerald-400',
+    'A+': 'text-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.3)]',
     'A': 'text-emerald-500',
     'B': 'text-blue-400',
     'C': 'text-amber-500',
@@ -79,67 +78,77 @@ export const ResaleValuationCard: React.FC<{
   };
 
   return (
-    <section className="bg-slate-950 rounded-[2.5rem] p-8 sm:p-10 text-white relative overflow-hidden shadow-2xl group border border-white/5 h-full flex flex-col justify-between transition-all duration-500 hover:shadow-blue-900/10">
+    <section className="bg-slate-950 rounded-[2.5rem] p-8 sm:p-10 text-white relative overflow-hidden shadow-2xl border border-white/5 h-full flex flex-col justify-between group transition-all duration-700 hover:shadow-blue-900/10">
+      {/* Background Neural Ambience */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/5 blur-[80px] rounded-full -translate-y-1/2 translate-x-1/2"></div>
       
       {isAnalyzing && (
         <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex flex-col items-center justify-center p-8 text-center animate-in fade-in">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-6 shadow-glow"></div>
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-6"></div>
           <h4 className="text-sm font-black tracking-tight mb-1 uppercase">Neural Market Audit</h4>
           <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em]">Benchmarking History...</p>
         </div>
       )}
 
-      <div className="relative z-10 space-y-8">
+      <div className="relative z-10 space-y-8 lg:space-y-12">
         <div className="flex justify-between items-start">
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">Resale Intelligence</h3>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse shadow-[0_0_8px_#3b82f6]"></div>
+              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.5em]">Resale Intelligence</h3>
             </div>
-            <div className="text-5xl sm:text-6xl font-black tracking-tighter text-white transition-all">
-              <span className="text-xl text-slate-600 mr-2 font-mono font-bold">₦</span>
+            <div className="text-5xl sm:text-7xl font-black tracking-tighter text-white leading-none transition-all group-hover:scale-[1.02] origin-left">
+              <span className="text-xl sm:text-2xl text-slate-600 mr-2 font-mono font-bold">₦</span>
               {displayValuation.toLocaleString()}
             </div>
-            <p className="text-blue-500/60 text-[8px] font-black uppercase tracking-[0.3em] font-mono">
-              {cachedReport ? 'Neural High-Confidence Audit' : 'Algorithmic Market Estimate'}
-            </p>
+            <div className="flex items-center gap-3">
+               <p className="text-blue-500/60 text-[8px] font-black uppercase tracking-[0.3em] font-mono">
+                 {cachedReport ? 'Neural Confirmed Dossier' : 'Algorithmic Estimate'}
+               </p>
+               {cachedReport && (
+                 <span className="bg-blue-600/10 text-blue-400 text-[7px] font-black px-2 py-0.5 rounded uppercase border border-blue-500/20">Verified</span>
+               )}
+            </div>
           </div>
           <div className="text-right">
-            <div className={`text-4xl sm:text-5xl font-black ${gradeColors[displayGrade as keyof typeof gradeColors]}`}>{displayGrade}</div>
-            <div className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Market Grade</div>
+            <div className={`text-5xl sm:text-7xl font-black leading-none ${gradeColors[displayGrade as keyof typeof gradeColors]}`}>
+              {displayGrade}
+            </div>
+            <div className="text-[8px] font-black text-slate-600 uppercase tracking-widest mt-2">Market Grade</div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-           <div className="bg-white/5 border border-white/5 p-4 rounded-2xl">
+           <div className="bg-white/5 border border-white/5 p-5 rounded-3xl flex flex-col justify-between">
               <div className="text-[7px] font-black text-slate-600 uppercase tracking-widest mb-1">Base Market</div>
-              <div className="text-sm font-bold text-slate-300">₦{deterministicValuation.baseValue.toLocaleString()}</div>
+              <div className="text-base font-bold text-slate-300">₦{deterministicValuation.baseValue.toLocaleString()}</div>
            </div>
-           <div className="bg-white/5 border border-white/5 p-4 rounded-2xl">
+           <div className="bg-white/5 border border-white/5 p-5 rounded-3xl flex flex-col justify-between">
               <div className="text-[7px] font-black text-slate-600 uppercase tracking-widest mb-1">Maintenance Debt</div>
-              <div className="text-sm font-bold text-rose-500">-{deterministicValuation.maintenanceDebt.toLocaleString()}</div>
+              <div className="text-base font-bold text-rose-500">-{deterministicValuation.maintenanceDebt.toLocaleString()}</div>
            </div>
         </div>
       </div>
 
-      <div className="relative z-10 pt-8 space-y-4">
+      <div className="relative z-10 pt-10 space-y-4">
         <button 
           onClick={handleAiAnalysis}
-          className="w-full bg-blue-600 hover:bg-blue-500 text-white py-5 rounded-2xl flex items-center justify-center gap-3 transition-all shadow-xl shadow-blue-600/20 active:scale-95 group/btn"
+          className="w-full bg-blue-600 hover:bg-blue-500 text-white py-6 rounded-2xl flex items-center justify-center gap-4 transition-all shadow-xl shadow-blue-600/20 active:scale-95 group/btn"
         >
-          <span className="text-lg group-hover/btn:rotate-12 transition-transform">✧</span>
-          <span className="text-[10px] font-black uppercase tracking-[0.2em]">Generate Neural Dossier</span>
+          <span className="text-xl group-hover/btn:rotate-12 transition-transform">✧</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.25em]">Generate Neural Dossier</span>
         </button>
         
-        {cachedReport && (
-          <div className="flex justify-between items-center px-1">
-            <span className="text-[7px] font-black text-slate-700 uppercase tracking-widest italic">Last Audit: {new Date(cachedReport.timestamp).toLocaleDateString()}</span>
-            <span className="text-[7px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5">
-              Verified Dossier ✓
+        <div className="flex justify-between items-center px-1">
+          <span className="text-[7px] font-black text-slate-700 uppercase tracking-widest italic">
+            {cachedReport ? `Last Audit: ${new Date(cachedReport.timestamp).toLocaleDateString()}` : 'Audit Required for High-Confidence'}
+          </span>
+          {cachedReport && (
+            <span className="text-[7px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5 animate-in fade-in">
+              System Synced ✓
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
