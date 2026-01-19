@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { 
@@ -110,7 +111,7 @@ const Dashboard: React.FC = () => {
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
           <button 
             onClick={() => handleScroll('left')}
-            className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/80 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-lg text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -ml-5"
+            className="hidden lg:flex absolute left-2 top-1/2 -translate-y-1/2 z-[20] w-10 h-10 bg-white/90 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-lg text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
           >
             ←
           </button>
@@ -137,7 +138,7 @@ const Dashboard: React.FC = () => {
 
           <button 
             onClick={() => handleScroll('right')}
-            className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-white/80 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-lg text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100 -mr-5"
+            className="hidden lg:flex absolute right-2 top-1/2 -translate-y-1/2 z-[20] w-10 h-10 bg-white/90 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-lg text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
           >
             →
           </button>
