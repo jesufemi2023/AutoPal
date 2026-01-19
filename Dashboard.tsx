@@ -40,10 +40,9 @@ const Dashboard: React.FC = () => {
       setIsSyncing(true);
       try {
         const cloudVehicles = await fetchUserVehicles();
-        // The store handles the logic of merging cloud and local with ownerId verification
         setVehicles(cloudVehicles);
       } catch (err) {
-        console.warn("Cloud sync deferred: Check network or tier permissions.");
+        console.warn("Cloud sync deferred.");
       } finally {
         setIsSyncing(false);
       }
@@ -145,13 +144,9 @@ const Dashboard: React.FC = () => {
         <div className="w-full flex flex-col gap-6 lg:gap-10">
           <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
           
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-10 items-stretch">
-            <div className="xl:col-span-5 flex flex-col h-full">
-              <ResaleValuationCard vehicle={activeVehicle} tasks={tasks} serviceLogs={activeServiceLogs} fuelLogs={activeFuelLogs} />
-            </div>
-            <div className="xl:col-span-7 flex flex-col h-full">
-               <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
-            </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-10">
+            <ResaleValuationCard vehicle={activeVehicle} tasks={tasks} serviceLogs={activeServiceLogs} fuelLogs={activeFuelLogs} />
+            <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
           </div>
 
           <MaintenanceRoadmap vehicle={activeVehicle} tasks={vehicleTasks} isLoading={isLoadingDetails} onLog={() => setCurrentView('service')} />
