@@ -17,7 +17,7 @@ import { validateEnv } from './services/envService.ts';
 import { fetchUserVehicles, archiveVehicle } from './services/vehicleService.ts';
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
-import { syncLedgerPeriod } from './services/permissionService.ts';
+import { syncLedgerPeriod, QUOTAS } from './services/permissionService.ts';
 
 const App: React.FC = () => {
   const { 
@@ -39,7 +39,6 @@ const App: React.FC = () => {
 
   /**
    * ACTIVE SESSION QUOTA RESET
-   * Runs periodically to ensure 30-day limits reset without manual logout.
    */
   useEffect(() => {
     const interval = setInterval(() => {
@@ -49,7 +48,7 @@ const App: React.FC = () => {
           setUser(synced);
         }
       }
-    }, 1000 * 60 * 60); // Check every hour
+    }, 1000 * 60 * 60);
     return () => clearInterval(interval);
   }, [user, setUser]);
 
@@ -80,21 +79,35 @@ const App: React.FC = () => {
   }, [setSession, setInitialized]);
 
   /**
-   * STRATEGIC ROUTING
+   * STRATEGIC ROUTING & CLOUD SYNC
    */
   useEffect(() => {
     if (session && user) {
-      fetchUserVehicles().then((fetchedVehicles) => {
-        setVehicles(fetchedVehicles);
+      const isCloudEnabled = QUOTAS[user.tier].isCloudSynced;
+      
+      if (isCloudEnabled) {
+        fetchUserVehicles().then((fetchedVehicles) => {
+          setVehicles(fetchedVehicles);
+          const isTransitioning = currentView === 'landing' || currentView === 'garage';
+          if (isTransitioning) {
+            if (fetchedVehicles.length === 0 && vehicles.length === 0) {
+              setCurrentView('onboarding');
+            } else {
+              setCurrentView('garage');
+            }
+          }
+        }).catch(console.error);
+      } else {
+        // For Free tier, we already hydrated in setSession via loadLocalData
         const isTransitioning = currentView === 'landing' || currentView === 'garage';
         if (isTransitioning) {
-          if (fetchedVehicles.length === 0) {
+          if (vehicles.length === 0) {
             setCurrentView('onboarding');
           } else {
             setCurrentView('garage');
           }
         }
-      }).catch(console.error);
+      }
     }
   }, [session?.user?.id, user?.id, setVehicles]);
 

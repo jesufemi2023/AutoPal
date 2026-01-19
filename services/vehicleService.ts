@@ -154,7 +154,8 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
     status: vehicle.status,
     image_url: vehicle.imageUrl,
     specs: vehicle.specs,
-    avg_daily_km: vehicle.avg_daily_km || 30
+    // Fix: Using camelCase 'avgDailyKm' to match Omit<Vehicle, ...> property
+    avg_daily_km: vehicle.avgDailyKm || 30
   };
   const { data, error } = await supabase
     .from(DB_TABLES.VEHICLES)

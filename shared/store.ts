@@ -89,16 +89,34 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   marketplaceFilter: '',
 
   loadLocalData: async (userId: string) => {
-    // Strictly filter by current user ID to prevent data leakage
+    // 1. Fetch all local records for this user
     const localVehicles = await localDb.getVehicles(userId);
     
-    // Load local ledger if user is free to ensure persistence
+    // Aggregate all tasks and logs for all vehicles owned by this user
+    let allTasks: MaintenanceTask[] = [];
+    let allServiceLogs: ServiceLog[] = [];
+    let allFuelLogs: FuelLog[] = [];
+
+    for (const v of localVehicles) {
+      const [vTasks, vLogs, vFuel] = await Promise.all([
+        localDb.getTasks(v.id),
+        localDb.getLogs(v.id),
+        localDb.getFuelLogs(v.id)
+      ]);
+      allTasks = [...allTasks, ...vTasks];
+      allServiceLogs = [...allServiceLogs, ...vLogs];
+      allFuelLogs = [...allFuelLogs, ...vFuel];
+    }
+    
     const localLedger = await localDb.getUsageLedger(userId);
     
     set((state) => ({ 
       vehicles: localVehicles,
+      tasks: allTasks,
+      serviceLogs: allServiceLogs,
+      fuelLogs: allFuelLogs,
       activeVehicleId: state.activeVehicleId || (localVehicles.length > 0 ? localVehicles[0].id : null),
-      user: state.user && localLedger ? { ...state.user, usageLedger: localLedger } : state.user
+      user: state.user ? { ...state.user, usageLedger: localLedger || state.user.usageLedger } : state.user
     }));
   },
 
@@ -132,11 +150,9 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
 
     const meta = supabaseUser.user_metadata || {};
     
-    // Merge remote ledger with local one if local is fresher (for Free tier)
     let remoteLedger = profile?.usage_ledger || INITIAL_LEDGER;
     const localL = await localDb.getUsageLedger(supabaseUser.id);
     
-    // If user is free, local ledger is the source of truth for counts
     const activeLedger = (profile?.tier === 'free' && localL) ? localL : remoteLedger;
 
     const newUserObj: UserProfile = {
@@ -153,7 +169,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
 
     const syncedUser = syncLedgerPeriod(newUserObj);
     
-    // Save locally immediately
     await localDb.saveUsageLedger(syncedUser.id, syncedUser.usageLedger);
 
     if (syncedUser.usageLedger.periodStart !== activeLedger.periodStart) {
@@ -164,6 +179,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     }
 
     set({ session, user: syncedUser });
+    // LOAD EVERYTHING FROM DISK IMMEDIATELY
     await get().loadLocalData(syncedUser.id);
   },
   
@@ -180,11 +196,8 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const updatedUser = { ...state.user, usageLedger: newLedger };
     
     set({ user: updatedUser });
-
-    // 1. Always save locally (critical for Free Tier)
     await localDb.saveUsageLedger(state.user.id, newLedger);
 
-    // 2. Save to cloud only if synced tier
     if (QUOTAS[state.user.tier].isCloudSynced && supabase) {
       await supabase
         .from('Users')
@@ -213,6 +226,12 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
 
     set((state) => {
       const filteredCloud = cloudVehicles.filter(v => v.ownerId === currentUser.id);
+      
+      // If we are Free tier, we strictly keep local data and don't let empty cloud arrays wipe it
+      if (!QUOTAS[currentUser.tier].isCloudSynced && filteredCloud.length === 0) {
+        return state;
+      }
+
       const merged = [...filteredCloud];
       state.vehicles.forEach(localV => {
         if (localV.ownerId === currentUser.id && !merged.find(m => m.id === localV.id)) {
@@ -286,7 +305,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     if (!user) return;
     const filtered = tasks.filter(t => t.ownerId === user.id || t.vehicleId);
     set({ tasks: filtered });
-    localDb.saveTasksBatch(filtered);
+    filtered.forEach(t => localDb.saveTask(t));
   },
 
   setServiceLogs: (serviceLogs) => {
