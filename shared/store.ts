@@ -115,23 +115,29 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
 
     const { user: supabaseUser } = session;
     
-    // FETCH from the standardized public table
-    let { data: profile } = await supabase
-      .from('Users')
-      .select('*')
-      .eq('id', supabaseUser.id)
-      .single();
+    // Robust Fetch: Try-catch to ensure app doesn't hang if table isn't ready
+    let profileData: any = null;
+    try {
+      const { data, error } = await supabase
+        .from('Users')
+        .select('*')
+        .eq('id', supabaseUser.id)
+        .maybeSingle();
+      
+      if (!error) profileData = data;
+    } catch (e) {
+      console.warn("Public profile fetch skipped - using metadata fallbacks.");
+    }
 
     const meta = supabaseUser.user_metadata || {};
 
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
-      // Standardized to check lowercase keys from DB and fallbacks from meta
-      displayName: profile?.display_name || meta.display_name || meta.displayName || meta['Display name'] || '',
-      phone: profile?.phone || meta.phone || meta['Phone'] || '',
-      role: profile?.role || meta.role || 'user',
-      tier: profile?.tier || meta.tier || 'free',
+      displayName: profileData?.display_name || meta.display_name || meta.displayName || meta['Display name'] || '',
+      phone: profileData?.phone || meta.phone || meta['Phone'] || '',
+      role: profileData?.role || meta.role || 'user',
+      tier: profileData?.tier || meta.tier || 'free',
       onboarded: meta.onboarded || false,
       createdAt: supabaseUser.created_at || new Date().toISOString(),
     };
