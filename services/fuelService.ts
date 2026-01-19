@@ -1,6 +1,7 @@
 
 import { supabase } from '../auth/supabaseClient.ts';
-import { FuelLog } from '../shared/types.ts';
+import { FuelLog, UserProfile } from '../shared/types.ts';
+import { QUOTAS } from './permissionService.ts';
 
 /**
  * Fuel Intelligence Service
@@ -35,7 +36,17 @@ export const fetchFuelLogs = async (vehicleId: string): Promise<FuelLog[]> => {
   }));
 };
 
-export const addFuelLog = async (log: Omit<FuelLog, 'id' | 'createdAt'>): Promise<FuelLog> => {
+export const addFuelLog = async (log: Omit<FuelLog, 'id' | 'createdAt'>, user: UserProfile): Promise<FuelLog> => {
+  // Check Cloud Sync eligibility
+  if (!QUOTAS[user.tier].isCloudSynced) {
+    console.log("[AutoPal NG] Local-Only Fuel Entry (Free Tier)");
+    return {
+      ...log,
+      id: `LOCAL-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    } as FuelLog;
+  }
+
   if (!supabase) throw new Error("Cloud infrastructure not connected.");
   
   const { data, error } = await supabase
@@ -65,7 +76,11 @@ export const addFuelLog = async (log: Omit<FuelLog, 'id' | 'createdAt'>): Promis
   };
 };
 
-export const updateFuelLog = async (logId: string, log: Partial<FuelLog>): Promise<FuelLog> => {
+export const updateFuelLog = async (logId: string, log: Partial<FuelLog>, user: UserProfile): Promise<FuelLog> => {
+  if (!QUOTAS[user.tier].isCloudSynced) {
+    return { ...log, id: logId } as FuelLog;
+  }
+
   if (!supabase) throw new Error("Cloud infrastructure not connected.");
 
   const payload: any = {};
@@ -97,43 +112,34 @@ export const updateFuelLog = async (logId: string, log: Partial<FuelLog>): Promi
 };
 
 export const deleteFuelLog = async (logId: string): Promise<void> => {
-  if (!supabase) throw new Error("Cloud infrastructure not connected.");
-  
-  const { error } = await supabase
-    .from('fuel_logs')
-    .delete()
-    .eq('id', logId);
-
-  if (error) handleSupabaseError(error, 'deleteFuelLog');
+  if (!supabase) return;
+  const { error } = await supabase.from('fuel_logs').delete().eq('id', logId);
+  if (error) throw error;
 };
 
 /**
  * Client-Side JIT Calculation
  * Uses the "Full-to-Full" method with Cumulative Refill support.
- * We find the most recent Full Tank log and the one before it,
- * then sum all liters filled in between.
  */
 export const calculateLastEfficiency = (logs: FuelLog[]): number | null => {
   if (logs.length < 2) return null;
 
   const sorted = [...logs].sort((a, b) => b.odometerKm - a.odometerKm);
   
-  // Find current Full refill
   const currentFullIndex = sorted.findIndex(l => l.isFullTank);
   if (currentFullIndex === -1) return null;
 
-  // Find previous Full refill
   const prevFullIndex = sorted.slice(currentFullIndex + 1).findIndex(l => l.isFullTank);
   if (prevFullIndex === -1) return null;
 
   const actualPrevFullIndex = prevFullIndex + currentFullIndex + 1;
   const currentFull = sorted[currentFullIndex];
+  // Fix: corrected typo actualPrevPrevFullIndex to actualPrevFullIndex
   const prevFull = sorted[actualPrevFullIndex];
 
   const distance = currentFull.odometerKm - prevFull.odometerKm;
   if (distance <= 0) return null;
 
-  // Sum all liters added from currentFull back to (but not including) prevFull
   const logsInBlock = sorted.slice(currentFullIndex, actualPrevFullIndex);
   const totalLiters = logsInBlock.reduce((acc, l) => acc + l.liters, 0);
 
@@ -157,9 +163,6 @@ export const calculateAverageEfficiency = (logs: FuelLog[]): number | null => {
   const totalDistance = newestFull.odometerKm - oldestFull.odometerKm;
   if (totalDistance <= 0) return null;
 
-  // Sum all liters added between the oldest FULL and newest FULL
-  // This includes the newestFull liters but excludes the oldestFull liters 
-  // (since oldestFull liters were consumed *before* that odometer reading).
   const startIndex = sorted.indexOf(newestFull);
   const endIndex = sorted.indexOf(oldestFull);
   

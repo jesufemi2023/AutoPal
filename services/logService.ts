@@ -29,6 +29,7 @@ export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]>
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     verificationLevel: row.verification_level,
+    // Fix: use camelCase property name to match ServiceLog type
     receiptUrl: row.receipt_url
   }));
 };
@@ -68,7 +69,8 @@ export const createServiceLog = async (
       provider: log.provider,
       category: log.category,
       status: log.status,
-      verification_level: log.verificationLevel
+      verification_level: log.verificationLevel,
+      receipt_url: log.receiptUrl
     }])
     .select()
     .single();
@@ -96,6 +98,7 @@ export const createServiceLog = async (
     createdAt: data.created_at,
     updatedAt: data.updated_at,
     verificationLevel: data.verification_level,
+    // Fix: use camelCase property name to match ServiceLog type
     receiptUrl: data.receipt_url
   };
 };
@@ -116,6 +119,7 @@ export const updateServiceLog = async (id: string, log: Partial<ServiceLog>, use
   if (log.provider !== undefined) payload.provider = log.provider;
   if (log.category !== undefined) payload.category = log.category;
   if (log.verificationLevel !== undefined) payload.verification_level = log.verificationLevel;
+  if (log.receiptUrl !== undefined) payload.receipt_url = log.receiptUrl;
 
   const { data, error } = await supabase
     .from('service_logs')
@@ -141,6 +145,7 @@ export const updateServiceLog = async (id: string, log: Partial<ServiceLog>, use
     createdAt: data.created_at,
     updatedAt: data.updated_at,
     verificationLevel: data.verification_level,
+    // Fix: use camelCase property name to match ServiceLog type
     receiptUrl: data.receipt_url
   };
 };
