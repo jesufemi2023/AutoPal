@@ -1,3 +1,4 @@
+
 import { generateMaintenanceSchedule } from './geminiService.ts';
 import { createVehicle, createMaintenanceTasksBatch } from './vehicleService.ts';
 import { getCachedRoadmap, saveRoadmapTemplate } from './templateService.ts';
@@ -45,10 +46,13 @@ export const initializeVehicleAsset = async (
 /** Phase 2: Generate proposed tasks (Template -> AI) */
 export const prepareProposedRoadmap = async (vehicle: Vehicle): Promise<{ tasks: Omit<MaintenanceTask, 'id'>[], isNewTemplate: boolean, rawRoadmap?: MaintenanceScheduleResponse }> => {
   try {
+    // 1. Search our community library first ($0 cost)
     let roadmap = await getCachedRoadmap(vehicle.make, vehicle.model, vehicle.year);
     let isNewTemplate = false;
 
+    // 2. If no matching template exists, call Gemini AI
     if (!roadmap) {
+      console.log(`[AutoPal NG] Template cache miss for ${vehicle.make} ${vehicle.model}. Requesting AI generation...`);
       roadmap = await generateMaintenanceSchedule(
         vehicle.make, 
         vehicle.model, 
@@ -56,6 +60,8 @@ export const prepareProposedRoadmap = async (vehicle: Vehicle): Promise<{ tasks:
         vehicle.mileage
       );
       isNewTemplate = true;
+    } else {
+      console.log(`[AutoPal NG] Template cache hit! Reusing roadmap for ${vehicle.make} ${vehicle.model}.`);
     }
 
     const tasks = roadmap.tasks.map(t => ({
@@ -76,7 +82,7 @@ export const prepareProposedRoadmap = async (vehicle: Vehicle): Promise<{ tasks:
 export const commitFinalRoadmap = async (vehicle: Vehicle, tasks: Omit<MaintenanceTask, 'id'>[], isNewTemplate: boolean, rawRoadmap?: MaintenanceScheduleResponse) => {
   await createMaintenanceTasksBatch(tasks);
   
-  // If this was a fresh AI generation, we cache it for the next user of this car model
+  // If this was a fresh AI generation, we cache it in our library for the next user
   if (isNewTemplate && rawRoadmap) {
     await saveRoadmapTemplate(vehicle.make, vehicle.model, vehicle.year, rawRoadmap);
   }

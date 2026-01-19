@@ -1,6 +1,7 @@
+
 import { supabase } from '../auth/supabaseClient.ts';
 import { ServiceLog, UserProfile } from '../shared/types.ts';
-import { canLogService } from './permissionService.ts';
+import { canLogService, QUOTAS } from './permissionService.ts';
 
 export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]> => {
   if (!supabase) return [];
@@ -41,9 +42,10 @@ export const createServiceLog = async (
     throw new Error(permission.reason);
   }
 
-  // To achieve $0 cost for free tier, we only sync to cloud for paying users.
-  // Free tier uses localDb via the Zustand store (called in the component).
-  if (user.tier === 'free') {
+  // ENFORCE "CLOUD PASSPORT" MODEL
+  // Free tier users are hard-blocked at the DB level, so we save locally only.
+  if (!QUOTAS[user.tier].isCloudSynced) {
+    console.log("[AutoPal NG] Local-Only Entry (Free Tier)");
     return {
       ...log,
       id: `LOCAL-${Date.now()}`,
@@ -71,7 +73,13 @@ export const createServiceLog = async (
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // Graceful catch for unexpected RLS rejection
+    if (error.code === '42501') {
+      throw new Error("Cloud sync failed. Your current tier only allows local storage.");
+    }
+    throw error;
+  }
   
   return {
     id: data.id,
@@ -93,7 +101,7 @@ export const createServiceLog = async (
 };
 
 export const updateServiceLog = async (id: string, log: Partial<ServiceLog>, user: UserProfile): Promise<ServiceLog> => {
-  if (user.tier === 'free') {
+  if (!QUOTAS[user.tier].isCloudSynced) {
      return { ...log, id } as ServiceLog;
   }
   

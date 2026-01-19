@@ -1,7 +1,9 @@
+
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport, UsageLedger } from './types.ts';
 import { localDb } from '../services/localDb.ts';
 import { syncLedgerPeriod } from '../services/permissionService.ts';
+import { supabase } from '../auth/supabaseClient.ts';
 
 const INITIAL_LEDGER: UsageLedger = {
   periodStart: new Date().toISOString(),
@@ -32,9 +34,9 @@ interface AutoPalState {
   marketplace: any[];
   marketplaceFilter: string;
 
-  setSession: (session: any) => void;
+  setSession: (session: any) => Promise<void>;
   setUser: (user: UserProfile | null) => void;
-  updateUsageLedger: (updates: Partial<UsageLedger>) => void;
+  updateUsageLedger: (updates: Partial<UsageLedger>) => Promise<void>;
   setInitialized: (initialized: boolean) => void;
   setRecovering: (isRecovering: boolean) => void;
   setLoading: (loading: boolean) => void;
@@ -44,7 +46,7 @@ interface AutoPalState {
   setTransientVehicle: (vehicle: TransientVehicle | null) => void;
   incrementGuestAttempts: () => void;
   setVehicles: (vehicles: Vehicle[]) => void;
-  addVehicle: (vehicle: Vehicle) => void;
+  addVehicle: (vehicle) => void;
   updateVehicleStore: (vehicle: Vehicle) => void;
   syncVehicleState: (vehicleId: string, updates: Partial<Vehicle>) => void;
   removeVehicleStore: (vehicleId: string) => void;
@@ -96,40 +98,70 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     }
   },
 
-  setSession: (session) => {
+  setSession: async (session) => {
     if (!session) {
-      if (get().session !== null) set({ session: null, user: null });
+      set({ session: null, user: null });
       return;
     }
 
     const { user: supabaseUser } = session;
-    const meta = supabaseUser.user_metadata || {};
+    
+    // Fetch Extended Profile from our custom "Users" table
+    const { data: profile, error } = await supabase
+      .from('Users')
+      .select('*')
+      .eq('id', supabaseUser.id)
+      .single();
 
+    if (error && error.code !== 'PGRST116') {
+      console.error("Profile Fetch Error:", error);
+    }
+
+    const meta = supabaseUser.user_metadata || {};
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
-      displayName: meta['Display name'] || meta.displayName || meta.full_name || '',
-      phone: meta['Phone'] || meta.phone || '',
-      tier: meta.tier || 'free',
+      displayName: profile?.['Display name'] || meta.displayName || '',
+      phone: profile?.['Phone'] || meta.phone || '',
+      tier: profile?.tier || 'free',
       role: meta.role || 'user',
       onboarded: meta.onboarded || false,
       createdAt: supabaseUser.created_at || new Date().toISOString(),
-      usageLedger: meta.usageLedger || INITIAL_LEDGER
+      usageLedger: profile?.usage_ledger || INITIAL_LEDGER
     };
 
     const syncedUser = syncLedgerPeriod(newUserObj);
+    
+    // If ledger was reset by syncLedgerPeriod, update DB
+    if (syncedUser.usageLedger.periodStart !== newUserObj.usageLedger.periodStart) {
+      await supabase
+        .from('Users')
+        .update({ usage_ledger: syncedUser.usageLedger })
+        .eq('id', syncedUser.id);
+    }
+
     set({ session, user: syncedUser });
   },
   
   setUser: (user) => set({ user }),
 
-  updateUsageLedger: (updates) => set((state) => {
-    if (!state.user) return state;
+  updateUsageLedger: async (updates) => {
+    const state = get();
+    if (!state.user) return;
+    
     const newLedger = { ...state.user.usageLedger, ...updates };
-    return {
-      user: { ...state.user, usageLedger: newLedger }
-    };
-  }),
+    const updatedUser = { ...state.user, usageLedger: newLedger };
+    
+    set({ user: updatedUser });
+
+    // Persist to DB for 10k User scaling
+    if (supabase) {
+      await supabase
+        .from('Users')
+        .update({ usage_ledger: newLedger })
+        .eq('id', state.user.id);
+    }
+  },
 
   setInitialized: (initialized) => set({ isInitialized: initialized }),
   setRecovering: (isRecovering) => set({ isRecovering }),
