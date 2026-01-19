@@ -41,12 +41,15 @@ export const calculateAverageDailyKm = (fuelLogs: FuelLog[], serviceLogs: Servic
  * METABOLIC ENGINE
  */
 export const calculateMetabolicStatus = (vehicle: Vehicle, fuelLogs: FuelLog[]): { score: number, status: 'optimal' | 'warning' | 'critical', waste: number, variance: number, isCalibrating: boolean } => {
-  if (fuelLogs.length < 3) {
+  // Relaxed threshold: 2 logs is the absolute mathematical minimum for a delta
+  if (fuelLogs.length < 2) {
     return { score: 100, status: 'optimal', waste: 0, variance: 0, isCalibrating: true };
   }
 
   const sorted = [...fuelLogs].sort((a, b) => b.odometerKm - a.odometerKm);
   const fullLogs = sorted.filter(l => l.isFullTank);
+  
+  // We need at least two "Full Tank" anchors to calculate consumption over distance
   if (fullLogs.length < 2) return { score: 100, status: 'optimal', waste: 0, variance: 0, isCalibrating: true };
 
   const recent = fullLogs[0];
@@ -134,7 +137,6 @@ export const calculateIntelligentHealth = (
       provenance: provenanceScore,
       metabolicStatus: metabolism.status,
       wasteMonthly: metabolism.waste,
-      // Fixed: variance must be explicitly mapped to satisfy HealthBreakdown interface
       variance: metabolism.variance,
       isCalibrating: metabolism.isCalibrating
     }

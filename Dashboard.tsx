@@ -4,6 +4,7 @@ import { useAutoPalStore } from './shared/store.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, updateMileage, updateVehicle, fetchUserVehicles
 } from './services/vehicleService.ts';
+import { fetchFuelLogs } from './services/fuelService.ts';
 import { OdometerInput } from './components/OdometerInput.tsx';
 
 import { VehicleOverview } from './components/dashboard/VehicleOverview.tsx';
@@ -63,18 +64,19 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (activeVehicleId) {
       setIsLoadingDetails(true);
-      // Removed fetchFuelLogs from auto-fetch to satisfy on-demand requirement
       Promise.all([
         fetchVehicleTasks(activeVehicleId),
-        fetchVehicleServiceLogs(activeVehicleId)
+        fetchVehicleServiceLogs(activeVehicleId),
+        fetchFuelLogs(activeVehicleId)
       ])
-      .then(([taskList, logList]) => {
+      .then(([taskList, logList, fuelList]) => {
         setTasks(taskList);
         setServiceLogs(logList);
+        setFuelLogs(fuelList);
       })
       .finally(() => setIsLoadingDetails(false));
     }
-  }, [activeVehicleId, setTasks, setServiceLogs]);
+  }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
 
   // Real-time Health Recalculation (Local Evidence)
   useEffect(() => {
