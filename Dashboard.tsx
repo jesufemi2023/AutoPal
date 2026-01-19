@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { 
@@ -13,7 +14,7 @@ import { ResaleValuationCard } from './components/dashboard/ResaleValuationCard.
 
 const Dashboard: React.FC = () => {
   const { 
-    vehicles, tasks, serviceLogs, fuelLogs,
+    vehicles, tasks, serviceLogs, fuelLogs, user,
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
     updateMileage: updateStoreMileage, updateVehicleStore,
@@ -37,21 +38,23 @@ const Dashboard: React.FC = () => {
 
   // 2. Background Sync (Silent Update)
   useEffect(() => {
+    // Only attempt cloud sync for Standard/Premium to avoid unnecessary RLS errors for Free users
+    if (user && user.tier === 'free') return;
+
     const syncVehicles = async () => {
       setIsSyncing(true);
       try {
         const cloudVehicles = await fetchUserVehicles();
-        if (cloudVehicles.length > 0) {
-          setVehicles(cloudVehicles);
-        }
+        // The store handles the logic of merging cloud and local
+        setVehicles(cloudVehicles);
       } catch (err) {
-        console.warn("Cloud sync deferred: Network unstable or RLS restriction.");
+        console.warn("Cloud sync deferred: Check network or tier permissions.");
       } finally {
         setIsSyncing(false);
       }
     };
     syncVehicles();
-  }, [setVehicles]);
+  }, [setVehicles, user?.tier]);
 
   useEffect(() => {
     if (vehicles.length > 0 && !activeVehicleId) {
@@ -62,7 +65,6 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (activeVehicleId) {
       setIsLoadingDetails(true);
-      // Removed fetchFuelLogs from auto-fetch to satisfy on-demand requirement
       Promise.all([
         fetchVehicleTasks(activeVehicleId),
         fetchVehicleServiceLogs(activeVehicleId)
@@ -75,7 +77,7 @@ const Dashboard: React.FC = () => {
     }
   }, [activeVehicleId, setTasks, setServiceLogs]);
 
-  // Real-time Health Recalculation (Local Evidence)
+  // Real-time Health Recalculation
   useEffect(() => {
     if (activeVehicle && tasks.length > 0) {
       const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);

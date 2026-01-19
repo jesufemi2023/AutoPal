@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { initializeVehicleAsset, prepareProposedRoadmap, commitFinalRoadmap } from '../services/vehicleRegistrationService.ts';
@@ -5,6 +6,8 @@ import { uploadVehicleImage, updateVehicle, archiveVehicle, syncVehicleVitals } 
 import { BodyType, Vehicle, MaintenanceTask, Priority, ServiceCategory, MaintenanceScheduleResponse } from '../shared/types.ts';
 import { compressImage } from '../shared/utils.ts';
 import { VehicleBlueprint } from './VehicleBlueprint.tsx';
+import { canAddVehicle } from '../services/permissionService.ts';
+import UpgradeModal from './UpgradeModal.tsx';
 
 interface AssetIntelligenceCenterProps {
   mode: 'onboarding' | 'edit';
@@ -20,6 +23,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
   
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('parameters');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,6 +72,16 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
   };
 
   const handleStartCalibration = async () => {
+    if (!user) return;
+
+    // 1. QUOTA CHECK
+    const permission = canAddVehicle(user, vehicles.length);
+    if (!permission.allowed) {
+      alert(permission.reason);
+      if (user.tier === 'free') setShowUpgrade(true);
+      return;
+    }
+
     if (!form.make || !form.model) {
       alert("Please provide the car make and model to continue.");
       return;
@@ -537,6 +551,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
           )}
         </footer>
       </div>
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
     </div>
   );
 };

@@ -46,7 +46,7 @@ interface AutoPalState {
   setTransientVehicle: (vehicle: TransientVehicle | null) => void;
   incrementGuestAttempts: () => void;
   setVehicles: (vehicles: Vehicle[]) => void;
-  addVehicle: (vehicle) => void;
+  addVehicle: (vehicle: Vehicle) => void;
   updateVehicleStore: (vehicle: Vehicle) => void;
   syncVehicleState: (vehicleId: string, updates: Partial<Vehicle>) => void;
   removeVehicleStore: (vehicleId: string) => void;
@@ -106,14 +106,29 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
 
     const { user: supabaseUser } = session;
     
-    // Fetch Extended Profile from our custom "Users" table
-    const { data: profile, error } = await supabase
+    // 1. Fetch Extended Profile from our custom "Users" table
+    let { data: profile, error } = await supabase
       .from('Users')
       .select('*')
       .eq('id', supabaseUser.id)
       .single();
 
-    if (error && error.code !== 'PGRST116') {
+    // 2. PROFILE GENESIS: If user exists in Auth but not in public.Users, create it.
+    if (error && error.code === 'PGRST116') {
+      console.log("[AutoPal Store] Initializing new user profile in public database...");
+      const { data: newProfile, error: createError } = await supabase
+        .from('Users')
+        .insert([{
+          id: supabaseUser.id,
+          tier: 'free',
+          usage_ledger: INITIAL_LEDGER
+        }])
+        .select()
+        .single();
+      
+      if (!createError) profile = newProfile;
+      else console.error("[AutoPal Store] Profile Genesis Failure:", createError);
+    } else if (error) {
       console.error("Profile Fetch Error:", error);
     }
 
@@ -156,10 +171,12 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
 
     // Persist to DB for 10k User scaling
     if (supabase) {
-      await supabase
+      const { error } = await supabase
         .from('Users')
         .update({ usage_ledger: newLedger })
         .eq('id', state.user.id);
+      
+      if (error) console.error("[AutoPal Store] Ledger Sync Failure:", error);
     }
   },
 
@@ -177,12 +194,23 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     return { guestAttempts: newCount };
   }),
 
-  setVehicles: (vehicles) => {
-    set({ 
-      vehicles,
-      activeVehicleId: get().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
+  setVehicles: (cloudVehicles) => {
+    set((state) => {
+      // 3. INTELLIGENT MERGE: Prefer cloud data but keep local-only Free tier data
+      const merged = [...cloudVehicles];
+      state.vehicles.forEach(localV => {
+        if (!merged.find(m => m.id === localV.id)) {
+          merged.push(localV);
+        }
+      });
+      
+      return { 
+        vehicles: merged,
+        activeVehicleId: state.activeVehicleId || (merged.length > 0 ? merged[0].id : null)
+      };
     });
-    vehicles.forEach(v => localDb.saveVehicle(v));
+    
+    cloudVehicles.forEach(v => localDb.saveVehicle(v));
   },
 
   addVehicle: (vehicle) => {
