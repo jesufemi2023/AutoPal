@@ -60,7 +60,6 @@ const Dashboard: React.FC = () => {
       const hydrateData = async () => {
         setIsLoadingDetails(true);
         try {
-          // Always load from Local DB first for responsiveness
           const [lTasks, lLogs, lFuel] = await Promise.all([
             localDb.getTasks(activeVehicleId),
             localDb.getLogs(activeVehicleId),
@@ -71,7 +70,6 @@ const Dashboard: React.FC = () => {
           setServiceLogs(lLogs);
           setFuelLogs(lFuel);
 
-          // Fetch from Cloud to ensure parity
           const [taskList, logList] = await Promise.all([
             fetchVehicleTasks(activeVehicleId),
             fetchVehicleServiceLogs(activeVehicleId)

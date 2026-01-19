@@ -14,7 +14,7 @@ interface Props {
 }
 
 export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, initialLog, onClose }) => {
-  const { user, addServiceLog, updateServiceLogStore, tasks, setTasks, updateVehicleStore } = useAutoPalStore();
+  const { user, addServiceLog, updateServiceLogStore, tasks, setTasks, updateMileage, updateVehicleStore } = useAutoPalStore();
   const [step, setStep] = useState(initialLog ? 2 : (preselectedTask ? 2 : 1));
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -35,6 +35,8 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     linkToTaskId: initialLog?.taskId || preselectedTask?.id || null as string | null
   });
 
+  const availableTasks = useMemo(() => tasks.filter(t => t.vehicleId === vehicle.id && t.status === 'pending'), [tasks, vehicle.id]);
+
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -50,7 +52,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     setIsSaving(true);
     try {
       let finalReceiptUrl = initialLog?.receiptUrl || '';
-      if (selectedFile && user.id) {
+      if (selectedFile && user?.id) {
         const compressed = await compressImage(selectedFile, 1200, 0.7);
         finalReceiptUrl = await uploadVehicleImage(user.id, vehicle.id, compressed);
       }

@@ -13,7 +13,6 @@ interface AssetIntelligenceCenterProps {
 
 type OnboardingStep = 'parameters' | 'calibrating' | 'review' | 'success';
 
-/** Fix: Correctly define the component with generic props type */
 const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode }) => {
   const { 
     user, addVehicle, updateVehicleStore, removeVehicleStore, 
@@ -80,7 +79,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
     setCurrentStep('calibrating');
     
     try {
-      const vehicle = await initializeVehicleAsset(user.id, form.vin, { ...form });
+      const vehicle = await initializeVehicleAsset(user?.id || 'guest', form.vin, { ...form });
       setActiveVehicle(vehicle);
 
       const { tasks, isNewTemplate: isNew, rawRoadmap: raw } = await prepareProposedRoadmap(vehicle);
@@ -88,7 +87,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
       setIsNewTemplate(isNew);
       setRawRoadmap(raw);
 
-      if (imageFile && user.id) {
+      if (imageFile && user?.id) {
         try {
           const compressed = await compressImage(imageFile, 800, 0.7);
           const url = await uploadVehicleImage(user.id, vehicle.id, compressed);
@@ -109,13 +108,13 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
   };
 
   const handleUpdateAsset = async () => {
-    if (!initialVehicle || !user) return;
+    if (!initialVehicle) return;
     setIsProcessing(true);
 
     try {
       let finalImageUrl = form.imageUrl;
 
-      if (imageFile && user.id) {
+      if (imageFile && user?.id) {
         try {
           const compressed = await compressImage(imageFile, 800, 0.7);
           finalImageUrl = await uploadVehicleImage(user.id, initialVehicle.id, compressed);

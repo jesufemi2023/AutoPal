@@ -52,7 +52,7 @@ export const DiagnosticsPanel: React.FC<Props> = ({
               onClick={handleAuditRun}
               className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase text-[10px] shadow-2xl transition-all"
             >
-              {isAskingAI ? 'Analyzing...' : 'Start Diagnostic'}
+              Start Diagnostic
             </button>
           </div>
 

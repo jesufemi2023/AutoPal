@@ -1,6 +1,7 @@
 
 import { localDb } from './localDb.ts';
 import { updateVehicle, updateTaskStatus } from './vehicleService.ts';
+import { getConfig } from './configService.ts';
 
 export const performSync = async (userId: string) => {
   const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords(userId);
@@ -29,7 +30,7 @@ export const performSync = async (userId: string) => {
   return { status: 'success', timestamp: new Date().toISOString() };
 };
 
-export const shouldSyncMileage = (oldVal: number, newVal: number): boolean => {
+export const shouldSyncMileage = (oldVal: number, newVal: number, tier: any = 'free'): boolean => {
   const delta = Math.abs(newVal - oldVal);
-  return delta >= 100;
+  return delta >= getConfig().mileageSyncDelta;
 };
