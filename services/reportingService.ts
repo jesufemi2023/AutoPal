@@ -1,65 +1,64 @@
 import { Vehicle, MaintenanceTask, ServiceLog, FuelLog } from '../shared/types.ts';
 import { calculateFinancialLedger, calculateIntelligentHealth } from './maintenanceLogic.ts';
-import { formatCurrency } from '../shared/utils.ts';
 
-export interface GarageReport {
+export interface GarageReportData {
   generatedAt: string;
-  fleetCount: number;
-  totalInvestment: number;
-  avgHealth: number;
-  vehicles: Array<{
+  totalCars: number;
+  totalSpentOverall: number;
+  averageGarageHealth: number;
+  vehicleSummaries: Array<{
     vehicle: Vehicle;
-    health: number;
-    financials: {
+    healthScore: number;
+    spending: {
       maintenance: number;
       fuel: number;
       total: number;
     };
-    pendingTasks: number;
-    resaleValue: number;
+    toDoCount: number;
+    estimatedValue: number;
   }>;
 }
 
-export const aggregateGarageReport = (
+export const generateGlobalGarageReport = (
   vehicles: Vehicle[],
   allTasks: MaintenanceTask[],
   allServiceLogs: ServiceLog[],
   allFuelLogs: FuelLog[]
-): GarageReport => {
-  const vehicleReports = vehicles.map(v => {
+): GarageReportData => {
+  const summaries = vehicles.map(v => {
     const vTasks = allTasks.filter(t => t.vehicleId === v.id);
     const vService = allServiceLogs.filter(l => l.vehicleId === v.id);
     const vFuel = allFuelLogs.filter(l => l.vehicleId === v.id);
     
-    const financials = calculateFinancialLedger(vService, vFuel);
+    const finances = calculateFinancialLedger(vService, vFuel);
     const health = calculateIntelligentHealth(v, vTasks, vFuel, vService);
     
-    // Fallback to algorithmic resale value if AI audit not present
-    const resaleValue = v.latestAiAudit?.valuationNGN || 0;
+    // Get AI value if audited, otherwise 0
+    const estimatedValue = v.latestAiAudit?.valuationNGN || 0;
 
     return {
       vehicle: v,
-      health: health.total,
-      financials: {
-        maintenance: financials.maintenanceTotal,
-        fuel: financials.fuelTotal,
-        total: financials.grandTotal
+      healthScore: health.total,
+      spending: {
+        maintenance: finances.maintenanceTotal,
+        fuel: finances.fuelTotal,
+        total: finances.grandTotal
       },
-      pendingTasks: vTasks.filter(t => t.status === 'pending').length,
-      resaleValue
+      toDoCount: vTasks.filter(t => t.status === 'pending').length,
+      estimatedValue
     };
   });
 
-  const totalInv = vehicleReports.reduce((acc, r) => acc + r.financials.total, 0);
-  const avgHealth = vehicleReports.length > 0 
-    ? Math.round(vehicleReports.reduce((acc, r) => acc + r.health, 0) / vehicleReports.length)
+  const totalSpent = summaries.reduce((acc, s) => acc + s.spending.total, 0);
+  const avgHealth = summaries.length > 0 
+    ? Math.round(summaries.reduce((acc, s) => acc + s.healthScore, 0) / summaries.length)
     : 100;
 
   return {
     generatedAt: new Date().toISOString(),
-    fleetCount: vehicles.length,
-    totalInvestment: totalInv,
-    avgHealth,
-    vehicles: vehicleReports
+    totalCars: vehicles.length,
+    totalSpentOverall: totalSpent,
+    averageGarageHealth: avgHealth,
+    vehicleSummaries: summaries
   };
 };

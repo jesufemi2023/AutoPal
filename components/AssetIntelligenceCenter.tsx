@@ -3,9 +3,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { initializeVehicleAsset, prepareProposedRoadmap, commitFinalRoadmap } from '../services/vehicleRegistrationService.ts';
 import { uploadVehicleImage, updateVehicle, archiveVehicle, syncVehicleVitals } from '../services/vehicleService.ts';
-import { BodyType, Vehicle, MaintenanceTask, Priority, ServiceCategory } from '../shared/types.ts';
+import { BodyType, Vehicle, MaintenanceTask, Priority, ServiceCategory, MaintenanceScheduleResponse } from '../shared/types.ts';
 import { compressImage } from '../shared/utils.ts';
 import { VehicleBlueprint } from './VehicleBlueprint.tsx';
+import { canAddVehicle } from '../services/permissionService.ts';
+import UpgradeModal from './UpgradeModal.tsx';
 
 interface AssetIntelligenceCenterProps {
   mode: 'onboarding' | 'edit';
@@ -21,6 +23,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
   
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('parameters');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,6 +31,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
   const [proposedTasks, setProposedTasks] = useState<Omit<MaintenanceTask, 'id'>[]>([]);
   const [activeVehicle, setActiveVehicle] = useState<Vehicle | null>(null);
   const [isNewTemplate, setIsNewTemplate] = useState(false);
+  const [rawRoadmap, setRawRoadmap] = useState<MaintenanceScheduleResponse | undefined>();
 
   const initialVehicle = mode === 'edit' ? vehicles.find(v => v.id === editingVehicleId) : null;
 
@@ -68,6 +72,16 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
   };
 
   const handleStartCalibration = async () => {
+    if (!user) return;
+
+    // 1. QUOTA CHECK
+    const permission = canAddVehicle(user, vehicles.length);
+    if (!permission.allowed) {
+      alert(permission.reason);
+      if (user.tier === 'free') setShowUpgrade(true);
+      return;
+    }
+
     if (!form.make || !form.model) {
       alert("Please provide the car make and model to continue.");
       return;
@@ -79,9 +93,10 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
       const vehicle = await initializeVehicleAsset(user?.id || 'guest', form.vin, { ...form });
       setActiveVehicle(vehicle);
 
-      const { tasks, isNewTemplate: isNew } = await prepareProposedRoadmap(vehicle);
+      const { tasks, isNewTemplate: isNew, rawRoadmap: raw } = await prepareProposedRoadmap(vehicle);
       setProposedTasks(tasks);
       setIsNewTemplate(isNew);
+      setRawRoadmap(raw);
 
       if (imageFile && user?.id) {
         try {
@@ -166,7 +181,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
     if (!activeVehicle) return;
     setIsProcessing(true);
     try {
-      await commitFinalRoadmap(activeVehicle, proposedTasks, isNewTemplate);
+      await commitFinalRoadmap(activeVehicle, proposedTasks, isNewTemplate, rawRoadmap);
       addVehicle(activeVehicle);
       setCurrentStep('success');
     } catch (err: any) {
@@ -536,6 +551,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
           )}
         </footer>
       </div>
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
     </div>
   );
 };

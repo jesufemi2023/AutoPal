@@ -1,6 +1,9 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { AIResponse, Vehicle } from '../../shared/types.ts';
+import { canUseAiDiagnosis } from '../../services/permissionService.ts';
+import { useAutoPalStore } from '../../shared/store.ts';
+import UpgradeModal from '../UpgradeModal.tsx';
 
 interface Props {
   vehicle: Vehicle;
@@ -18,6 +21,25 @@ export const DiagnosticsPanel: React.FC<Props> = ({
   vehicle, symptom, setSymptom, diagImage, setDiagImage, isAskingAI, onAnalyze, aiAdvice, compact = false 
 }) => {
   const diagImageRef = useRef<HTMLInputElement>(null);
+  const { user, updateUsageLedger } = useAutoPalStore();
+  const [showUpgrade, setShowUpgrade] = useState(false);
+
+  const handleAuditRun = () => {
+    if (!user) return;
+    const permission = canUseAiDiagnosis(user);
+    if (!permission.allowed) {
+      alert(permission.reason);
+      if (user.tier === 'free') setShowUpgrade(true);
+      return;
+    }
+
+    onAnalyze();
+    
+    updateUsageLedger({
+      aiDiagnosisCount: (user.usageLedger.aiDiagnosisCount || 0) + 1,
+      aiDiagnosisYearlyCount: (user.usageLedger.aiDiagnosisYearlyCount || 0) + 1
+    });
+  };
 
   const containerClasses = compact 
     ? "bg-slate-950 text-white rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col border border-white/10"
@@ -42,56 +64,45 @@ export const DiagnosticsPanel: React.FC<Props> = ({
               <span className="text-xl animate-pulse text-white">✧</span>
             </div>
             <div>
-              <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Diagnostic</h3>
-              <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Active Link: {vehicle.make} {vehicle.model}</p>
+              <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Mechanic</h3>
+              <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Intelligence Link Active</p>
+            </div>
+          </div>
+        )}
+
+        {user?.tier === 'free' && !compact && (
+          <div className="mb-6 bg-blue-600/10 border border-blue-500/20 p-6 rounded-3xl text-center relative overflow-hidden group">
+            <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="relative z-10">
+              <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-4">Standard Feature: Unlock Professional AI Troubleshooting</p>
+              <button 
+                onClick={() => setShowUpgrade(true)} 
+                className="bg-blue-600 text-white px-8 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all"
+              >
+                Upgrade to Standard 🔓
+              </button>
             </div>
           </div>
         )}
         
-        <div className={`grid ${compact ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'} gap-10 flex-grow`}>
+        <div className={`grid ${compact ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'} gap-10 flex-grow ${user?.tier === 'free' ? 'opacity-40 pointer-events-none' : ''}`}>
           <div className="space-y-6">
             <div className="relative">
               <div className="absolute top-3 left-4 text-[7px] font-black text-slate-500 uppercase tracking-widest z-10">Describe Issues</div>
               <textarea 
                 value={symptom}
                 onChange={(e) => setSymptom(e.target.value)}
-                placeholder="What sounds or leaks are you noticing? Describe any changes in behavior..."
-                className={`w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-4 pt-9 text-[11px] focus:ring-1 focus:ring-blue-600/30 outline-none ${compact ? 'h-24' : 'h-48'} transition-all text-slate-100 resize-none font-medium placeholder-slate-700 shadow-inner leading-relaxed`}
+                placeholder="What sounds or leaks are you noticing?"
+                className={`w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-4 pt-9 text-[11px] focus:ring-1 focus:ring-blue-600/30 outline-none ${compact ? 'h-24' : 'h-48'} transition-all text-slate-100 resize-none font-medium shadow-inner leading-relaxed`}
               />
             </div>
             
-            <div className="relative">
-              <input type="file" hidden ref={diagImageRef} accept="image/*" onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  const reader = new FileReader();
-                  reader.onloadend = () => setDiagImage(reader.result as string);
-                  reader.readAsDataURL(file);
-                }
-              }} />
-              {diagImage ? (
-                <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 group/img shadow-xl">
-                  <img src={diagImage} className="w-full h-full object-cover transition-transform duration-700 group-hover/img:scale-105" alt="Uploaded Photo" />
-                  <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                     <button onClick={() => setDiagImage(null)} className="bg-white text-slate-950 px-4 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest">Remove Photo</button>
-                  </div>
-                </div>
-              ) : (
-                <button 
-                  onClick={() => diagImageRef.current?.click()}
-                  className="w-full py-5 border-2 border-dashed border-slate-800 rounded-2xl text-slate-600 text-[9px] font-black uppercase tracking-[0.2em] hover:border-blue-500 hover:text-blue-500 transition-all bg-slate-900/10"
-                >
-                  + Add Supporting Photo
-                </button>
-              )}
-            </div>
-
             <button 
               disabled={isAskingAI || !symptom}
-              onClick={onAnalyze}
-              className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl disabled:opacity-20 transition-all hover:bg-blue-700 active:scale-95"
+              onClick={handleAuditRun}
+              className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl transition-all hover:bg-blue-700 active:scale-95"
             >
-              Analyze Symptoms
+              Start Diagnostic
             </button>
           </div>
 
@@ -100,41 +111,31 @@ export const DiagnosticsPanel: React.FC<Props> = ({
               <div className={`p-6 rounded-2xl animate-slide-up relative z-10 border-2 backdrop-blur-md flex-grow ${aiAdvice.severity === 'critical' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-blue-600/10 border-blue-600/20'}`}>
                 <div className={`flex items-center gap-2 mb-4 text-[8px] font-black uppercase tracking-wider ${aiAdvice.severity === 'critical' ? 'text-rose-400' : 'text-blue-400'}`}>
                   <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_10px_currentColor] ${aiAdvice.severity === 'critical' ? 'bg-rose-500 animate-pulse' : 'bg-blue-500'}`}></div>
-                  Severity: {aiAdvice.severity}
+                  Priority: {aiAdvice.severity}
                 </div>
-                <h5 className="text-xl font-black text-white leading-tight mb-6 font-sans">{aiAdvice.advice}</h5>
+                <h5 className="text-xl font-black text-white leading-tight mb-6">{aiAdvice.advice}</h5>
                 <div className="space-y-6">
-                  <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">AI Expert Recommendations</div>
+                  <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">Technical Advice</div>
                   <ul className="space-y-3">
                     {aiAdvice.recommendations.map((rec, i) => (
                       <li key={i} className="text-[11px] text-slate-300 flex items-start gap-3 leading-relaxed">
-                        <span className="text-blue-500 font-mono font-black shrink-0">{i+1}.</span>
+                        <span className="text-blue-500 font-mono font-black shrink-0">{i+1}</span>
                         <span>{rec}</span>
                       </li>
                     ))}
                   </ul>
-
-                  {aiAdvice.partsIdentified && aiAdvice.partsIdentified.length > 0 && (
-                    <div className="pt-4">
-                      <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-3">Parts Identified</div>
-                      <div className="flex flex-wrap gap-2">
-                        {aiAdvice.partsIdentified.map((part, i) => (
-                          <span key={i} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[9px] font-bold text-blue-400 uppercase tracking-tight">{part}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             ) : (
               <div className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-3xl text-center p-10 opacity-40">
                 <div className="text-4xl mb-4">🩺</div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 max-w-[200px]">Awaiting symptom description for AI analysis</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Awaiting input...</p>
               </div>
             )}
           </div>
         </div>
       </div>
+      {showUpgrade && <UpgradeModal onClose={() => setShowUpgrade(false)} />}
     </div>
   );
 };

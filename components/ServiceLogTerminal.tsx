@@ -4,6 +4,7 @@ import { finalizeMaintenanceCompletion, createManualServiceLog, syncVehicleVital
 import { updateServiceLog } from '../services/logService.ts';
 import { MaintenanceTask, ServiceCategory, VerificationLevel, Vehicle, ServiceLog } from '../shared/types.ts';
 import { compressImage } from '../shared/utils.ts';
+import { canLogService } from '../services/permissionService.ts';
 
 interface Props {
   vehicle: Vehicle;
@@ -13,11 +14,10 @@ interface Props {
 }
 
 export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, initialLog, onClose }) => {
-  const { user, addServiceLog, updateServiceLogStore, tasks, setTasks, updateMileage, updateVehicleStore } = useAutoPalStore();
+  const { user, addServiceLog, updateServiceLogStore, tasks, setTasks, updateMileage, updateVehicleStore, updateUsageLedger } = useAutoPalStore();
   const [step, setStep] = useState(initialLog ? 2 : (preselectedTask ? 2 : 1));
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const terminalRef = useRef<HTMLDivElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreview, setFilePreview] = useState<string | null>(null);
   
@@ -34,13 +34,6 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
     intervalMonths: preselectedTask?.intervalMonths || 6,
     linkToTaskId: initialLog?.taskId || preselectedTask?.id || null as string | null
   });
-
-  // Auto-scroll to top on step change
-  useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, [step]);
 
   const availableTasks = useMemo(() => 
     tasks.filter(t => t.vehicleId === vehicle.id && t.status === 'pending'),
@@ -66,6 +59,17 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
   };
 
   const handleSave = async () => {
+    if (!user) return;
+
+    // Check Permissions for NEW logs
+    if (!initialLog) {
+      const permission = canLogService(user);
+      if (!permission.allowed) {
+        alert(permission.reason);
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
       let finalReceiptUrl = initialLog?.receiptUrl || '';
@@ -93,7 +97,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
           category: form.category,
           verificationLevel: form.verificationLevel,
           receiptUrl: finalReceiptUrl
-        });
+        }, user);
         updateServiceLogStore(updated);
         const syncedVehicle = await syncVehicleVitals(vehicle.id);
         updateVehicleStore(syncedVehicle);
@@ -113,6 +117,12 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         addServiceLog(log);
         setTasks(tasks.map(t => t.id === updatedTask.id ? updatedTask : t));
         updateVehicleStore(updatedVehicle);
+        
+        // Track Usage
+        updateUsageLedger({
+          serviceLogsCount: (user.usageLedger.serviceLogsCount || 0) + 1,
+          lastServiceLogAt: new Date().toISOString()
+        });
       } else {
         const log = await createManualServiceLog(vehicle, {
           vehicleId: vehicle.id,
@@ -131,6 +141,12 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
         addServiceLog(log);
         const syncedVehicle = await syncVehicleVitals(vehicle.id);
         updateVehicleStore(syncedVehicle);
+
+        // Track Usage
+        updateUsageLedger({
+          serviceLogsCount: (user.usageLedger.serviceLogsCount || 0) + 1,
+          lastServiceLogAt: new Date().toISOString()
+        });
       }
       
       if (form.mileage > vehicle.mileage) {
@@ -147,10 +163,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
   const categories: ServiceCategory[] = ['engine', 'brakes', 'fluids', 'tires', 'suspension', 'other'];
 
   return (
-    <div 
-      ref={terminalRef}
-      className="fixed inset-0 z-[1001] bg-slate-950/95 backdrop-blur-3xl overflow-y-auto scrollbar-hide flex flex-col p-6 animate-in fade-in duration-500"
-    >
+    <div className="fixed inset-0 z-[1001] bg-slate-950/95 backdrop-blur-3xl overflow-y-auto scrollbar-hide flex flex-col p-6 animate-in fade-in duration-500">
       <div className="w-full max-w-xl mx-auto space-y-10 pt-10 pb-20">
         <header className="flex justify-between items-center text-white border-b border-slate-800 pb-10">
           <div className="flex items-center gap-6">
@@ -191,7 +204,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                <input 
                 type="text" 
                 placeholder="e.g. Changed engine oil and filter" 
-                className="w-full bg-slate-900 text-white p-8 rounded-3xl border-2 border-slate-800 font-black text-center text-xl outline-none focus:border-blue-600 transition-all"
+                className="w-full bg-slate-900 text-white p-8 rounded-3xl border-2 border-slate-800 font-black text-center text-xl outline-none focus:border-blue-600"
                 value={form.type}
                 onChange={e => setForm({...form, type: e.target.value})}
                />
@@ -202,7 +215,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                   className="w-full bg-blue-600/10 border border-blue-500/20 text-blue-500 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-3 animate-pulse"
                  >
                    <span>✦ Matching Task Found: {suggestion.title}</span>
-                   <span className="bg-blue-600 text-white px-2 py-0.5 rounded shadow-lg shadow-blue-500/20">LINK NOW</span>
+                   <span className="bg-blue-600 text-white px-2 py-0.5 rounded">LINK NOW</span>
                  </button>
                )}
             </div>
@@ -218,7 +231,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
             </div>
 
             <div className="flex gap-4">
-              <button onClick={() => setStep(3)} className="flex-1 bg-white text-slate-950 py-6 rounded-3xl font-black uppercase tracking-widest text-[11px] shadow-3xl hover:bg-blue-600 hover:text-white transition-all">Continue →</button>
+              <button onClick={() => setStep(3)} className="flex-1 bg-white text-slate-950 py-6 rounded-3xl font-black uppercase tracking-widest text-[11px] shadow-3xl">Continue →</button>
             </div>
           </div>
         )}
@@ -230,7 +243,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 <input 
                   type="number" 
                   placeholder="0.00"
-                  className="w-full bg-slate-900 text-white p-8 rounded-3xl border-2 border-slate-800 font-black text-center text-3xl outline-none focus:border-emerald-500 transition-all"
+                  className="w-full bg-slate-900 text-white p-8 rounded-3xl border-2 border-slate-800 font-black text-center text-3xl outline-none"
                   value={form.cost}
                   onChange={e => setForm({...form, cost: e.target.value})}
                 />
@@ -241,7 +254,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 <input 
                   type="text" 
                   placeholder="e.g. Total Service, Mechanic shop"
-                  className="w-full bg-slate-900 text-white p-6 rounded-2xl border-2 border-slate-800 font-bold outline-none focus:border-blue-600 transition-all"
+                  className="w-full bg-slate-900 text-white p-6 rounded-2xl border-2 border-slate-800 font-bold outline-none"
                   value={form.provider}
                   onChange={e => setForm({...form, provider: e.target.value})}
                 />
@@ -250,7 +263,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
              <div className="space-y-4">
                 <label className="text-slate-500 text-[10px] font-black uppercase tracking-widest block text-center">Link to Maintenance Task (Optional)</label>
                 <select 
-                  className="w-full bg-slate-900 text-white p-6 rounded-2xl border-2 border-slate-800 font-bold outline-none focus:border-blue-600 transition-all appearance-none text-center"
+                  className="w-full bg-slate-900 text-white p-6 rounded-2xl border-2 border-slate-800 font-bold outline-none"
                   value={form.linkToTaskId || ''}
                   onChange={e => setForm({...form, linkToTaskId: e.target.value || null})}
                 >
@@ -261,7 +274,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
                 </select>
              </div>
 
-             <button onClick={() => setStep(4)} className="w-full bg-white text-slate-950 py-6 rounded-3xl font-black uppercase tracking-widest text-[11px] shadow-3xl hover:bg-blue-600 hover:text-white transition-all">Final Step →</button>
+             <button onClick={() => setStep(4)} className="w-full bg-white text-slate-950 py-6 rounded-3xl font-black uppercase tracking-widest text-[11px] shadow-3xl">Final Step →</button>
           </div>
         )}
 
@@ -307,14 +320,14 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
             <div className="space-y-4">
               <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={handleFileSelect} />
               {filePreview ? (
-                <div className="relative aspect-video rounded-[2rem] overflow-hidden bg-slate-900 border-2 border-slate-800 shadow-2xl">
+                <div className="relative aspect-video rounded-[2rem] overflow-hidden bg-slate-900 border-2 border-slate-800">
                   <img src={filePreview} className="w-full h-full object-cover" alt="Proof" />
-                  <button onClick={() => { setSelectedFile(null); setFilePreview(null); }} className="absolute top-4 right-4 bg-rose-600 text-white p-2 rounded-full text-xs hover:scale-110 transition-transform shadow-lg">×</button>
+                  <button onClick={() => { setSelectedFile(null); setFilePreview(null); }} className="absolute top-4 right-4 bg-rose-600 text-white p-2 rounded-full text-xs">×</button>
                 </div>
               ) : (
                 <button 
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-6 border-2 border-dashed border-slate-800 rounded-[2rem] text-slate-500 text-[10px] font-black uppercase tracking-widest hover:border-blue-500 hover:text-blue-500 transition-all bg-slate-900/40"
+                  className="w-full py-6 border-2 border-dashed border-slate-800 rounded-[2rem] text-slate-500 text-[10px] font-black uppercase tracking-widest hover:border-blue-500 hover:text-blue-500 transition-all"
                 >
                   + Add Receipt Photo (Recommended)
                 </button>
@@ -324,7 +337,7 @@ export const ServiceLogTerminal: React.FC<Props> = ({ vehicle, preselectedTask, 
             <button 
                onClick={handleSave} 
                disabled={isSaving}
-               className="w-full bg-emerald-600 text-white py-8 rounded-[2.5rem] font-black uppercase tracking-[0.2em] text-[12px] shadow-4xl hover:bg-emerald-500 transition-all active:scale-95 flex items-center justify-center gap-4 shadow-emerald-500/20"
+               className="w-full bg-emerald-600 text-white py-8 rounded-[2.5rem] font-black uppercase tracking-[0.2em] text-[12px] shadow-4xl hover:bg-emerald-500 transition-all active:scale-95 flex items-center justify-center gap-4"
              >
                {isSaving ? (
                  <div className="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>

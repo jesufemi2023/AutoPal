@@ -1,11 +1,7 @@
 
 import { supabase } from '../auth/supabaseClient.ts';
-import { ServiceLog } from '../shared/types.ts';
-
-/**
- * Log Intelligence Service
- * Handles CRUD for maintenance records.
- */
+import { ServiceLog, UserProfile } from '../shared/types.ts';
+import { canLogService, QUOTAS } from './permissionService.ts';
 
 export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]> => {
   if (!supabase) return [];
@@ -33,11 +29,31 @@ export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]>
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     verificationLevel: row.verification_level,
+    // Fix: use camelCase property name to match ServiceLog type
     receiptUrl: row.receipt_url
   }));
 };
 
-export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' | 'updatedAt'>): Promise<ServiceLog> => {
+export const createServiceLog = async (
+  log: Omit<ServiceLog, 'id' | 'createdAt' | 'updatedAt'>,
+  user: UserProfile
+): Promise<ServiceLog> => {
+  const permission = canLogService(user);
+  if (!permission.allowed) {
+    throw new Error(permission.reason);
+  }
+
+  // ENFORCE "CLOUD PASSPORT" MODEL
+  // Free tier users are hard-blocked at the DB level, so we save locally only.
+  if (!QUOTAS[user.tier].isCloudSynced) {
+    console.log("[AutoPal NG] Local-Only Entry (Free Tier)");
+    return {
+      ...log,
+      id: `LOCAL-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    } as ServiceLog;
+  }
+
   if (!supabase) throw new Error("Cloud infrastructure not connected.");
   
   const { data, error } = await supabase
@@ -53,12 +69,19 @@ export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' 
       provider: log.provider,
       category: log.category,
       status: log.status,
-      verification_level: log.verificationLevel
+      verification_level: log.verificationLevel,
+      receipt_url: log.receiptUrl
     }])
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    // Graceful catch for unexpected RLS rejection
+    if (error.code === '42501') {
+      throw new Error("Cloud sync failed. Your current tier only allows local storage.");
+    }
+    throw error;
+  }
   
   return {
     id: data.id,
@@ -75,11 +98,16 @@ export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' 
     createdAt: data.created_at,
     updatedAt: data.updated_at,
     verificationLevel: data.verification_level,
+    // Fix: use camelCase property name to match ServiceLog type
     receiptUrl: data.receipt_url
   };
 };
 
-export const updateServiceLog = async (id: string, log: Partial<ServiceLog>): Promise<ServiceLog> => {
+export const updateServiceLog = async (id: string, log: Partial<ServiceLog>, user: UserProfile): Promise<ServiceLog> => {
+  if (!QUOTAS[user.tier].isCloudSynced) {
+     return { ...log, id } as ServiceLog;
+  }
+  
   if (!supabase) throw new Error("Cloud infrastructure not connected.");
 
   const payload: any = {};
@@ -91,6 +119,7 @@ export const updateServiceLog = async (id: string, log: Partial<ServiceLog>): Pr
   if (log.provider !== undefined) payload.provider = log.provider;
   if (log.category !== undefined) payload.category = log.category;
   if (log.verificationLevel !== undefined) payload.verification_level = log.verificationLevel;
+  if (log.receiptUrl !== undefined) payload.receipt_url = log.receiptUrl;
 
   const { data, error } = await supabase
     .from('service_logs')
@@ -116,6 +145,7 @@ export const updateServiceLog = async (id: string, log: Partial<ServiceLog>): Pr
     createdAt: data.created_at,
     updatedAt: data.updated_at,
     verificationLevel: data.verification_level,
+    // Fix: use camelCase property name to match ServiceLog type
     receiptUrl: data.receipt_url
   };
 };

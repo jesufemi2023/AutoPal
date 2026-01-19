@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { Vehicle, MaintenanceTask, ServiceLog, FuelLog, ServiceCategory } from '../../shared/types.ts';
 import { 
@@ -52,7 +53,7 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
       </button>
       {activeTooltip === id && (
         <div 
-          className="fixed inset-0 z-[10000] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setActiveTooltip(null)}
         >
           <div 

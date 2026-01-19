@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { addFuelLog, updateFuelLog } from '../services/fuelService.ts';
 import { updateMileage as syncOdometerBridge } from '../services/vehicleService.ts';
 import { ENV } from '../services/envService.ts';
 import { FuelLog } from '../shared/types.ts';
+import { canLogFuel } from '../services/permissionService.ts';
 
 interface FuelEntryTerminalProps {
   vehicleId: string;
@@ -13,9 +15,8 @@ interface FuelEntryTerminalProps {
 }
 
 const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, currentOdo, initialLog, onClose }) => {
-  const { addFuelLogStore, updateFuelLogStore, syncVehicleState } = useAutoPalStore();
+  const { addFuelLogStore, updateFuelLogStore, syncVehicleState, user, updateUsageLedger } = useAutoPalStore();
   const [isProcessing, setIsProcessing] = useState(false);
-  const terminalRef = useRef<HTMLDivElement>(null);
   
   const [form, setForm] = useState({
     liters: initialLog?.liters.toString() || '',
@@ -27,14 +28,17 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
 
   const [error, setError] = useState<string | null>(null);
 
-  // Auto-scroll to top on initial mount
-  useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  }, []);
-
   const handleCommit = async () => {
+    if (!user) return;
+
+    if (!initialLog) {
+      const permission = canLogFuel(user);
+      if (!permission.allowed) {
+        setError(permission.reason || "Quota reached.");
+        return;
+      }
+    }
+
     const odo = parseInt(form.odometer);
     const lit = parseFloat(form.liters);
     const cost = parseFloat(form.cost);
@@ -58,13 +62,14 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
     try {
       if (initialLog) {
         // Edit Mode
+        // Fix: Pass user as the third argument to updateFuelLog
         const updated = await updateFuelLog(initialLog.id, {
           liters: lit,
           totalCost: isNaN(cost) ? 0 : cost,
           odometerKm: odo,
           isFullTank: form.isFull,
           vendor: form.vendor.trim()
-        });
+        }, user);
         updateFuelLogStore(updated);
         
         // Push the update through the Golden Thread Bridge
@@ -72,6 +77,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
         syncVehicleState(vehicleId, updatedVehicle);
       } else {
         // Create Mode
+        // Fix: Pass user as the second argument to addFuelLog
         const log = await addFuelLog({
           vehicleId,
           liters: lit,
@@ -79,10 +85,15 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
           odometerKm: odo,
           isFullTank: form.isFull,
           vendor: form.vendor.trim()
-        });
+        }, user);
 
         addFuelLogStore(log);
         
+        // Track Usage
+        updateUsageLedger({
+          fuelLogsCount: (user.usageLedger.fuelLogsCount || 0) + 1
+        });
+
         // Push the update through the Golden Thread Bridge
         const updatedVehicle = await syncOdometerBridge(vehicleId, odo);
         syncVehicleState(vehicleId, updatedVehicle);
@@ -97,13 +108,10 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
   };
 
   return (
-    <div 
-      ref={terminalRef}
-      className="fixed inset-0 bg-slate-950/95 z-[9999] overflow-y-auto scrollbar-hide flex flex-col p-6 sm:p-10 animate-in fade-in duration-300"
-    >
+    <div className="fixed inset-0 bg-slate-950/95 z-[9999] overflow-y-auto scrollbar-hide flex flex-col p-6 sm:p-10 animate-in fade-in duration-300">
       <div className="flex-shrink-0 flex justify-between items-center mb-10 max-w-xl mx-auto w-full">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-blue-500/20">⛽</div>
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-black">⛽</div>
           <div>
             <h2 className="text-white text-xl font-black tracking-tighter uppercase">{initialLog ? "Edit Fuel Log" : "Log New Refill"}</h2>
             <p className="text-slate-500 text-[8px] font-black uppercase tracking-widest">Efficiency Tracking</p>
@@ -114,18 +122,18 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
 
       <div className="flex-grow flex flex-col max-w-xl mx-auto w-full space-y-8 pb-10">
         {error && (
-          <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl text-rose-500 text-[10px] font-black uppercase tracking-widest text-center animate-in slide-in-from-top-2">
+          <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl text-rose-500 text-[10px] font-black uppercase tracking-widest text-center">
             {error}
           </div>
         )}
 
         <div className="space-y-6">
-          <div className="space-y-2 text-center">
-            <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">Current KM Reading</label>
+          <div className="space-y-2">
+            <label className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] ml-2">Current KM Reading</label>
             <input 
               type="number" 
               placeholder={currentOdo.toString()}
-              className="w-full bg-slate-900 border-2 border-slate-800 rounded-3xl p-8 text-4xl sm:text-5xl font-mono font-black text-blue-500 focus:border-blue-600 outline-none transition-all tracking-tighter text-center"
+              className="w-full bg-slate-900 border-2 border-slate-800 rounded-3xl p-8 text-5xl font-mono font-black text-blue-500 focus:border-blue-600 outline-none transition-all tracking-tighter text-center"
               value={form.odometer}
               onChange={e => setForm({...form, odometer: e.target.value})}
             />
@@ -138,7 +146,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
                   type="number" 
                   step="0.01"
                   placeholder="0.00"
-                  className="w-full bg-slate-900 border-2 border-slate-800 rounded-2xl p-6 text-xl sm:text-2xl font-mono font-black text-white focus:border-emerald-500 outline-none transition-all text-center"
+                  className="w-full bg-slate-900 border-2 border-slate-800 rounded-2xl p-6 text-2xl font-mono font-black text-white focus:border-emerald-500 outline-none transition-all text-center"
                   value={form.liters}
                   onChange={e => setForm({...form, liters: e.target.value})}
                 />
@@ -148,7 +156,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
                 <input 
                   type="number" 
                   placeholder="0"
-                  className="w-full bg-slate-900 border-2 border-slate-800 rounded-2xl p-6 text-xl sm:text-2xl font-mono font-black text-white focus:border-emerald-500 outline-none transition-all text-center"
+                  className="w-full bg-slate-900 border-2 border-slate-800 rounded-2xl p-6 text-2xl font-mono font-black text-white focus:border-emerald-500 outline-none transition-all text-center"
                   value={form.cost}
                   onChange={e => setForm({...form, cost: e.target.value})}
                 />
@@ -169,7 +177,7 @@ const FuelEntryTerminal: React.FC<FuelEntryTerminalProps> = ({ vehicleId, curren
             <button 
               type="button"
               onClick={() => setForm({...form, isFull: !form.isFull})}
-              className={`mt-6 w-full py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] border-2 transition-all ${form.isFull ? 'bg-blue-600/10 border-blue-600 text-blue-500 shadow-lg shadow-blue-500/10' : 'bg-slate-900 border-slate-800 text-slate-600'}`}
+              className={`mt-6 w-full py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] border-2 transition-all ${form.isFull ? 'bg-blue-600/10 border-blue-600 text-blue-500' : 'bg-slate-900 border-slate-800 text-slate-600'}`}
             >
               {form.isFull ? "✓ Filled to Full" : "Partial Tank"}
             </button>
