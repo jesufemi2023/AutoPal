@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../services/fuelService.ts';
@@ -13,7 +14,6 @@ const FuelIntelligenceCenter: React.FC = () => {
   } = useAutoPalStore();
   
   const [isLoading, setIsLoading] = useState(false);
-  const [hasRequestedHistory, setHasRequestedHistory] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [showTerminal, setShowTerminal] = useState(false);
   const [editingLog, setEditingLog] = useState<FuelLog | null>(null);
@@ -23,25 +23,24 @@ const FuelIntelligenceCenter: React.FC = () => {
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
-  // RESET on-demand state when vehicle changes to prevent automatic display
+  // AUTOMATIC SYNC: Load logs whenever activeVehicleId changes
   useEffect(() => {
-    setHasRequestedHistory(false);
-  }, [activeVehicleId]);
+    const loadHistoryLogs = async () => {
+      if (!activeVehicleId) return;
+      setIsLoading(true);
+      setFetchError(null);
+      try {
+        const logs = await fetchFuelLogs(activeVehicleId);
+        setFuelLogs(logs);
+      } catch (err: any) {
+        setFetchError(err.message || "Connection failure.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const loadHistoryLogs = async () => {
-    if (!activeVehicleId) return;
-    setIsLoading(true);
-    setFetchError(null);
-    try {
-      const logs = await fetchFuelLogs(activeVehicleId);
-      setFuelLogs(logs);
-      setHasRequestedHistory(true);
-    } catch (err: any) {
-      setFetchError(err.message || "Connection failure.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    loadHistoryLogs();
+  }, [activeVehicleId, setFuelLogs]);
 
   const logsWithAnalytics = useMemo(() => {
     const sorted = [...fuelLogs].sort((a, b) => (b.odometerKm || 0) - (a.odometerKm || 0));
@@ -308,7 +307,7 @@ const FuelIntelligenceCenter: React.FC = () => {
                   Overall Efficiency
                   <InfoIcon id="avgEff" text="Historical average performance over the life of your logs." />
                 </h3>
-                <div className="text-4xl font-black tracking-tighter flex items-baseline">
+                <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
                   {avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}
                   <span className="text-xs text-slate-600 ml-2 font-bold">{metric}</span>
                 </div>
@@ -317,22 +316,10 @@ const FuelIntelligenceCenter: React.FC = () => {
           </div>
 
           <div className="space-y-6 px-2 no-print">
-            {!hasRequestedHistory ? (
-              <div className="py-24 text-center bg-white card-radius border-2 border-slate-50 p-12 flex flex-col items-center gap-8 animate-in slide-in-from-bottom-4 duration-500">
-                 <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center text-4xl shadow-inner">🗓️</div>
-                 <div className="space-y-3">
-                   <h3 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">History Standby</h3>
-                   <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest max-w-xs mx-auto leading-relaxed">
-                     To optimize network load and performance, historical logs are not loaded automatically. Synchronize your telemetry manually.
-                   </p>
-                 </div>
-                 <button 
-                  onClick={loadHistoryLogs}
-                  disabled={isLoading}
-                  className="bg-slate-900 text-white px-12 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] shadow-4xl hover:bg-blue-600 transition-all flex items-center gap-4"
-                 >
-                   {isLoading ? '📡 Synchronizing...' : '📡 Retrieve Historical Data'}
-                 </button>
+            {isLoading ? (
+              <div className="py-24 flex flex-col items-center justify-center space-y-4">
+                <div className="w-12 h-12 border-[4px] border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Synchronizing Telemetry...</p>
               </div>
             ) : logsWithAnalytics.length > 0 ? (
               <div className="grid grid-cols-1 gap-4">
