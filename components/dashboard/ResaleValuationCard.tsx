@@ -138,10 +138,10 @@ export const ResaleValuationCard: React.FC<{
 
       {/* 4-Quadrant Deep Report */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow">
-        {/* Q1: Metabolic Audit */}
+        {/* Q1: Fuel Consumption Analysis (Renamed from Metabolic Audit) */}
         <div className="bg-white rounded-[2rem] p-8 border border-slate-100 space-y-6">
            <div className="flex justify-between items-center">
-              <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">Metabolic Audit</h4>
+              <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">Fuel Consumption Analysis</h4>
               <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${cachedReport.metabolicAudit?.efficiencyTrend === 'improving' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
                 Trend: {cachedReport.metabolicAudit?.efficiencyTrend ?? 'stable'}
               </span>
@@ -152,15 +152,15 @@ export const ResaleValuationCard: React.FC<{
                  <div className="text-xl font-black text-slate-900">{cachedReport.metabolicAudit?.trueKml?.toFixed(1) ?? '0.0'}</div>
               </div>
               <div className="bg-slate-50 p-4 rounded-2xl">
-                 <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Gap</div>
+                 <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Efficiency Gap</div>
                  <div className={`text-xl font-black ${(cachedReport.metabolicAudit?.consumptionGap ?? 0) > 15 ? 'text-rose-600' : 'text-emerald-600'}`}>
                    +{cachedReport.metabolicAudit?.consumptionGap ?? 0}%
                  </div>
               </div>
            </div>
-           <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center justify-between">
-              <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Monthly Neglect Tax</span>
-              <span className="text-lg font-black text-rose-700">{formatCurrency(cachedReport.metabolicAudit?.monthlyNeglectTax ?? 0)}</span>
+           <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-between">
+              <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">Efficiency Rating</span>
+              <span className="text-lg font-black text-blue-700">{cachedReport.metabolicAudit?.consumptionGap && cachedReport.metabolicAudit.consumptionGap < 10 ? 'Optimal' : 'Sub-Optimal'}</span>
            </div>
         </div>
 

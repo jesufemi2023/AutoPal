@@ -39,10 +39,6 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
     return { score, label, count: pillarTasks.length, overdue: overdue.length };
   };
 
-  const metab = localEvidence.breakdown;
-  const metabolicColor = metab.metabolicStatus === 'optimal' ? 'text-emerald-500' : metab.metabolicStatus === 'warning' ? 'text-amber-500' : 'text-rose-500';
-  const metabolicBg = metab.metabolicStatus === 'optimal' ? 'bg-emerald-500/10' : metab.metabolicStatus === 'warning' ? 'bg-amber-500/10' : 'bg-rose-500/10';
-
   const InfoIcon = ({ id, text }: { id: string, text: string }) => (
     <div className="relative inline-block ml-1">
       <button 
@@ -103,66 +99,6 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
               {displayDiscipline !== null ? `${displayDiscipline}%` : '--'}
             </div>
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Record Reliability</div>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white p-8 sm:p-10 rounded-[2.5rem] border border-slate-100 shadow-sm relative overflow-hidden group">
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-6 mb-8">
-           <div className="space-y-1">
-              <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center">
-                Fuel Efficiency Performance
-                <InfoIcon id="fuel" text="Measures how well your car uses fuel compared to factory standards." />
-              </h4>
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Consumption Analysis</p>
-           </div>
-           {!metab.isCalibrating && (
-             <div className={`px-4 py-2 rounded-2xl ${metabolicBg} ${metabolicColor} text-[10px] font-black uppercase tracking-widest border border-current/10`}>
-                {metab.metabolicStatus === 'optimal' ? 'Running Efficiently' : 'High Consumption'}
-             </div>
-           )}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          <div className="flex flex-col justify-center gap-6">
-            <div className="flex items-baseline gap-4">
-              <div className={`text-7xl font-black tracking-tighter ${metab.isCalibrating ? 'text-slate-200' : metabolicColor}`}>
-                 {metab.isCalibrating ? '--' : `${metab.metabolic}%`}
-              </div>
-              <div className="space-y-1">
-                 <div className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Efficiency Rating</div>
-                 <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Variance from Normal</div>
-              </div>
-            </div>
-            {!metab.isCalibrating && (
-              <div className="space-y-4">
-                <div className="w-full h-3 bg-slate-50 rounded-full overflow-hidden p-0.5 border border-slate-100">
-                   <div className={`h-full rounded-full transition-all duration-1000 ${metabolicColor.replace('text', 'bg')}`} style={{ width: `${metab.metabolic}%` }}></div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="bg-slate-50 rounded-[2rem] p-6 space-y-6 border border-slate-100">
-             {metab.isCalibrating ? (
-               <div className="h-full flex flex-col items-center justify-center text-center py-6 opacity-40">
-                  <div className="text-2xl animate-spin mb-2">⚙️</div>
-                  <p className="text-[9px] font-black uppercase tracking-widest">Calibrating analysis...</p>
-               </div>
-             ) : (
-               <>
-                 <div className="flex justify-between items-center border-b border-slate-200/60 pb-4">
-                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Consumption Gap</span>
-                   <span className={`text-xs font-mono font-black ${metab.variance > 10 ? 'text-rose-500' : 'text-emerald-500'}`}>
-                     {metab.variance > 0 ? `+${metab.variance}%` : `${metab.variance}%`}
-                   </span>
-                 </div>
-                 <div className="flex justify-between items-center border-b border-slate-200/60 pb-4">
-                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Estimated Waste/Month</span>
-                   <span className="text-xs font-mono font-black text-rose-500">{formatCurrency(metab.wasteMonthly)}</span>
-                 </div>
-               </>
-             )}
           </div>
         </div>
       </div>
