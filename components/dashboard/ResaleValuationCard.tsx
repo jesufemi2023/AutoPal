@@ -81,16 +81,19 @@ export const ResaleValuationCard: React.FC<{
           <div className="w-20 h-20 bg-blue-600/10 rounded-[2rem] flex items-center justify-center text-3xl mx-auto border border-blue-500/20">✧</div>
           <div className="space-y-3">
             <h4 className="text-2xl font-black tracking-tighter uppercase">
-              {isLegacyReport ? 'Scan Update Required' : 'Scan Car Condition'}
+              {isLegacyReport ? 'Audit Refresh Required' : 'Condition Scan Inactive'}
             </h4>
             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
               {isLegacyReport 
-                ? 'Your diagnostic profile is out of date. Re-scan to unlock advanced financial and mechanical insights.' 
+                ? 'Your audit profile is legacy. Re-scan to unlock advanced financial and mechanical projections.' 
                 : 'Perform a deep mechanical audit to certify your car\'s market value and detect hidden inefficiency.'}
             </p>
           </div>
-          <button onClick={handleAiAnalysis} className="w-full bg-blue-600 text-white py-8 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[12px] shadow-3xl hover:bg-blue-500 active:scale-95 transition-all mt-4 border-2 border-blue-400/20">
-            {isLegacyReport ? 'Run Full Update Scan' : 'Run New AI Condition Scan'}
+          <button onClick={handleAiAnalysis} className="w-full bg-blue-600 text-white py-10 rounded-[2.5rem] font-black uppercase tracking-[0.4em] text-[13px] shadow-[0_20px_50px_rgba(59,130,246,0.4)] hover:bg-blue-500 active:scale-95 transition-all mt-6 border-2 border-blue-400/30 group">
+            <span className="flex items-center justify-center gap-4">
+              <span className="text-2xl group-hover:scale-125 transition-transform">✧</span>
+              {isLegacyReport ? 'Run Full System Update' : 'Initialize AI Condition Scan'}
+            </span>
           </button>
         </div>
       </section>
@@ -209,7 +212,7 @@ export const ResaleValuationCard: React.FC<{
                      onClick={() => { setMarketplaceFilter(part.name); setCurrentView('marketplace'); }}>
                    <div className="space-y-1">
                       <div className="text-[10px] font-black text-white uppercase">{part.name}</div>
-                      <div className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">{part.reason}</div>
+                      <div className="text-[8px] text-slate-50 font-bold uppercase tracking-widest">{part.reason}</div>
                    </div>
                    <span className="text-xs group-hover:scale-125 transition-transform">🛒</span>
                 </div>
@@ -237,23 +240,21 @@ export const ResaleValuationCard: React.FC<{
            </div>
         </div>
 
-        {/* LARGE VISIBLE RUN SCAN BUTTON */}
+        {/* HIGH-IMPACT RE-SCAN BUTTON */}
         <div className="lg:col-span-2 pt-6">
            <button 
              onClick={handleAiAnalysis} 
-             className="w-full bg-slate-900 border-2 border-blue-500/30 text-white py-10 rounded-[2.5rem] font-black uppercase tracking-[0.4em] text-[13px] shadow-[0_20px_50px_rgba(59,130,246,0.3)] hover:bg-blue-600 hover:border-blue-400 transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-3 group"
+             className="w-full bg-slate-900 border-2 border-blue-500/30 text-white py-12 rounded-[2.5rem] font-black uppercase tracking-[0.5em] text-[13px] shadow-[0_30px_60px_rgba(59,130,246,0.25)] hover:bg-blue-600 hover:border-blue-400 transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-4 group overflow-hidden relative"
            >
-             <span className="text-3xl group-hover:scale-125 transition-transform">✧</span>
-             Run New AI Condition Scan
+             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
+             <span className="text-4xl group-hover:rotate-[360deg] transition-transform duration-1000">✧</span>
+             <span className="relative z-10">Recalibrate System & Run New Scan</span>
+             <div className="flex items-center gap-2 mt-2 opacity-50 text-[8px] font-bold tracking-[0.2em]">
+               <span>Last Audit: {new Date(cachedReport.timestamp).toLocaleDateString()}</span>
+               <span>•</span>
+               <span>Neural Link Ready</span>
+             </div>
            </button>
-           <div className="flex justify-between items-center px-6 mt-4">
-              <p className="text-[7px] text-slate-400 font-black uppercase tracking-[0.4em]">
-                System Ready for Recalibration
-              </p>
-              <p className="text-[7px] text-slate-400 font-black uppercase tracking-[0.4em]">
-                Last Audit: {new Date(cachedReport.timestamp).toLocaleDateString()}
-              </p>
-           </div>
         </div>
       </div>
     </div>

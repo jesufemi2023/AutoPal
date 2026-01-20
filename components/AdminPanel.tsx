@@ -116,7 +116,7 @@ const AdminPanel: React.FC = () => {
       ) : (
         <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-sm overflow-hidden min-h-[500px]">
           <div className="px-10 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-            <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">User Resonance Reports</h3>
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-900">User Resilience Reports</h3>
             <span className="text-[9px] font-black uppercase text-slate-400 tracking-widest">{feedbacks.length} Submissions</span>
           </div>
           
@@ -144,7 +144,7 @@ const AdminPanel: React.FC = () => {
                       </div>
                    </div>
                    <p className="text-sm font-medium text-slate-600 leading-relaxed bg-white border border-slate-100 p-6 rounded-2xl shadow-inner">
-                     "{f.comment || 'No qualitative data provided.'}"
+                     "{f.comment || 'No qualitative logs provided.'}"
                    </p>
                 </div>
               ))}
