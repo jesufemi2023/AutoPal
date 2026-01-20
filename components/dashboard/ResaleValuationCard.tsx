@@ -12,10 +12,9 @@ export const ResaleValuationCard: React.FC<{
   serviceLogs: ServiceLog[];
   fuelLogs: FuelLog[];
 }> = ({ vehicle, tasks, serviceLogs, fuelLogs }) => {
-  const { updateVehicleStore } = useAutoPalStore();
+  const { updateVehicleStore, setMarketplaceFilter, setCurrentView } = useAutoPalStore();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // SOURCE OF TRUTH: PERSISTED AI AUDIT
   const cachedReport = vehicle.latestAiAudit;
 
   const handleAiAnalysis = async () => {
@@ -29,7 +28,7 @@ export const ResaleValuationCard: React.FC<{
       updateVehicleStore(updatedVehicle);
     } catch (e) {
       console.error(e);
-      alert("Neural Link Failure. Retrying sync...");
+      alert("Neural Analysis Failure. Please check connection.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -43,133 +42,163 @@ export const ResaleValuationCard: React.FC<{
     'D': 'text-rose-500'
   };
 
-  // Guard: If we have a report but it's an old version missing the new fields
-  const isLegacyReport = cachedReport && (!cachedReport.metabolicAudit || !cachedReport.diagnostics);
-
-  return (
-    <section className="bg-slate-950 rounded-[2rem] sm:rounded-[2.5rem] p-8 sm:p-10 text-white relative overflow-hidden shadow-2xl group border border-white/10 transition-all duration-700 hover:shadow-blue-900/20 w-full h-full flex flex-col min-h-[500px]">
-      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-blue-600/10 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
-      
-      {isAnalyzing && (
-        <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-300">
-          <div className="w-16 h-16 border-[4px] border-blue-500 border-t-transparent rounded-full animate-spin mb-8 shadow-[0_0_30px_#3b82f6]"></div>
-          <h4 className="text-xl font-black tracking-tight mb-2 uppercase">Neural Audit...</h4>
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em]">Analyzing metabolic telemetry</p>
+  if (isAnalyzing) {
+    return (
+      <div className="bg-slate-950 rounded-[2.5rem] p-12 text-white relative overflow-hidden shadow-3xl border border-blue-500/20 w-full h-full flex flex-col items-center justify-center min-h-[500px]">
+        <div className="absolute inset-0">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent animate-pulse"></div>
+          <div className="h-full w-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
         </div>
-      )}
-
-      {cachedReport && !isLegacyReport ? (
-        <div className="relative z-10 flex flex-col justify-between h-full w-full animate-in fade-in duration-700">
-          <div className="space-y-10">
-            {/* Header: Valuation & Grade */}
-            <div className="flex justify-between items-start">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_12px_#3b82f6] animate-pulse"></div>
-                  <h3 className="text-[10px] lg:text-[11px] font-black text-slate-500 uppercase tracking-[0.5em]">Certified Resale Value</h3>
-                </div>
-                <div className="text-5xl sm:text-6xl font-black tracking-tighter text-white leading-none flex items-baseline">
-                  <span className="text-2xl text-slate-500 mr-2 font-mono font-bold">₦</span>
-                  {cachedReport.valuationNGN.toLocaleString()}
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-2 shrink-0">
-                <div className={`text-4xl lg:text-6xl font-black ${gradeColors[cachedReport.marketGrade as keyof typeof gradeColors]}`}>
-                  {cachedReport.marketGrade}
-                </div>
-                <div className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Market Grade</div>
-              </div>
-            </div>
-
-            {/* METABOLIC PERFORMANCE AUDIT - ENHANCED & STABILIZED */}
-            <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 sm:p-8 space-y-8">
-              <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em]">Metabolic Audit</h4>
-                <div className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest ${ (cachedReport.metabolicAudit?.consumptionGap ?? 0) < 12 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-                  {cachedReport.metabolicAudit?.efficiencyRating || 'Pending Scan'}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
-                <div className="space-y-2">
-                  <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Efficiency Performance</div>
-                  <div className="text-3xl font-black font-mono tracking-tighter text-white">
-                    {cachedReport.metabolicAudit?.trueKml?.toFixed(1) || '0.0'} 
-                    <span className="text-[10px] font-sans opacity-40 ml-1">KM/L</span>
-                  </div>
-                </div>
-                
-                <div className="space-y-2 border-t sm:border-t-0 sm:border-l border-white/5 pt-6 sm:pt-0 sm:pl-8">
-                  <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Consumption Gap</div>
-                  <div className={`text-3xl font-black font-mono tracking-tighter ${ (cachedReport.metabolicAudit?.consumptionGap ?? 0) > 15 ? 'text-rose-500' : 'text-emerald-400'}`}>
-                    {cachedReport.metabolicAudit?.consumptionGap !== undefined ? (cachedReport.metabolicAudit.consumptionGap > 0 ? '+' : '') : ''}
-                    {cachedReport.metabolicAudit?.consumptionGap ?? 0}%
-                  </div>
-                </div>
-
-                <div className="space-y-2 border-t sm:border-t-0 sm:border-l border-white/5 pt-6 sm:pt-0 sm:pl-8">
-                  <div className="text-[8px] font-black text-rose-500 uppercase tracking-widest">Estimated Waste / Mo</div>
-                  <div className="text-2xl font-black text-rose-400 tracking-tighter leading-none pt-1">
-                    {formatCurrency(cachedReport.metabolicAudit?.monthlyWaste ?? 0)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* AI Reasoning */}
-            <div className="p-6 bg-blue-600/5 border border-blue-500/20 rounded-2xl space-y-3">
-               <div className="flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full ${cachedReport.diagnostics?.severity === 'critical' ? 'bg-rose-500 animate-pulse' : 'bg-blue-500'}`}></div>
-                  <div className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Audit Hypothesis</div>
-               </div>
-               <div className="text-sm font-black text-white leading-tight">{cachedReport.diagnostics?.primaryHypothesis || 'Telemetry Stable'}</div>
-               <p className="text-[11px] text-slate-400 italic leading-relaxed">"{cachedReport.diagnostics?.reasoning || 'No immediate metabolic anomalies detected.'}"</p>
-            </div>
-          </div>
-
-          <div className="mt-10 flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-white/5 pt-8">
-            <div className="flex flex-col">
-              <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Report ID: AP-{cachedReport.timestamp.slice(-6).toUpperCase()}</span>
-              <span className="text-[8px] font-black text-slate-700 uppercase tracking-widest">Last Scanned: {new Date(cachedReport.timestamp).toLocaleDateString()}</span>
-            </div>
-            <button 
-              onClick={handleAiAnalysis}
-              className="w-full sm:w-auto bg-white/5 border border-white/10 text-white px-8 py-4 rounded-2xl flex items-center justify-center gap-3 transition-all hover:bg-blue-600 active:scale-95 group/btn"
-            >
-              <span className="text-lg group-hover/btn:rotate-90 transition-transform duration-500">✧</span>
-              <span className="text-[9px] font-black uppercase tracking-[0.2em]">Relaunch Neural Audit</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="relative z-10 flex flex-col items-center justify-center text-center h-full space-y-10 animate-in zoom-in-95 duration-500">
-          <div className="w-24 h-24 bg-blue-600/10 rounded-[2.5rem] flex items-center justify-center text-4xl shadow-inner border border-blue-600/20">
-            <span className="animate-pulse">💎</span>
-          </div>
-          <div className="space-y-4 max-w-sm">
-            <h4 className="text-3xl font-black tracking-tighter uppercase leading-none text-white">
-              {isLegacyReport ? 'Update Required' : 'Neural Valuation'}
-            </h4>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.25em] leading-relaxed px-6">
-              {isLegacyReport 
-                ? 'Your previous audit is out of date. Relaunch to unlock fuel performance metrics and metabolic waste tracking.' 
-                : 'Audited fuel waste, metabolic efficiency, and certified resale valuation are available after scanning vehicle telemetry.'}
+        <div className="relative z-10 text-center space-y-8 max-w-sm">
+          <div className="w-24 h-24 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto shadow-[0_0_40px_rgba(59,130,246,0.5)]"></div>
+          <div className="space-y-4">
+            <h4 className="text-2xl font-black tracking-tighter uppercase">Cross-Examining Telemetry</h4>
+            <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em] leading-relaxed">
+              Correlating fuel logs with service history to identify metabolic drift...
             </p>
           </div>
-          
-          <div className="w-full space-y-4">
-            <button 
-              onClick={handleAiAnalysis}
-              className="w-full bg-blue-600 text-white py-7 rounded-[2rem] flex items-center justify-center gap-4 transition-all shadow-2xl shadow-blue-600/30 hover:bg-blue-500 active:scale-95"
-            >
-              <span className="text-2xl">✧</span>
-              <span className="text-[11px] font-black uppercase tracking-[0.3em]">
-                {isLegacyReport ? 'Upgrade Audit Link' : 'Perform Neural Audit'}
-              </span>
-            </button>
+          <div className="grid grid-cols-3 gap-2">
+            {[1,2,3].map(i => <div key={i} className="h-1 bg-blue-500/20 rounded-full overflow-hidden"><div className="h-full bg-blue-500 animate-[shimmer_2s_infinite]" style={{animationDelay: `${i*0.5}s`}}></div></div>)}
           </div>
         </div>
-      )}
-    </section>
+      </div>
+    );
+  }
+
+  if (!cachedReport) {
+    return (
+      <section className="bg-slate-950 rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-2xl group border border-white/5 w-full h-full flex flex-col min-h-[400px] items-center justify-center text-center">
+        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-blue-600/5 blur-[120px] rounded-full"></div>
+        <div className="space-y-8 max-w-sm relative z-10">
+          <div className="w-20 h-20 bg-blue-600/10 rounded-[2rem] flex items-center justify-center text-3xl mx-auto border border-blue-500/20">✧</div>
+          <div className="space-y-3">
+            <h4 className="text-2xl font-black tracking-tighter uppercase">Perform Neural Audit</h4>
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+              Analyze your vehicle's mechanical & financial health to unlock accurate valuation and fault detection.
+            </p>
+          </div>
+          <button onClick={handleAiAnalysis} className="w-full bg-blue-600 text-white py-6 rounded-2xl font-black uppercase tracking-[0.3em] text-[11px] shadow-xl hover:bg-blue-500 active:scale-95 transition-all">
+            Start AI Scan
+          </button>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <div className="w-full h-full space-y-6 flex flex-col">
+      {/* Top Value Card */}
+      <section className="bg-slate-950 rounded-[2.5rem] p-8 sm:p-10 text-white relative overflow-hidden shadow-2xl border border-white/10 shrink-0">
+        <div className="absolute top-0 right-0 p-10 opacity-[0.03] font-black text-9xl pointer-events-none uppercase">{cachedReport.marketGrade}</div>
+        <div className="flex justify-between items-start relative z-10">
+          <div className="space-y-6">
+             <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6] animate-pulse"></div>
+                <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.5em]">Neural Resale Estimate</h3>
+             </div>
+             <div className="space-y-1">
+                <div className="text-5xl sm:text-7xl font-black tracking-tighter leading-none flex items-baseline">
+                  <span className="text-2xl text-slate-600 mr-2 font-mono">₦</span>
+                  {cachedReport.valuationNGN.toLocaleString()}
+                </div>
+                <p className="text-[10px] text-blue-500/60 font-black uppercase tracking-widest">Confidence: {cachedReport.auditedScores.discipline}% based on verified logs</p>
+             </div>
+          </div>
+          <div className="text-right">
+             <div className={`text-6xl font-black leading-none ${gradeColors[cachedReport.marketGrade as keyof typeof gradeColors]}`}>{cachedReport.marketGrade}</div>
+             <div className="text-[8px] font-black text-slate-600 uppercase tracking-widest mt-2">Market Grade</div>
+          </div>
+        </div>
+
+        <div className="mt-10 pt-8 border-t border-white/5 grid grid-cols-2 gap-8 relative z-10">
+           <div className="space-y-1">
+              <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Vitality Score</div>
+              <div className={`text-2xl font-black ${cachedReport.auditedScores.vitality > 75 ? 'text-emerald-400' : 'text-rose-500'}`}>{cachedReport.auditedScores.vitality}%</div>
+           </div>
+           <div className="space-y-1">
+              <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Price Span</div>
+              <div className="text-sm font-mono font-bold text-slate-300">₦{(cachedReport.priceRange.min/1e6).toFixed(1)}M - ₦{(cachedReport.priceRange.max/1e6).toFixed(1)}M</div>
+           </div>
+        </div>
+      </section>
+
+      {/* 4-Quadrant Deep Report */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow">
+        {/* Q1: Metabolic Audit */}
+        <div className="bg-white rounded-[2rem] p-8 border border-slate-100 space-y-6">
+           <div className="flex justify-between items-center">
+              <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">Metabolic Audit</h4>
+              <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${cachedReport.metabolicAudit.efficiencyTrend === 'improving' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                Trend: {cachedReport.metabolicAudit.efficiencyTrend}
+              </span>
+           </div>
+           <div className="grid grid-cols-2 gap-4">
+              <div className="bg-slate-50 p-4 rounded-2xl">
+                 <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">True KM/L</div>
+                 <div className="text-xl font-black text-slate-900">{cachedReport.metabolicAudit.trueKml.toFixed(1)}</div>
+              </div>
+              <div className="bg-slate-50 p-4 rounded-2xl">
+                 <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Gap</div>
+                 <div className={`text-xl font-black ${cachedReport.metabolicAudit.consumptionGap > 15 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                   +{cachedReport.metabolicAudit.consumptionGap}%
+                 </div>
+              </div>
+           </div>
+           <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center justify-between">
+              <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Monthly Neglect Tax</span>
+              <span className="text-lg font-black text-rose-700">{formatCurrency(cachedReport.metabolicAudit.monthlyNeglectTax)}</span>
+           </div>
+        </div>
+
+        {/* Q2: Diagnostics */}
+        <div className="bg-white rounded-[2rem] p-8 border border-slate-100 space-y-6 relative overflow-hidden">
+           <div className="absolute top-0 right-0 p-4">
+              <div className={`w-3 h-3 rounded-full ${cachedReport.diagnostics.severity === 'critical' ? 'bg-rose-500 animate-ping' : 'bg-amber-500'}`}></div>
+           </div>
+           <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">System Diagnostic</h4>
+           <div className="space-y-4">
+              <div className="text-lg font-black text-slate-900 leading-tight">{cachedReport.diagnostics.faultHypothesis}</div>
+              <p className="text-[11px] text-slate-500 leading-relaxed italic border-l-2 border-blue-500 pl-4">"{cachedReport.diagnostics.reasoning}"</p>
+           </div>
+        </div>
+
+        {/* Q3: Recovery Parts */}
+        <div className="bg-slate-900 rounded-[2rem] p-8 text-white space-y-6 lg:col-span-2">
+           <div className="flex justify-between items-center">
+              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Recovery Strategy: Recommended Parts</h4>
+              <button onClick={handleAiAnalysis} className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Rescan Engine</button>
+           </div>
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {cachedReport.suggestedParts.map((part, i) => (
+                <div key={i} className="bg-white/5 border border-white/10 p-5 rounded-2xl flex justify-between items-center group hover:bg-white/10 transition-all cursor-pointer" 
+                     onClick={() => { setMarketplaceFilter(part.name); setCurrentView('marketplace'); }}>
+                   <div className="space-y-1">
+                      <div className="text-[10px] font-black text-white uppercase tracking-tight">{part.name}</div>
+                      <div className="text-[8px] text-slate-400 font-bold uppercase tracking-widest">{part.reason}</div>
+                   </div>
+                   <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center text-xs group-hover:scale-110 transition-transform">🛒</div>
+                </div>
+              ))}
+           </div>
+        </div>
+
+        {/* Q4: 5 Strategic Insights */}
+        <div className="bg-blue-600 rounded-[2rem] p-8 text-white space-y-6 lg:col-span-2 shadow-xl shadow-blue-600/20">
+           <h4 className="text-[10px] font-black text-blue-100 uppercase tracking-[0.3em]">Neural Insights Dossier</h4>
+           <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+              {cachedReport.strategicInsights.map((insight, i) => (
+                <div key={i} className="flex gap-4 items-start p-2 border-b border-blue-500/30 last:border-0">
+                   <span className="text-lg opacity-40 shrink-0">0{i+1}</span>
+                   <p className="text-[11px] font-bold leading-relaxed">{insight}</p>
+                </div>
+              ))}
+           </div>
+        </div>
+      </div>
+
+      <div className="text-center pt-4">
+         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Dossier Timestamp: {new Date(cachedReport.timestamp).toLocaleString()} // Secure Audit ID: {cachedReport.timestamp.slice(-6)}</p>
+      </div>
+    </div>
   );
 };

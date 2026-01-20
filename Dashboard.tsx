@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, updateMileage, updateVehicle, fetchUserVehicles
@@ -18,7 +18,7 @@ const Dashboard: React.FC = () => {
     vehicles, tasks, serviceLogs, fuelLogs,
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
-    updateMileage: updateStoreMileage,
+    updateMileage: updateStoreMileage, updateVehicleStore,
     loadLocalData, setVehicles
   } = useAutoPalStore();
 
@@ -27,40 +27,17 @@ const Dashboard: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // STABILITY: Derived data should be memoized to prevent re-render loops
-  const activeVehicle = useMemo(() => 
-    vehicles.find(v => v.id === activeVehicleId), 
-    [vehicles, activeVehicleId]
-  );
-  
-  const vehicleTasks = useMemo(() => 
-    tasks.filter(t => t.vehicleId === activeVehicleId), 
-    [tasks, activeVehicleId]
-  );
-  
-  const activeServiceLogs = useMemo(() => 
-    serviceLogs.filter(l => l.vehicleId === activeVehicleId), 
-    [serviceLogs, activeVehicleId]
-  );
-  
-  const activeFuelLogs = useMemo(() => 
-    fuelLogs.filter(l => l.vehicleId === activeVehicleId), 
-    [fuelLogs, activeVehicleId]
-  );
+  const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
+  const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicleId);
+  const activeServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
+  const activeFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicleId);
 
-  // CRITICAL FIX: Calculate the health score for DISPLAY ONLY. 
-  // Do not call updateVehicleStore here as it causes an infinite loop.
-  const displayHealthScore = useMemo(() => {
-    if (!activeVehicle) return 100;
-    return calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
-  }, [activeVehicle, tasks, activeFuelLogs, activeServiceLogs]);
-
-  // 1. Initial Local Load
+  // 1. Initial Local Load (Instant UX)
   useEffect(() => {
     loadLocalData();
   }, [loadLocalData]);
 
-  // 2. Background Sync
+  // 2. Background Sync (Silent Update)
   useEffect(() => {
     const syncVehicles = async () => {
       setIsSyncing(true);
@@ -70,7 +47,7 @@ const Dashboard: React.FC = () => {
           setVehicles(cloudVehicles);
         }
       } catch (err) {
-        console.warn("Cloud sync deferred.");
+        console.warn("Cloud sync deferred: Network unstable or RLS restriction.");
       } finally {
         setIsSyncing(false);
       }
@@ -100,6 +77,17 @@ const Dashboard: React.FC = () => {
       .finally(() => setIsLoadingDetails(false));
     }
   }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
+
+  // Real-time Health Recalculation (Local Evidence)
+  useEffect(() => {
+    if (activeVehicle && tasks.length > 0) {
+      const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
+      if (newScore !== activeVehicle.healthScore) {
+        updateVehicle(activeVehicle.id, { healthScore: newScore });
+        updateVehicleStore({ ...activeVehicle, healthScore: newScore });
+      }
+    }
+  }, [tasks, activeVehicle?.mileage, activeFuelLogs, activeServiceLogs]);
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
@@ -161,10 +149,7 @@ const Dashboard: React.FC = () => {
 
       {activeVehicle ? (
         <div className="w-full flex flex-col gap-6 lg:gap-10">
-          <VehicleOverview 
-            vehicle={{...activeVehicle, healthScore: displayHealthScore}} 
-            onUpdateOdometer={() => setShowOdometerModal(true)} 
-          />
+          <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
           
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-10 items-stretch">
             <div className="xl:col-span-5 flex flex-col h-full">

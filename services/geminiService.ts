@@ -20,10 +20,19 @@ export const generateAIValuation = async (
   const ai = getAIClient();
   
   const telemetry = {
-    vehicle: { make: vehicle.make, model: vehicle.model, year: vehicle.year, mileage: vehicle.mileage, bodyType: vehicle.bodyType, fuel: vehicle.fuelType },
+    vehicle: { 
+      make: vehicle.make, 
+      model: vehicle.model, 
+      year: vehicle.year, 
+      mileage: vehicle.mileage, 
+      bodyType: vehicle.bodyType, 
+      fuel: vehicle.fuelType,
+      engineSize: vehicle.engineSize || 'unknown',
+      specs: vehicle.specs 
+    },
     pendingTasks: tasks.filter(t => t.status === 'pending').map(t => ({ title: t.title, due: t.dueMileage, cost: t.estimatedCost, cat: t.category })),
-    recentService: serviceLogs.slice(0, 15).map(l => ({ type: l.serviceType, date: l.serviceDate, km: l.mileageAtService, cost: l.cost, ver: l.verificationLevel })),
-    recentFuel: fuelLogs.slice(0, 15).map(l => ({ km: l.odometerKm, lit: l.liters, cost: l.totalCost, full: l.isFullTank }))
+    recentService: serviceLogs.slice(0, 15).map(l => ({ type: l.serviceType, date: l.serviceDate, km: l.mileageAtService, cost: l.cost, ver: l.verificationLevel, cat: l.category })),
+    recentFuel: fuelLogs.slice(0, 15).map(l => ({ km: l.odometerKm, lit: l.liters, cost: l.totalCost, full: l.isFullTank, station: l.vendor }))
   };
 
   try {
@@ -32,16 +41,30 @@ export const generateAIValuation = async (
       contents: JSON.stringify(telemetry),
       config: {
         temperature: 0.1, 
-        systemInstruction: `You are the AutoPal NG Metabolic & Financial Audit Engine. 
-        Analyze vehicle telemetry to determine resale value and fuel performance.
+        systemInstruction: `You are the AutoPal NG Neural Audit Engine. Perform a 4-quadrant mechanical & financial cross-examination.
         
-        CRITICAL: Perform a Metabolic Audit by cross-referencing fuel logs with service history.
-        1. trueKml: Calculated actual fuel economy.
-        2. consumptionGap: % variance from factory spec for this vehicle class.
-        3. monthlyWaste: Estimated NGN wasted per month due to this gap (use actual fuel price context if provided, else assume current Lagos averages).
-        4. efficiencyRating: [Optimal, Sub-par, Critical].
+        QUADRANT 1: METABOLIC AUDIT
+        - Calculate true KM/L based on fuel logs.
+        - Determine 'Consumption Gap' (variance from factory potential for this engine displacement).
+        - Calculate 'Neglect Tax' (Monthly NGN wasted due to inefficiency).
         
-        MARKET RULES: Align with Lagos/Abuja market trends. Currency: NGN.`,
+        QUADRANT 2: ENGINEERING DIAGNOSTICS
+        - Correlate dropping efficiency with maintenance lag (e.g. poor KM/L + overdue spark plugs = High Confidence Ignition Fault).
+        - Severity: normal, advisory, critical.
+        
+        QUADRANT 3: PRECISION PARTS
+        - Suggest specific components (e.g. Bosch Iridium Plugs, Synthetic Filters) to close the Consumption Gap.
+        
+        QUADRANT 4: 5 STRATEGIC INSIGHTS
+        - Trust Premium Impact: Financial value added by verified records.
+        - Optimal Exit: When to sell based on depreciation vs mileage velocity.
+        - Maintenance Debt: Cost of neglect vs future risk cost.
+        - Regional Benchmark: Performance vs Nigeria average.
+        - Fuel Strategy: Recommended brand switch based on log performance.
+        
+        RULES:
+        - Currency: NGN.
+        - Scores (vitality/discipline) 0-100.`,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -66,20 +89,33 @@ export const generateAIValuation = async (
               properties: {
                 trueKml: { type: Type.NUMBER },
                 consumptionGap: { type: Type.NUMBER },
-                monthlyWaste: { type: Type.NUMBER },
-                efficiencyRating: { type: Type.STRING }
+                monthlyNeglectTax: { type: Type.NUMBER },
+                efficiencyTrend: { type: Type.STRING, enum: ["improving", "stable", "degrading"] }
               },
-              required: ["trueKml", "consumptionGap", "monthlyWaste", "efficiencyRating"]
+              required: ["trueKml", "consumptionGap", "monthlyNeglectTax", "efficiencyTrend"]
             },
             diagnostics: {
               type: Type.OBJECT,
               properties: {
-                primaryHypothesis: { type: Type.STRING },
-                reasoning: { type: Type.STRING },
-                severity: { type: Type.STRING, enum: ["normal", "advisory", "critical"] }
+                faultHypothesis: { type: Type.STRING },
+                severity: { type: Type.STRING, enum: ["normal", "advisory", "critical"] },
+                reasoning: { type: Type.STRING }
               },
-              required: ["primaryHypothesis", "reasoning", "severity"]
+              required: ["faultHypothesis", "severity", "reasoning"]
             },
+            suggestedParts: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  reason: { type: Type.STRING },
+                  impact: { type: Type.STRING }
+                },
+                required: ["name", "reason", "impact"]
+              }
+            },
+            strategicInsights: { type: Type.ARRAY, items: { type: Type.STRING } },
             insights: {
               type: Type.OBJECT,
               properties: {
@@ -104,7 +140,7 @@ export const generateAIValuation = async (
               required: ["trustPremium", "mechanicalVitality", "maintenanceDebt", "exitStrategy", "marketComparison"]
             }
           },
-          required: ["valuationNGN", "priceRange", "marketGrade", "auditedScores", "metabolicAudit", "diagnostics", "insights"]
+          required: ["valuationNGN", "priceRange", "marketGrade", "auditedScores", "metabolicAudit", "diagnostics", "suggestedParts", "strategicInsights", "insights"]
         }
       }
     });
@@ -116,7 +152,7 @@ export const generateAIValuation = async (
       timestamp: new Date().toISOString()
     };
   } catch (error) {
-    console.error("AI Asset Audit Failure:", error);
+    console.error("AI Neural Audit Failure:", error);
     throw error;
   }
 };

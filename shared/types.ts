@@ -45,15 +45,21 @@ export interface AIValuationReport {
   };
   metabolicAudit: {
     trueKml: number;
-    consumptionGap: number; // percentage variance from factory potential
-    monthlyWaste: number;    // NGN wasted per month
-    efficiencyRating: string; // e.g. "Optimal", "Sub-par", "Critical"
+    consumptionGap: number; // percentage
+    monthlyNeglectTax: number; // NGN wasted
+    efficiencyTrend: 'improving' | 'stable' | 'degrading';
   };
   diagnostics: {
-    primaryHypothesis: string;
-    reasoning: string;
+    faultHypothesis: string;
     severity: 'normal' | 'advisory' | 'critical';
+    reasoning: string;
   };
+  suggestedParts: Array<{
+    name: string;
+    reason: string;
+    impact: string;
+  }>;
+  strategicInsights: string[]; // Exactly 5 insights
   insights: {
     trustPremium: { value: number; description: string };
     mechanicalVitality: { score: number; description: string };
