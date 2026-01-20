@@ -14,7 +14,7 @@ export const CalibrationTerminal: React.FC = () => {
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
-  const modules = ["AI Mechanic", "Fuel Tracking", "User Interface", "App Speed", "Reports"];
+  const modules = ["AI Mechanic", "Fuel Tracking", "Design", "Speed", "Reports", "Other"];
 
   const toggleTag = (tag: string) => {
     setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
@@ -22,7 +22,7 @@ export const CalibrationTerminal: React.FC = () => {
 
   const handleTransmit = async () => {
     if (!comment.trim() && selectedTags.length === 0) {
-      alert("Please select a module or provide a brief note.");
+      alert("Please select a category or leave a quick note so we know how to help.");
       return;
     }
 
@@ -50,7 +50,7 @@ export const CalibrationTerminal: React.FC = () => {
         setRating(8);
       }, 2000);
     } catch (e) {
-      alert("Transmission failed. Please verify your connection.");
+      alert("Failed to send. Please check your internet connection.");
     } finally {
       setIsTransmitting(false);
     }
@@ -67,11 +67,11 @@ export const CalibrationTerminal: React.FC = () => {
     return (
       <button 
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-8 right-8 z-[200] px-5 py-4 bg-slate-900 border border-white/10 rounded-2xl flex items-center gap-3 text-white shadow-2xl hover:bg-blue-600 transition-all active:scale-95 group overflow-hidden"
-        title="Experience Calibration"
+        className="fixed bottom-8 right-8 z-[200] px-6 py-4 bg-slate-900 border border-white/10 rounded-2xl flex items-center gap-3 text-white shadow-2xl hover:bg-blue-600 transition-all active:scale-95 group overflow-hidden"
+        title="Send Feedback"
       >
-        <span className="text-xl group-hover:rotate-12 transition-transform">⬢</span>
-        <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">Calibrate System</span>
+        <span className="text-xl group-hover:scale-110 transition-transform">💬</span>
+        <span className="text-[10px] font-black uppercase tracking-widest hidden sm:inline">User Feedback</span>
         <div className="absolute inset-0 bg-blue-500/10 rounded-2xl animate-pulse pointer-events-none"></div>
       </button>
     );
@@ -84,16 +84,16 @@ export const CalibrationTerminal: React.FC = () => {
           <div className="p-16 text-center space-y-6">
             <div className="w-20 h-20 bg-emerald-600 rounded-full flex items-center justify-center text-white text-3xl mx-auto shadow-2xl border-4 border-white/10">✓</div>
             <div className="space-y-2">
-              <h3 className="text-white text-2xl font-black uppercase tracking-tighter leading-none">Telemetry Synced</h3>
-              <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em]">Your feedback has been reached the dev team</p>
+              <h3 className="text-white text-2xl font-black uppercase tracking-tighter leading-none">Thank You!</h3>
+              <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em]">We appreciate your help in making AutoPal better.</p>
             </div>
           </div>
         ) : (
           <div className="p-8 sm:p-10 space-y-10">
             <header className="flex justify-between items-start">
               <div>
-                <h3 className="text-white text-2xl font-black tracking-tighter uppercase leading-none">System <span className="text-blue-500">Calibration</span></h3>
-                <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Pilot Performance Feedback</p>
+                <h3 className="text-white text-2xl font-black tracking-tighter uppercase leading-none">User <span className="text-blue-500">Feedback</span></h3>
+                <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Help us improve your experience</p>
               </div>
               <button onClick={() => setIsOpen(false)} className="text-slate-500 hover:text-white text-2xl px-2">×</button>
             </header>
@@ -101,7 +101,7 @@ export const CalibrationTerminal: React.FC = () => {
             <div className="space-y-8">
               <div className="space-y-4">
                 <div className="flex justify-between items-center px-1">
-                   <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Experience Quality</label>
+                   <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest">How are we doing?</label>
                    <span className="text-2xl">{getEmoji(rating)}</span>
                 </div>
                 <input 
@@ -110,13 +110,13 @@ export const CalibrationTerminal: React.FC = () => {
                   className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 />
                 <div className="flex justify-between text-[7px] font-black text-slate-600 uppercase tracking-widest px-1">
-                   <span>Friction</span>
-                   <span>Seamless</span>
+                   <span>Needs Work</span>
+                   <span>Excellent</span>
                 </div>
               </div>
 
               <div className="space-y-4">
-                <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest ml-1">Focus Modules</label>
+                <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest ml-1">What are you giving feedback on?</label>
                 <div className="flex flex-wrap gap-2">
                   {modules.map(mod => (
                     <button 
@@ -131,11 +131,11 @@ export const CalibrationTerminal: React.FC = () => {
               </div>
 
               <div className="space-y-3">
-                <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest ml-1">Report System Friction</label>
+                <label className="text-slate-400 text-[10px] font-black uppercase tracking-widest ml-1">Any suggestions or issues?</label>
                 <textarea 
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder="Suggestions or reported issues..."
+                  placeholder="Tell us more about your experience..."
                   className="w-full bg-slate-950 border border-white/5 rounded-2xl p-6 text-[11px] font-medium text-slate-200 outline-none focus:border-blue-600 h-28 resize-none placeholder:text-slate-700 shadow-inner"
                 />
               </div>
@@ -148,7 +148,7 @@ export const CalibrationTerminal: React.FC = () => {
             >
               {isTransmitting ? (
                 <div className="w-5 h-5 border-4 border-slate-900/20 border-t-slate-900 rounded-full animate-spin"></div>
-              ) : "Transmit Calibration Data"}
+              ) : "Send Feedback"}
             </button>
           </div>
         )}
