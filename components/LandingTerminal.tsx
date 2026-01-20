@@ -1,10 +1,9 @@
-
 import React, { useState } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
 
 const LandingTerminal: React.FC = () => {
-  const { setTransientVehicle, setCurrentView, setLoading, guestAttempts, incrementGuestAttempts, session } = useAutoPalStore();
+  const { setTransientVehicle, setCurrentView, setLoading, guestAttempts, incrementGuestAttempts, session, reset } = useAutoPalStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [form, setForm] = useState({
     make: '',
@@ -48,6 +47,7 @@ const LandingTerminal: React.FC = () => {
   const handleSignOut = async () => {
     if (supabase) {
       await supabase.auth.signOut();
+      await reset();
       window.location.reload();
     }
   };

@@ -22,7 +22,7 @@ const App: React.FC = () => {
   const { 
     session, setSession, isInitialized, setInitialized, isSyncing, loadLocalData, hasDirtyData, triggerSync,
     user, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
-    setSuggestedParts, transientVehicle, removeVehicleStore
+    setSuggestedParts, transientVehicle, removeVehicleStore, reset
   } = useAutoPalStore();
 
   const [isAskingAI, setIsAskingAI] = useState(false);
@@ -53,6 +53,10 @@ const App: React.FC = () => {
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           setSession(session);
+          // Security: If auth is lost, purge local data instantly
+          if (!session) {
+            reset();
+          }
         });
         return () => subscription.unsubscribe();
       } catch (err) {
@@ -60,7 +64,7 @@ const App: React.FC = () => {
       }
     };
     initAuth();
-  }, [setSession, setInitialized]);
+  }, [setSession, setInitialized, reset]);
 
   useEffect(() => {
     if (session && user && vehicles.length === 0) {
@@ -74,6 +78,19 @@ const App: React.FC = () => {
       }).catch(console.error);
     }
   }, [session?.user?.id, user?.id]);
+
+  const handleSignOut = async () => {
+    if (!supabase) return;
+    try {
+      await supabase.auth.signOut();
+      await reset();
+      setIsMobileMenuOpen(false);
+      setCurrentView('landing');
+    } catch (e) {
+      console.error("Signout Error:", e);
+      window.location.reload(); // Force fallback
+    }
+  };
 
   const handleArchiveAsset = async () => {
     if (!activeVehicleId || !activeVehicle) return;
@@ -204,7 +221,7 @@ const App: React.FC = () => {
           </div>
           <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 py-6"><NavigationMenu /></nav>
           <div className="p-6 border-t border-slate-50">
-             <button onClick={() => supabase?.auth.signOut()} className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center">🚪 Sign Out</button>
+             <button onClick={handleSignOut} className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center">🚪 Sign Out</button>
           </div>
         </aside>
       </div>
@@ -221,7 +238,7 @@ const App: React.FC = () => {
         </div>
         <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 pb-8 bg-white"><NavigationMenu /></nav>
         <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white">
-           <button onClick={() => supabase?.auth.signOut()} className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center">🚪 Sign Out</button>
+           <button onClick={handleSignOut} className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center">🚪 Sign Out</button>
         </div>
 
         {/* Secondary Slide-out Menu for Vehicle Management */}
