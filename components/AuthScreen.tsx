@@ -17,7 +17,6 @@ const AuthScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Sync mode based on global recovery state
   useEffect(() => {
     if (isRecovering) {
       setMode('reset');
@@ -37,93 +36,58 @@ const AuthScreen: React.FC = () => {
         await signIn(email, password);
       } else if (mode === 'signup') {
         await signUp(email, password);
-        setSuccessMessage(`Confirmation email sent to ${email}. Please check your inbox.`);
+        setSuccessMessage(`Confirmation email sent to ${email}.`);
       } else if (mode === 'forgot') {
         await sendPasswordResetEmail(email);
-        setSuccessMessage(`Reset link sent to ${email}. Check your inbox or spam.`);
+        setSuccessMessage(`Reset link sent to ${email}.`);
       } else if (mode === 'reset') {
         await updatePassword(password);
-        setSuccessMessage('Password updated successfully! Redirecting to login...');
+        setSuccessMessage('Password updated successfully!');
         await signOut();
         setTimeout(() => {
           setRecovering(false);
-          if (window.location.hash) {
-            window.history.replaceState(null, '', window.location.pathname);
-          }
           setMode('login');
-          setSuccessMessage(null);
           window.location.reload();
         }, 2000);
       }
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred');
+      setError(err.message || 'Auth failure');
     } finally {
       setLoading(false);
     }
   };
 
-  if (successMessage && (mode === 'signup' || mode === 'forgot')) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-10 border border-slate-100 text-center animate-slide-in">
-          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-6">
-            {mode === 'signup' ? '✉️' : '🔑'}
-          </div>
-          <h2 className="text-2xl font-black text-slate-900 mb-2">
-            {mode === 'signup' ? 'Verify Your Email' : 'Check Your Inbox'}
-          </h2>
-          <p className="text-slate-500 mb-8 leading-relaxed text-sm">
-            {successMessage}
-          </p>
-          <button 
-            onClick={() => {
-              setSuccessMessage(null);
-              setMode('login');
-            }}
-            className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-slate-800 transition"
-          >
-            Back to Sign In
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 border border-slate-100 relative overflow-hidden">
-        {/* Navigation Back Link */}
-        <button 
-          onClick={() => setCurrentView('landing')}
-          className="absolute top-8 left-8 flex items-center gap-2 group transition-all"
-        >
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-110 transition-transform">
-            <Car size={16} strokeWidth={2.5} />
-          </div>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Back Home</span>
-        </button>
+      <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl p-8 sm:p-12 border border-slate-100 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-8 opacity-[0.03] select-none pointer-events-none">
+          <Car size={120} />
+        </div>
 
-        <div className="text-center mb-8 mt-12">
-          <h1 className="text-2xl font-black text-slate-900 tracking-tighter">
-            {mode === 'login' && 'Welcome Back'}
-            {mode === 'signup' && 'Join AutoPal NG'}
-            {mode === 'forgot' && 'Reset Password'}
-            {mode === 'reset' && 'New Password'}
+        <div className="text-center mb-10">
+          <div className="w-16 h-16 bg-gradient-to-br from-slate-800 to-slate-950 rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl shadow-slate-900/20">
+            <Car size={32} strokeWidth={2.5} />
+          </div>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase mb-1">
+            {mode === 'login' && 'Identity Link'}
+            {mode === 'signup' && 'Create Pilot ID'}
+            {mode === 'forgot' && 'Reset Link'}
+            {mode === 'reset' && 'Secure Update'}
           </h1>
-          <p className="text-slate-500 text-sm">
-            {mode === 'reset' ? 'Please set a secure new password.' : 'Vehicle Ownership Intelligence'}
+          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+            AutoPal NG Intelligence System
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {mode !== 'reset' && (
             <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Email Address</label>
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Terminal Address</label>
               <input 
                 type="email" 
                 required
-                placeholder="alex@example.com"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
+                placeholder="pilot@autopal.ng"
+                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition text-sm font-bold"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -132,82 +96,56 @@ const AuthScreen: React.FC = () => {
           
           {(mode === 'login' || mode === 'signup' || mode === 'reset') && (
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <label className="block text-xs font-bold text-slate-400 uppercase">
-                  {mode === 'reset' ? 'Create Password' : 'Password'}
+              <div className="flex justify-between items-center mb-1.5 ml-1">
+                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                  Access Key
                 </label>
                 {mode === 'login' && (
-                  <button 
-                    type="button"
-                    onClick={() => setMode('forgot')}
-                    className="text-[10px] font-bold text-blue-600 hover:underline uppercase tracking-wider"
-                  >
-                    Forgot?
-                  </button>
+                  <button type="button" onClick={() => setMode('forgot')} className="text-[9px] font-black text-blue-600 hover:underline uppercase tracking-wider">Forgot?</button>
                 )}
               </div>
               <input 
                 type="password" 
                 required
                 placeholder="••••••••"
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
+                className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition text-sm font-bold"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
           )}
 
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
-              <p className="text-red-500 text-xs font-bold leading-tight">{error}</p>
-            </div>
-          )}
-
-          {successMessage && mode === 'reset' && (
-            <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
-              <p className="text-emerald-600 text-xs font-bold leading-tight">{successMessage}</p>
-            </div>
-          )}
+          {error && <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-[10px] font-black uppercase tracking-widest leading-tight">{error}</div>}
+          {successMessage && <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-600 text-[10px] font-black uppercase tracking-widest leading-tight">{successMessage}</div>}
 
           <button 
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition disabled:opacity-50 shadow-lg shadow-blue-500/20"
+            className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] hover:bg-blue-600 transition-all disabled:opacity-50 shadow-xl"
           >
             {loading ? 'Processing...' : (
-              mode === 'login' ? 'Sign In' : 
-              mode === 'signup' ? 'Create Account' : 
-              mode === 'forgot' ? 'Send Reset Link' : 'Update Password'
+              mode === 'login' ? 'Initiate Session' : 
+              mode === 'signup' ? 'Create Pilot ID' : 
+              mode === 'forgot' ? 'Transmit Reset' : 'Commit Changes'
             )}
           </button>
         </form>
 
         {mode !== 'reset' && (
-          <>
-            <div className="mt-6 flex items-center gap-4">
-              <div className="flex-1 h-px bg-slate-100"></div>
-              <span className="text-[10px] font-bold text-slate-300 uppercase">Or</span>
-              <div className="flex-1 h-px bg-slate-100"></div>
-            </div>
-
-            <button 
-              type="button"
-              onClick={() => signInWithGoogle()}
-              className="w-full mt-6 py-4 border border-slate-200 rounded-2xl font-bold text-slate-700 flex items-center justify-center gap-2 hover:bg-slate-50 transition"
-            >
-              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-              Google
-            </button>
-          </>
+          <button 
+            type="button"
+            onClick={() => signInWithGoogle()}
+            className="w-full mt-6 py-4 border-2 border-slate-100 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-600 flex items-center justify-center gap-3 hover:bg-slate-50 transition active:scale-95"
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" className="w-5 h-5" />
+            Sign in with Google
+          </button>
         )}
 
-        <p className="mt-8 text-center text-sm text-slate-500">
-          {mode === 'login' && (
-            <>Don't have an account? <button onClick={() => setMode('signup')} className="text-blue-600 font-bold hover:underline">Sign Up</button></>
-          )}
-          {(mode === 'signup' || mode === 'forgot' || (mode === 'reset' && !isRecovering)) && (
-            <>Already have an account? <button onClick={() => setMode('login')} className="text-blue-600 font-bold hover:underline">Log In</button></>
-          )}
-        </p>
+        <div className="mt-10 text-center space-y-2">
+           {mode === 'login' && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">New Pilot? <button onClick={() => setMode('signup')} className="text-blue-600 font-black">Register Terminal</button></p>}
+           {(mode === 'signup' || mode === 'forgot') && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Existing User? <button onClick={() => setMode('login')} className="text-blue-600 font-black">Return to Deck</button></p>}
+           <button onClick={() => setCurrentView('landing')} className="block w-full text-[9px] font-black uppercase tracking-widest text-slate-300 hover:text-slate-600 transition-colors pt-4">Return Home</button>
+        </div>
       </div>
     </div>
   );
