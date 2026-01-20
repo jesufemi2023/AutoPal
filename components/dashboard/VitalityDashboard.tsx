@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { Vehicle, MaintenanceTask, ServiceLog, FuelLog, ServiceCategory } from '../../shared/types.ts';
 import { 
@@ -15,7 +14,6 @@ interface Props {
 }
 
 export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelLogs }) => {
-  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const localEvidence = useMemo(() => calculateIntelligentHealth(vehicle, tasks, fuelLogs, logs), [vehicle, tasks, fuelLogs, logs]);
   
   const cachedAudit = vehicle.latestAiAudit;
@@ -26,79 +24,49 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
 
   const getPillarStatus = (cat: ServiceCategory) => {
     const pillarTasks = tasks.filter(t => t.category === cat);
-    if (pillarTasks.length === 0) return { score: 100, label: 'Verified', count: 0, overdue: 0 };
+    if (pillarTasks.length === 0) return { score: 100, label: 'Optimized', count: 0, overdue: 0 };
     
     const overdue = pillarTasks.filter(t => t.status === 'pending' && getTaskMaintenanceStatus(vehicle, t) === 'overdue');
     const upcoming = pillarTasks.filter(t => t.status === 'pending' && getTaskMaintenanceStatus(vehicle, t) === 'upcoming');
     const score = Math.max(0, 100 - (overdue.length / pillarTasks.length) * 100);
     
-    let label = 'Good';
-    if (overdue.length > 0) label = 'Action Needed';
-    else if (upcoming.length > 0) label = 'Watch Soon';
+    let label = 'Healthy';
+    if (overdue.length > 0) label = 'Attention Needed';
+    else if (upcoming.length > 0) label = 'Service Soon';
 
     return { score, label, count: pillarTasks.length, overdue: overdue.length };
   };
 
-  const InfoIcon = ({ id, text }: { id: string, text: string }) => (
-    <div className="relative inline-block ml-1">
-      <button 
-        onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === id ? null : id); }}
-        className="text-slate-400 hover:text-blue-500 transition-colors"
-      >
-        ℹ️
-      </button>
-      {activeTooltip === id && (
-        <div 
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-in fade-in duration-200"
-          onClick={() => setActiveTooltip(null)}
-        >
-          <div 
-            className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-3xl max-w-sm w-full border border-white/10 animate-in zoom-in-95 duration-200 text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-14 h-14 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400 text-2xl mx-auto mb-6">ℹ️</div>
-            <h4 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4">Metric Intelligence</h4>
-            <p className="text-xs font-bold uppercase tracking-widest leading-relaxed text-slate-200 mb-8">
-              {text}
-            </p>
-            <button 
-              onClick={() => setActiveTooltip(null)}
-              className="w-full py-4 bg-white/5 hover:bg-blue-600 rounded-xl text-[10px] font-black uppercase tracking-[0.2em] transition-all"
-            >
-              Acknowledged
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div className="w-full h-full flex flex-col gap-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl border border-white/5 group">
+        <div 
+          className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl border border-white/5 group"
+          title="Overall condition based on your car's age, mileage, and service records."
+        >
           <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6 flex items-center">
             Condition Score
-            <InfoIcon id="condition" text="Overall mechanical health based on your car's age, mileage, and service records." />
           </div>
           <div className="flex items-baseline gap-3">
             <div className={`text-6xl font-black tracking-tighter transition-all ${displayVitality !== null ? 'text-blue-500 group-hover:scale-105' : 'text-slate-700'}`}>
               {displayVitality !== null ? `${displayVitality}%` : '--'}
             </div>
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Vehicle Health Verdict</div>
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Vehicle Health Grade</div>
           </div>
         </div>
 
-        <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl border border-white/5 group">
+        <div 
+          className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl border border-white/5 group"
+          title="Trustworthiness of your maintenance history. High scores come from verified receipts and mechanic logs."
+        >
           <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6 flex items-center">
-            History Trust Score
-            <InfoIcon id="trust" text="How reliable your records are. Higher if you upload receipts or use certified mechanics." />
+            Record Accuracy
           </div>
           <div className="flex items-baseline gap-3">
             <div className={`text-6xl font-black tracking-tighter transition-all ${displayDiscipline !== null ? 'text-emerald-500 group-hover:scale-105' : 'text-slate-700'}`}>
               {displayDiscipline !== null ? `${displayDiscipline}%` : '--'}
             </div>
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Record Reliability</div>
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">History Confidence</div>
           </div>
         </div>
       </div>
@@ -107,10 +75,9 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
         <div className="flex flex-col sm:flex-row justify-between items-start gap-6 mb-12">
           <div className="space-y-1.5">
             <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em] flex items-center">
-              System Health Status
-              <InfoIcon id="systems" text="Health of individual car systems based on how recently they were serviced." />
+              System Condition Report
             </h4>
-            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Maintenance Verification by Category</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Component Analysis by Category</p>
           </div>
         </div>
 
@@ -118,7 +85,7 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
           {pillars.map(pillar => {
             const status = getPillarStatus(pillar);
             return (
-              <div key={pillar} className="space-y-5 group/pillar relative">
+              <div key={pillar} className="space-y-5 group/pillar relative" title={`Current status of the ${pillar} systems.`}>
                 <div className="flex justify-between items-end mb-2">
                   <div className="space-y-1">
                     <h5 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{pillar}</h5>
