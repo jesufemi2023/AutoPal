@@ -3,6 +3,7 @@ export type Tier = 'free' | 'standard' | 'premium';
 export type UserRole = 'user' | 'admin';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback' | 'other';
 export type TaskStatus = 'pending' | 'completed' | 'skipped';
+export type SyncStatus = 'synced' | 'pending' | 'error';
 
 export enum Priority {
   LOW = 'low',
@@ -111,6 +112,7 @@ export interface Vehicle {
   avgDailyKm?: number;
   efficiencyBaseline?: number; 
   isDirty?: boolean;
+  syncStatus?: SyncStatus;
   latestAiAudit?: AIValuationReport;
 }
 
@@ -123,6 +125,8 @@ export interface FuelLog {
   isFullTank: boolean;
   vendor?: string;
   createdAt: string;
+  syncStatus?: SyncStatus;
+  isDirty?: boolean;
 }
 
 export interface ServiceLog {
@@ -141,6 +145,8 @@ export interface ServiceLog {
   taskId?: string;
   verificationLevel?: VerificationLevel;
   receiptUrl?: string;
+  syncStatus?: SyncStatus;
+  isDirty?: boolean;
 }
 
 export interface MaintenanceTask {
@@ -161,6 +167,8 @@ export interface MaintenanceTask {
   projectedDate?: string; 
   lastVerificationLevel?: VerificationLevel;
   lastReceiptUrl?: string;
+  syncStatus?: SyncStatus;
+  isDirty?: boolean;
 }
 
 export interface AIResponse {

@@ -303,13 +303,13 @@ const FuelIntelligenceCenter: React.FC = () => {
 
             <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between shadow-xl relative overflow-hidden">
               <div className="space-y-4 relative z-10">
-                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
+                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">
                   Overall Efficiency
                   <InfoIcon id="avgEff" text="Historical average performance over the life of your logs." />
                 </h3>
-                <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
+                <div className="text-4xl font-black text-white tracking-tighter flex items-baseline">
                   {avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}
-                  <span className="text-xs text-slate-600 ml-2 font-bold">{metric}</span>
+                  <span className="text-xs text-slate-500 ml-2 font-bold">{metric}</span>
                 </div>
               </div>
             </div>

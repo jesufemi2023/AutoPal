@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
 import { localDb } from '../services/localDb.ts';
+import { performPushSync } from '../services/syncService.ts';
 
 interface AutoPalState {
   user: UserProfile | null;
@@ -9,6 +10,7 @@ interface AutoPalState {
   isInitialized: boolean;
   isRecovering: boolean;
   isLoading: boolean;
+  isSyncing: boolean;
   currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service' | 'diagnostic' | 'landing' | 'profile' | 'report';
   editingVehicleId: string | null;
   activeVehicleId: string | null; 
@@ -28,7 +30,8 @@ interface AutoPalState {
   setInitialized: (initialized: boolean) => void;
   setRecovering: (isRecovering: boolean) => void;
   setLoading: (loading: boolean) => void;
-  setCurrentView: (view: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service' | 'diagnostic' | 'landing' | 'profile' | 'report') => void;
+  setSyncing: (isSyncing: boolean) => void;
+  setCurrentView: (view: any) => void;
   setEditingVehicle: (id: string | null) => void;
   setActiveVehicleId: (id: string | null) => void;
   setTransientVehicle: (vehicle: TransientVehicle | null) => void;
@@ -54,6 +57,7 @@ interface AutoPalState {
   setMarketplaceFilter: (filter: string) => void;
   reset: () => void;
   loadLocalData: () => Promise<void>;
+  triggerSync: () => Promise<void>;
 }
 
 export const useAutoPalStore = create<AutoPalState>((set, get) => ({
@@ -62,6 +66,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   isInitialized: false,
   isRecovering: false,
   isLoading: false,
+  isSyncing: false,
   currentView: 'landing',
   editingVehicleId: null,
   activeVehicleId: null,
@@ -76,14 +81,40 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   marketplace: [],
   marketplaceFilter: '',
 
+  triggerSync: async () => {
+    if (get().isSyncing) return;
+    set({ isSyncing: true });
+    try {
+      await performPushSync();
+    } finally {
+      set({ isSyncing: false });
+    }
+  },
+
   loadLocalData: async () => {
     const localVehicles = await localDb.getVehicles();
-    if (localVehicles.length > 0) {
-      set({ 
-        vehicles: localVehicles,
-        activeVehicleId: get().activeVehicleId || localVehicles[0].id
-      });
+    const activeId = get().activeVehicleId || (localVehicles.length > 0 ? localVehicles[0].id : null);
+    
+    let localFuel: FuelLog[] = [];
+    let localService: ServiceLog[] = [];
+    let localTasks: MaintenanceTask[] = [];
+
+    if (activeId) {
+      localFuel = await localDb.getFuelLogs(activeId);
+      localService = await localDb.getLogs(activeId);
+      localTasks = await localDb.getTasks(activeId);
     }
+
+    set({ 
+      vehicles: localVehicles,
+      activeVehicleId: activeId,
+      fuelLogs: localFuel,
+      serviceLogs: localService,
+      tasks: localTasks
+    });
+    
+    // Background sync once loaded
+    get().triggerSync();
   },
 
   setSession: (session) => {
@@ -91,39 +122,26 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       if (get().session !== null) set({ session: null, user: null });
       return;
     }
-
     const { user: supabaseUser } = session;
-    const currentState = get();
     const meta = supabaseUser.user_metadata || {};
-
-    // Fix: Prioritize snake_case metadata keys to match Supabase schema standards
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
-      displayName: meta.display_name || meta['Display name'] || meta.displayName || meta.full_name || '',
-      phone: meta.phone || meta['Phone'] || '',
+      displayName: meta.display_name || meta.full_name || '',
+      phone: meta.phone || '',
       tier: meta.tier || 'free',
       role: meta.role || 'user',
       onboarded: meta.onboarded || false,
       createdAt: supabaseUser.created_at || new Date().toISOString(),
     };
-
-    const isIdentityEqual = 
-      currentState.user?.id === newUserObj.id &&
-      currentState.user?.displayName === newUserObj.displayName &&
-      currentState.user?.phone === newUserObj.phone &&
-      currentState.user?.tier === newUserObj.tier &&
-      currentState.user?.role === newUserObj.role;
-
-    if (!isIdentityEqual || currentState.session?.access_token !== session.access_token) {
-      set({ session, user: newUserObj });
-    }
+    set({ session, user: newUserObj });
   },
   
   setUser: (user) => set({ user }),
   setInitialized: (initialized) => set({ isInitialized: initialized }),
   setRecovering: (isRecovering) => set({ isRecovering }),
   setLoading: (loading) => set({ isLoading: loading }),
+  setSyncing: (isSyncing) => set({ isSyncing }),
   setCurrentView: (currentView) => set({ currentView }),
   setEditingVehicle: (editingVehicleId) => set({ editingVehicleId }),
   setActiveVehicleId: (activeVehicleId) => set({ activeVehicleId }),
@@ -140,7 +158,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       vehicles,
       activeVehicleId: get().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
     });
-    // Update local cache
     vehicles.forEach(v => localDb.saveVehicle(v));
   },
   addVehicle: (vehicle) => {
@@ -149,76 +166,81 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       activeVehicleId: vehicle.id 
     }));
     localDb.saveVehicle(vehicle);
+    get().triggerSync();
   },
   updateVehicleStore: (vehicle) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicle.id ? vehicle : v)
     }));
     localDb.saveVehicle(vehicle);
+    get().triggerSync();
   },
   syncVehicleState: (vehicleId, updates) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, ...updates } : v)
     }));
     const updated = get().vehicles.find(v => v.id === vehicleId);
-    if (updated) localDb.saveVehicle(updated);
+    if (updated) {
+      localDb.saveVehicle(updated);
+      get().triggerSync();
+    }
   },
   removeVehicleStore: (vehicleId) => {
     set((state) => ({
       vehicles: state.vehicles.filter(v => v.id !== vehicleId),
-      tasks: state.tasks.filter(t => t.vehicleId !== vehicleId),
-      serviceLogs: state.serviceLogs.filter(l => l.vehicleId !== vehicleId),
-      fuelLogs: state.fuelLogs.filter(l => l.vehicleId !== vehicleId),
-      activeVehicleId: state.activeVehicleId === vehicleId ? (state.vehicles.length > 1 ? state.vehicles.find(v => v.id !== vehicleId)?.id || null : null) : state.activeVehicleId
+      activeVehicleId: state.activeVehicleId === vehicleId ? (state.vehicles.find(v => v.id !== vehicleId)?.id || null) : state.activeVehicleId
     }));
     localDb.deleteVehicle(vehicleId);
   },
   updateMileage: (vehicleId, mileage) => {
     set((state) => ({
-      vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, mileage } : v)
+      vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, mileage, isDirty: true } : v)
     }));
     const updated = get().vehicles.find(v => v.id === vehicleId);
-    if (updated) localDb.saveVehicle(updated);
+    if (updated) {
+      localDb.saveVehicle(updated);
+      get().triggerSync();
+    }
   },
   completeTask: (taskId, cost, currentMileage) => {
     set((state) => ({
-      tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'completed' } : t)
+      tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'completed', isDirty: true } : t)
     }));
     const updatedTask = get().tasks.find(t => t.id === taskId);
-    if (updatedTask) localDb.saveTask(updatedTask);
+    if (updatedTask) {
+      localDb.saveTask(updatedTask);
+      get().triggerSync();
+    }
   },
   setTasks: (tasks) => {
     set({ tasks });
     localDb.saveTasksBatch(tasks);
   },
-  setServiceLogs: (serviceLogs) => {
-    set({ serviceLogs });
-    // Batch save to local
-    serviceLogs.forEach(l => localDb.saveLog(l));
-  },
+  setServiceLogs: (serviceLogs) => set({ serviceLogs }),
   addServiceLog: (log) => {
     set((state) => ({ serviceLogs: [log, ...state.serviceLogs] }));
     localDb.saveLog(log);
+    get().triggerSync();
   },
   updateServiceLogStore: (log) => {
     set((state) => ({
       serviceLogs: state.serviceLogs.map(l => l.id === log.id ? log : l)
     }));
     localDb.saveLog(log);
+    get().triggerSync();
   },
-  setFuelLogs: (fuelLogs) => {
-    set({ fuelLogs });
-    fuelLogs.forEach(l => localDb.saveFuelLog(l));
-  },
+  setFuelLogs: (fuelLogs) => set({ fuelLogs }),
   addFuelLogStore: (log) => {
     set((state) => ({ fuelLogs: [log, ...state.fuelLogs] }));
     localDb.saveFuelLog(log);
+    get().triggerSync();
   },
   updateFuelLogStore: (log) => {
     set((state) => ({
       fuelLogs: state.fuelLogs.map(l => l.id === log.id ? log : l)
     }));
     localDb.saveFuelLog(log);
+    get().triggerSync();
   },
   removeFuelLogStore: (logId) => set((state) => ({
     fuelLogs: state.fuelLogs.filter(l => l.id !== logId)
@@ -227,21 +249,12 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     aiValuationReports: { ...state.aiValuationReports, [vehicleId]: report }
   })),
   setMarketplace: (marketplace) => set({ marketplace }),
-  setSuggestedParts: (parts: string[]) => set({ suggestedPartNames: parts }),
-  setMarketplaceFilter: (filter: string) => set({ marketplaceFilter: filter }),
+  setSuggestedParts: (parts) => set({ suggestedPartNames: parts }),
+  setMarketplaceFilter: (filter) => set({ marketplaceFilter: filter }),
 
   reset: () => set({ 
-    user: null, 
-    session: null, 
-    vehicles: [], 
-    tasks: [], 
-    serviceLogs: [],
-    fuelLogs: [],
-    aiValuationReports: {},
-    activeVehicleId: null,
-    transientVehicle: null,
-    guestAttempts: 0,
-    isRecovering: false,
-    marketplaceFilter: ''
+    user: null, session: null, vehicles: [], tasks: [], serviceLogs: [], fuelLogs: [],
+    aiValuationReports: {}, activeVehicleId: null, transientVehicle: null, guestAttempts: 0,
+    isRecovering: false, marketplaceFilter: '', isSyncing: false
   }),
 }));

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -19,7 +20,7 @@ import { getAdvancedDiagnostic } from './services/geminiService.ts';
 
 const App: React.FC = () => {
   const { 
-    session, setSession, isInitialized, setInitialized, 
+    session, setSession, isInitialized, setInitialized, isSyncing, loadLocalData,
     user, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
     setSuggestedParts, transientVehicle, removeVehicleStore
   } = useAutoPalStore();
@@ -33,7 +34,10 @@ const App: React.FC = () => {
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
-  useEffect(() => { validateEnv(); }, []);
+  useEffect(() => { 
+    validateEnv();
+    loadLocalData(); // Initial local master load
+  }, []);
 
   /**
    * INITIAL AUTH LOAD
@@ -62,15 +66,15 @@ const App: React.FC = () => {
   }, [setSession, setInitialized]);
 
   /**
-   * STRATEGIC ROUTING
+   * STRATEGIC ROUTING & CLOUD HYDRATION
    */
   useEffect(() => {
     if (session && user) {
       fetchUserVehicles().then((fetchedVehicles) => {
-        setVehicles(fetchedVehicles);
+        if (fetchedVehicles.length > 0) setVehicles(fetchedVehicles);
         const isTransitioning = currentView === 'landing' || currentView === 'garage';
         if (isTransitioning) {
-          if (fetchedVehicles.length === 0) {
+          if (fetchedVehicles.length === 0 && vehicles.length === 0) {
             setCurrentView('onboarding');
           } else {
             setCurrentView('garage');
@@ -105,6 +109,13 @@ const App: React.FC = () => {
     setIsMobileMenuOpen(false);
     setCurrentView('edit');
   };
+
+  const SyncShield = () => (
+    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[8px] font-black uppercase tracking-widest transition-all ${isSyncing ? 'bg-blue-50 border-blue-100 text-blue-500' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
+      <div className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-blue-500 animate-pulse' : 'bg-emerald-500'}`}></div>
+      {isSyncing ? 'Vault Syncing...' : 'Cloud Mirrored'}
+    </div>
+  );
 
   if (!isInitialized) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -177,7 +188,10 @@ const App: React.FC = () => {
   const NavigationMenu = () => (
     <>
       <div className="pb-4">
-        <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2 mt-2">Navigation</p>
+        <div className="flex items-center justify-between px-5 mb-4">
+          <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.4em]">Navigation</p>
+          <SyncShield />
+        </div>
         <NavItem view="garage" label="Garage Overview" icon="🏠" />
         <NavItem view="diagnostic" label="AI Mechanic" icon="✧" isNeural />
         <NavItem view="service" label="Service History" icon="🛠️" />
@@ -200,7 +214,6 @@ const App: React.FC = () => {
           <span className={`text-[10px] transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}>▾</span>
         </button>
 
-        {/* Mobile Accordion Only */}
         <div className={`lg:hidden transition-all duration-300 overflow-hidden ${isSettingsOpen ? 'max-h-[400px] opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
           <div className="bg-slate-50/50 rounded-2xl p-2 border border-slate-100/50 ml-2">
             <ManageVehicleControls />
@@ -233,26 +246,27 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
-      {/* Mobile Header */}
       <header className="lg:hidden h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 z-[100] w-full">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
           <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-md">A</div>
           <span className="font-black tracking-tighter text-slate-900 text-sm">AutoPal NG</span>
         </div>
-        <button 
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="text-slate-900 p-2 focus:outline-none"
-          aria-label="Menu"
-        >
-          <div className="w-6 h-5 relative flex flex-col justify-between">
-            <span className={`w-full h-0.5 bg-slate-900 transition-all duration-300 ${isMobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`}></span>
-            <span className={`w-full h-0.5 bg-slate-900 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0' : ''}`}></span>
-            <span className={`w-full h-0.5 bg-slate-900 transition-all duration-300 ${isMobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
-          </div>
-        </button>
+        <div className="flex items-center gap-4">
+          <SyncShield />
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="text-slate-900 p-2 focus:outline-none"
+            aria-label="Menu"
+          >
+            <div className="w-6 h-5 relative flex flex-col justify-between">
+              <span className={`w-full h-0.5 bg-slate-900 transition-all duration-300 ${isMobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`}></span>
+              <span className={`w-full h-0.5 bg-slate-900 transition-all duration-300 ${isMobileMenuOpen ? 'opacity-0' : ''}`}></span>
+              <span className={`w-full h-0.5 bg-slate-900 transition-all duration-300 ${isMobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
+            </div>
+          </button>
+        </div>
       </header>
 
-      {/* Mobile Drawer Overlay */}
       <div 
         className={`lg:hidden fixed inset-0 bg-slate-950/20 backdrop-blur-sm z-[110] transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsMobileMenuOpen(false)}
@@ -295,7 +309,6 @@ const App: React.FC = () => {
         </aside>
       </div>
 
-      {/* Desktop Sidebar & Flyout Overlay */}
       <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-[100] overflow-visible">
         <div className="p-8 pb-6 shrink-0 bg-white relative z-[101]">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
@@ -333,7 +346,6 @@ const App: React.FC = () => {
           </button>
         </div>
 
-        {/* Desktop Slide-out Flyout Panel */}
         <div 
           className={`absolute top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[20px_0_40px_rgba(0,0,0,0.05)] z-[90] transition-all duration-500 ease-in-out flex flex-col pt-24 px-6
             ${isSettingsOpen ? 'translate-x-[300px] opacity-100' : 'translate-x-0 opacity-0 pointer-events-none'}
@@ -355,7 +367,6 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <div className="flex-grow lg:ml-[300px] flex flex-col min-h-screen w-full overflow-x-hidden">
         <main 
           onClick={() => {
@@ -396,7 +407,6 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-2xl">
         <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}>
           <span className="text-lg">🏠</span>

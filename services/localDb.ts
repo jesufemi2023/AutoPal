@@ -4,8 +4,7 @@ import { Vehicle, MaintenanceTask, ServiceLog, FuelLog } from '../shared/types.t
 
 /**
  * AutoPal Local Persistence Engine (IndexedDB)
- * Ensures the app works offline and data persists across refreshes.
- * Stores the full Vehicle object including latestAiAudit.
+ * The primary "Master Record" for the app.
  */
 
 const db = new Dexie('AutoPalGarage') as Dexie & {
@@ -15,13 +14,12 @@ const db = new Dexie('AutoPalGarage') as Dexie & {
   fuelLogs: EntityTable<FuelLog, 'id'>;
 };
 
-// We index keys we need to query by frequently.
-// Dexie stores the entire object, so fields like `latestAiAudit` are safe.
-db.version(2).stores({
-  vehicles: 'id, ownerId, vin, isDirty',
-  tasks: 'id, vehicleId, status, isDirty',
-  serviceLogs: 'id, vehicleId, isDirty',
-  fuelLogs: 'id, vehicleId, isDirty'
+// Versioning with indexes for sync and retrieval
+db.version(3).stores({
+  vehicles: 'id, ownerId, vin, isDirty, syncStatus',
+  tasks: 'id, vehicleId, status, isDirty, syncStatus',
+  serviceLogs: 'id, vehicleId, isDirty, syncStatus',
+  fuelLogs: 'id, vehicleId, isDirty, syncStatus'
 });
 
 export const localDb = {
@@ -39,22 +37,30 @@ export const localDb = {
   // Service Logs
   saveLog: (l: ServiceLog) => db.serviceLogs.put(l),
   getLogs: (vehicleId: string) => db.serviceLogs.where('vehicleId').equals(vehicleId).toArray(),
+  // Added getServiceLog to fetch a single service log by ID
+  getServiceLog: (id: string) => db.serviceLogs.get(id),
+  // Added deleteServiceLog to remove a single service log by ID
+  deleteServiceLog: (id: string) => db.serviceLogs.delete(id),
 
   // Fuel Logs
   saveFuelLog: (l: FuelLog) => db.fuelLogs.put(l),
   getFuelLogs: (vehicleId: string) => db.fuelLogs.where('vehicleId').equals(vehicleId).toArray(),
+  // Added getFuelLog to fetch a single fuel log by ID
+  getFuelLog: (id: string) => db.fuelLogs.get(id),
+  // Added deleteFuelLog to remove a single fuel log by ID
+  deleteFuelLog: (id: string) => db.fuelLogs.delete(id),
   
-  // Dirty Records (for Sync Engine)
+  // Sync Intelligence
   getDirtyRecords: async () => {
-    const vehicles = await db.vehicles.where('isDirty').equals(1).toArray();
-    const tasks = await db.tasks.where('isDirty').equals(1).toArray();
-    const logs = await db.serviceLogs.where('isDirty').equals(1).toArray();
-    const fuel = await db.fuelLogs.where('isDirty').equals(1).toArray();
+    const vehicles = await db.vehicles.filter(v => v.isDirty === true).toArray();
+    const tasks = await db.tasks.filter(t => t.isDirty === true).toArray();
+    const logs = await db.serviceLogs.filter(l => l.isDirty === true).toArray();
+    const fuel = await db.fuelLogs.filter(f => f.isDirty === true).toArray();
     return { vehicles, tasks, logs, fuel };
   },
   
-  clearDirtyFlag: async (id: string, table: 'vehicles' | 'tasks' | 'serviceLogs' | 'fuelLogs') => {
-    return (db[table] as any).update(id, { isDirty: false, lastSyncedAt: new Date().toISOString() });
+  markSynced: async (id: string, table: 'vehicles' | 'tasks' | 'serviceLogs' | 'fuelLogs') => {
+    return (db[table] as any).update(id, { isDirty: false, syncStatus: 'synced' });
   }
 };
 

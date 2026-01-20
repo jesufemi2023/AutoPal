@@ -1,49 +1,69 @@
+
 import { localDb } from './localDb.ts';
-// Replaced updateVehicleData with updateVehicle
-import { updateVehicle, createVehicle, createMaintenanceTasksBatch, updateTaskStatus } from './vehicleService.ts';
-import { getConfig } from './configService.ts';
-import { Tier } from '../shared/types.ts';
+import { supabase } from '../auth/supabaseClient.ts';
+import { updateVehicle, updateTaskStatus } from './vehicleService.ts';
+import { addFuelLog as cloudAddFuel, updateFuelLog as cloudUpdateFuel } from './fuelService.ts';
+import { createServiceLog as cloudAddService, updateServiceLog as cloudUpdateService } from './logService.ts';
 
 /**
- * Sync Engine - Checkpoint Implementation
- * Minimizes cloud hits by only syncing "dirty" or milestone-reaching data.
+ * Sync Engine
+ * Orchestrates the "Local-Master to Cloud-Mirror" synchronization.
  */
 
-export const performSync = async (userTier: Tier = 'free') => {
-  const config = getConfig(userTier);
-  const { vehicles, tasks, logs } = await localDb.getDirtyRecords();
+export const performPushSync = async () => {
+  if (!supabase) return { status: 'offline' };
   
-  console.log(`SyncEngine: Processing ${vehicles.length + tasks.length + logs.length} updates...`);
+  const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords();
+  const total = vehicles.length + tasks.length + logs.length + fuel.length;
+  
+  if (total === 0) return { status: 'idle' };
 
-  // 1. Sync Vehicles
+  console.log(`SyncEngine: Pushing ${total} dirty records to vault...`);
+
+  // 1. Sync Vehicles (Updates)
   for (const v of vehicles) {
     try {
-      // Replaced updateVehicleData with updateVehicle
       await updateVehicle(v.id, v);
-      await localDb.clearDirtyFlag(v.id, 'vehicles');
-    } catch (e) {
-      console.warn(`Sync failed for vehicle ${v.id}`, e);
-    }
+      await localDb.markSynced(v.id, 'vehicles');
+    } catch (e) { console.warn("Vehicle Sync Fail", e); }
   }
 
-  // 2. Sync Tasks
+  // 2. Sync Maintenance Tasks
   for (const t of tasks) {
     try {
       await updateTaskStatus(t.id, t.status);
-      await localDb.clearDirtyFlag(t.id, 'tasks');
-    } catch (e) {
-      console.warn(`Sync failed for task ${t.id}`, e);
-    }
+      await localDb.markSynced(t.id, 'tasks');
+    } catch (e) { console.warn("Task Sync Fail", e); }
   }
 
-  // Note: Logs are typically append-only and handled via dedicated batch service.
-  return { status: 'success', timestamp: new Date().toISOString() };
+  // 3. Sync Fuel Logs (Sequential to prevent race conditions on odometer)
+  for (const f of fuel) {
+    try {
+      // In a real local-first app, we'd check if it exists in cloud. 
+      // For MVP, we use the existing fuelService methods.
+      await cloudAddFuel(f);
+      await localDb.markSynced(f.id, 'fuelLogs');
+    } catch (e) { console.warn("Fuel Sync Fail", e); }
+  }
+
+  // 4. Sync Service Logs
+  for (const l of logs) {
+    try {
+      await cloudAddService(l);
+      await localDb.markSynced(l.id, 'serviceLogs');
+    } catch (e) { console.warn("Service Sync Fail", e); }
+  }
+
+  return { status: 'success', pushed: total };
 };
 
 /**
- * Determines if a mileage update warrants a cloud sync based on tier delta.
+ * Inbound Sync: Pours Cloud Master into Local Mirror
  */
-export const shouldSyncMileage = (oldVal: number, newVal: number, tier: Tier): boolean => {
-  const delta = Math.abs(newVal - oldVal);
-  return delta >= getConfig(tier).mileageSyncDelta;
+export const performPullSync = async (userId: string) => {
+  if (!supabase) return;
+
+  // This is a simplified pull for the MVP
+  // Ideally, we fetch all user data and bulkPut into Dexie
+  console.log("SyncEngine: Pulling latest from cloud vault...");
 };
