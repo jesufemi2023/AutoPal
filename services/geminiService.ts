@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { ENV } from "./envService.ts";
 import { PROMPTS } from "./promptService.ts";
@@ -19,10 +20,10 @@ export const generateAIValuation = async (
   const ai = getAIClient();
   
   const telemetry = {
-    vehicle: { make: vehicle.make, model: vehicle.model, year: vehicle.year, mileage: vehicle.mileage, bodyType: vehicle.bodyType, fuel: vehicle.fuelType },
+    vehicle: { make: vehicle.make, model: vehicle.model, year: vehicle.year, mileage: vehicle.mileage, bodyType: vehicle.bodyType, fuel: vehicle.fuelType, engineSize: vehicle.engineSize },
     pendingTasks: tasks.filter(t => t.status === 'pending').map(t => ({ title: t.title, due: t.dueMileage, cost: t.estimatedCost, cat: t.category })),
     recentService: serviceLogs.slice(0, 15).map(l => ({ type: l.serviceType, date: l.serviceDate, km: l.mileageAtService, cost: l.cost, ver: l.verificationLevel })),
-    recentFuel: fuelLogs.slice(0, 10).map(l => ({ km: l.odometerKm, lit: l.liters, full: l.isFullTank }))
+    recentFuel: fuelLogs.slice(0, 15).map(l => ({ km: l.odometerKm, lit: l.liters, cost: l.totalCost, full: l.isFullTank }))
   };
 
   try {
@@ -31,16 +32,26 @@ export const generateAIValuation = async (
       contents: JSON.stringify(telemetry),
       config: {
         temperature: 0, 
-        systemInstruction: `You are the AutoPal NG High-Confidence Asset Audit Engine. 
-        Analyze vehicle telemetry for valuation and health auditing.
+        systemInstruction: `You are the AutoPal NG Metabolic & Financial Audit Engine. 
+        Perform a 4-quadrant cross-examination of the vehicle's telemetry.
         
-        CRITICAL RULES FOR AUDITED SCORES (0-100):
-        1. vitality: Audit the physical mechanical health. Reduce for overdue tasks, high fuel variance, or old age.
-        2. discipline: Audit the OWNER'S record-keeping integrity. High score requires frequent logs with "mechanic_verified" or "receipt_verified" status. Low score if gaps exist between services or most logs are "self_declared".
+        1. METABOLIC AUDIT: 
+           - Calculate true KM/L from fuel logs.
+           - Compare against factory potential for this engine/vehicle class.
+           - Determine 'Consumption Gap' (%).
+           - Calculate 'Monthly Waste' (₦) based on actual costs.
         
-        MARKET RULES:
-        1. Base price must align with Lagos/Abuja market trends.
-        2. Currency: NGN.`,
+        2. ASSET VALUATION:
+           - Base price on Lagos/Abuja market trends.
+           - Deduct for 'Maintenance Debt' (overdue tasks).
+           - Add 'Integrity Premium' for verified logs.
+        
+        3. DIAGNOSTICS:
+           - Hypothesize engineering faults if metabolism is poor or maintenance is lagged.
+        
+        RULES:
+        - Currency: NGN.
+        - Scores 0-100.`,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -59,6 +70,25 @@ export const generateAIValuation = async (
                 discipline: { type: Type.NUMBER }
               },
               required: ["vitality", "discipline"]
+            },
+            metabolicAudit: {
+              type: Type.OBJECT,
+              properties: {
+                trueKml: { type: Type.NUMBER },
+                consumptionGap: { type: Type.NUMBER },
+                monthlyWaste: { type: Type.NUMBER },
+                efficiencyRating: { type: Type.STRING }
+              },
+              required: ["trueKml", "consumptionGap", "monthlyWaste", "efficiencyRating"]
+            },
+            diagnostics: {
+              type: Type.OBJECT,
+              properties: {
+                primaryHypothesis: { type: Type.STRING },
+                reasoning: { type: Type.STRING },
+                severity: { type: Type.STRING, enum: ["normal", "advisory", "critical"] }
+              },
+              required: ["primaryHypothesis", "reasoning", "severity"]
             },
             insights: {
               type: Type.OBJECT,
@@ -84,7 +114,7 @@ export const generateAIValuation = async (
               required: ["trustPremium", "mechanicalVitality", "maintenanceDebt", "exitStrategy", "marketComparison"]
             }
           },
-          required: ["valuationNGN", "priceRange", "marketGrade", "auditedScores", "insights"]
+          required: ["valuationNGN", "priceRange", "marketGrade", "auditedScores", "metabolicAudit", "diagnostics", "insights"]
         }
       }
     });

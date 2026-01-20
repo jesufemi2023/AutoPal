@@ -43,6 +43,17 @@ export interface AIValuationReport {
     vitality: number;
     discipline: number;
   };
+  metabolicAudit: {
+    trueKml: number;
+    consumptionGap: number; // percentage variance
+    monthlyWaste: number;    // NGN wasted per month
+    efficiencyRating: string; // e.g. "Optimal", "Sub-par", "Critical"
+  };
+  diagnostics: {
+    primaryHypothesis: string;
+    reasoning: string;
+    severity: 'normal' | 'advisory' | 'critical';
+  };
   insights: {
     trustPremium: { value: number; description: string };
     mechanicalVitality: { score: number; description: string };
@@ -70,9 +81,6 @@ export interface HealthBreakdown {
   provenance: number; // Trust/Verification score
   metabolicStatus: 'optimal' | 'warning' | 'critical';
   wasteMonthly: number; // Estimated ₦ wasted
-  /**
-   * Variance percentage from the genetic baseline of the vehicle class.
-   */
   variance: number;
 }
 
@@ -97,7 +105,7 @@ export interface Vehicle {
   avgDailyKm?: number;
   efficiencyBaseline?: number; 
   isDirty?: boolean;
-  latestAiAudit?: AIValuationReport; // Persisted AI audit result
+  latestAiAudit?: AIValuationReport;
 }
 
 export interface FuelLog {
