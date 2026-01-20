@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
+import { Car } from 'lucide-react';
 
 const LandingTerminal: React.FC = () => {
   const { setTransientVehicle, setCurrentView, setLoading, guestAttempts, incrementGuestAttempts, session, reset } = useAutoPalStore();
@@ -63,7 +64,9 @@ const LandingTerminal: React.FC = () => {
             className="flex items-center gap-3 cursor-pointer group" 
             onClick={() => setCurrentView('landing')}
           >
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/20">A</div>
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center text-white group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/20">
+              <Car size={18} strokeWidth={2.5} />
+            </div>
             <span className="font-black text-white tracking-tighter uppercase text-sm">AutoPal NG</span>
           </div>
 

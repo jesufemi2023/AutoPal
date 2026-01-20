@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { signIn, signUp, signInWithGoogle, sendPasswordResetEmail, updatePassword, signOut } from '../auth/authService.ts';
 import { useAutoPalStore } from '../shared/store.ts';
+import { Car } from 'lucide-react';
 
 type AuthMode = 'login' | 'signup' | 'forgot' | 'reset';
 
@@ -97,7 +97,9 @@ const AuthScreen: React.FC = () => {
           onClick={() => setCurrentView('landing')}
           className="absolute top-8 left-8 flex items-center gap-2 group transition-all"
         >
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black text-xs shadow-md shadow-blue-500/20 group-hover:scale-110 transition-transform">A</div>
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-110 transition-transform">
+            <Car size={16} strokeWidth={2.5} />
+          </div>
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Back Home</span>
         </button>
 
