@@ -21,8 +21,8 @@ import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
 const App: React.FC = () => {
   const { 
     session, setSession, isInitialized, setInitialized, isSyncing, loadLocalData, hasDirtyData, triggerSync,
-    user, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
-    setSuggestedParts, transientVehicle, removeVehicleStore, reset
+    user, setUser, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
+    transientVehicle, removeVehicleStore, reset
   } = useAutoPalStore();
 
   const [isAskingAI, setIsAskingAI] = useState(false);
@@ -39,6 +39,7 @@ const App: React.FC = () => {
     loadLocalData();
   }, []);
 
+  // Sync session and fetch full user profile (including updated roles)
   useEffect(() => {
     const initAuth = async () => {
       if (!isSupabaseConfigured) {
@@ -49,12 +50,50 @@ const App: React.FC = () => {
         if (!supabase) return;
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         setSession(currentSession);
+        
+        if (currentSession?.user) {
+          // Fetch the latest role from the public Users table
+          const { data: profile } = await supabase
+            .from('Users')
+            .select('*')
+            .eq('id', currentSession.user.id)
+            .single();
+          
+          if (profile) {
+            setUser({
+              id: currentSession.user.id,
+              email: currentSession.user.email || '',
+              displayName: profile.display_name || '',
+              phone: profile.phone || '',
+              tier: profile.tier || 'free',
+              role: profile.role || 'user',
+              onboarded: profile.onboarded || false,
+              createdAt: profile.created_at || ''
+            });
+          }
+        }
+
         setInitialized(true);
         
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           setSession(session);
           if (!session) {
             reset();
+          } else {
+            // Refresh profile on auth change
+            const { data: profile } = await supabase.from('Users').select('*').eq('id', session.user.id).single();
+            if (profile) {
+              setUser({
+                id: session.user.id,
+                email: session.user.email || '',
+                displayName: profile.display_name || '',
+                phone: profile.phone || '',
+                tier: profile.tier || 'free',
+                role: profile.role || 'user',
+                onboarded: profile.onboarded || false,
+                createdAt: profile.created_at || ''
+              });
+            }
           }
         });
         return () => subscription.unsubscribe();
@@ -63,7 +102,7 @@ const App: React.FC = () => {
       }
     };
     initAuth();
-  }, [setSession, setInitialized, reset]);
+  }, [setSession, setInitialized, reset, setUser]);
 
   useEffect(() => {
     if (session && user && vehicles.length === 0) {
@@ -238,7 +277,7 @@ const App: React.FC = () => {
 
       {/* Vehicle Management Slide-out Panel - Positioned ABOVE Dashboard Area */}
       <div 
-        className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[115] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[20px] opacity-0 pointer-events-none translate-x-[-50px]'}`}
+        className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[20px] opacity-0 pointer-events-none translate-x-[-50px]'}`}
       >
         <div className="mb-10 px-2">
           <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Garage Controls</h4>
@@ -279,7 +318,7 @@ const App: React.FC = () => {
       {/* Responsive Backdrop for dismissing Management Panel */}
       {isManagePanelOpen && (
         <div 
-          className="hidden lg:block fixed inset-0 z-[110] cursor-default bg-slate-950/5 backdrop-blur-[2px] transition-all"
+          className="hidden lg:block fixed inset-0 z-[140] cursor-default bg-slate-950/5 backdrop-blur-[2px] transition-all"
           onClick={closeManagement}
         ></div>
       )}
