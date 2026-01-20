@@ -1,4 +1,3 @@
-
 export type Tier = 'free' | 'standard' | 'premium';
 export type UserRole = 'user' | 'admin';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback' | 'other';
@@ -46,8 +45,8 @@ export interface AIValuationReport {
   };
   metabolicAudit: {
     trueKml: number;
-    consumptionGap: number; // percentage
-    monthlyNeglectTax: number; // NGN wasted
+    consumptionGap: number; 
+    monthlyNeglectTax: number; 
     efficiencyTrend: 'improving' | 'stable' | 'degrading';
   };
   diagnostics: {
@@ -60,7 +59,7 @@ export interface AIValuationReport {
     reason: string;
     impact: string;
   }>;
-  strategicInsights: string[]; // Exactly 5 insights
+  strategicInsights: string[];
   insights: {
     trustPremium: { value: number; description: string };
     mechanicalVitality: { score: number; description: string };
@@ -83,11 +82,11 @@ export interface VehicleSpecs {
 }
 
 export interface HealthBreakdown {
-  metabolic: number; // Fuel efficiency score
-  hygiene: number;    // Maintenance adherence
-  provenance: number; // Trust/Verification score
+  metabolic: number;
+  hygiene: number;
+  provenance: number;
   metabolicStatus: 'optimal' | 'warning' | 'critical';
-  wasteMonthly: number; // Estimated ₦ wasted
+  wasteMonthly: number;
   variance: number;
 }
 

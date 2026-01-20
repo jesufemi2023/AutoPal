@@ -1,20 +1,17 @@
-
 import { supabase } from '../auth/supabaseClient.ts';
 import { FuelLog } from '../shared/types.ts';
 import { localDb } from './localDb.ts';
 
 /**
- * Fuel Intelligence Service (Local-First Implementation)
+ * Fuel Intelligence Service (Local-First)
  */
 
 export const fetchFuelLogs = async (vehicleId: string): Promise<FuelLog[]> => {
-  // Always try local first
   const localLogs = await localDb.getFuelLogs(vehicleId);
   if (localLogs.length > 0) return localLogs;
 
   if (!supabase) return [];
   
-  // Fallback to Cloud if local empty
   const { data, error } = await supabase
     .from('fuel_logs')
     .select('*')
@@ -23,7 +20,7 @@ export const fetchFuelLogs = async (vehicleId: string): Promise<FuelLog[]> => {
 
   if (error) return [];
   
-  const logs = (data || []).map(l => ({
+  const logs: FuelLog[] = (data || []).map(l => ({
     id: l.id,
     vehicleId: l.vehicle_id,
     liters: parseFloat(l.liters || '0'),
@@ -32,10 +29,10 @@ export const fetchFuelLogs = async (vehicleId: string): Promise<FuelLog[]> => {
     isFullTank: l.is_full_tank || false,
     vendor: l.vendor_brand,
     createdAt: l.captured_at || l.created_at,
-    syncStatus: 'synced' as const
+    syncStatus: 'synced',
+    isDirty: false
   }));
 
-  // Populate local cache
   for (const log of logs) {
     await localDb.saveFuelLog(log);
   }
@@ -46,19 +43,17 @@ export const fetchFuelLogs = async (vehicleId: string): Promise<FuelLog[]> => {
 export const addFuelLog = async (log: Omit<FuelLog, 'id' | 'createdAt'>): Promise<FuelLog> => {
   const newLog: FuelLog = {
     ...log,
-    id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `local-fuel-${Date.now()}`,
     createdAt: new Date().toISOString(),
     syncStatus: 'pending',
     isDirty: true
   };
 
-  // Immediate Local Save
   await localDb.saveFuelLog(newLog);
   return newLog;
 };
 
 export const updateFuelLog = async (logId: string, updates: Partial<FuelLog>): Promise<FuelLog> => {
-  // Fix: Use getFuelLog method instead of accessing fuelLogs property directly
   const existing = await localDb.getFuelLog(logId);
   if (!existing) throw new Error("Record not found locally");
 
@@ -74,17 +69,13 @@ export const updateFuelLog = async (logId: string, updates: Partial<FuelLog>): P
 };
 
 export const deleteFuelLog = async (logId: string): Promise<void> => {
-  // Fix: Use deleteFuelLog method instead of accessing fuelLogs property directly
   await localDb.deleteFuelLog(logId);
-  // Mark for cloud deletion (simplified for MVP: just delete cloud if possible)
+  // Mark for cloud deletion (Manual sync will handle cleanup in production)
   if (supabase && !logId.startsWith('local-')) {
     await supabase.from('fuel_logs').delete().eq('id', logId);
   }
 };
 
-/**
- * Existing Math logic (Unchanged as requested)
- */
 export const calculateLastEfficiency = (logs: FuelLog[]): number | null => {
   if (logs.length < 2) return null;
   const sorted = [...logs].sort((a, b) => b.odometerKm - a.odometerKm);

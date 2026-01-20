@@ -1,4 +1,3 @@
-
 import Dexie, { type EntityTable } from 'dexie';
 import { Vehicle, MaintenanceTask, ServiceLog, FuelLog } from '../shared/types.ts';
 
@@ -15,7 +14,7 @@ const db = new Dexie('AutoPalGarage') as Dexie & {
 };
 
 // Versioning with indexes for sync and retrieval
-db.version(3).stores({
+db.version(4).stores({
   vehicles: 'id, ownerId, vin, isDirty, syncStatus',
   tasks: 'id, vehicleId, status, isDirty, syncStatus',
   serviceLogs: 'id, vehicleId, isDirty, syncStatus',
@@ -33,21 +32,18 @@ export const localDb = {
   saveTask: (t: MaintenanceTask) => db.tasks.put(t),
   saveTasksBatch: (ts: MaintenanceTask[]) => db.tasks.bulkPut(ts),
   getTasks: (vehicleId: string) => db.tasks.where('vehicleId').equals(vehicleId).toArray(),
+  getTask: (id: string) => db.tasks.get(id),
   
   // Service Logs
   saveLog: (l: ServiceLog) => db.serviceLogs.put(l),
   getLogs: (vehicleId: string) => db.serviceLogs.where('vehicleId').equals(vehicleId).toArray(),
-  // Added getServiceLog to fetch a single service log by ID
   getServiceLog: (id: string) => db.serviceLogs.get(id),
-  // Added deleteServiceLog to remove a single service log by ID
   deleteServiceLog: (id: string) => db.serviceLogs.delete(id),
 
   // Fuel Logs
   saveFuelLog: (l: FuelLog) => db.fuelLogs.put(l),
   getFuelLogs: (vehicleId: string) => db.fuelLogs.where('vehicleId').equals(vehicleId).toArray(),
-  // Added getFuelLog to fetch a single fuel log by ID
   getFuelLog: (id: string) => db.fuelLogs.get(id),
-  // Added deleteFuelLog to remove a single fuel log by ID
   deleteFuelLog: (id: string) => db.fuelLogs.delete(id),
   
   // Sync Intelligence

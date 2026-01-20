@@ -1,10 +1,9 @@
-
 import { supabase } from '../auth/supabaseClient.ts';
 import { ServiceLog } from '../shared/types.ts';
 import { localDb } from './localDb.ts';
 
 /**
- * Log Intelligence Service (Local-First Implementation)
+ * Log Intelligence Service (Local-First)
  */
 
 export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]> => {
@@ -21,7 +20,7 @@ export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]>
 
   if (error) return [];
   
-  const logs = (data || []).map(row => ({
+  const logs: ServiceLog[] = (data || []).map(row => ({
     id: row.id,
     vehicleId: row.vehicle_id,
     taskId: row.task_id,
@@ -37,7 +36,8 @@ export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]>
     updatedAt: row.updated_at,
     verificationLevel: row.verification_level,
     receiptUrl: row.receipt_url,
-    syncStatus: 'synced' as const
+    syncStatus: 'synced',
+    isDirty: false
   }));
 
   for (const log of logs) {
@@ -61,7 +61,6 @@ export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' 
 };
 
 export const updateServiceLog = async (id: string, updates: Partial<ServiceLog>): Promise<ServiceLog> => {
-  // Fix: Use getServiceLog method instead of accessing serviceLogs property directly
   const existing = await localDb.getServiceLog(id);
   if (!existing) throw new Error("Record not found locally");
 
@@ -77,7 +76,6 @@ export const updateServiceLog = async (id: string, updates: Partial<ServiceLog>)
 };
 
 export const deleteServiceLog = async (id: string): Promise<void> => {
-  // Fix: Use deleteServiceLog method instead of accessing serviceLogs property directly
   await localDb.deleteServiceLog(id);
   if (supabase && !id.startsWith('local-')) {
     await supabase.from('service_logs').delete().eq('id', id);

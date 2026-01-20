@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
 import { localDb } from '../services/localDb.ts';
@@ -11,6 +10,7 @@ interface AutoPalState {
   isRecovering: boolean;
   isLoading: boolean;
   isSyncing: boolean;
+  hasDirtyData: boolean;
   currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service' | 'diagnostic' | 'landing' | 'profile' | 'report';
   editingVehicleId: string | null;
   activeVehicleId: string | null; 
@@ -58,6 +58,7 @@ interface AutoPalState {
   reset: () => void;
   loadLocalData: () => Promise<void>;
   triggerSync: () => Promise<void>;
+  checkDirtyStatus: () => Promise<void>;
 }
 
 export const useAutoPalStore = create<AutoPalState>((set, get) => ({
@@ -67,6 +68,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   isRecovering: false,
   isLoading: false,
   isSyncing: false,
+  hasDirtyData: false,
   currentView: 'landing',
   editingVehicleId: null,
   activeVehicleId: null,
@@ -81,11 +83,27 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   marketplace: [],
   marketplaceFilter: '',
 
+  checkDirtyStatus: async () => {
+    const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords();
+    set({ hasDirtyData: vehicles.length + tasks.length + logs.length + fuel.length > 0 });
+  },
+
   triggerSync: async () => {
     if (get().isSyncing) return;
     set({ isSyncing: true });
     try {
       await performPushSync();
+      await get().checkDirtyStatus();
+      // Re-load to ensure UI has latest cloud IDs
+      if (get().activeVehicleId) {
+        const vehicleId = get().activeVehicleId!;
+        const [logs, fuel, tasks] = await Promise.all([
+          localDb.getLogs(vehicleId),
+          localDb.getFuelLogs(vehicleId),
+          localDb.getTasks(vehicleId)
+        ]);
+        set({ serviceLogs: logs, fuelLogs: fuel, tasks: tasks });
+      }
     } finally {
       set({ isSyncing: false });
     }
@@ -113,8 +131,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       tasks: localTasks
     });
     
-    // Background sync once loaded
-    get().triggerSync();
+    await get().checkDirtyStatus();
   },
 
   setSession: (session) => {
@@ -159,21 +176,22 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       activeVehicleId: get().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
     });
     vehicles.forEach(v => localDb.saveVehicle(v));
+    get().checkDirtyStatus();
   },
   addVehicle: (vehicle) => {
     set((state) => ({ 
       vehicles: [vehicle, ...state.vehicles],
       activeVehicleId: vehicle.id 
     }));
-    localDb.saveVehicle(vehicle);
-    get().triggerSync();
+    localDb.saveVehicle({ ...vehicle, isDirty: true, syncStatus: 'pending' });
+    get().checkDirtyStatus();
   },
   updateVehicleStore: (vehicle) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicle.id ? vehicle : v)
     }));
-    localDb.saveVehicle(vehicle);
-    get().triggerSync();
+    localDb.saveVehicle({ ...vehicle, isDirty: true, syncStatus: 'pending' });
+    get().checkDirtyStatus();
   },
   syncVehicleState: (vehicleId, updates) => {
     set((state) => ({
@@ -181,8 +199,8 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     }));
     const updated = get().vehicles.find(v => v.id === vehicleId);
     if (updated) {
-      localDb.saveVehicle(updated);
-      get().triggerSync();
+      localDb.saveVehicle({ ...updated, isDirty: true, syncStatus: 'pending' });
+      get().checkDirtyStatus();
     }
   },
   removeVehicleStore: (vehicleId) => {
@@ -191,25 +209,26 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       activeVehicleId: state.activeVehicleId === vehicleId ? (state.vehicles.find(v => v.id !== vehicleId)?.id || null) : state.activeVehicleId
     }));
     localDb.deleteVehicle(vehicleId);
+    get().checkDirtyStatus();
   },
   updateMileage: (vehicleId, mileage) => {
     set((state) => ({
-      vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, mileage, isDirty: true } : v)
+      vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, mileage } : v)
     }));
     const updated = get().vehicles.find(v => v.id === vehicleId);
     if (updated) {
-      localDb.saveVehicle(updated);
-      get().triggerSync();
+      localDb.saveVehicle({ ...updated, isDirty: true, syncStatus: 'pending' });
+      get().checkDirtyStatus();
     }
   },
   completeTask: (taskId, cost, currentMileage) => {
     set((state) => ({
-      tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'completed', isDirty: true } : t)
+      tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'completed' } : t)
     }));
     const updatedTask = get().tasks.find(t => t.id === taskId);
     if (updatedTask) {
-      localDb.saveTask(updatedTask);
-      get().triggerSync();
+      localDb.saveTask({ ...updatedTask, isDirty: true, syncStatus: 'pending' });
+      get().checkDirtyStatus();
     }
   },
   setTasks: (tasks) => {
@@ -219,32 +238,36 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   setServiceLogs: (serviceLogs) => set({ serviceLogs }),
   addServiceLog: (log) => {
     set((state) => ({ serviceLogs: [log, ...state.serviceLogs] }));
-    localDb.saveLog(log);
-    get().triggerSync();
+    localDb.saveLog({ ...log, isDirty: true, syncStatus: 'pending' });
+    get().checkDirtyStatus();
   },
   updateServiceLogStore: (log) => {
     set((state) => ({
       serviceLogs: state.serviceLogs.map(l => l.id === log.id ? log : l)
     }));
-    localDb.saveLog(log);
-    get().triggerSync();
+    localDb.saveLog({ ...log, isDirty: true, syncStatus: 'pending' });
+    get().checkDirtyStatus();
   },
   setFuelLogs: (fuelLogs) => set({ fuelLogs }),
   addFuelLogStore: (log) => {
     set((state) => ({ fuelLogs: [log, ...state.fuelLogs] }));
-    localDb.saveFuelLog(log);
-    get().triggerSync();
+    localDb.saveFuelLog({ ...log, isDirty: true, syncStatus: 'pending' });
+    get().checkDirtyStatus();
   },
   updateFuelLogStore: (log) => {
     set((state) => ({
       fuelLogs: state.fuelLogs.map(l => l.id === log.id ? log : l)
     }));
-    localDb.saveFuelLog(log);
-    get().triggerSync();
+    localDb.saveFuelLog({ ...log, isDirty: true, syncStatus: 'pending' });
+    get().checkDirtyStatus();
   },
-  removeFuelLogStore: (logId) => set((state) => ({
-    fuelLogs: state.fuelLogs.filter(l => l.id !== logId)
-  })),
+  removeFuelLogStore: (logId) => {
+    set((state) => ({
+      fuelLogs: state.fuelLogs.filter(l => l.id !== logId)
+    }));
+    localDb.deleteFuelLog(logId);
+    get().checkDirtyStatus();
+  },
   setAIValuationReport: (vehicleId, report) => set((state) => ({
     aiValuationReports: { ...state.aiValuationReports, [vehicleId]: report }
   })),
@@ -255,6 +278,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   reset: () => set({ 
     user: null, session: null, vehicles: [], tasks: [], serviceLogs: [], fuelLogs: [],
     aiValuationReports: {}, activeVehicleId: null, transientVehicle: null, guestAttempts: 0,
-    isRecovering: false, marketplaceFilter: '', isSyncing: false
+    isRecovering: false, marketplaceFilter: '', isSyncing: false, hasDirtyData: false
   }),
 }));
