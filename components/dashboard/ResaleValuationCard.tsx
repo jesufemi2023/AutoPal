@@ -42,6 +42,14 @@ export const ResaleValuationCard: React.FC<{
     'D': 'text-rose-500'
   };
 
+  // DEFENSIVE GUARD: Check for structure completeness to prevent legacy record crashes
+  const isLegacyReport = !!(cachedReport && (
+    !cachedReport.metabolicAudit || 
+    !cachedReport.diagnostics || 
+    !cachedReport.suggestedParts || 
+    !cachedReport.strategicInsights
+  ));
+
   if (isAnalyzing) {
     return (
       <div className="bg-slate-950 rounded-[2.5rem] p-12 text-white relative overflow-hidden shadow-3xl border border-blue-500/20 w-full h-full flex flex-col items-center justify-center min-h-[500px]">
@@ -65,20 +73,24 @@ export const ResaleValuationCard: React.FC<{
     );
   }
 
-  if (!cachedReport) {
+  if (!cachedReport || isLegacyReport) {
     return (
       <section className="bg-slate-950 rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-2xl group border border-white/5 w-full h-full flex flex-col min-h-[400px] items-center justify-center text-center">
         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-blue-600/5 blur-[120px] rounded-full"></div>
         <div className="space-y-8 max-w-sm relative z-10">
           <div className="w-20 h-20 bg-blue-600/10 rounded-[2rem] flex items-center justify-center text-3xl mx-auto border border-blue-500/20">✧</div>
           <div className="space-y-3">
-            <h4 className="text-2xl font-black tracking-tighter uppercase">Perform Neural Audit</h4>
+            <h4 className="text-2xl font-black tracking-tighter uppercase">
+              {isLegacyReport ? 'Update Required' : 'Perform Neural Audit'}
+            </h4>
             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-              Analyze your vehicle's mechanical & financial health to unlock accurate valuation and fault detection.
+              {isLegacyReport 
+                ? 'Your previous audit is out of date. Upgrade to unlock metabolic drift and energy waste metrics.' 
+                : 'Analyze your vehicle\'s mechanical & financial health to unlock accurate valuation and fault detection.'}
             </p>
           </div>
           <button onClick={handleAiAnalysis} className="w-full bg-blue-600 text-white py-6 rounded-2xl font-black uppercase tracking-[0.3em] text-[11px] shadow-xl hover:bg-blue-500 active:scale-95 transition-all">
-            Start AI Scan
+            {isLegacyReport ? 'Upgrade Audit Link' : 'Start AI Scan'}
           </button>
         </div>
       </section>
@@ -99,9 +111,9 @@ export const ResaleValuationCard: React.FC<{
              <div className="space-y-1">
                 <div className="text-5xl sm:text-7xl font-black tracking-tighter leading-none flex items-baseline">
                   <span className="text-2xl text-slate-600 mr-2 font-mono">₦</span>
-                  {cachedReport.valuationNGN.toLocaleString()}
+                  {cachedReport.valuationNGN?.toLocaleString() ?? '0'}
                 </div>
-                <p className="text-[10px] text-blue-500/60 font-black uppercase tracking-widest">Confidence: {cachedReport.auditedScores.discipline}% based on verified logs</p>
+                <p className="text-[10px] text-blue-500/60 font-black uppercase tracking-widest">Confidence: {cachedReport.auditedScores?.discipline ?? 0}% based on verified logs</p>
              </div>
           </div>
           <div className="text-right">
@@ -113,11 +125,13 @@ export const ResaleValuationCard: React.FC<{
         <div className="mt-10 pt-8 border-t border-white/5 grid grid-cols-2 gap-8 relative z-10">
            <div className="space-y-1">
               <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Vitality Score</div>
-              <div className={`text-2xl font-black ${cachedReport.auditedScores.vitality > 75 ? 'text-emerald-400' : 'text-rose-500'}`}>{cachedReport.auditedScores.vitality}%</div>
+              <div className={`text-2xl font-black ${(cachedReport.auditedScores?.vitality ?? 0) > 75 ? 'text-emerald-400' : 'text-rose-500'}`}>{cachedReport.auditedScores?.vitality ?? 0}%</div>
            </div>
            <div className="space-y-1">
               <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Price Span</div>
-              <div className="text-sm font-mono font-bold text-slate-300">₦{(cachedReport.priceRange.min/1e6).toFixed(1)}M - ₦{(cachedReport.priceRange.max/1e6).toFixed(1)}M</div>
+              <div className="text-sm font-mono font-bold text-slate-300">
+                ₦{((cachedReport.priceRange?.min ?? 0)/1e6).toFixed(1)}M - ₦{((cachedReport.priceRange?.max ?? 0)/1e6).toFixed(1)}M
+              </div>
            </div>
         </div>
       </section>
@@ -128,37 +142,37 @@ export const ResaleValuationCard: React.FC<{
         <div className="bg-white rounded-[2rem] p-8 border border-slate-100 space-y-6">
            <div className="flex justify-between items-center">
               <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">Metabolic Audit</h4>
-              <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${cachedReport.metabolicAudit.efficiencyTrend === 'improving' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                Trend: {cachedReport.metabolicAudit.efficiencyTrend}
+              <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${cachedReport.metabolicAudit?.efficiencyTrend === 'improving' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                Trend: {cachedReport.metabolicAudit?.efficiencyTrend ?? 'stable'}
               </span>
            </div>
            <div className="grid grid-cols-2 gap-4">
               <div className="bg-slate-50 p-4 rounded-2xl">
                  <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">True KM/L</div>
-                 <div className="text-xl font-black text-slate-900">{cachedReport.metabolicAudit.trueKml.toFixed(1)}</div>
+                 <div className="text-xl font-black text-slate-900">{cachedReport.metabolicAudit?.trueKml?.toFixed(1) ?? '0.0'}</div>
               </div>
               <div className="bg-slate-50 p-4 rounded-2xl">
                  <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Gap</div>
-                 <div className={`text-xl font-black ${cachedReport.metabolicAudit.consumptionGap > 15 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                   +{cachedReport.metabolicAudit.consumptionGap}%
+                 <div className={`text-xl font-black ${(cachedReport.metabolicAudit?.consumptionGap ?? 0) > 15 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                   +{cachedReport.metabolicAudit?.consumptionGap ?? 0}%
                  </div>
               </div>
            </div>
            <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center justify-between">
               <span className="text-[9px] font-black text-rose-600 uppercase tracking-widest">Monthly Neglect Tax</span>
-              <span className="text-lg font-black text-rose-700">{formatCurrency(cachedReport.metabolicAudit.monthlyNeglectTax)}</span>
+              <span className="text-lg font-black text-rose-700">{formatCurrency(cachedReport.metabolicAudit?.monthlyNeglectTax ?? 0)}</span>
            </div>
         </div>
 
         {/* Q2: Diagnostics */}
         <div className="bg-white rounded-[2rem] p-8 border border-slate-100 space-y-6 relative overflow-hidden">
            <div className="absolute top-0 right-0 p-4">
-              <div className={`w-3 h-3 rounded-full ${cachedReport.diagnostics.severity === 'critical' ? 'bg-rose-500 animate-ping' : 'bg-amber-500'}`}></div>
+              <div className={`w-3 h-3 rounded-full ${cachedReport.diagnostics?.severity === 'critical' ? 'bg-rose-500 animate-ping' : 'bg-amber-500'}`}></div>
            </div>
            <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">System Diagnostic</h4>
            <div className="space-y-4">
-              <div className="text-lg font-black text-slate-900 leading-tight">{cachedReport.diagnostics.faultHypothesis}</div>
-              <p className="text-[11px] text-slate-500 leading-relaxed italic border-l-2 border-blue-500 pl-4">"{cachedReport.diagnostics.reasoning}"</p>
+              <div className="text-lg font-black text-slate-900 leading-tight">{cachedReport.diagnostics?.faultHypothesis ?? 'Telemetry Stable'}</div>
+              <p className="text-[11px] text-slate-500 leading-relaxed italic border-l-2 border-blue-500 pl-4">"{cachedReport.diagnostics?.reasoning ?? 'No immediate anomalies detected.'}"</p>
            </div>
         </div>
 
@@ -169,7 +183,7 @@ export const ResaleValuationCard: React.FC<{
               <button onClick={handleAiAnalysis} className="text-[8px] font-black text-blue-500 uppercase tracking-widest">Rescan Engine</button>
            </div>
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {cachedReport.suggestedParts.map((part, i) => (
+              {cachedReport.suggestedParts?.map((part, i) => (
                 <div key={i} className="bg-white/5 border border-white/10 p-5 rounded-2xl flex justify-between items-center group hover:bg-white/10 transition-all cursor-pointer" 
                      onClick={() => { setMarketplaceFilter(part.name); setCurrentView('marketplace'); }}>
                    <div className="space-y-1">
@@ -178,26 +192,30 @@ export const ResaleValuationCard: React.FC<{
                    </div>
                    <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center text-xs group-hover:scale-110 transition-transform">🛒</div>
                 </div>
-              ))}
+              )) || (
+                <div className="col-span-2 p-10 text-center opacity-40 text-[9px] font-black uppercase tracking-widest">No Parts Specified</div>
+              )}
            </div>
         </div>
 
-        {/* Q4: 5 Strategic Insights */}
+        {/* Q4: Strategic Insights */}
         <div className="bg-blue-600 rounded-[2rem] p-8 text-white space-y-6 lg:col-span-2 shadow-xl shadow-blue-600/20">
            <h4 className="text-[10px] font-black text-blue-100 uppercase tracking-[0.3em]">Neural Insights Dossier</h4>
            <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-              {cachedReport.strategicInsights.map((insight, i) => (
+              {cachedReport.strategicInsights?.map((insight, i) => (
                 <div key={i} className="flex gap-4 items-start p-2 border-b border-blue-500/30 last:border-0">
                    <span className="text-lg opacity-40 shrink-0">0{i+1}</span>
                    <p className="text-[11px] font-bold leading-relaxed">{insight}</p>
                 </div>
-              ))}
+              )) || (
+                <div className="p-6 text-center opacity-60 text-[9px] font-black uppercase tracking-widest">Scanning Strategic Horizons...</div>
+              )}
            </div>
         </div>
       </div>
 
-      <div className="text-center pt-4">
-         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Dossier Timestamp: {new Date(cachedReport.timestamp).toLocaleString()} // Secure Audit ID: {cachedReport.timestamp.slice(-6)}</p>
+      <div className="text-center pt-4 pb-8">
+         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Dossier Timestamp: {new Date(cachedReport.timestamp).toLocaleString()} // Secure Audit ID: {cachedReport.timestamp?.slice(-6).toUpperCase() ?? 'UNK'}</p>
       </div>
     </div>
   );
