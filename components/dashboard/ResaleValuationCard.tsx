@@ -89,8 +89,8 @@ export const ResaleValuationCard: React.FC<{
                 : 'Perform a deep mechanical audit to certify your car\'s market value and detect hidden inefficiency.'}
             </p>
           </div>
-          <button onClick={handleAiAnalysis} className="w-full bg-blue-600 text-white py-6 rounded-2xl font-black uppercase tracking-[0.3em] text-[11px] shadow-xl hover:bg-blue-500 active:scale-95 transition-all">
-            {isLegacyReport ? 'Update Scan' : 'Run AI Condition Scan'}
+          <button onClick={handleAiAnalysis} className="w-full bg-blue-600 text-white py-8 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[12px] shadow-3xl hover:bg-blue-500 active:scale-95 transition-all mt-4 border-2 border-blue-400/20">
+            {isLegacyReport ? 'Run Full Update Scan' : 'Run New AI Condition Scan'}
           </button>
         </div>
       </section>
@@ -238,17 +238,22 @@ export const ResaleValuationCard: React.FC<{
         </div>
 
         {/* LARGE VISIBLE RUN SCAN BUTTON */}
-        <div className="lg:col-span-2 pt-4">
+        <div className="lg:col-span-2 pt-6">
            <button 
              onClick={handleAiAnalysis} 
-             className="w-full bg-slate-900 border-2 border-slate-800 text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[11px] shadow-2xl hover:bg-blue-600 hover:border-blue-500 transition-all active:scale-[0.98] flex items-center justify-center gap-4"
+             className="w-full bg-slate-900 border-2 border-blue-500/30 text-white py-10 rounded-[2.5rem] font-black uppercase tracking-[0.4em] text-[13px] shadow-[0_20px_50px_rgba(59,130,246,0.3)] hover:bg-blue-600 hover:border-blue-400 transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-3 group"
            >
-             <span className="text-lg">✧</span>
+             <span className="text-3xl group-hover:scale-125 transition-transform">✧</span>
              Run New AI Condition Scan
            </button>
-           <p className="text-center text-[7px] text-slate-400 font-black uppercase tracking-[0.4em] mt-4">
-             Last Scan: {new Date(cachedReport.timestamp).toLocaleString()}
-           </p>
+           <div className="flex justify-between items-center px-6 mt-4">
+              <p className="text-[7px] text-slate-400 font-black uppercase tracking-[0.4em]">
+                System Ready for Recalibration
+              </p>
+              <p className="text-[7px] text-slate-400 font-black uppercase tracking-[0.4em]">
+                Last Audit: {new Date(cachedReport.timestamp).toLocaleDateString()}
+              </p>
+           </div>
         </div>
       </div>
     </div>

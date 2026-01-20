@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
 import AuthScreen from './components/AuthScreen.tsx';
@@ -16,6 +16,7 @@ import { validateEnv } from './services/envService.ts';
 import { fetchUserVehicles, archiveVehicle } from './services/vehicleService.ts';
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
+import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
 
 const App: React.FC = () => {
   const { 
@@ -161,6 +162,8 @@ const App: React.FC = () => {
         <NavItem view="report" label="Ownership Report" icon="📄" />
         <NavItem view="profile" label="Pilot Profile" icon="👤" />
         
+        {user?.role === 'admin' && <NavItem view="admin" label="Admin Command" icon="⚡" />}
+
         <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`mt-2 flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsOpen ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}>
           <div className="flex items-center gap-4">
             <span className={`text-lg transition-transform ${isSettingsOpen ? 'rotate-90 text-blue-400' : 'group-hover:rotate-12'}`}>⚙</span>
@@ -285,6 +288,9 @@ const App: React.FC = () => {
         <button onClick={() => setCurrentView('fuel')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'fuel' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">⛽</span><span className="text-[7px] font-black uppercase tracking-widest">Fuel</span></button>
         <button onClick={() => setCurrentView('report')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'report' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">📄</span><span className="text-[7px] font-black uppercase tracking-widest">Report</span></button>
       </nav>
+
+      {/* GLOBAL FEEDBACK COMPONENT */}
+      <CalibrationTerminal />
     </div>
   );
 };

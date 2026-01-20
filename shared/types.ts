@@ -14,6 +14,17 @@ export type LogStatus = 'upcoming' | 'overdue' | 'completed';
 export type ServiceCategory = 'engine' | 'tires' | 'brakes' | 'fluids' | 'suspension' | 'other' | 'electrical' | 'cooling';
 export type VerificationLevel = 'self_declared' | 'receipt_verified' | 'mechanic_verified';
 
+export interface SystemFeedback {
+  id: string;
+  userId: string;
+  userEmail: string;
+  rating: number;
+  tags: string[];
+  comment: string;
+  vehicleContext?: string;
+  createdAt: string;
+}
+
 export interface UserProfile {
   id: string;
   email: string;
