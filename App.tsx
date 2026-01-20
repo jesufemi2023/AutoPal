@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -131,7 +132,7 @@ const App: React.FC = () => {
       }}
       className={`flex items-center gap-4 px-5 py-3.5 w-full transition-all group relative ${currentView === view ? 'sidebar-link-active' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
     >
-      <span className={`text-lg group-hover:scale-110 transition-transform ${isNeural && 'text-blue-500 animate-pulse'}`}>{icon}</span>
+      <span className={`text-lg group-hover:scale-110 transition-transform ${isNeural ? 'text-blue-500 animate-pulse' : ''}`}>{icon}</span>
       <span className="text-[9px] font-black uppercase tracking-[0.2em]">{label}</span>
       {currentView === view && (
         <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-blue-600 rounded-l-full"></div>
