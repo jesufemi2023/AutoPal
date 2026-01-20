@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { 
   fetchVehicleTasks, fetchVehicleServiceLogs, updateMileage, updateVehicle, fetchUserVehicles
@@ -27,12 +27,10 @@ const Dashboard: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const activeVehicle = useMemo(() => vehicles.find(v => v.id === activeVehicleId), [vehicles, activeVehicleId]);
-  
-  // PERFORMANCE FIX: Memoize arrays to prevent infinite re-renders
-  const vehicleTasks = useMemo(() => tasks.filter(t => t.vehicleId === activeVehicleId), [tasks, activeVehicleId]);
-  const activeServiceLogs = useMemo(() => serviceLogs.filter(l => l.vehicleId === activeVehicleId), [serviceLogs, activeVehicleId]);
-  const activeFuelLogs = useMemo(() => fuelLogs.filter(l => l.vehicleId === activeVehicleId), [fuelLogs, activeVehicleId]);
+  const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
+  const vehicleTasks = tasks.filter(t => t.vehicleId === activeVehicleId);
+  const activeServiceLogs = serviceLogs.filter(l => l.vehicleId === activeVehicleId);
+  const activeFuelLogs = fuelLogs.filter(l => l.vehicleId === activeVehicleId);
 
   // 1. Initial Local Load (Instant UX)
   useEffect(() => {
@@ -80,17 +78,16 @@ const Dashboard: React.FC = () => {
     }
   }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
 
-  // Real-time Health Recalculation (Local Evidence) with Drift Guard
+  // Real-time Health Recalculation (Local Evidence)
   useEffect(() => {
-    if (activeVehicle && vehicleTasks.length > 0) {
+    if (activeVehicle && tasks.length > 0) {
       const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
-      // Only update if score drift is significant to avoid infinite loops
-      if (Math.abs(newScore - activeVehicle.healthScore) > 0.5) {
+      if (newScore !== activeVehicle.healthScore) {
         updateVehicle(activeVehicle.id, { healthScore: newScore });
         updateVehicleStore({ ...activeVehicle, healthScore: newScore });
       }
     }
-  }, [vehicleTasks, activeVehicle?.mileage, activeFuelLogs, activeServiceLogs, updateVehicleStore]);
+  }, [tasks, activeVehicle?.mileage, activeFuelLogs, activeServiceLogs]);
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
