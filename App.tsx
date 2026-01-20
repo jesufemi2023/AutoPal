@@ -29,6 +29,7 @@ const App: React.FC = () => {
   const [symptom, setSymptom] = useState('');
   const [diagImage, setDiagImage] = useState<string | null>(null);
   const [aiAdvice, setAiAdvice] = useState<any>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
@@ -52,7 +53,7 @@ const App: React.FC = () => {
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           setSession(session);
-          // Security Fix: Purge local database and store memory if session is lost
+          // Security: If auth is lost, purge local data instantly
           if (!session) {
             reset();
           }
@@ -82,25 +83,36 @@ const App: React.FC = () => {
     if (!supabase) return;
     try {
       await supabase.auth.signOut();
-      await reset(); // Clears IndexedDB and Zustand Store
+      await reset();
       setIsMobileMenuOpen(false);
       setCurrentView('landing');
     } catch (e) {
       console.error("Signout Error:", e);
-      window.location.reload(); 
+      window.location.reload(); // Force fallback
     }
   };
 
-  const NavItem = ({ view, label, icon, isNeural = false }: { view: any; label: string; icon: string; isNeural?: boolean }) => (
-    <button 
-      onClick={() => { setCurrentView(view); setIsMobileMenuOpen(false); }}
-      className={`flex items-center gap-4 px-5 py-3.5 w-full transition-all group relative ${currentView === view ? 'sidebar-link-active' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
-    >
-      <span className={`text-lg group-hover:scale-110 transition-transform ${isNeural && 'text-blue-500 animate-pulse'}`}>{icon}</span>
-      <span className="text-[9px] font-black uppercase tracking-[0.2em]">{label}</span>
-      {currentView === view && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-blue-600 rounded-l-full"></div>}
-    </button>
-  );
+  const handleArchiveAsset = async () => {
+    if (!activeVehicleId || !activeVehicle) return;
+    const confirmed = confirm(`DELETE VEHICLE: Remove ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}?`);
+    if (!confirmed) return;
+
+    try {
+      await archiveVehicle(activeVehicleId);
+      removeVehicleStore(activeVehicleId);
+      setIsSettingsOpen(false);
+      setCurrentView('garage');
+    } catch (e: any) {
+      alert(`System Error: ${e.message}`);
+    }
+  };
+
+  const handleEditAsset = () => {
+    if (!activeVehicleId) return;
+    setEditingVehicle(activeVehicleId);
+    setIsSettingsOpen(false);
+    setCurrentView('edit');
+  };
 
   const SyncShield = () => (
     <button 
@@ -118,6 +130,33 @@ const App: React.FC = () => {
         isSyncing ? 'bg-blue-500 animate-pulse' : hasDirtyData ? 'bg-amber-500 animate-bounce' : 'bg-emerald-500'
       }`}></div>
       {isSyncing ? 'Vaulting...' : hasDirtyData ? 'Backup Required' : 'Vault Synced'}
+    </button>
+  );
+
+  if (!isInitialized) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  );
+
+  if (!session) {
+    if (currentView === 'report' && transientVehicle) return <GuestReport />;
+    if (currentView === 'garage') return <AuthScreen />;
+    return <LandingTerminal />;
+  }
+
+  if (currentView === 'onboarding' || currentView === 'edit') {
+    return <AssetIntelligenceCenter mode={currentView} />;
+  }
+
+  const NavItem = ({ view, label, icon, isNeural = false }: { view: any; label: string; icon: string; isNeural?: boolean }) => (
+    <button 
+      onClick={() => { setCurrentView(view); setIsMobileMenuOpen(false); }}
+      className={`flex items-center gap-4 px-5 py-3.5 w-full transition-all group relative ${currentView === view ? 'sidebar-link-active' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
+    >
+      <span className={`text-lg group-hover:scale-110 transition-transform ${isNeural && 'text-blue-500 animate-pulse'}`}>{icon}</span>
+      <span className="text-[9px] font-black uppercase tracking-[0.2em]">{label}</span>
+      {currentView === view && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-blue-600 rounded-l-full"></div>}
     </button>
   );
 
@@ -139,27 +178,19 @@ const App: React.FC = () => {
         <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Reports & Audit</p>
         <NavItem view="report" label="Ownership Report" icon="📄" />
         <NavItem view="profile" label="Pilot Profile" icon="👤" />
+        
         {user?.role === 'admin' && <NavItem view="admin" label="Admin Command" icon="⚡" />}
-        <NavItem view="onboarding" label="Add New Asset" icon="➕" />
+
+        <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`mt-2 flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsOpen ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}>
+          <div className="flex items-center gap-4">
+            <span className={`text-lg transition-transform ${isSettingsOpen ? 'rotate-90 text-blue-400' : 'group-hover:rotate-12'}`}>⚙</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Manage Vehicles</span>
+          </div>
+          <span className={`text-[10px] transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}>▾</span>
+        </button>
       </div>
     </div>
   );
-
-  if (!isInitialized) return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-    </div>
-  );
-
-  if (!session) {
-    if (currentView === 'report' && transientVehicle) return <GuestReport />;
-    if (currentView === 'garage') return <AuthScreen />;
-    return <LandingTerminal />;
-  }
-
-  if (currentView === 'onboarding' || currentView === 'edit') {
-    return <AssetIntelligenceCenter mode={currentView} />;
-  }
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
@@ -208,6 +239,21 @@ const App: React.FC = () => {
         <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 pb-8 bg-white"><NavigationMenu /></nav>
         <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white">
            <button onClick={handleSignOut} className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center">🚪 Sign Out</button>
+        </div>
+
+        {/* Secondary Slide-out Menu for Vehicle Management */}
+        <div className={`absolute top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[20px_0_40px_rgba(0,0,0,0.05)] z-[90] transition-all duration-500 pt-24 px-6 ${isSettingsOpen ? 'translate-x-[300px] opacity-100' : 'translate-x-0 opacity-0 pointer-events-none'}`}>
+          <div className="mb-10 px-2"><h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Garage Controls</h4><div className="w-10 h-1 bg-blue-600 rounded-full"></div></div>
+          <div className="space-y-1">
+            <button onClick={() => setCurrentView('onboarding')} className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all">+ Add New Car</button>
+            {activeVehicle && (
+              <>
+                <button onClick={handleEditAsset} className="w-full p-4 text-left text-slate-600 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 rounded-xl transition-all">✎ Update Details</button>
+                <button onClick={handleArchiveAsset} className="w-full p-4 text-left text-rose-500 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 rounded-xl transition-all">📁 Decommission</button>
+              </>
+            )}
+          </div>
+          <button onClick={() => setIsSettingsOpen(false)} className="absolute bottom-10 left-6 right-6 p-4 text-slate-400 text-[8px] font-black uppercase tracking-widest hover:text-slate-900 transition-colors">Close Panel</button>
         </div>
       </aside>
 
@@ -260,6 +306,7 @@ const App: React.FC = () => {
         <button onClick={() => setCurrentView('report')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'report' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">📄</span><span className="text-[7px] font-black uppercase tracking-widest">Report</span></button>
       </nav>
 
+      {/* GLOBAL FEEDBACK COMPONENT */}
       <CalibrationTerminal />
     </div>
   );
