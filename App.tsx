@@ -172,7 +172,7 @@ const App: React.FC = () => {
         
         <button 
           onClick={() => setIsManagePanelOpen(!isManagePanelOpen)} 
-          className={`mt-2 flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isManagePanelOpen ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}
+          className={`mt-2 flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isManagePanelOpen ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-[1.02]' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}
         >
           <div className="flex items-center gap-4">
             <span className={`text-lg transition-transform ${isManagePanelOpen ? 'rotate-90 text-blue-400' : 'group-hover:rotate-12'}`}>⚙</span>
@@ -219,22 +219,8 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <div className={`lg:hidden fixed inset-0 bg-slate-950/20 backdrop-blur-sm z-[110] transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMobileMenuOpen(false)}>
-        <aside className={`w-[280px] h-full bg-white shadow-2xl flex flex-col transition-transform transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={(e) => e.stopPropagation()}>
-          <div className="p-8 pb-6 flex justify-between items-center border-b border-slate-50">
-            <div>
-              <span className="block font-black tracking-tighter text-slate-900 text-base mb-1">AutoPal NG</span>
-              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">Navigation Hub</span>
-            </div>
-          </div>
-          <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 py-6"><NavigationMenu /></nav>
-          <div className="p-6 border-t border-slate-50">
-             <button onClick={handleSignOut} className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center">🚪 Sign Out</button>
-          </div>
-        </aside>
-      </div>
-
-      <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-[100] h-full overflow-hidden">
+      {/* Primary Sidebar */}
+      <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-[120] h-full overflow-hidden">
         <div className="p-8 pb-6 shrink-0 bg-white">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
             <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg">A</div>
@@ -248,56 +234,57 @@ const App: React.FC = () => {
         <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white">
            <button onClick={handleSignOut} className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center">🚪 Sign Out</button>
         </div>
-
-        {/* Vehicle Management Slide-out Panel */}
-        <div 
-          className={`absolute top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[20px_0_40px_rgba(0,0,0,0.05)] z-[90] transition-all duration-500 pt-24 px-6 ${isManagePanelOpen ? 'translate-x-[300px] opacity-100' : 'translate-x-0 opacity-0 pointer-events-none'}`}
-        >
-          <div className="mb-10 px-2">
-            <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Garage Controls</h4>
-            <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
-          </div>
-          <div className="space-y-1">
-            <button 
-              onClick={() => { setCurrentView('onboarding'); closeManagement(); }}
-              className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all"
-            >
-              + Add New Car
-            </button>
-            {activeVehicle && (
-              <>
-                <button 
-                  onClick={handleEditAsset}
-                  className="w-full p-4 text-left text-slate-600 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 rounded-xl transition-all"
-                >
-                  ✎ Update Details
-                </button>
-                <button 
-                  onClick={handleArchiveAsset}
-                  className="w-full p-4 text-left text-rose-500 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 rounded-xl transition-all"
-                >
-                  📁 Decommission
-                </button>
-              </>
-            )}
-          </div>
-          <button 
-            onClick={closeManagement} 
-            className="absolute bottom-10 left-6 right-6 p-4 text-slate-400 text-[8px] font-black uppercase tracking-widest hover:text-slate-900 transition-colors"
-          >
-            Close Panel
-          </button>
-        </div>
       </aside>
 
-      {/* Backdrop for closing Management Panel when clicking the "dashboard area" */}
+      {/* Vehicle Management Slide-out Panel - Positioned ABOVE Dashboard Area */}
+      <div 
+        className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[115] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[20px] opacity-0 pointer-events-none translate-x-[-50px]'}`}
+      >
+        <div className="mb-10 px-2">
+          <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Garage Controls</h4>
+          <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
+        </div>
+        <div className="space-y-1">
+          <button 
+            onClick={() => { setCurrentView('onboarding'); closeManagement(); }}
+            className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all"
+          >
+            + Add New Car
+          </button>
+          {activeVehicle && (
+            <>
+              <button 
+                onClick={handleEditAsset}
+                className="w-full p-4 text-left text-slate-600 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 rounded-xl transition-all"
+              >
+                ✎ Update Details
+              </button>
+              <button 
+                onClick={handleArchiveAsset}
+                className="w-full p-4 text-left text-rose-500 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 rounded-xl transition-all"
+              >
+                📁 Decommission
+              </button>
+            </>
+          )}
+        </div>
+        <button 
+          onClick={closeManagement} 
+          className="absolute bottom-10 left-6 right-6 p-4 text-slate-400 text-[8px] font-black uppercase tracking-widest hover:text-slate-900 transition-colors border-t border-slate-50 pt-8"
+        >
+          Close Panel
+        </button>
+      </div>
+
+      {/* Responsive Backdrop for dismissing Management Panel */}
       {isManagePanelOpen && (
         <div 
-          className="hidden lg:block fixed inset-0 z-[80] cursor-default"
+          className="hidden lg:block fixed inset-0 z-[110] cursor-default bg-slate-950/5 backdrop-blur-[2px] transition-all"
           onClick={closeManagement}
         ></div>
       )}
 
+      {/* Main Content Area */}
       <div className="flex-grow lg:ml-[300px] flex flex-col min-h-screen w-full overflow-x-hidden">
         <main className={`p-4 sm:p-6 lg:p-10 xl:p-12 max-w-full lg:max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow flex flex-col items-center ${currentView === 'landing' ? '!p-0 !max-w-none' : ''}`}>
           <div className={`animate-slide-up w-full max-w-full ${currentView === 'landing' ? '!max-w-none' : ''}`}>
