@@ -43,6 +43,9 @@ export const ResaleValuationCard: React.FC<{
     'D': 'text-rose-500'
   };
 
+  // Guard: If we have a report but it's an old version missing the new fields
+  const isLegacyReport = cachedReport && (!cachedReport.metabolicAudit || !cachedReport.diagnostics);
+
   return (
     <section className="bg-slate-950 rounded-[2rem] sm:rounded-[2.5rem] p-8 sm:p-10 text-white relative overflow-hidden shadow-2xl group border border-white/10 transition-all duration-700 hover:shadow-blue-900/20 w-full h-full flex flex-col min-h-[500px]">
       <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-blue-600/10 blur-[120px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
@@ -51,14 +54,14 @@ export const ResaleValuationCard: React.FC<{
         <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-300">
           <div className="w-16 h-16 border-[4px] border-blue-500 border-t-transparent rounded-full animate-spin mb-8 shadow-[0_0_30px_#3b82f6]"></div>
           <h4 className="text-xl font-black tracking-tight mb-2 uppercase">Neural Audit...</h4>
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em]">Cross-referencing metabolic telemetry</p>
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em]">Analyzing metabolic telemetry</p>
         </div>
       )}
 
-      {cachedReport ? (
+      {cachedReport && !isLegacyReport ? (
         <div className="relative z-10 flex flex-col justify-between h-full w-full animate-in fade-in duration-700">
           <div className="space-y-10">
-            {/* Value Header */}
+            {/* Header: Valuation & Grade */}
             <div className="flex justify-between items-start">
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
@@ -78,54 +81,55 @@ export const ResaleValuationCard: React.FC<{
               </div>
             </div>
 
-            {/* METABOLIC INTELLIGENCE HUB - NEW SECTION */}
+            {/* METABOLIC PERFORMANCE AUDIT - ENHANCED & STABILIZED */}
             <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 sm:p-8 space-y-8">
               <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em]">Metabolic Audit Result</h4>
-                <div className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest ${cachedReport.metabolicAudit.consumptionGap < 10 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-                  {cachedReport.metabolicAudit.efficiencyRating}
+                <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em]">Metabolic Audit</h4>
+                <div className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest ${ (cachedReport.metabolicAudit?.consumptionGap ?? 0) < 12 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                  {cachedReport.metabolicAudit?.efficiencyRating || 'Pending Scan'}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
                 <div className="space-y-2">
-                  <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Fuel Performance</div>
+                  <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Efficiency Performance</div>
                   <div className="text-3xl font-black font-mono tracking-tighter text-white">
-                    {cachedReport.metabolicAudit.trueKml.toFixed(1)} 
+                    {cachedReport.metabolicAudit?.trueKml?.toFixed(1) || '0.0'} 
                     <span className="text-[10px] font-sans opacity-40 ml-1">KM/L</span>
                   </div>
                 </div>
                 
                 <div className="space-y-2 border-t sm:border-t-0 sm:border-l border-white/5 pt-6 sm:pt-0 sm:pl-8">
                   <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Consumption Gap</div>
-                  <div className={`text-3xl font-black font-mono tracking-tighter ${cachedReport.metabolicAudit.consumptionGap > 15 ? 'text-rose-500' : 'text-emerald-400'}`}>
-                    {cachedReport.metabolicAudit.consumptionGap > 0 ? '+' : ''}{cachedReport.metabolicAudit.consumptionGap}%
+                  <div className={`text-3xl font-black font-mono tracking-tighter ${ (cachedReport.metabolicAudit?.consumptionGap ?? 0) > 15 ? 'text-rose-500' : 'text-emerald-400'}`}>
+                    {cachedReport.metabolicAudit?.consumptionGap !== undefined ? (cachedReport.metabolicAudit.consumptionGap > 0 ? '+' : '') : ''}
+                    {cachedReport.metabolicAudit?.consumptionGap ?? 0}%
                   </div>
                 </div>
 
                 <div className="space-y-2 border-t sm:border-t-0 sm:border-l border-white/5 pt-6 sm:pt-0 sm:pl-8">
                   <div className="text-[8px] font-black text-rose-500 uppercase tracking-widest">Estimated Waste / Mo</div>
                   <div className="text-2xl font-black text-rose-400 tracking-tighter leading-none pt-1">
-                    {formatCurrency(cachedReport.metabolicAudit.monthlyWaste)}
+                    {formatCurrency(cachedReport.metabolicAudit?.monthlyWaste ?? 0)}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* AI Diagnostic Summary */}
+            {/* AI Reasoning */}
             <div className="p-6 bg-blue-600/5 border border-blue-500/20 rounded-2xl space-y-3">
                <div className="flex items-center gap-3">
-                  <div className={`w-2 h-2 rounded-full ${cachedReport.diagnostics.severity === 'critical' ? 'bg-rose-500 animate-pulse' : 'bg-blue-500'}`}></div>
-                  <div className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Primary Audit Diagnostic</div>
+                  <div className={`w-2 h-2 rounded-full ${cachedReport.diagnostics?.severity === 'critical' ? 'bg-rose-500 animate-pulse' : 'bg-blue-500'}`}></div>
+                  <div className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Audit Hypothesis</div>
                </div>
-               <div className="text-sm font-black text-white leading-tight">{cachedReport.diagnostics.primaryHypothesis}</div>
-               <p className="text-[11px] text-slate-400 italic leading-relaxed">"{cachedReport.diagnostics.reasoning}"</p>
+               <div className="text-sm font-black text-white leading-tight">{cachedReport.diagnostics?.primaryHypothesis || 'Telemetry Stable'}</div>
+               <p className="text-[11px] text-slate-400 italic leading-relaxed">"{cachedReport.diagnostics?.reasoning || 'No immediate metabolic anomalies detected.'}"</p>
             </div>
           </div>
 
           <div className="mt-10 flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-white/5 pt-8">
             <div className="flex flex-col">
-              <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Digital Audit ID: {cachedReport.timestamp.slice(-6).toUpperCase()}</span>
+              <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Report ID: AP-{cachedReport.timestamp.slice(-6).toUpperCase()}</span>
               <span className="text-[8px] font-black text-slate-700 uppercase tracking-widest">Last Scanned: {new Date(cachedReport.timestamp).toLocaleDateString()}</span>
             </div>
             <button 
@@ -143,9 +147,13 @@ export const ResaleValuationCard: React.FC<{
             <span className="animate-pulse">💎</span>
           </div>
           <div className="space-y-4 max-w-sm">
-            <h4 className="text-3xl font-black tracking-tighter uppercase leading-none text-white">Neural Valuation</h4>
+            <h4 className="text-3xl font-black tracking-tighter uppercase leading-none text-white">
+              {isLegacyReport ? 'Update Required' : 'Neural Valuation'}
+            </h4>
             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.25em] leading-relaxed px-6">
-              Connect your maintenance records and fuel telemetry to generate a verified resale audit and metabolic waste report.
+              {isLegacyReport 
+                ? 'Your previous audit is out of date. Relaunch to unlock fuel performance metrics and metabolic waste tracking.' 
+                : 'Audited fuel waste, metabolic efficiency, and certified resale valuation are available after scanning vehicle telemetry.'}
             </p>
           </div>
           
@@ -155,7 +163,9 @@ export const ResaleValuationCard: React.FC<{
               className="w-full bg-blue-600 text-white py-7 rounded-[2rem] flex items-center justify-center gap-4 transition-all shadow-2xl shadow-blue-600/30 hover:bg-blue-500 active:scale-95"
             >
               <span className="text-2xl">✧</span>
-              <span className="text-[11px] font-black uppercase tracking-[0.3em]">Perform Neural Scan</span>
+              <span className="text-[11px] font-black uppercase tracking-[0.3em]">
+                {isLegacyReport ? 'Upgrade Audit Link' : 'Perform Neural Audit'}
+              </span>
             </button>
           </div>
         </div>
