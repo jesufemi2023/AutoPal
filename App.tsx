@@ -143,8 +143,8 @@ const App: React.FC = () => {
   );
 
   const NavigationMenu = () => (
-    <>
-      <div className="pb-4">
+    <div className="space-y-6">
+      <div>
         <div className="flex items-center justify-between px-5 mb-4">
           <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.4em]">Navigation</p>
           <SyncShield />
@@ -159,7 +159,9 @@ const App: React.FC = () => {
       <div className="pt-4 border-t border-slate-50 mx-2">
         <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Reports & Audit</p>
         <NavItem view="report" label="Ownership Report" icon="📄" />
-        <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`mt-2 flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsOpen ? 'bg-slate-900 border-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}>
+        <NavItem view="profile" label="Pilot Profile" icon="👤" />
+        
+        <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`mt-2 flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsOpen ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}>
           <div className="flex items-center gap-4">
             <span className={`text-lg transition-transform ${isSettingsOpen ? 'rotate-90 text-blue-400' : 'group-hover:rotate-12'}`}>⚙</span>
             <span className="text-[9px] font-black uppercase tracking-[0.2em]">Manage Vehicles</span>
@@ -167,7 +169,7 @@ const App: React.FC = () => {
           <span className={`text-[10px] transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}>▾</span>
         </button>
       </div>
-    </>
+    </div>
   );
 
   return (
@@ -204,7 +206,7 @@ const App: React.FC = () => {
         </aside>
       </div>
 
-      <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-[100]">
+      <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-[100] h-full overflow-hidden">
         <div className="p-8 pb-6 shrink-0 bg-white">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
             <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg">A</div>
@@ -219,6 +221,7 @@ const App: React.FC = () => {
            <button onClick={() => supabase?.auth.signOut()} className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center">🚪 Sign Out</button>
         </div>
 
+        {/* Secondary Slide-out Menu for Vehicle Management */}
         <div className={`absolute top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[20px_0_40px_rgba(0,0,0,0.05)] z-[90] transition-all duration-500 pt-24 px-6 ${isSettingsOpen ? 'translate-x-[300px] opacity-100' : 'translate-x-0 opacity-0 pointer-events-none'}`}>
           <div className="mb-10 px-2"><h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Garage Controls</h4><div className="w-10 h-1 bg-blue-600 rounded-full"></div></div>
           <div className="space-y-1">
@@ -230,6 +233,7 @@ const App: React.FC = () => {
               </>
             )}
           </div>
+          <button onClick={() => setIsSettingsOpen(false)} className="absolute bottom-10 left-6 right-6 p-4 text-slate-400 text-[8px] font-black uppercase tracking-widest hover:text-slate-900 transition-colors">Close Panel</button>
         </div>
       </aside>
 
