@@ -113,7 +113,7 @@ const Dashboard: React.FC = () => {
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">Vehicle <span className="text-blue-600">Hub</span></h1>
             {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2"></div>}
           </div>
-          <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">All connected assets are current</p>
+          <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">Active Fleet Monitoring</p>
         </div>
         
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
@@ -138,7 +138,7 @@ const Dashboard: React.FC = () => {
                 <div className="text-base font-black tracking-tight truncate w-full">{v.model}</div>
                 <div className="flex items-center gap-2 mt-3">
                    <div className={`w-2 h-2 rounded-full ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_8px_#3b82f6]' : 'bg-slate-200'}`}></div>
-                   <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year} Edition</div>
+                   <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year} Model</div>
                 </div>
               </button>
             ))}
@@ -175,8 +175,8 @@ const Dashboard: React.FC = () => {
         !isLoadingDetails && (
           <div className="py-20 sm:py-24 text-center bg-white rounded-[2.5rem] border border-slate-100 p-8 sm:p-14 shadow-sm mx-auto max-w-2xl w-full">
              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-3xl mx-auto mb-6 sm:mb-8 shadow-inner">🚙</div>
-             <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-1.5">Your Garage is Empty</h3>
-             <p className="text-slate-400 mb-8 text-[8px] sm:text-[9px] font-black uppercase tracking-widest max-w-xs mx-auto">Click below to add your first car to the platform.</p>
+             <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-1.5">No Vehicles in Garage</h3>
+             <p className="text-slate-400 mb-8 text-[8px] sm:text-[9px] font-black uppercase tracking-widest max-w-xs mx-auto">Click below to add your first car and start tracking.</p>
              <button onClick={() => setCurrentView('onboarding')} className="w-full sm:w-auto bg-slate-900 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-[1.25rem] font-black uppercase tracking-widest text-[9px] shadow-lg hover:bg-blue-600 transition-all">Add New Car →</button>
           </div>
         )

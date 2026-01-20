@@ -27,7 +27,7 @@ export const ResaleValuationCard: React.FC<{
       updateVehicleStore(updatedVehicle);
     } catch (e) {
       console.error(e);
-      alert("AI Scan failed. Please check your internet connection.");
+      alert("Neural Link Interrupted. Please check your network and try again.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -63,9 +63,9 @@ export const ResaleValuationCard: React.FC<{
         <div className="relative z-10 text-center space-y-8 max-w-sm">
           <div className="w-24 h-24 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto shadow-[0_0_40px_rgba(59,130,246,0.5)]"></div>
           <div className="space-y-4">
-            <h4 className="text-2xl font-black tracking-tighter uppercase">AI Car Health Scan</h4>
+            <h4 className="text-2xl font-black tracking-tighter uppercase">AI Condition Scan</h4>
             <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em] leading-relaxed">
-              Analyzing fuel habits and service records...
+              Auditing metabolic fuel patterns and service integrity...
             </p>
           </div>
         </div>
@@ -81,16 +81,16 @@ export const ResaleValuationCard: React.FC<{
           <div className="w-20 h-20 bg-blue-600/10 rounded-[2rem] flex items-center justify-center text-3xl mx-auto border border-blue-500/20">✧</div>
           <div className="space-y-3">
             <h4 className="text-2xl font-black tracking-tighter uppercase">
-              {isLegacyReport ? 'Scan Update Required' : 'Scan Your Car Health'}
+              {isLegacyReport ? 'Scan Update Required' : 'Scan Car Condition'}
             </h4>
             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
               {isLegacyReport 
-                ? 'Your previous report is out of date. Re-scan to unlock advanced resale value estimation and fuel analysis.' 
-                : 'Initiate a deep scan to generate your certified market value and find hidden mechanical issues.'}
+                ? 'Your diagnostic profile is out of date. Re-scan to unlock advanced financial and mechanical insights.' 
+                : 'Perform a deep mechanical audit to certify your car\'s market value and detect hidden inefficiency.'}
             </p>
           </div>
           <button onClick={handleAiAnalysis} className="w-full bg-blue-600 text-white py-6 rounded-2xl font-black uppercase tracking-[0.3em] text-[11px] shadow-xl hover:bg-blue-500 active:scale-95 transition-all">
-            {isLegacyReport ? 'Upgrade Scan Link' : 'Start AI Condition Scan'}
+            {isLegacyReport ? 'Update Scan' : 'Run AI Condition Scan'}
           </button>
         </div>
       </section>
@@ -102,7 +102,7 @@ export const ResaleValuationCard: React.FC<{
       {/* Top Value Card */}
       <section 
         className="bg-slate-950 rounded-[2.5rem] p-8 sm:p-10 text-white relative overflow-hidden shadow-2xl border border-white/10 shrink-0"
-        title="An estimate of your car's market value based on condition, records, and current Nigerian market trends."
+        title="Current resale value based on regional market trends, your history confidence, and vehicle condition."
       >
         <div className="absolute top-0 right-0 p-10 opacity-[0.03] font-black text-9xl pointer-events-none uppercase">{cachedReport.marketGrade}</div>
         <div className="flex justify-between items-start relative z-10">
@@ -116,7 +116,7 @@ export const ResaleValuationCard: React.FC<{
                   <span className="text-2xl text-slate-600 mr-2 font-mono">₦</span>
                   {cachedReport.valuationNGN?.toLocaleString() ?? '0'}
                 </div>
-                <p className="text-[10px] text-blue-500/60 font-black uppercase tracking-widest">Confidence Level: {cachedReport.auditedScores?.discipline ?? 0}%</p>
+                <p className="text-[10px] text-blue-500/60 font-black uppercase tracking-widest">Accuracy Level: {Math.round(cachedReport.auditedScores?.discipline ?? 0)}%</p>
              </div>
           </div>
           <div className="text-right">
@@ -127,11 +127,11 @@ export const ResaleValuationCard: React.FC<{
 
         <div className="mt-10 pt-8 border-t border-white/5 grid grid-cols-2 gap-8 relative z-10">
            <div className="space-y-1">
-              <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Overall Condition</div>
+              <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Car Health</div>
               <div className={`text-2xl font-black ${(cachedReport.auditedScores?.vitality ?? 0) > 75 ? 'text-emerald-400' : 'text-rose-500'}`}>{cachedReport.auditedScores?.vitality ?? 0}%</div>
            </div>
            <div className="space-y-1">
-              <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Estimated Price Range</div>
+              <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Price Range</div>
               <div className="text-sm font-mono font-bold text-slate-300">
                 ₦{((cachedReport.priceRange?.min ?? 0)/1e6).toFixed(1)}M - ₦{((cachedReport.priceRange?.max ?? 0)/1e6).toFixed(1)}M
               </div>
@@ -145,7 +145,7 @@ export const ResaleValuationCard: React.FC<{
         {/* CARD 1: FUEL ANALYSIS */}
         <div 
           className="bg-white rounded-[2rem] p-8 border border-slate-100 space-y-6 shadow-sm"
-          title="Analysis of your fuel consumption compared to standard factory performance for this model."
+          title="Comparison of your real-world fuel consumption against factory benchmarks."
         >
            <div className="flex justify-between items-center">
               <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">Fuel Usage Report</h4>
@@ -166,7 +166,7 @@ export const ResaleValuationCard: React.FC<{
               </div>
            </div>
            <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-between">
-              <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">Efficiency Rating</span>
+              <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">System Rating</span>
               <span className="text-[10px] font-black text-blue-700 uppercase">{(cachedReport.metabolicAudit?.consumptionGap ?? 0) < 12 ? 'OPTIMAL' : 'WATCHING'}</span>
            </div>
         </div>
@@ -174,10 +174,10 @@ export const ResaleValuationCard: React.FC<{
         {/* CARD 2: AI CONDITION DIAGNOSTICS */}
         <div 
           className="bg-white rounded-[2rem] p-8 border border-slate-100 space-y-6 shadow-sm relative overflow-hidden"
-          title="Hidden issues detected by analyzing the gap between your fuel efficiency and maintenance history."
+          title="Hidden mechanical issues detected by correlating fuel usage with maintenance intervals."
         >
            <div className="flex justify-between items-center">
-              <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">AI Scan Summary</h4>
+              <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">Diagnostic Summary</h4>
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${severityColors[cachedReport.diagnostics?.severity as keyof typeof severityColors] || 'bg-slate-300'} animate-pulse`}></div>
                 <span className="text-[9px] font-black uppercase tracking-widest text-slate-600">{cachedReport.diagnostics?.severity ?? 'Clear'}</span>
@@ -185,21 +185,23 @@ export const ResaleValuationCard: React.FC<{
            </div>
            <div className="space-y-4">
               <div className="space-y-1">
-                <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Scan Result</div>
+                <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Top Hypothesis</div>
                 <div className="text-lg font-black text-slate-900 leading-tight">{cachedReport.diagnostics?.faultHypothesis ?? 'All Systems Nominal'}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">AI Reasoning</div>
+                <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Neural Reasoning</div>
                 <p className="text-[11px] text-slate-500 leading-relaxed font-medium">"{cachedReport.diagnostics?.reasoning ?? 'No abnormal patterns detected in current logs.'}"</p>
               </div>
            </div>
         </div>
 
         {/* CARD 3: RECOMMENDED PARTS */}
-        <div className="bg-slate-900 rounded-[2rem] p-8 text-white space-y-6 lg:col-span-1 shadow-xl">
+        <div 
+          className="bg-slate-900 rounded-[2rem] p-8 text-white space-y-6 shadow-xl"
+          title="Specific spare parts identified by AI to restore vehicle health and fuel economy."
+        >
            <div className="flex justify-between items-center">
-              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Parts to improve health</h4>
-              <button onClick={handleAiAnalysis} className="text-[8px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-400">Refresh Scan</button>
+              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Critical Components</h4>
            </div>
            <div className="space-y-3">
               {cachedReport.suggestedParts?.slice(0, 3).map((part, i) => (
@@ -212,13 +214,16 @@ export const ResaleValuationCard: React.FC<{
                    <span className="text-xs group-hover:scale-125 transition-transform">🛒</span>
                 </div>
               )) || (
-                <div className="py-6 text-center opacity-40 text-[9px] font-black uppercase">No Parts Required</div>
+                <div className="py-6 text-center opacity-40 text-[9px] font-black uppercase">No Parts Recommended</div>
               )}
            </div>
         </div>
 
         {/* CARD 4: OWNERSHIP STRATEGY */}
-        <div className="bg-blue-600 rounded-[2rem] p-8 text-white space-y-6 lg:col-span-1 shadow-xl shadow-blue-600/20">
+        <div 
+          className="bg-blue-600 rounded-[2rem] p-8 text-white space-y-6 shadow-xl shadow-blue-600/20"
+          title="Actionable steps to maximize your car's resale value and minimize maintenance debt."
+        >
            <h4 className="text-[10px] font-black text-blue-100 uppercase tracking-[0.3em]">Owner Strategy</h4>
            <div className="space-y-4">
               {cachedReport.strategicInsights?.slice(0, 3).map((insight, i) => (
@@ -230,6 +235,20 @@ export const ResaleValuationCard: React.FC<{
                 <div className="py-6 text-center opacity-60 text-[9px] font-black uppercase">Building Strategy...</div>
               )}
            </div>
+        </div>
+
+        {/* LARGE VISIBLE RUN SCAN BUTTON */}
+        <div className="lg:col-span-2 pt-4">
+           <button 
+             onClick={handleAiAnalysis} 
+             className="w-full bg-slate-900 border-2 border-slate-800 text-white py-6 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[11px] shadow-2xl hover:bg-blue-600 hover:border-blue-500 transition-all active:scale-[0.98] flex items-center justify-center gap-4"
+           >
+             <span className="text-lg">✧</span>
+             Run New AI Condition Scan
+           </button>
+           <p className="text-center text-[7px] text-slate-400 font-black uppercase tracking-[0.4em] mt-4">
+             Last Scan: {new Date(cachedReport.timestamp).toLocaleString()}
+           </p>
         </div>
       </div>
     </div>
