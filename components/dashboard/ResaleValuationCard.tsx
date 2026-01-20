@@ -15,7 +15,7 @@ export const ResaleValuationCard: React.FC<{
   const { updateVehicleStore } = useAutoPalStore();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // SOURCE OF TRUTH: Exclusively use the persisted AI audit from the vehicle object.
+  // SOURCE OF TRUTH: PERSISTED AI AUDIT
   const cachedReport = vehicle.latestAiAudit;
 
   const handleAiAnalysis = async () => {
@@ -23,7 +23,6 @@ export const ResaleValuationCard: React.FC<{
     try {
       const report = await generateAIValuation(vehicle, tasks, serviceLogs, fuelLogs);
       
-      // Persist the scan results to the cloud
       const updatedVehicle = await updateVehicle(vehicle.id, { 
         latestAiAudit: report,
         healthScore: report.auditedScores.vitality 
@@ -32,7 +31,7 @@ export const ResaleValuationCard: React.FC<{
       updateVehicleStore(updatedVehicle);
     } catch (e) {
       console.error(e);
-      alert("AI Intelligence Sync Error. Please check your connection and try again.");
+      alert("AI Intelligence Sync Error. Please check your connection.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -53,15 +52,15 @@ export const ResaleValuationCard: React.FC<{
       {isAnalyzing && (
         <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-xl z-50 flex flex-col items-center justify-center p-10 text-center animate-in fade-in duration-300">
           <div className="w-16 h-16 border-[4px] border-blue-500 border-t-transparent rounded-full animate-spin mb-8 shadow-[0_0_30px_#3b82f6]"></div>
-          <h4 className="text-xl font-black tracking-tight mb-2 uppercase">Cross-Examining Telemetry...</h4>
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em]">Analyzing consumption variance and mechanical health</p>
+          <h4 className="text-xl font-black tracking-tight mb-2 uppercase">Neural Processing...</h4>
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.4em]">Auditing metabolic telemetry and resale variance</p>
         </div>
       )}
 
       {cachedReport ? (
         <div className="relative z-10 flex flex-col justify-between h-full w-full animate-in fade-in duration-700">
           <div className="space-y-10">
-            {/* Header: Value & Grade */}
+            {/* Resale Core */}
             <div className="flex justify-between items-start">
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
@@ -81,81 +80,87 @@ export const ResaleValuationCard: React.FC<{
               </div>
             </div>
 
-            {/* Metabolic Audit Section - Prominent */}
-            <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 sm:p-8 space-y-6">
-              <div className="flex justify-between items-center">
-                <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em]">Metabolic Performance Audit</h4>
-                <div className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest ${cachedReport.metabolicAudit.consumptionGap < 10 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+            {/* Metabolic Audit Dashboard - ENHANCED SECTION */}
+            <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 sm:p-8 space-y-8">
+              <div className="flex justify-between items-center border-b border-white/5 pb-4">
+                <h4 className="text-[10px] font-black text-blue-400 uppercase tracking-[0.3em]">Metabolic Audit Result</h4>
+                <div className={`px-4 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest ${cachedReport.metabolicAudit.consumptionGap < 10 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
                   {cachedReport.metabolicAudit.efficiencyRating}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <div className="space-y-1 text-center sm:text-left">
-                  <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Fuel Efficiency</div>
-                  <div className="text-3xl font-black font-mono">{cachedReport.metabolicAudit.trueKml.toFixed(1)} <span className="text-[10px] font-sans opacity-40">KM/L</span></div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+                <div className="space-y-2 group/met">
+                  <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest group-hover/met:text-blue-400 transition-colors">Fuel Efficiency</div>
+                  <div className="text-3xl font-black font-mono tracking-tighter text-white">
+                    {cachedReport.metabolicAudit.trueKml.toFixed(1)} 
+                    <span className="text-[10px] font-sans opacity-40 ml-1">KM/L</span>
+                  </div>
                 </div>
                 
-                <div className="space-y-1 text-center sm:text-left border-t sm:border-t-0 sm:border-l border-white/5 pt-4 sm:pt-0 sm:pl-6">
-                  <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Consumption Gap</div>
-                  <div className={`text-3xl font-black font-mono ${cachedReport.metabolicAudit.consumptionGap > 15 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                <div className="space-y-2 border-t sm:border-t-0 sm:border-l border-white/5 pt-6 sm:pt-0 sm:pl-8 group/met">
+                  <div className="text-[8px] font-black text-slate-500 uppercase tracking-widest group-hover/met:text-blue-400 transition-colors">Consumption Gap</div>
+                  <div className={`text-3xl font-black font-mono tracking-tighter ${cachedReport.metabolicAudit.consumptionGap > 15 ? 'text-rose-500' : 'text-emerald-400'}`}>
                     +{cachedReport.metabolicAudit.consumptionGap}%
                   </div>
                 </div>
 
-                <div className="space-y-1 text-center sm:text-left border-t sm:border-t-0 sm:border-l border-white/5 pt-4 sm:pt-0 sm:pl-6">
-                  <div className="text-[8px] font-black text-rose-500 uppercase tracking-widest">Est. Waste / Month</div>
-                  <div className="text-2xl font-black text-rose-400">
+                <div className="space-y-2 border-t sm:border-t-0 sm:border-l border-white/5 pt-6 sm:pt-0 sm:pl-8 group/met">
+                  <div className="text-[8px] font-black text-rose-500 uppercase tracking-widest group-hover/met:text-rose-400 transition-colors">Est. Waste / Month</div>
+                  <div className="text-2xl font-black text-rose-400 tracking-tighter leading-none pt-1">
                     {formatCurrency(cachedReport.metabolicAudit.monthlyWaste)}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Diagnostic Box */}
+            {/* AI Reasoning */}
             <div className="p-6 bg-blue-600/5 border border-blue-500/20 rounded-2xl space-y-3">
                <div className="flex items-center gap-3">
                   <div className={`w-2 h-2 rounded-full ${cachedReport.diagnostics.severity === 'critical' ? 'bg-rose-500 animate-pulse' : 'bg-blue-500'}`}></div>
-                  <div className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Primary Hypothesis</div>
+                  <div className="text-[9px] font-black text-blue-400 uppercase tracking-widest">Primary Audit Diagnostic</div>
                </div>
-               <div className="text-sm font-black text-white">{cachedReport.diagnostics.primaryHypothesis}</div>
+               <div className="text-sm font-black text-white leading-tight">{cachedReport.diagnostics.primaryHypothesis}</div>
                <p className="text-[11px] text-slate-400 italic leading-relaxed">"{cachedReport.diagnostics.reasoning}"</p>
             </div>
           </div>
 
-          <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-white/5 pt-8">
-            <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest order-2 sm:order-1">Last Audit: {new Date(cachedReport.timestamp).toLocaleString()}</span>
+          <div className="mt-10 flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-white/5 pt-8">
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black text-slate-600 uppercase tracking-widest">Secure Report ID: {cachedReport.timestamp.slice(-6)}</span>
+              <span className="text-[8px] font-black text-slate-700 uppercase tracking-widest">Last Scanned: {new Date(cachedReport.timestamp).toLocaleString()}</span>
+            </div>
             <button 
               onClick={handleAiAnalysis}
-              className="w-full sm:w-auto bg-white/10 border border-white/20 text-white px-8 py-3 rounded-xl flex items-center justify-center gap-3 transition-all hover:bg-white/20 active:scale-95 order-1 sm:order-2"
+              className="w-full sm:w-auto bg-white/5 border border-white/10 text-white px-8 py-4 rounded-2xl flex items-center justify-center gap-3 transition-all hover:bg-blue-600 active:scale-95 group/btn"
             >
-              <span className="text-lg">✧</span>
-              <span className="text-[9px] font-black uppercase tracking-[0.2em]">Rescan Engine</span>
+              <span className="text-lg group-hover/btn:rotate-90 transition-transform duration-500">✧</span>
+              <span className="text-[9px] font-black uppercase tracking-[0.2em]">Relaunch Neural Audit</span>
             </button>
           </div>
         </div>
       ) : (
-        <div className="relative z-10 flex flex-col items-center justify-center text-center h-full space-y-8 animate-in zoom-in-95 duration-500">
-          <div className="w-20 h-20 bg-blue-600/10 rounded-[2rem] flex items-center justify-center text-3xl shadow-inner border border-blue-600/20 mb-2">
-            <span className="animate-pulse">💰</span>
+        <div className="relative z-10 flex flex-col items-center justify-center text-center h-full space-y-10 animate-in zoom-in-95 duration-500">
+          <div className="w-24 h-24 bg-blue-600/10 rounded-[2.5rem] flex items-center justify-center text-4xl shadow-inner border border-blue-600/20">
+            <span className="animate-pulse">💎</span>
           </div>
-          <div className="space-y-3 max-w-sm">
-            <h4 className="text-2xl font-black tracking-tighter uppercase leading-none text-white">Neural Dashboard Locked</h4>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.25em] leading-relaxed">
-              Unlock prominent metabolic insights, fuel waste analysis, and high-confidence resale valuation by scanning your vehicle history.
+          <div className="space-y-4 max-w-sm">
+            <h4 className="text-3xl font-black tracking-tighter uppercase leading-none text-white">Neural Insights Locked</h4>
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-[0.25em] leading-relaxed px-6">
+              Audited fuel waste, metabolic efficiency, and certified resale valuation are available after scanning vehicle telemetry.
             </p>
           </div>
           
           <div className="w-full space-y-4">
             <button 
               onClick={handleAiAnalysis}
-              className="w-full bg-blue-600 text-white py-6 rounded-2xl flex items-center justify-center gap-4 transition-all shadow-xl shadow-blue-600/30 hover:bg-blue-500 active:scale-95"
+              className="w-full bg-blue-600 text-white py-7 rounded-[2rem] flex items-center justify-center gap-4 transition-all shadow-2xl shadow-blue-600/30 hover:bg-blue-500 active:scale-95"
             >
-              <span className="text-xl">✧</span>
-              <span className="text-[11px] font-black uppercase tracking-[0.3em]">Perform Neural Audit</span>
+              <span className="text-2xl">✧</span>
+              <span className="text-[11px] font-black uppercase tracking-[0.3em]">Launch Neural Audit</span>
             </button>
-            <p className="text-[8px] font-black text-slate-600 uppercase tracking-widest">
-              Includes consumption gap & mechanical diagnostic
+            <p className="text-[8px] font-black text-slate-700 uppercase tracking-widest">
+              Standard API Credits Apply // Nigerians Regional Benchmarks
             </p>
           </div>
         </div>
