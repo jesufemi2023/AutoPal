@@ -45,7 +45,7 @@ export interface AIValuationReport {
   };
   metabolicAudit: {
     trueKml: number;
-    consumptionGap: number; // percentage variance
+    consumptionGap: number; // percentage variance from factory potential
     monthlyWaste: number;    // NGN wasted per month
     efficiencyRating: string; // e.g. "Optimal", "Sub-par", "Critical"
   };

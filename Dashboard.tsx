@@ -18,7 +18,7 @@ const Dashboard: React.FC = () => {
     vehicles, tasks, serviceLogs, fuelLogs,
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
-    updateMileage: updateStoreMileage,
+    updateMileage: updateStoreMileage, updateVehicleStore,
     loadLocalData, setVehicles
   } = useAutoPalStore();
 
@@ -27,25 +27,18 @@ const Dashboard: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // FIX: Stability memoization to prevent loop
   const activeVehicle = useMemo(() => vehicles.find(v => v.id === activeVehicleId), [vehicles, activeVehicleId]);
-  
-  // Memoize filtered data for sub-components
   const vehicleTasks = useMemo(() => tasks.filter(t => t.vehicleId === activeVehicleId), [tasks, activeVehicleId]);
   const activeServiceLogs = useMemo(() => serviceLogs.filter(l => l.vehicleId === activeVehicleId), [serviceLogs, activeVehicleId]);
   const activeFuelLogs = useMemo(() => fuelLogs.filter(l => l.vehicleId === activeVehicleId), [fuelLogs, activeVehicleId]);
 
-  // CRITICAL: Calculate health score for local display ONLY to avoid infinite update loops
-  const displayHealthScore = useMemo(() => {
-    if (!activeVehicle) return 100;
-    return calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
-  }, [activeVehicle, tasks, activeFuelLogs, activeServiceLogs]);
-
-  // 1. Initial Local Load
+  // 1. Initial Local Load (Instant UX)
   useEffect(() => {
     loadLocalData();
   }, [loadLocalData]);
 
-  // 2. Background Sync
+  // 2. Background Sync (Silent Update)
   useEffect(() => {
     const syncVehicles = async () => {
       setIsSyncing(true);
@@ -85,6 +78,18 @@ const Dashboard: React.FC = () => {
       .finally(() => setIsLoadingDetails(false));
     }
   }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
+
+  // Real-time Health Recalculation with Drift Guard
+  useEffect(() => {
+    if (activeVehicle && tasks.length > 0) {
+      const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
+      // Only update if drift is significant to avoid flicker loops
+      if (Math.abs(newScore - activeVehicle.healthScore) > 0.5) {
+        updateVehicle(activeVehicle.id, { healthScore: newScore });
+        updateVehicleStore({ ...activeVehicle, healthScore: newScore });
+      }
+    }
+  }, [vehicleTasks, activeVehicle?.mileage, activeFuelLogs, activeServiceLogs]);
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
@@ -146,7 +151,7 @@ const Dashboard: React.FC = () => {
 
       {activeVehicle ? (
         <div className="w-full flex flex-col gap-6 lg:gap-10">
-          <VehicleOverview vehicle={{...activeVehicle, healthScore: displayHealthScore}} onUpdateOdometer={() => setShowOdometerModal(true)} />
+          <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
           
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-10 items-stretch">
             <div className="xl:col-span-5 flex flex-col h-full">

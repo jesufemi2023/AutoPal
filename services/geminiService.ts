@@ -20,7 +20,7 @@ export const generateAIValuation = async (
   const ai = getAIClient();
   
   const telemetry = {
-    vehicle: { make: vehicle.make, model: vehicle.model, year: vehicle.year, mileage: vehicle.mileage, bodyType: vehicle.bodyType, fuel: vehicle.fuelType, engineSize: vehicle.engineSize },
+    vehicle: { make: vehicle.make, model: vehicle.model, year: vehicle.year, mileage: vehicle.mileage, bodyType: vehicle.bodyType, fuel: vehicle.fuelType },
     pendingTasks: tasks.filter(t => t.status === 'pending').map(t => ({ title: t.title, due: t.dueMileage, cost: t.estimatedCost, cat: t.category })),
     recentService: serviceLogs.slice(0, 15).map(l => ({ type: l.serviceType, date: l.serviceDate, km: l.mileageAtService, cost: l.cost, ver: l.verificationLevel })),
     recentFuel: fuelLogs.slice(0, 15).map(l => ({ km: l.odometerKm, lit: l.liters, cost: l.totalCost, full: l.isFullTank }))
@@ -31,27 +31,17 @@ export const generateAIValuation = async (
       model: 'gemini-3-flash-preview',
       contents: JSON.stringify(telemetry),
       config: {
-        temperature: 0, 
+        temperature: 0.1, 
         systemInstruction: `You are the AutoPal NG Metabolic & Financial Audit Engine. 
-        Perform a 4-quadrant cross-examination of the vehicle's telemetry.
+        Analyze vehicle telemetry to determine resale value and fuel performance.
         
-        1. METABOLIC AUDIT: 
-           - Calculate true KM/L from fuel logs.
-           - Compare against factory potential for this engine/vehicle class.
-           - Determine 'Consumption Gap' (%).
-           - Calculate 'Monthly Waste' (₦) based on actual costs.
+        CRITICAL: Perform a Metabolic Audit by cross-referencing fuel logs with service history.
+        1. trueKml: Calculated actual fuel economy.
+        2. consumptionGap: % variance from factory spec for this vehicle class.
+        3. monthlyWaste: Estimated NGN wasted per month due to this gap (use actual fuel price context if provided, else assume current Lagos averages).
+        4. efficiencyRating: [Optimal, Sub-par, Critical].
         
-        2. ASSET VALUATION:
-           - Base price on Lagos/Abuja market trends.
-           - Deduct for 'Maintenance Debt' (overdue tasks).
-           - Add 'Integrity Premium' for verified logs.
-        
-        3. DIAGNOSTICS:
-           - Hypothesize engineering faults if metabolism is poor or maintenance is lagged.
-        
-        RULES:
-        - Currency: NGN.
-        - Scores 0-100.`,
+        MARKET RULES: Align with Lagos/Abuja market trends. Currency: NGN.`,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
