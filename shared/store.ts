@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
 import { localDb } from '../services/localDb.ts';
@@ -30,6 +31,7 @@ interface AutoPalState {
     monthlyServiceCount: number;
     monthlyFuelCount: number;
     monthlyAiScanCount: number;
+    monthlyAiDiagnosticCount: number;
   };
 
   setSession: (session: any) => void;
@@ -43,6 +45,7 @@ interface AutoPalState {
   setActiveVehicleId: (id: string | null) => void;
   setTransientVehicle: (vehicle: TransientVehicle | null) => void;
   incrementGuestAttempts: () => void;
+  incrementDiagnosticUsage: () => void;
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
   updateVehicleStore: (vehicle: Vehicle) => void;
@@ -97,12 +100,24 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
 
     const filterMonthly = (items: any[]) => items.filter(i => new Date(i.createdAt || i.serviceDate) >= startOfMonth).length;
 
+    // Track AI Diagnostics via localStorage since there's no DB table yet
+    const diagHistory = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
+    const currentMonthDiagCount = diagHistory.filter((ts: string) => new Date(ts) >= startOfMonth).length;
+
     return {
       monthlyServiceCount: filterMonthly(get().serviceLogs),
       monthlyFuelCount: filterMonthly(get().fuelLogs),
-      // AI scan count is derived from stored reports for the current month
-      monthlyAiScanCount: Object.values(get().aiValuationReports).filter(r => new Date(r.timestamp) >= startOfMonth).length
+      monthlyAiScanCount: Object.values(get().aiValuationReports).filter(r => new Date(r.timestamp) >= startOfMonth).length,
+      monthlyAiDiagnosticCount: currentMonthDiagCount
     };
+  },
+
+  incrementDiagnosticUsage: () => {
+    const history = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
+    history.push(new Date().toISOString());
+    localStorage.setItem('autopal_diag_usage', JSON.stringify(history));
+    // Trigger store update to refresh UI
+    set({ isSyncing: get().isSyncing }); 
   },
 
   checkDirtyStatus: async () => {

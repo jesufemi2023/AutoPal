@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -17,6 +18,7 @@ import { fetchUserVehicles, archiveVehicle } from './services/vehicleService.ts'
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
+import { PlanGuard } from './components/PlanGuard.tsx';
 import { Car, Menu, X } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -311,7 +313,11 @@ const App: React.FC = () => {
             {currentView === 'marketplace' && <Marketplace />}
             {currentView === 'admin' && <AdminPanel />}
             {currentView === 'profile' && <ProfileDossier />}
-            {currentView === 'report' && <GlobalReportingCenter />}
+            {currentView === 'report' && (
+              <PlanGuard requirement={(t) => t !== 'free'} fallbackMode="blur" label="Ownership Intelligence">
+                <GlobalReportingCenter />
+              </PlanGuard>
+            )}
             {currentView === 'diagnostic' && activeVehicle && (
               <div className="max-w-4xl mx-auto w-full space-y-8">
                 <header className="px-1">
