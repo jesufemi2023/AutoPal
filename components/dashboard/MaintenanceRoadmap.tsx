@@ -25,18 +25,20 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, logs = [],
 
   const displayItems = useMemo(() => {
     if (statusFilter === 'completed') {
-      // Map ServiceLogs to a structure compatible with the list renderer
-      return logs.map(l => ({
-        id: l.id,
-        title: l.serviceType,
-        description: l.notes || `Service performed at ${l.provider || 'Independent Facility'}.`,
-        dueMileage: l.mileageAtService, // Using 'dueMileage' field for consistency in rendering
-        status: 'completed' as TaskStatus,
-        category: l.category,
-        estimatedCost: l.cost,
-        date: l.serviceDate,
-        isLog: true
-      }));
+      // Prioritize actual service logs for history to avoid "Roadmap Clear" when tasks reset
+      return [...logs]
+        .sort((a, b) => new Date(b.serviceDate).getTime() - new Date(a.serviceDate).getTime())
+        .map(l => ({
+          id: l.id,
+          title: l.serviceType,
+          description: l.notes || `Service performed at ${l.provider || 'Independent Facility'}.`,
+          dueMileage: l.mileageAtService, 
+          status: 'completed' as TaskStatus,
+          category: l.category,
+          estimatedCost: l.cost,
+          date: l.serviceDate,
+          isLog: true
+        }));
     }
     const filteredTasks = tasks.filter(t => statusFilter === 'all' || t.status === statusFilter);
     return filteredTasks.sort((a, b) => a.dueMileage - b.dueMileage);

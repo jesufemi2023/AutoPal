@@ -122,12 +122,22 @@ const Dashboard: React.FC = () => {
         </div>
         
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
-          <button 
-            onClick={() => handleScroll('left')}
-            className="hidden lg:flex absolute -left-4 top-1/2 -translate-y-1/2 z-[40] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
-          >
-            ←
-          </button>
+          {vehicles.length > 2 && (
+            <>
+              <button 
+                onClick={() => handleScroll('left')}
+                className="lg:flex absolute -left-2 top-1/2 -translate-y-1/2 z-[40] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
+              >
+                ←
+              </button>
+              <button 
+                onClick={() => handleScroll('right')}
+                className="lg:flex absolute -right-2 top-1/2 -translate-y-1/2 z-[40] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
+              >
+                →
+              </button>
+            </>
+          )}
           
           <div 
             ref={scrollContainerRef}
@@ -148,13 +158,6 @@ const Dashboard: React.FC = () => {
               </button>
             ))}
           </div>
-
-          <button 
-            onClick={() => handleScroll('right')}
-            className="hidden lg:flex absolute -right-4 top-1/2 -translate-y-1/2 z-[40] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
-          >
-            →
-          </button>
         </div>
       </header>
 
