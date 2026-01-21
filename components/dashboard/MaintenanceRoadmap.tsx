@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Vehicle, MaintenanceTask, ServiceCategory, TaskStatus, ServiceLog } from '../../shared/types.ts';
 import { getTaskMaintenanceStatus, predictServiceDate } from '../../services/maintenanceLogic.ts';
@@ -26,15 +25,17 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, logs = [],
 
   const displayItems = useMemo(() => {
     if (statusFilter === 'completed') {
+      // Map ServiceLogs to a structure compatible with the list renderer
       return logs.map(l => ({
         id: l.id,
         title: l.serviceType,
         description: l.notes || `Service performed at ${l.provider || 'Independent Facility'}.`,
-        dueMileage: l.mileageAtService,
+        dueMileage: l.mileageAtService, // Using 'dueMileage' field for consistency in rendering
         status: 'completed' as TaskStatus,
         category: l.category,
         estimatedCost: l.cost,
-        date: l.serviceDate
+        date: l.serviceDate,
+        isLog: true
       }));
     }
     const filteredTasks = tasks.filter(t => statusFilter === 'all' || t.status === statusFilter);
@@ -91,14 +92,14 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, logs = [],
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400">Loading Schedule...</p>
           </div>
         ) : displayItems.length > 0 ? displayItems.map((item: any, i: number) => {
-          const isTask = 'priority' in item;
-          const derivedStatus = item.status === 'pending' ? getTaskMaintenanceStatus(vehicle, item as MaintenanceTask) : 'optimal';
-          const isOverdue = derivedStatus === 'overdue';
+          const isTask = !item.isLog;
+          const derivedStatus = isTask ? getTaskMaintenanceStatus(vehicle, item as MaintenanceTask) : 'optimal';
+          const isOverdue = isTask && derivedStatus === 'overdue';
           const predictedDate = isTask ? predictServiceDate(vehicle, item as MaintenanceTask, velocity) : item.date;
           
-          const interval = (item as MaintenanceTask).intervalKm || 5000;
-          const startMileage = item.dueMileage - interval;
-          const progress = item.status === 'completed' ? 100 : Math.min(100, Math.max(0, ((vehicle.mileage - startMileage) / interval) * 100));
+          const interval = isTask ? (item as MaintenanceTask).intervalKm || 5000 : 0;
+          const startMileage = isTask ? item.dueMileage - interval : 0;
+          const progress = !isTask ? 100 : Math.min(100, Math.max(0, ((vehicle.mileage - startMileage) / (interval || 1)) * 100));
 
           return (
             <div 
@@ -109,13 +110,13 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, logs = [],
               <div className="flex flex-col lg:flex-row gap-10 items-start justify-between">
                 <div className="flex-grow space-y-6 w-full">
                   <div className="flex items-center gap-5">
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${isOverdue ? 'bg-rose-500 text-white' : item.status === 'completed' ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-white'}`}>
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner ${isOverdue ? 'bg-rose-500 text-white' : !isTask ? 'bg-emerald-500 text-white' : 'bg-slate-900 text-white'}`}>
                       {item.category === 'fluids' ? '💧' : item.category === 'engine' ? '⚙️' : item.category === 'brakes' ? '🛑' : '🛠️'}
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded ${isOverdue ? 'bg-rose-600 text-white' : item.status === 'completed' ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'}`}>
-                          {item.status === 'pending' ? (isOverdue ? 'Overdue' : 'Scheduled') : 'Completed'}
+                        <span className={`text-[8px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded ${isOverdue ? 'bg-rose-600 text-white' : !isTask ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'}`}>
+                          {isTask ? (isOverdue ? 'Overdue' : 'Scheduled') : 'History'}
                         </span>
                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{item.category} system</span>
                       </div>
@@ -123,7 +124,7 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, logs = [],
                     </div>
                   </div>
 
-                  {item.status === 'pending' && (
+                  {isTask && (
                     <div className="space-y-3">
                       <div className="flex justify-between items-end">
                         <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Maintenance Progress</div>
@@ -145,21 +146,21 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, logs = [],
 
                 <div className="w-full lg:w-auto grid grid-cols-2 lg:flex lg:flex-col gap-6 lg:items-end shrink-0 border-t lg:border-t-0 lg:border-l lg:border-slate-100 pt-6 lg:pt-0 lg:pl-10">
                    <div className="space-y-1 lg:text-right">
-                      <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{item.status === 'completed' ? 'Done At' : 'Due At'}</div>
+                      <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">{isTask ? 'Due At' : 'Done At'}</div>
                       <div className={`text-2xl font-mono font-black ${isOverdue ? 'text-rose-600' : 'text-slate-900'}`}>
                         {item.dueMileage.toLocaleString()} <span className="text-xs font-sans text-slate-300">KM</span>
                       </div>
                    </div>
                    
                    <div className="space-y-1 lg:text-right">
-                      <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Cost</div>
+                      <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Investment</div>
                       <div className="text-xl font-black text-slate-900">
                         {formatCurrency(item.estimatedCost || 0)}
                       </div>
                    </div>
 
                    <div className="col-span-2 w-full space-y-3">
-                      {item.status === 'pending' && (
+                      {isTask && (
                         <button 
                           onClick={() => handleLogClick(item)}
                           className={`w-full px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 ${
@@ -174,7 +175,7 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, logs = [],
                       {predictedDate && (
                         <div className="text-center" title="Estimated based on your average driving behavior.">
                           <span className="text-[8px] font-black uppercase tracking-[0.2em] text-blue-500 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 cursor-help">
-                             {item.status === 'completed' ? 'Date:' : 'Est. Date:'} {formatDate(predictedDate)}
+                             {isTask ? 'Est. Date:' : 'Date:'} {formatDate(predictedDate)}
                           </span>
                         </div>
                       )}

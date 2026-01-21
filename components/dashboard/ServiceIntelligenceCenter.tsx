@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../../services/vehicleService.ts';
@@ -124,7 +123,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
       const scrollAmount = 300;
-      scrollContainerRef.current.scrollBy({ left: direction === 'left' ? -200 : 200, behavior: 'smooth' });
+      scrollContainerRef.current.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
     }
   };
 
@@ -196,10 +195,10 @@ const ServiceIntelligenceCenter: React.FC = () => {
         <div className="space-y-3">
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Service <br/><span className="text-blue-600">Records</span></h2>
           
-          <div className="relative group/scroll flex-grow max-w-sm mt-4">
+          <div className="relative group/scroll flex-grow max-w-sm mt-6">
             <button 
               onClick={() => handleScroll('left')}
-              className="lg:flex absolute -left-2 top-1/2 -translate-y-1/2 z-[30] w-8 h-8 bg-white/95 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900"
+              className="lg:flex absolute -left-4 top-1/2 -translate-y-1/2 z-[40] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
             >
               ←
             </button>
@@ -211,7 +210,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
                 <button 
                   key={v.id} 
                   onClick={() => setActiveVehicleId(v.id)} 
-                  className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all whitespace-nowrap snap-center ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}
+                  className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all whitespace-nowrap snap-center ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}
                 >
                   {v.year} {v.make} {v.model}
                 </button>
@@ -219,7 +218,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
             </div>
             <button 
               onClick={() => handleScroll('right')}
-              className="lg:flex absolute -right-2 top-1/2 -translate-y-1/2 z-[30] w-8 h-8 bg-white/95 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900"
+              className="lg:flex absolute -right-4 top-1/2 -translate-y-1/2 z-[40] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
             >
               →
             </button>
@@ -288,7 +287,14 @@ const ServiceIntelligenceCenter: React.FC = () => {
               <button onClick={() => setActiveTab('roadmap')} className={`flex-1 sm:flex-none px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'roadmap' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Roadmap</button>
               <button onClick={() => setActiveTab('ledger')} className={`flex-1 sm:flex-none px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'ledger' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Full History</button>
             </div>
-            {activeTab === 'roadmap' && <MaintenanceRoadmap vehicle={activeVehicle} tasks={vehicleTasks} logs={activeServiceLogs} onLog={(t) => { setSelectedTaskForLog(t); setShowLogTerminal(true); }} />}
+            {activeTab === 'roadmap' && (
+              <MaintenanceRoadmap 
+                vehicle={activeVehicle} 
+                tasks={vehicleTasks} 
+                logs={activeServiceLogs} 
+                onLog={(t) => { setSelectedTaskForLog(t); setShowLogTerminal(true); }} 
+              />
+            )}
             {activeTab === 'ledger' && (
               <div className="grid grid-cols-1 gap-6">
                 {activeServiceLogs.length > 0 ? activeServiceLogs.map((log) => (
