@@ -25,6 +25,13 @@ interface AutoPalState {
   marketplace: any[];
   marketplaceFilter: string;
 
+  // Usage Stats
+  getUsageStats: () => {
+    monthlyServiceCount: number;
+    monthlyFuelCount: number;
+    monthlyAiScanCount: number;
+  };
+
   setSession: (session: any) => void;
   setUser: (user: UserProfile | null) => void;
   setInitialized: (initialized: boolean) => void;
@@ -83,6 +90,21 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   marketplace: [],
   marketplaceFilter: '',
 
+  getUsageStats: () => {
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0,0,0,0);
+
+    const filterMonthly = (items: any[]) => items.filter(i => new Date(i.createdAt || i.serviceDate) >= startOfMonth).length;
+
+    return {
+      monthlyServiceCount: filterMonthly(get().serviceLogs),
+      monthlyFuelCount: filterMonthly(get().fuelLogs),
+      // AI scan count is derived from stored reports for the current month
+      monthlyAiScanCount: Object.values(get().aiValuationReports).filter(r => new Date(r.timestamp) >= startOfMonth).length
+    };
+  },
+
   checkDirtyStatus: async () => {
     const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords();
     set({ hasDirtyData: vehicles.length + tasks.length + logs.length + fuel.length > 0 });
@@ -94,7 +116,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     try {
       await performPushSync();
       await get().checkDirtyStatus();
-      // Re-load to ensure UI has latest cloud IDs
       if (get().activeVehicleId) {
         const vehicleId = get().activeVehicleId!;
         const [logs, fuel, tasks] = await Promise.all([
