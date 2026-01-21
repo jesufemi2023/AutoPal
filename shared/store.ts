@@ -1,13 +1,7 @@
-
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
 import { localDb } from '../services/localDb.ts';
 import { performPushSync } from '../services/syncService.ts';
-
-interface UsageStats {
-  monthlyServiceCount: number;
-  monthlyFuelCount: number;
-}
 
 interface AutoPalState {
   user: UserProfile | null;
@@ -65,8 +59,7 @@ interface AutoPalState {
   loadLocalData: () => Promise<void>;
   triggerSync: () => Promise<void>;
   checkDirtyStatus: () => Promise<void>;
-  // Added getUsageStats to support entitlement checks in components like MaintenanceRoadmap
-  getUsageStats: () => UsageStats;
+  getUsageStats: () => { monthlyServiceCount: number; monthlyFuelCount: number; };
 }
 
 export const useAutoPalStore = create<AutoPalState>((set, get) => ({
@@ -288,7 +281,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     });
   },
 
-  // Implementation of getUsageStats to calculate monthly counts for quota enforcement
   getUsageStats: () => {
     const now = new Date();
     const currentMonth = now.getMonth();
