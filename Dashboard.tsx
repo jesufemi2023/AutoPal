@@ -122,17 +122,17 @@ const Dashboard: React.FC = () => {
         </div>
         
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
-          {vehicles.length > 2 && (
+          {vehicles.length > 1 && (
             <>
               <button 
                 onClick={() => handleScroll('left')}
-                className="lg:flex absolute -left-2 top-1/2 -translate-y-1/2 z-[40] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
+                className="lg:flex absolute -left-4 top-1/2 -translate-y-1/2 z-[100] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all active:scale-90"
               >
                 ←
               </button>
               <button 
                 onClick={() => handleScroll('right')}
-                className="lg:flex absolute -right-2 top-1/2 -translate-y-1/2 z-[40] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
+                className="lg:flex absolute -right-4 top-1/2 -translate-y-1/2 z-[100] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all active:scale-90"
               >
                 →
               </button>
@@ -141,7 +141,7 @@ const Dashboard: React.FC = () => {
           
           <div 
             ref={scrollContainerRef}
-            className="flex gap-3 overflow-x-auto scrollbar-hide scrollbar-desktop-show py-1.5 px-4 -mx-0.5 flex-nowrap snap-x snap-mandatory scroll-smooth"
+            className="flex gap-3 overflow-x-auto scrollbar-hide scrollbar-desktop-show py-2 px-4 -mx-0.5 flex-nowrap snap-x snap-mandatory scroll-smooth"
           >
             {vehicles.map(v => (
               <button 
