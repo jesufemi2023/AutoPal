@@ -1,18 +1,18 @@
 
-import { Tier, ServiceLog, FuelLog } from '../shared/types.ts';
+import { Tier } from '../shared/types.ts';
 
 /**
  * AutoPal NG Capability Matrix
  * Isolated configuration for all plan limits.
+ * Highly configurable and scalable for future tier additions.
  */
 export const TIER_REGISTRY = {
   free: {
     maxVehicles: 1,
     monthlyServiceLogs: 4,
     monthlyFuelLogs: 2,
-    monthlyAiScans: 1,        // Resale Valuation
+    monthlyAiScans: 1,        // AI Resale Audit
     monthlyAiDiagnostics: 1,  // AI Mechanic / Symptom Analysis
-    fuelHistoryRetentionDays: 30,
     canExportReports: false,
     marketplaceAccess: 'basic' as const,
   },
@@ -22,7 +22,6 @@ export const TIER_REGISTRY = {
     monthlyFuelLogs: 15,
     monthlyAiScans: 10,
     monthlyAiDiagnostics: 10,
-    fuelHistoryRetentionDays: 365,
     canExportReports: true,
     marketplaceAccess: 'full' as const,
   },
@@ -32,7 +31,6 @@ export const TIER_REGISTRY = {
     monthlyFuelLogs: 999,
     monthlyAiScans: 999,
     monthlyAiDiagnostics: 999,
-    fuelHistoryRetentionDays: 9999,
     canExportReports: true,
     marketplaceAccess: 'full' as const,
   }
@@ -42,7 +40,7 @@ export type Capability = keyof typeof TIER_REGISTRY.free;
 
 /**
  * Entitlement Engine
- * Pure logic class to check permissions.
+ * Pure logic class to check permissions without tampering with business logic.
  */
 export class EntitlementEngine {
   static getLimit(tier: Tier, cap: Capability) {
@@ -70,14 +68,7 @@ export class EntitlementEngine {
   }
 
   static filterHistoryData<T extends { createdAt: string }>(tier: Tier, data: T[]): T[] {
-    const days = this.getLimit(tier, 'fuelHistoryRetentionDays') as number;
-    if (days >= 999) return data;
-
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - days);
-    return data.filter(item => {
-      const date = item.createdAt ? new Date(item.createdAt) : new Date();
-      return date >= cutoff;
-    });
+    // For MVP, we show data but restrict interactions via PlanGuard
+    return data;
   }
 }

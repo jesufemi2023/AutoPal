@@ -42,7 +42,6 @@ const App: React.FC = () => {
     loadLocalData();
   }, []);
 
-  // Sync session and fetch full user profile (including updated roles)
   useEffect(() => {
     const initAuth = async () => {
       if (!isSupabaseConfigured) {
@@ -78,10 +77,10 @@ const App: React.FC = () => {
         setInitialized(true);
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          setSession(session);
           if (!session) {
-            reset();
+            await reset();
           } else {
+            setSession(session);
             const { data: profile } = await supabase.from('Users').select('*').eq('id', session.user.id).single();
             if (profile) {
               setUser({
@@ -121,6 +120,9 @@ const App: React.FC = () => {
   const handleSignOut = async () => {
     if (!supabase) return;
     try {
+      // Direct session clearing for immediate UI response
+      setSession(null);
+      setUser(null);
       await supabase.auth.signOut();
       await reset();
       setIsMobileMenuOpen(false);
@@ -282,7 +284,7 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Slide-out Control Panel (Secondary Menu) */}
+      {/* Slide-out Control Panel */}
       <div 
         className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[20px] opacity-0 pointer-events-none translate-x-[-50px]'}`}
       >

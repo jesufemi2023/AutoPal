@@ -94,20 +94,22 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   marketplaceFilter: '',
 
   getUsageStats: () => {
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0,0,0,0);
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const filterMonthly = (items: any[]) => items.filter(i => new Date(i.createdAt || i.serviceDate) >= startOfMonth).length;
+    const filterMonthly = (items: any[]) => items.filter(i => {
+      const date = new Date(i.createdAt || i.serviceDate || i.timestamp);
+      return date >= startOfMonth;
+    }).length;
 
-    // Track AI Diagnostics via localStorage since there's no DB table yet
+    // Track AI Diagnostics via localStorage (MVP solution for sessionless usage)
     const diagHistory = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
     const currentMonthDiagCount = diagHistory.filter((ts: string) => new Date(ts) >= startOfMonth).length;
 
     return {
       monthlyServiceCount: filterMonthly(get().serviceLogs),
       monthlyFuelCount: filterMonthly(get().fuelLogs),
-      monthlyAiScanCount: Object.values(get().aiValuationReports).filter(r => new Date(r.timestamp) >= startOfMonth).length,
+      monthlyAiScanCount: filterMonthly(Object.values(get().aiValuationReports)),
       monthlyAiDiagnosticCount: currentMonthDiagCount
     };
   },
@@ -116,8 +118,8 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const history = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
     history.push(new Date().toISOString());
     localStorage.setItem('autopal_diag_usage', JSON.stringify(history));
-    // Trigger store update to refresh UI
-    set({ isSyncing: get().isSyncing }); 
+    // Trigger internal update to refresh usage counts across UI
+    set({ isInitialized: true });
   },
 
   checkDirtyStatus: async () => {
@@ -172,7 +174,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
 
   setSession: (session) => {
     if (!session) {
-      if (get().session !== null) set({ session: null, user: null });
+      set({ session: null, user: null });
       return;
     }
     const { user: supabaseUser } = session;
