@@ -3,7 +3,7 @@ import { MarketplaceProduct } from '../shared/types.ts';
 
 /**
  * Marketplace Service
- * Curates parts from verified Nigerian vendors (Lagos, Abuja, PH).
+ * Curates parts from verified Nigerian vendors.
  */
 
 const MOCK_PARTS: MarketplaceProduct[] = [
@@ -15,7 +15,7 @@ const MOCK_PARTS: MarketplaceProduct[] = [
     vendorName: 'Autozuby Parts Lagos',
     isVerified: true,
     compatibility: ['Honda Civic', 'Toyota Corolla', 'Toyota Camry'],
-    isPremium: false
+    accessLevel: 'basic'
   },
   {
     id: 'p2',
@@ -25,7 +25,7 @@ const MOCK_PARTS: MarketplaceProduct[] = [
     vendorName: 'Lubricant Hub Abuja',
     isVerified: true,
     compatibility: ['Toyota', 'Honda', 'Lexus', 'Mazda'],
-    isPremium: false
+    accessLevel: 'basic'
   },
   {
     id: 'p3',
@@ -35,7 +35,7 @@ const MOCK_PARTS: MarketplaceProduct[] = [
     vendorName: 'Genuine Spares Garki',
     isVerified: true,
     compatibility: ['Toyota Camry', 'Toyota Avalon', 'Lexus ES350'],
-    isPremium: true
+    accessLevel: 'standard'
   },
   {
     id: 'p4',
@@ -45,7 +45,7 @@ const MOCK_PARTS: MarketplaceProduct[] = [
     vendorName: 'QuickParts Port Harcourt',
     isVerified: false,
     compatibility: ['Toyota Corolla', 'Toyota Rav4'],
-    isPremium: false
+    accessLevel: 'basic'
   },
   {
     id: 'p5',
@@ -55,12 +55,11 @@ const MOCK_PARTS: MarketplaceProduct[] = [
     vendorName: 'Ladipo Master Parts',
     isVerified: true,
     compatibility: ['Lexus RX350', 'Toyota Highlander'],
-    isPremium: true
+    accessLevel: 'premium'
   }
 ];
 
 export const fetchMarketplaceProducts = async (): Promise<MarketplaceProduct[]> => {
-  // Simulate API delay
   return new Promise((resolve) => {
     setTimeout(() => resolve(MOCK_PARTS), 600);
   });

@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
+import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport, Tier } from './types.ts';
 import { localDb } from '../services/localDb.ts';
 import { performPushSync } from '../services/syncService.ts';
 
@@ -26,7 +26,6 @@ interface AutoPalState {
   marketplace: any[];
   marketplaceFilter: string;
 
-  // Usage Stats
   getUsageStats: () => {
     monthlyServiceCount: number;
     monthlyFuelCount: number;
@@ -48,11 +47,11 @@ interface AutoPalState {
   incrementDiagnosticUsage: () => void;
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
-  updateVehicleStore: (vehicle: Vehicle) => void;
-  syncVehicleState: (vehicleId: string, updates: Partial<Vehicle>) => void;
+  updateVehicleStore: (vehicle) => void;
+  syncVehicleState: (vehicleId, updates) => void;
   removeVehicleStore: (vehicleId: string) => void;
-  updateMileage: (vehicleId: string, mileage: number) => void;
-  completeTask: (taskId: string, cost: number, currentMileage: number) => void;
+  updateMileage: (vehicleId, mileage) => void;
+  completeTask: (taskId, cost, currentMileage) => void;
   setTasks: (tasks: MaintenanceTask[]) => void;
   setServiceLogs: (logs: ServiceLog[]) => void;
   addServiceLog: (log: ServiceLog) => void;
@@ -61,7 +60,7 @@ interface AutoPalState {
   addFuelLogStore: (log: FuelLog) => void;
   updateFuelLogStore: (log: FuelLog) => void;
   removeFuelLogStore: (logId: string) => void;
-  setAIValuationReport: (vehicleId: string, report: AIValuationReport) => void;
+  setAIValuationReport: (vehicleId, report) => void;
   setMarketplace: (items: any[]) => void;
   setSuggestedParts: (parts: string[]) => void;
   setMarketplaceFilter: (filter: string) => void;
@@ -98,10 +97,12 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const filterMonthly = (items: any[]) => items.filter(i => {
-      const date = new Date(i.createdAt || i.serviceDate || i.timestamp);
-      return date >= startOfMonth;
+      const dateStr = i.createdAt || i.serviceDate || i.timestamp;
+      if (!dateStr) return false;
+      return new Date(dateStr) >= startOfMonth;
     }).length;
 
+    // AI Mechanic usage (Diagnostics) is tracked in localStorage for the month
     const diagHistory = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
     const currentMonthDiagCount = diagHistory.filter((ts: string) => new Date(ts) >= startOfMonth).length;
 
@@ -131,15 +132,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     try {
       await performPushSync();
       await get().checkDirtyStatus();
-      if (get().activeVehicleId) {
-        const vehicleId = get().activeVehicleId!;
-        const [logs, fuel, tasks] = await Promise.all([
-          localDb.getLogs(vehicleId),
-          localDb.getFuelLogs(vehicleId),
-          localDb.getTasks(vehicleId)
-        ]);
-        set({ serviceLogs: logs, fuelLogs: fuel, tasks: tasks });
-      }
     } finally {
       set({ isSyncing: false });
     }
@@ -178,15 +170,21 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     }
     const { user: supabaseUser } = session;
     const meta = supabaseUser.user_metadata || {};
+    
+    // Check for subscription expiry
+    const expiryDate = meta.subscription_expires_at ? new Date(meta.subscription_expires_at) : null;
+    const isExpired = expiryDate && expiryDate < new Date();
+    
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
       displayName: meta.display_name || meta.full_name || '',
       phone: meta.phone || '',
-      tier: meta.tier || 'free',
+      tier: isExpired ? 'free' : (meta.tier || 'free'),
       role: meta.role || 'user',
       onboarded: meta.onboarded || false,
       createdAt: supabaseUser.created_at || new Date().toISOString(),
+      subscriptionExpiresAt: meta.subscription_expires_at,
     };
     set({ session, user: newUserObj });
   },

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { Capability, TIER_REGISTRY } from '../services/entitlementService.ts';
@@ -37,15 +38,16 @@ export const PlanGuard: React.FC<PlanGuardProps> = ({
 
   if (fallbackMode === 'blur') {
     return (
-      <div className="relative group">
-        <div className="filter blur-md pointer-events-none select-none opacity-40">
+      <div className="relative group w-full h-full">
+        <div className="filter blur-xl pointer-events-none select-none opacity-40 h-full">
           {children}
         </div>
-        <div className="absolute inset-0 flex items-center justify-center z-20">
-          <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl border border-slate-200 shadow-2xl text-center max-w-[200px] animate-in zoom-in-95 duration-300">
-             <div className="text-xl mb-2">🔒</div>
-             <p className="text-[10px] font-black uppercase tracking-widest text-slate-900 mb-4">{label}</p>
-             <button className="w-full py-2 bg-blue-600 text-white text-[8px] font-black uppercase rounded-lg">Upgrade Plan</button>
+        <div className="absolute inset-0 flex items-center justify-center z-[50]">
+          <div className="bg-white/80 backdrop-blur-3xl p-10 rounded-[2.5rem] border border-slate-200 shadow-3xl text-center max-w-[320px] animate-in zoom-in-95 duration-500">
+             <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-6 text-white shadow-xl">🔒</div>
+             <p className="text-[12px] font-black uppercase tracking-[0.2em] text-slate-900 mb-2">{label}</p>
+             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-8 leading-relaxed">Upgrade to a Professional Plan to unlock full garage reporting and analytics.</p>
+             <button className="w-full py-5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl hover:bg-blue-600 transition-all active:scale-95">View Pricing</button>
           </div>
         </div>
       </div>

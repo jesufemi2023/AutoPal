@@ -4,6 +4,7 @@ export type UserRole = 'user' | 'admin';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback' | 'other';
 export type TaskStatus = 'pending' | 'completed' | 'skipped';
 export type SyncStatus = 'synced' | 'pending' | 'error';
+export type MarketplaceAccess = 'basic' | 'standard' | 'premium';
 
 export enum Priority {
   LOW = 'low',
@@ -15,17 +16,6 @@ export type LogStatus = 'upcoming' | 'overdue' | 'completed';
 export type ServiceCategory = 'engine' | 'tires' | 'brakes' | 'fluids' | 'suspension' | 'other' | 'electrical' | 'cooling';
 export type VerificationLevel = 'self_declared' | 'receipt_verified' | 'mechanic_verified';
 
-export interface SystemFeedback {
-  id: string;
-  userId: string;
-  userEmail: string;
-  rating: number;
-  tags: string[];
-  comment: string;
-  vehicleContext?: string;
-  createdAt: string;
-}
-
 export interface UserProfile {
   id: string;
   email: string;
@@ -35,14 +25,48 @@ export interface UserProfile {
   role: UserRole;
   onboarded: boolean;
   createdAt: string;
+  subscriptionExpiresAt?: string;
+  lastRenewedAt?: string;
 }
 
+export interface MarketplaceProduct {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  vendorName: string;
+  isVerified: boolean;
+  compatibility: string[];
+  accessLevel: MarketplaceAccess;
+}
+
+// Added TransientVehicle to fix store.ts import error
 export interface TransientVehicle {
   make: string;
   model: string;
   year: number;
   mileage: number;
-  vin?: string;
+}
+
+export interface VehicleSpecs {
+  oilGrade?: string;
+  tireSize?: string;
+  batteryType?: string;
+  engineType?: 'petrol' | 'diesel' | 'hybrid' | 'electric';
+  transmission?: 'manual' | 'automatic';
+  recommendedFuel?: string;
+  sparkPlugGap?: string;
+  currency?: string;
+  [key: string]: any;
+}
+
+export interface HealthBreakdown {
+  metabolic: number;
+  hygiene: number;
+  provenance: number;
+  metabolicStatus: 'optimal' | 'warning' | 'critical';
+  wasteMonthly: number;
+  variance: number;
 }
 
 export interface AIValuationReport {
@@ -79,27 +103,6 @@ export interface AIValuationReport {
     exitStrategy: string;
     marketComparison: string;
   };
-}
-
-export interface VehicleSpecs {
-  oilGrade?: string;
-  tireSize?: string;
-  batteryType?: string;
-  engineType?: 'petrol' | 'diesel' | 'hybrid' | 'electric';
-  transmission?: 'manual' | 'automatic';
-  recommendedFuel?: string;
-  sparkPlugGap?: string;
-  currency?: string;
-  [key: string]: any;
-}
-
-export interface HealthBreakdown {
-  metabolic: number;
-  hygiene: number;
-  provenance: number;
-  metabolicStatus: 'optimal' | 'warning' | 'critical';
-  wasteMonthly: number;
-  variance: number;
 }
 
 export interface Vehicle {
@@ -202,15 +205,4 @@ export interface MaintenanceScheduleResponse {
     intervalKm?: number;
     intervalMonths?: number;
   }>;
-}
-
-export interface MarketplaceProduct {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  vendorName: string;
-  isVerified: boolean;
-  compatibility: string[];
-  isPremium?: boolean;
 }
