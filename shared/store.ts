@@ -102,7 +102,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       return date >= startOfMonth;
     }).length;
 
-    // Track AI Diagnostics via localStorage (MVP solution for sessionless usage)
     const diagHistory = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
     const currentMonthDiagCount = diagHistory.filter((ts: string) => new Date(ts) >= startOfMonth).length;
 
@@ -118,7 +117,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const history = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
     history.push(new Date().toISOString());
     localStorage.setItem('autopal_diag_usage', JSON.stringify(history));
-    // Trigger internal update to refresh usage counts across UI
     set({ isInitialized: true });
   },
 
@@ -166,7 +164,8 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       activeVehicleId: activeId,
       fuelLogs: localFuel,
       serviceLogs: localService,
-      tasks: localTasks
+      tasks: localTasks,
+      isInitialized: true
     });
     
     await get().checkDirtyStatus();
@@ -209,9 +208,11 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   }),
 
   setVehicles: (vehicles) => {
+    const currentActiveId = get().activeVehicleId;
+    const isCurrentIdStillValid = vehicles.some(v => v.id === currentActiveId);
     set({ 
       vehicles,
-      activeVehicleId: get().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
+      activeVehicleId: isCurrentIdStillValid ? currentActiveId : (vehicles.length > 0 ? vehicles[0].id : null)
     });
     vehicles.forEach(v => localDb.saveVehicle(v));
     get().checkDirtyStatus();

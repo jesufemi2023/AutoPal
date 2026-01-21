@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { 
@@ -18,7 +19,7 @@ const Dashboard: React.FC = () => {
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
     updateMileage: updateStoreMileage,
-    loadLocalData, setVehicles
+    loadLocalData, setVehicles, isInitialized
   } = useAutoPalStore();
 
   const [showOdometerModal, setShowOdometerModal] = useState(false);
@@ -52,8 +53,8 @@ const Dashboard: React.FC = () => {
   }, [activeVehicle, tasks, activeFuelLogs, activeServiceLogs]);
 
   useEffect(() => {
-    loadLocalData();
-  }, [loadLocalData]);
+    if (!isInitialized) loadLocalData();
+  }, [isInitialized, loadLocalData]);
 
   useEffect(() => {
     const syncVehicles = async () => {
@@ -75,6 +76,8 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (vehicles.length > 0 && !activeVehicleId) {
       setActiveVehicleId(vehicles[0].id);
+    } else if (activeVehicleId && !vehicles.some(v => v.id === activeVehicleId) && vehicles.length > 0) {
+      setActiveVehicleId(vehicles[0].id);
     }
   }, [vehicles, activeVehicleId, setActiveVehicleId]);
 
@@ -90,6 +93,9 @@ const Dashboard: React.FC = () => {
         setTasks(taskList);
         setServiceLogs(logList);
         setFuelLogs(fuelList);
+      })
+      .catch((err) => {
+        console.error("Dashboard Intelligence Sync Fault:", err);
       })
       .finally(() => setIsLoadingDetails(false));
     }
@@ -111,7 +117,7 @@ const Dashboard: React.FC = () => {
         <div className="shrink-0">
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">Vehicle <span className="text-blue-600">Hub</span></h1>
-            {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2"></div>}
+            {(isSyncing || isLoadingDetails) && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2"></div>}
           </div>
           <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">Active Fleet Monitoring</p>
         </div>
