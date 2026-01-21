@@ -1,3 +1,4 @@
+
 export type Tier = 'free' | 'standard' | 'premium';
 export type UserRole = 'user' | 'admin';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback' | 'other';
@@ -211,4 +212,5 @@ export interface MarketplaceProduct {
   vendorName: string;
   isVerified: boolean;
   compatibility: string[];
+  isPremium?: boolean;
 }

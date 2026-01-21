@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../../services/vehicleService.ts';
@@ -7,11 +8,13 @@ import { MaintenanceTask, ServiceLog } from '../../shared/types.ts';
 import { calculateFinancialLedger } from '../../services/maintenanceLogic.ts';
 import { MaintenanceRoadmap } from './MaintenanceRoadmap.tsx';
 import { ServiceLogTerminal } from '../ServiceLogTerminal.tsx';
+import { EntitlementEngine } from '../../services/entitlementService.ts';
+import { PlanGuard } from '../PlanGuard.tsx';
 
 const ServiceIntelligenceCenter: React.FC = () => {
   const { 
     vehicles, tasks, serviceLogs, setTasks, setServiceLogs,
-    activeVehicleId, setActiveVehicleId
+    activeVehicleId, setActiveVehicleId, user, getUsageStats
   } = useAutoPalStore();
   
   const [isLoading, setIsLoading] = useState(false);
@@ -22,6 +25,8 @@ const ServiceIntelligenceCenter: React.FC = () => {
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  const tier = user?.tier || 'free';
+  const stats = getUsageStats();
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
   useEffect(() => {
@@ -42,7 +47,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
   const vehicleTasks = useMemo(() => tasks.filter(t => t.vehicleId === activeVehicleId), [tasks, activeVehicleId]);
   const activeServiceLogs = useMemo(() => serviceLogs.filter(l => l.vehicleId === activeVehicleId), [serviceLogs, activeVehicleId]);
 
-  const stats = useMemo(() => {
+  const statsMeta = useMemo(() => {
     if (!activeVehicle) return { vitality: 0, discipline: 0, maintenanceTotal: 0, isAiAudited: false };
     const financial = calculateFinancialLedger(activeServiceLogs, []);
     const cachedAudit = activeVehicle.latestAiAudit;
@@ -54,24 +59,17 @@ const ServiceIntelligenceCenter: React.FC = () => {
     };
   }, [activeVehicle, activeServiceLogs]);
 
-  const handleExportCSV = () => {
-    const exportData = activeServiceLogs.map(l => ({
-      Date: formatDate(l.serviceDate),
-      Type: l.serviceType,
-      Category: l.category,
-      Provider: l.provider || 'Independent Mechanic',
-      Mileage: `${l.mileageAtService.toLocaleString()} KM`,
-      Cost: formatCurrency(l.cost),
-      Verification: l.verificationLevel
-    }));
-    exportToCSV(exportData, `AutoPal_ServiceRecords_${activeVehicle?.make}_${activeVehicle?.model}`);
+  const canAddLog = EntitlementEngine.canAddServiceLog(tier, stats.monthlyServiceCount);
+  const maxLogs = EntitlementEngine.getLimit(tier, 'monthlyServiceLogs');
+
+  const handleRecordService = () => {
+    if (!canAddLog) {
+      alert(`Quota Reached: Your current plan only allows ${maxLogs} service logs per month. Please upgrade to record more.`);
+      return;
+    }
+    setShowLogTerminal(true);
   };
 
-  const handleExportPDF = () => {
-    triggerProfessionalPrint('service-report-content');
-  };
-
-  // Fixed: Added missing getVerificationBadge helper function
   const getVerificationBadge = (level?: string) => {
     switch (level) {
       case 'mechanic_verified': return <span className="text-[7px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded uppercase tracking-widest">Verified ✓</span>;
@@ -80,12 +78,15 @@ const ServiceIntelligenceCenter: React.FC = () => {
     }
   };
 
+  // Fixed: Implemented missing handleDeleteLog to fix ReferenceError and allow log removal.
   const handleDeleteLog = async (id: string) => {
-    if (!confirm("Are you sure?")) return;
+    if (!confirm("Are you sure? This will permanently remove this service record from your local and cloud vault.")) return;
     try {
       await deleteServiceLog(id);
       setServiceLogs(serviceLogs.filter(l => l.id !== id));
-    } catch (e) { alert("Failed to delete record."); }
+    } catch (e) {
+      alert("Neural sync failure during deletion. Please check your connectivity.");
+    }
   };
 
   const handleEditLog = (log: ServiceLog) => {
@@ -161,19 +162,6 @@ const ServiceIntelligenceCenter: React.FC = () => {
               ))}
             </tbody>
           </table>
-
-          <div className="mt-20 pt-10 border-t-2 border-slate-100 flex justify-between items-end">
-             <div className="space-y-4">
-                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Generated: {new Date().toLocaleString()} // Verified Digital Ledger</p>
-                <p className="text-[7px] font-bold text-slate-300 uppercase tracking-widest max-w-sm leading-relaxed">
-                  This document serves as an official maintenance record for the identified asset. All data is synchronized via AutoPal Engineering Cloud.
-                </p>
-             </div>
-             <div className="text-right">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Total Maintenance Spend</p>
-                <p className="text-4xl font-black text-slate-900 tracking-tighter">{formatCurrency(stats.maintenanceTotal)}</p>
-             </div>
-          </div>
         </div>
       </div>
 
@@ -186,30 +174,20 @@ const ServiceIntelligenceCenter: React.FC = () => {
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Service <br/><span className="text-blue-600">Records</span></h2>
           
           <div className="flex gap-3 pt-6">
-             <button onClick={handleExportCSV} className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-3">
-               <span className="text-base">📊</span> Export Excel (CSV)
-             </button>
-             <button onClick={handleExportPDF} className="bg-blue-50 text-blue-600 border border-blue-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-blue-600 hover:text-white transition-all flex items-center gap-3">
-               <span className="text-base">📄</span> Official PDF Dossier
-             </button>
+             <PlanGuard feature="canExportReports" fallbackMode="hide">
+               <button onClick={() => exportToCSV(activeServiceLogs, 'service_records')} className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-3">
+                 <span className="text-base">📊</span> Export CSV
+               </button>
+             </PlanGuard>
           </div>
-
-          {vehicles.length > 1 && (
-            <div className="relative group/scroll w-full max-w-sm mt-6">
-              <button onClick={() => handleScroll('left')} className="hidden lg:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white opacity-0 group-hover/scroll:opacity-100 -ml-4 transition-all">←</button>
-              <div ref={scrollContainerRef} className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide scrollbar-desktop-show scroll-smooth px-1">
-                {vehicles.map(v => (
-                  <button key={v.id} onClick={() => setActiveVehicleId(v.id)} className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all whitespace-nowrap ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg scale-[1.02]' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}>
-                    {v.year} {v.make} {v.model}
-                  </button>
-                ))}
-              </div>
-              <button onClick={() => handleScroll('right')} className="hidden lg:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 bg-white/80 backdrop-blur-md border border-slate-100 rounded-full items-center justify-center shadow-md text-slate-900 hover:bg-blue-600 hover:text-white opacity-0 group-hover/scroll:opacity-100 -mr-4 transition-all">→</button>
-            </div>
-          )}
         </div>
-        <button disabled={!activeVehicle} onClick={() => setShowLogTerminal(true)} className="bg-slate-900 text-white px-8 sm:px-12 py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-4xl hover:bg-blue-600 transition-all flex items-center justify-center gap-4">
-          <span className="text-2xl">🛠️</span> Record Maintenance
+        <button 
+          disabled={!activeVehicle} 
+          onClick={handleRecordService} 
+          className={`px-8 sm:px-12 py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-4 ${canAddLog ? 'bg-slate-900 text-white shadow-4xl hover:bg-blue-600' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+        >
+          <span className="text-2xl">🛠️</span> 
+          {canAddLog ? `Record Maintenance (${stats.monthlyServiceCount}/${maxLogs})` : `Monthly Limit Reached (${maxLogs}/${maxLogs})`}
         </button>
       </header>
 
@@ -223,19 +201,19 @@ const ServiceIntelligenceCenter: React.FC = () => {
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm group">
               <div className="space-y-4">
                 <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">Health Condition <InfoIcon id="sHealth" text="Aggregate vitality based on recorded intervals." /></h3>
-                <div className={`text-4xl font-black tracking-tighter ${stats.vitality !== null ? 'text-blue-600' : 'text-slate-300'}`}>{stats.vitality !== null ? `${stats.vitality}%` : '--'}</div>
+                <div className={`text-4xl font-black tracking-tighter ${statsMeta.vitality !== null ? 'text-blue-600' : 'text-slate-300'}`}>{statsMeta.vitality !== null ? `${statsMeta.vitality}%` : '--'}</div>
               </div>
             </div>
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm group">
               <div className="space-y-4">
                 <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">Integrity <InfoIcon id="sTrust" text="Score of record verification (Receipts/Mechanics)." /></h3>
-                <div className={`text-4xl font-black tracking-tighter ${stats.discipline !== null ? 'text-emerald-600' : 'text-slate-300'}`}>{stats.discipline !== null ? `${stats.discipline}%` : '--'}</div>
+                <div className={`text-4xl font-black tracking-tighter ${statsMeta.discipline !== null ? 'text-emerald-600' : 'text-slate-300'}`}>{statsMeta.discipline !== null ? `${statsMeta.discipline}%` : '--'}</div>
               </div>
             </div>
             <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between shadow-xl col-span-1 sm:col-span-2 relative overflow-hidden group">
               <div className="space-y-4 relative z-10">
                 <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em] flex items-center">Total Maintenance Spend <InfoIcon id="sSpent" text="Cumulative investment recorded for this asset." /></h3>
-                <div className="text-4xl sm:text-5xl font-black tracking-tighter">{formatCurrency(stats.maintenanceTotal)}</div>
+                <div className="text-4xl sm:text-5xl font-black tracking-tighter">{formatCurrency(statsMeta.maintenanceTotal)}</div>
                 <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">{activeServiceLogs.length} operations logged.</p>
               </div>
             </div>
