@@ -65,28 +65,32 @@ const AuthScreen: React.FC = () => {
         </div>
 
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-gradient-to-br from-slate-800 to-slate-950 rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl shadow-slate-900/20">
+          <button 
+            onClick={() => setCurrentView('landing')}
+            className="w-16 h-16 bg-gradient-to-br from-slate-800 to-slate-950 rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl shadow-slate-900/20 hover:scale-105 transition-transform active:scale-95"
+            title="Return to Home"
+          >
             <Car size={32} strokeWidth={2.5} />
-          </div>
+          </button>
           <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase mb-1">
-            {mode === 'login' && 'Identity Link'}
-            {mode === 'signup' && 'Create Pilot ID'}
-            {mode === 'forgot' && 'Reset Link'}
+            {mode === 'login' && 'Welcome Back'}
+            {mode === 'signup' && 'Create Account'}
+            {mode === 'forgot' && 'Reset Password'}
             {mode === 'reset' && 'Secure Update'}
           </h1>
           <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
-            AutoPal NG Intelligence System
+            AutoPal NG Vehicle Intelligence
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {mode !== 'reset' && (
             <div>
-              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Terminal Address</label>
+              <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
               <input 
                 type="email" 
                 required
-                placeholder="pilot@autopal.ng"
+                placeholder="you@example.com"
                 className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition text-sm font-bold"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -98,10 +102,10 @@ const AuthScreen: React.FC = () => {
             <div>
               <div className="flex justify-between items-center mb-1.5 ml-1">
                 <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  Access Key
+                  Password
                 </label>
                 {mode === 'login' && (
-                  <button type="button" onClick={() => setMode('forgot')} className="text-[9px] font-black text-blue-600 hover:underline uppercase tracking-wider">Forgot?</button>
+                  <button type="button" onClick={() => setMode('forgot')} className="text-[9px] font-black text-blue-600 hover:underline uppercase tracking-wider">Forgot Password?</button>
                 )}
               </div>
               <input 
@@ -123,9 +127,9 @@ const AuthScreen: React.FC = () => {
             className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] hover:bg-blue-600 transition-all disabled:opacity-50 shadow-xl"
           >
             {loading ? 'Processing...' : (
-              mode === 'login' ? 'Initiate Session' : 
-              mode === 'signup' ? 'Create Pilot ID' : 
-              mode === 'forgot' ? 'Transmit Reset' : 'Commit Changes'
+              mode === 'login' ? 'Sign In' : 
+              mode === 'signup' ? 'Create My Account' : 
+              mode === 'forgot' ? 'Send Reset Link' : 'Update Password'
             )}
           </button>
         </form>
@@ -137,13 +141,13 @@ const AuthScreen: React.FC = () => {
             className="w-full mt-6 py-4 border-2 border-slate-100 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-600 flex items-center justify-center gap-3 hover:bg-slate-50 transition active:scale-95"
           >
             <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G" className="w-5 h-5" />
-            Sign in with Google
+            Continue with Google
           </button>
         )}
 
         <div className="mt-10 text-center space-y-2">
-           {mode === 'login' && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">New Pilot? <button onClick={() => setMode('signup')} className="text-blue-600 font-black">Register Terminal</button></p>}
-           {(mode === 'signup' || mode === 'forgot') && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Existing User? <button onClick={() => setMode('login')} className="text-blue-600 font-black">Return to Deck</button></p>}
+           {mode === 'login' && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">New to AutoPal? <button onClick={() => setMode('signup')} className="text-blue-600 font-black">Sign Up</button></p>}
+           {(mode === 'signup' || mode === 'forgot') && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Already have an account? <button onClick={() => setMode('login')} className="text-blue-600 font-black">Sign In</button></p>}
            <button onClick={() => setCurrentView('landing')} className="block w-full text-[9px] font-black uppercase tracking-widest text-slate-300 hover:text-slate-600 transition-colors pt-4">Return Home</button>
         </div>
       </div>
