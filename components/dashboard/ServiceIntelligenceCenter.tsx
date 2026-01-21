@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../../services/vehicleService.ts';
@@ -13,7 +14,7 @@ import { PlanGuard } from '../PlanGuard.tsx';
 const ServiceIntelligenceCenter: React.FC = () => {
   const { 
     vehicles, tasks, serviceLogs, setTasks, setServiceLogs,
-    activeVehicleId, setActiveVehicleId, user, getUsageStats
+    activeVehicleId, setActiveVehicleId, user, getUsageStats, setCurrentView
   } = useAutoPalStore();
   
   const [isLoading, setIsLoading] = useState(false);
@@ -108,8 +109,13 @@ const ServiceIntelligenceCenter: React.FC = () => {
     setShowLogTerminal(true);
   };
 
-  // Added handleRecordService to fix compilation error and reset terminal state
   const handleRecordService = () => {
+    if (!canAddLog) {
+      if (confirm("Service log limit reached (4/4) for the Free Tier. Upgrade to Standard to continue building your service history?")) {
+        setCurrentView('profile');
+      }
+      return;
+    }
     setSelectedTaskForLog(undefined);
     setEditingLog(undefined);
     setShowLogTerminal(true);
@@ -211,10 +217,10 @@ const ServiceIntelligenceCenter: React.FC = () => {
         <button 
           disabled={!activeVehicle} 
           onClick={handleRecordService} 
-          className={`px-8 sm:px-12 py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-4 ${canAddLog ? 'bg-slate-900 text-white shadow-4xl hover:bg-blue-600' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+          className={`px-8 sm:px-12 py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-4 ${canAddLog ? 'bg-slate-900 text-white shadow-4xl hover:bg-blue-600' : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-70'}`}
         >
-          <span className="text-2xl">🛠️</span> 
-          {canAddLog ? `Record Maintenance (${stats.monthlyServiceCount}/${maxLogs})` : `Monthly Limit Reached (${maxLogs}/${maxLogs})`}
+          <span className="text-2xl">{canAddLog ? '🛠️' : '🔒'}</span> 
+          {canAddLog ? `Record Maintenance (${stats.monthlyServiceCount}/${maxLogs})` : `Limit Reached (${maxLogs}/${maxLogs}) - Upgrade Hub`}
         </button>
       </header>
 

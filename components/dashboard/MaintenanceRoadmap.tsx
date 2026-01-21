@@ -1,8 +1,10 @@
+
 import React, { useState, useMemo } from 'react';
 import { Vehicle, MaintenanceTask, ServiceCategory, TaskStatus } from '../../shared/types.ts';
 import { getTaskMaintenanceStatus, predictServiceDate } from '../../services/maintenanceLogic.ts';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { formatDate, formatCurrency } from '../../shared/utils.ts';
+import { EntitlementEngine } from '../../services/entitlementService.ts';
 
 interface Props {
   vehicle: Vehicle;
@@ -12,9 +14,14 @@ interface Props {
 }
 
 export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isLoading }) => {
+  const { user, getUsageStats, setCurrentView } = useAutoPalStore();
   const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('pending');
   const velocity = vehicle.avgDailyKm || 35;
   
+  const stats = getUsageStats();
+  const tier = user?.tier || 'free';
+  const canAddLog = EntitlementEngine.canAddServiceLog(tier, stats.monthlyServiceCount);
+
   const filteredTasks = useMemo(() => {
     return tasks.filter(t => statusFilter === 'all' || t.status === statusFilter);
   }, [tasks, statusFilter]);
@@ -33,6 +40,16 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
   }, [tasks]);
 
   const kmToNext = nextMilestone ? Math.max(0, nextMilestone.dueMileage - vehicle.mileage) : null;
+
+  const handleLogClick = (task: MaintenanceTask) => {
+    if (!canAddLog) {
+      if (confirm("Monthly maintenance log limit reached for Free Tier. Upgrade to Standard for unlimited logging?")) {
+        setCurrentView('profile');
+      }
+      return;
+    }
+    onLog(task);
+  };
 
   return (
     <section className="bg-white rounded-[2.5rem] p-6 sm:p-10 border border-slate-100 shadow-sm relative overflow-hidden transition-all duration-500 hover:shadow-lg w-full">
@@ -136,10 +153,14 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
                    <div className="col-span-2 w-full space-y-3">
                       {task.status === 'pending' && (
                         <button 
-                          onClick={() => onLog(task)}
-                          className="w-full bg-slate-900 text-white px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-blue-600 active:scale-95 transition-all flex items-center justify-center gap-3"
+                          onClick={() => handleLogClick(task)}
+                          className={`w-full px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 ${
+                            canAddLog 
+                              ? 'bg-slate-900 text-white shadow-xl hover:bg-blue-600 active:scale-95' 
+                              : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60'
+                          }`}
                         >
-                          Log Maintenance
+                          {canAddLog ? 'Log Maintenance' : '🔒 Upgrade to Log'}
                         </button>
                       )}
                       {predictedDate && task.status === 'pending' && (
