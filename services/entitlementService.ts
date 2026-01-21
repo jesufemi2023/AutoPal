@@ -4,14 +4,13 @@ import { Tier } from '../shared/types.ts';
 /**
  * AutoPal NG Capability Matrix
  * Isolated configuration for all plan limits.
- * Highly configurable and scalable for future tier additions.
  */
 export const TIER_REGISTRY = {
   free: {
     maxVehicles: 1,
     monthlyServiceLogs: 4,
     monthlyFuelLogs: 2,
-    monthlyAiScans: 1,        // AI Resale Audit
+    monthlyAiScans: 1,        // Resale Valuation
     monthlyAiDiagnostics: 1,  // AI Mechanic / Symptom Analysis
     canExportReports: false,
     marketplaceAccess: 'basic' as const,
@@ -40,7 +39,7 @@ export type Capability = keyof typeof TIER_REGISTRY.free;
 
 /**
  * Entitlement Engine
- * Pure logic class to check permissions without tampering with business logic.
+ * Pure logic class to check permissions.
  */
 export class EntitlementEngine {
   static getLimit(tier: Tier, cap: Capability) {
@@ -68,7 +67,7 @@ export class EntitlementEngine {
   }
 
   static filterHistoryData<T extends { createdAt: string }>(tier: Tier, data: T[]): T[] {
-    // For MVP, we show data but restrict interactions via PlanGuard
+    // We show all data but restrict interactions or exportability via components
     return data;
   }
 }
