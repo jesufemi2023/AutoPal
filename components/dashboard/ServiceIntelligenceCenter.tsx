@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../../services/vehicleService.ts';
@@ -8,7 +9,7 @@ import { calculateFinancialLedger } from '../../services/maintenanceLogic.ts';
 import { MaintenanceRoadmap } from './MaintenanceRoadmap.tsx';
 import { ServiceLogTerminal } from '../ServiceLogTerminal.tsx';
 import { EntitlementEngine } from '../../services/entitlementService.ts';
-import { PlanGuard } from '../PlanGuard.tsx';
+import { VehicleOverview } from './VehicleOverview.tsx';
 
 const ServiceIntelligenceCenter: React.FC = () => {
   const { 
@@ -122,6 +123,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
+      const scrollAmount = 300;
       scrollContainerRef.current.scrollBy({ left: direction === 'left' ? -200 : 200, behavior: 'smooth' });
     }
   };
@@ -131,7 +133,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
       <button onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === id ? null : id); }} className="text-slate-400 hover:text-blue-500 transition-colors">ℹ️</button>
       {activeTooltip === id && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-in fade-in" onClick={() => setActiveTooltip(null)}>
-          <div className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-3xl max-w-sm w-full border border-white/10 text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-3xl max-sm w-full border border-white/10 text-center" onClick={(e) => e.stopPropagation()}>
             <div className="w-14 h-14 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400 text-2xl mx-auto mb-6">ℹ️</div>
             <h4 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4">Intelligence Insight</h4>
             <p className="text-xs font-bold uppercase tracking-widest text-slate-200 mb-8">{text}</p>
@@ -144,7 +146,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
   return (
     <div className="space-y-12 sm:space-y-16 animate-slide-up pb-24 sm:pb-32">
-      {/* Hidden PDF Template */}
+      {/* Hidden Print Template */}
       <div id="service-report-content" className="hidden" style={{ width: '100%' }}>
         <style dangerouslySetInnerHTML={{ __html: `
           @media print {
@@ -192,12 +194,37 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-8 px-2 no-print">
         <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-spin' : 'bg-blue-600 animate-pulse'}`}></div>
-            <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">{isLoading ? 'Syncing...' : 'Records Operational'}</span>
-          </div>
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Service <br/><span className="text-blue-600">Records</span></h2>
           
+          <div className="relative group/scroll flex-grow max-w-sm mt-4">
+            <button 
+              onClick={() => handleScroll('left')}
+              className="lg:flex absolute -left-2 top-1/2 -translate-y-1/2 z-[30] w-8 h-8 bg-white/95 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900"
+            >
+              ←
+            </button>
+            <div 
+              ref={scrollContainerRef}
+              className="flex gap-2 overflow-x-auto scrollbar-hide scrollbar-desktop-show py-1 px-4 -mx-1 flex-nowrap snap-x snap-mandatory scroll-smooth"
+            >
+              {vehicles.map(v => (
+                <button 
+                  key={v.id} 
+                  onClick={() => setActiveVehicleId(v.id)} 
+                  className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest border transition-all whitespace-nowrap snap-center ${activeVehicleId === v.id ? 'bg-blue-600 border-blue-600 text-white shadow-lg' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}
+                >
+                  {v.year} {v.make} {v.model}
+                </button>
+              ))}
+            </div>
+            <button 
+              onClick={() => handleScroll('right')}
+              className="lg:flex absolute -right-2 top-1/2 -translate-y-1/2 z-[30] w-8 h-8 bg-white/95 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900"
+            >
+              →
+            </button>
+          </div>
+
           <div className="flex gap-3 pt-6">
              <button 
                onClick={handleExportCSV} 
@@ -229,6 +256,11 @@ const ServiceIntelligenceCenter: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-12 no-print">
+          <VehicleOverview 
+            vehicle={activeVehicle} 
+            onUpdateOdometer={() => setShowLogTerminal(true)} 
+          />
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-2">
             <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm group">
               <div className="space-y-4">
@@ -256,7 +288,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
               <button onClick={() => setActiveTab('roadmap')} className={`flex-1 sm:flex-none px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'roadmap' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Roadmap</button>
               <button onClick={() => setActiveTab('ledger')} className={`flex-1 sm:flex-none px-10 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'ledger' ? 'bg-white text-slate-900 shadow-md' : 'text-slate-400 hover:text-slate-600'}`}>Full History</button>
             </div>
-            {activeTab === 'roadmap' && <MaintenanceRoadmap vehicle={activeVehicle} tasks={vehicleTasks} onLog={(t) => { setSelectedTaskForLog(t); setShowLogTerminal(true); }} />}
+            {activeTab === 'roadmap' && <MaintenanceRoadmap vehicle={activeVehicle} tasks={vehicleTasks} logs={activeServiceLogs} onLog={(t) => { setSelectedTaskForLog(t); setShowLogTerminal(true); }} />}
             {activeTab === 'ledger' && (
               <div className="grid grid-cols-1 gap-6">
                 {activeServiceLogs.length > 0 ? activeServiceLogs.map((log) => (
