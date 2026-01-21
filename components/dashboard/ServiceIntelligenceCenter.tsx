@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../../services/vehicleService.ts';
@@ -65,7 +64,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
   const handleExportCSV = () => {
     if (!canExport) {
-      alert("Upgrade Required: Professional CSV exports are available on Standard and Premium plans.");
+      alert("🔒 Premium Feature: Upgrade to Standard or Premium to unlock Professional Excel/CSV exports.");
       return;
     }
     const exportData = activeServiceLogs.map(l => ({
@@ -80,7 +79,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
   const handleExportPDF = () => {
     if (!canExport) {
-      alert("Upgrade Required: Official PDF dossiers are available on Standard and Premium plans.");
+      alert("🔒 Premium Feature: Upgrade to Standard or Premium to unlock Official PDF Dossiers.");
       return;
     }
     triggerProfessionalPrint('service-report-content');
@@ -111,7 +110,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
 
   const handleRecordService = () => {
     if (!canAddLog) {
-      if (confirm("Service log limit reached (4/4) for the Free Tier. Upgrade to Standard to continue building your service history?")) {
+      if (confirm(`Monthly Limit Reached (${stats.monthlyServiceCount}/${maxLogs}): You have exhausted your free maintenance logs for this month. Upgrade to continue building your asset history?`)) {
         setCurrentView('profile');
       }
       return;
@@ -202,13 +201,13 @@ const ServiceIntelligenceCenter: React.FC = () => {
           <div className="flex gap-3 pt-6">
              <button 
                onClick={handleExportCSV} 
-               className={`bg-emerald-50 border px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm transition-all flex items-center gap-3 ${canExport ? 'text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white' : 'text-slate-300 border-slate-100 cursor-not-allowed opacity-60'}`}
+               className={`border px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm transition-all flex items-center gap-3 ${canExport ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white' : 'bg-slate-100 text-slate-400 border-slate-200 cursor-pointer grayscale-[0.5]'}`}
              >
                <span className="text-base">{canExport ? '📊' : '🔒'}</span> Export CSV
              </button>
              <button 
                onClick={handleExportPDF} 
-               className={`bg-blue-50 border px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm transition-all flex items-center gap-3 ${canExport ? 'text-blue-600 border-blue-100 hover:bg-blue-600 hover:text-white' : 'text-slate-300 border-slate-100 cursor-not-allowed opacity-60'}`}
+               className={`border px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm transition-all flex items-center gap-3 ${canExport ? 'bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-600 hover:text-white' : 'bg-slate-100 text-slate-400 border-slate-200 cursor-pointer grayscale-[0.5]'}`}
              >
                <span className="text-base">{canExport ? '📄' : '🔒'}</span> Save PDF
              </button>
@@ -217,10 +216,10 @@ const ServiceIntelligenceCenter: React.FC = () => {
         <button 
           disabled={!activeVehicle} 
           onClick={handleRecordService} 
-          className={`px-8 sm:px-12 py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-4 ${canAddLog ? 'bg-slate-900 text-white shadow-4xl hover:bg-blue-600' : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-70'}`}
+          className={`px-8 sm:px-12 py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] transition-all flex items-center justify-center gap-4 ${canAddLog ? 'bg-slate-900 text-white shadow-4xl hover:bg-blue-600' : 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-pointer'}`}
         >
           <span className="text-2xl">{canAddLog ? '🛠️' : '🔒'}</span> 
-          {canAddLog ? `Record Maintenance (${stats.monthlyServiceCount}/${maxLogs})` : `Limit Reached (${maxLogs}/${maxLogs}) - Upgrade Hub`}
+          {canAddLog ? `Record Maintenance (${stats.monthlyServiceCount}/${maxLogs})` : `Limit Reached (${maxLogs}/${maxLogs}) - Upgrade to Log`}
         </button>
       </header>
 

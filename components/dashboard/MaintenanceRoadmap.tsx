@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Vehicle, MaintenanceTask, ServiceCategory, TaskStatus } from '../../shared/types.ts';
 import { getTaskMaintenanceStatus, predictServiceDate } from '../../services/maintenanceLogic.ts';
@@ -21,6 +20,7 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
   const stats = getUsageStats();
   const tier = user?.tier || 'free';
   const canAddLog = EntitlementEngine.canAddServiceLog(tier, stats.monthlyServiceCount);
+  const maxLogs = EntitlementEngine.getLimit(tier, 'monthlyServiceLogs');
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(t => statusFilter === 'all' || t.status === statusFilter);
@@ -43,7 +43,7 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
 
   const handleLogClick = (task: MaintenanceTask) => {
     if (!canAddLog) {
-      if (confirm("Monthly maintenance log limit reached for Free Tier. Upgrade to Standard for unlimited logging?")) {
+      if (confirm(`Monthly Limit Reached (${stats.monthlyServiceCount}/${maxLogs}): You have exhausted your free maintenance logs for this month. Upgrade to continue building your asset history?`)) {
         setCurrentView('profile');
       }
       return;
@@ -157,7 +157,7 @@ export const MaintenanceRoadmap: React.FC<Props> = ({ vehicle, tasks, onLog, isL
                           className={`w-full px-8 py-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-3 ${
                             canAddLog 
                               ? 'bg-slate-900 text-white shadow-xl hover:bg-blue-600 active:scale-95' 
-                              : 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60'
+                              : 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-pointer shadow-inner'
                           }`}
                         >
                           {canAddLog ? 'Log Maintenance' : '🔒 Upgrade to Log'}
