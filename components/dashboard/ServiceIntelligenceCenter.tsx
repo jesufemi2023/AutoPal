@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../../services/vehicleService.ts';
@@ -28,6 +27,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
   const tier = user?.tier || 'free';
   const stats = getUsageStats();
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
+  const canExport = EntitlementEngine.getLimit(tier, 'canExportReports');
 
   useEffect(() => {
     if (activeVehicleId) {
@@ -62,12 +62,27 @@ const ServiceIntelligenceCenter: React.FC = () => {
   const canAddLog = EntitlementEngine.canAddServiceLog(tier, stats.monthlyServiceCount);
   const maxLogs = EntitlementEngine.getLimit(tier, 'monthlyServiceLogs');
 
-  const handleRecordService = () => {
-    if (!canAddLog) {
-      alert(`Quota Reached: Your current plan only allows ${maxLogs} service logs per month. Please upgrade to record more.`);
+  const handleExportCSV = () => {
+    if (!canExport) {
+      alert("Upgrade Required: Professional CSV exports are available on Standard and Premium plans.");
       return;
     }
-    setShowLogTerminal(true);
+    const exportData = activeServiceLogs.map(l => ({
+      Date: formatDate(l.serviceDate),
+      Operation: l.serviceType,
+      Facility: l.provider || 'Independent',
+      Odometer: `${l.mileageAtService.toLocaleString()} KM`,
+      Investment: formatCurrency(l.cost)
+    }));
+    exportToCSV(exportData, `Service_Records_${activeVehicle?.model}`);
+  };
+
+  const handleExportPDF = () => {
+    if (!canExport) {
+      alert("Upgrade Required: Official PDF dossiers are available on Standard and Premium plans.");
+      return;
+    }
+    triggerProfessionalPrint('service-report-content');
   };
 
   const getVerificationBadge = (level?: string) => {
@@ -78,19 +93,25 @@ const ServiceIntelligenceCenter: React.FC = () => {
     }
   };
 
-  // Fixed: Implemented missing handleDeleteLog to fix ReferenceError and allow log removal.
   const handleDeleteLog = async (id: string) => {
-    if (!confirm("Are you sure? This will permanently remove this service record from your local and cloud vault.")) return;
+    if (!confirm("Are you sure? This will permanently remove this service record.")) return;
     try {
       await deleteServiceLog(id);
       setServiceLogs(serviceLogs.filter(l => l.id !== id));
     } catch (e) {
-      alert("Neural sync failure during deletion. Please check your connectivity.");
+      alert("Neural sync failure during deletion.");
     }
   };
 
   const handleEditLog = (log: ServiceLog) => {
     setEditingLog(log);
+    setShowLogTerminal(true);
+  };
+
+  // Added handleRecordService to fix compilation error and reset terminal state
+  const handleRecordService = () => {
+    setSelectedTaskForLog(undefined);
+    setEditingLog(undefined);
     setShowLogTerminal(true);
   };
 
@@ -139,7 +160,6 @@ const ServiceIntelligenceCenter: React.FC = () => {
               <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest">CHASSIS: {activeVehicle?.vin || 'UNAVAILABLE'}</p>
             </div>
           </div>
-          
           <table className="w-full text-left border-collapse border-spacing-0 mb-12">
             <thead>
               <tr className="bg-slate-100">
@@ -174,11 +194,18 @@ const ServiceIntelligenceCenter: React.FC = () => {
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Service <br/><span className="text-blue-600">Records</span></h2>
           
           <div className="flex gap-3 pt-6">
-             <PlanGuard feature="canExportReports" fallbackMode="hide">
-               <button onClick={() => exportToCSV(activeServiceLogs, 'service_records')} className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-3">
-                 <span className="text-base">📊</span> Export CSV
-               </button>
-             </PlanGuard>
+             <button 
+               onClick={handleExportCSV} 
+               className={`bg-emerald-50 border px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm transition-all flex items-center gap-3 ${canExport ? 'text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white' : 'text-slate-300 border-slate-100 cursor-not-allowed opacity-60'}`}
+             >
+               <span className="text-base">{canExport ? '📊' : '🔒'}</span> Export CSV
+             </button>
+             <button 
+               onClick={handleExportPDF} 
+               className={`bg-blue-50 border px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm transition-all flex items-center gap-3 ${canExport ? 'text-blue-600 border-blue-100 hover:bg-blue-600 hover:text-white' : 'text-slate-300 border-slate-100 cursor-not-allowed opacity-60'}`}
+             >
+               <span className="text-base">{canExport ? '📄' : '🔒'}</span> Save PDF
+             </button>
           </div>
         </div>
         <button 

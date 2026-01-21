@@ -120,16 +120,22 @@ const App: React.FC = () => {
   const handleSignOut = async () => {
     if (!supabase) return;
     try {
-      // Direct session clearing for immediate UI response
+      // 1. Instant local reset to snap the UI back to landing
       setSession(null);
       setUser(null);
-      await supabase.auth.signOut();
-      await reset();
       setIsMobileMenuOpen(false);
       setIsManagePanelOpen(false);
       setCurrentView('landing');
+      
+      // 2. Perform background cleanup
+      await Promise.all([
+        supabase.auth.signOut(),
+        reset()
+      ]);
     } catch (e) {
-      console.error("Signout Error:", e);
+      console.error("Critical Signout Fault:", e);
+      // Fallback: Clear storage and force reload if logic hangs
+      localStorage.clear();
       window.location.reload(); 
     }
   };
