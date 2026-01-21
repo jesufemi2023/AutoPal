@@ -126,13 +126,15 @@ const Dashboard: React.FC = () => {
             <>
               <button 
                 onClick={() => handleScroll('left')}
-                className="lg:flex absolute -left-4 top-1/2 -translate-y-1/2 z-[100] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all active:scale-90"
+                className="flex absolute -left-2 top-1/2 -translate-y-1/2 z-[100] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-2xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all active:scale-90"
+                aria-label="Scroll Left"
               >
                 ←
               </button>
               <button 
                 onClick={() => handleScroll('right')}
-                className="lg:flex absolute -right-4 top-1/2 -translate-y-1/2 z-[100] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all active:scale-90"
+                className="flex absolute -right-2 top-1/2 -translate-y-1/2 z-[100] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-2xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all active:scale-90"
+                aria-label="Scroll Right"
               >
                 →
               </button>

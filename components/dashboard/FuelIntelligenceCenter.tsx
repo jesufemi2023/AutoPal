@@ -121,13 +121,13 @@ const FuelIntelligenceCenter: React.FC = () => {
               <>
                 <button 
                   onClick={() => handleScroll('left')}
-                  className="lg:flex absolute -left-4 top-1/2 -translate-y-1/2 z-[100] w-8 h-8 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 transition-all hover:bg-blue-600 hover:text-white"
+                  className="flex absolute -left-2 top-1/2 -translate-y-1/2 z-[100] w-8 h-8 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 transition-all hover:bg-blue-600 hover:text-white"
                 >
                   ←
                 </button>
                 <button 
                   onClick={() => handleScroll('right')}
-                  className="lg:flex absolute -right-4 top-1/2 -translate-y-1/2 z-[100] w-8 h-8 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 transition-all hover:bg-blue-600 hover:text-white"
+                  className="flex absolute -right-2 top-1/2 -translate-y-1/2 z-[100] w-8 h-8 bg-white border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 transition-all hover:bg-blue-600 hover:text-white"
                 >
                   →
                 </button>
