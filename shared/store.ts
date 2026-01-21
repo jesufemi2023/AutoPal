@@ -1,7 +1,13 @@
+
 import { create } from 'zustand';
-import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport, Tier } from './types.ts';
+import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
 import { localDb } from '../services/localDb.ts';
 import { performPushSync } from '../services/syncService.ts';
+
+interface UsageStats {
+  monthlyServiceCount: number;
+  monthlyFuelCount: number;
+}
 
 interface AutoPalState {
   user: UserProfile | null;
@@ -25,13 +31,6 @@ interface AutoPalState {
   marketplace: any[];
   marketplaceFilter: string;
 
-  getUsageStats: () => {
-    monthlyServiceCount: number;
-    monthlyFuelCount: number;
-    monthlyAiScanCount: number;
-    monthlyAiDiagnosticCount: number;
-  };
-
   setSession: (session: any) => void;
   setUser: (user: UserProfile | null) => void;
   setInitialized: (initialized: boolean) => void;
@@ -43,17 +42,12 @@ interface AutoPalState {
   setActiveVehicleId: (id: string | null) => void;
   setTransientVehicle: (vehicle: TransientVehicle | null) => void;
   incrementGuestAttempts: () => void;
-  incrementDiagnosticUsage: () => void;
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
-  // Added type for vehicle parameter
   updateVehicleStore: (vehicle: Vehicle) => void;
-  // Added types for vehicleId and updates parameters
   syncVehicleState: (vehicleId: string, updates: Partial<Vehicle>) => void;
   removeVehicleStore: (vehicleId: string) => void;
-  // Added type for vehicleId parameter
   updateMileage: (vehicleId: string, mileage: number) => void;
-  // Added types for taskId, cost, and currentMileage parameters
   completeTask: (taskId: string, cost: number, currentMileage: number) => void;
   setTasks: (tasks: MaintenanceTask[]) => void;
   setServiceLogs: (logs: ServiceLog[]) => void;
@@ -63,7 +57,6 @@ interface AutoPalState {
   addFuelLogStore: (log: FuelLog) => void;
   updateFuelLogStore: (log: FuelLog) => void;
   removeFuelLogStore: (logId: string) => void;
-  // Added types for vehicleId and report parameters
   setAIValuationReport: (vehicleId: string, report: AIValuationReport) => void;
   setMarketplace: (items: any[]) => void;
   setSuggestedParts: (parts: string[]) => void;
@@ -72,6 +65,8 @@ interface AutoPalState {
   loadLocalData: () => Promise<void>;
   triggerSync: () => Promise<void>;
   checkDirtyStatus: () => Promise<void>;
+  // Added getUsageStats to support entitlement checks in components like MaintenanceRoadmap
+  getUsageStats: () => UsageStats;
 }
 
 export const useAutoPalStore = create<AutoPalState>((set, get) => ({
@@ -95,41 +90,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   suggestedPartNames: [],
   marketplace: [],
   marketplaceFilter: '',
-
-  getUsageStats: () => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    const isCurrentMonth = (dateStr?: string) => {
-      if (!dateStr) return false;
-      return new Date(dateStr) >= startOfMonth;
-    };
-
-    const monthlyServiceCount = get().serviceLogs.filter(l => isCurrentMonth(l.serviceDate)).length;
-    const monthlyFuelCount = get().fuelLogs.filter(l => isCurrentMonth(l.createdAt)).length;
-    
-    // AI Scans are tracked by the timestamp on the latestAiAudit of vehicles or stored reports
-    // Fix: Explicitly typed 'r' to AIValuationReport to resolve property 'timestamp' access on unknown type error
-    const monthlyAiScanCount = Object.values(get().aiValuationReports).filter((r: AIValuationReport) => isCurrentMonth(r.timestamp)).length;
-
-    // AI Mechanic usage (Diagnostics) is tracked in localStorage for accuracy across sessions
-    const diagHistory = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
-    const monthlyAiDiagnosticCount = diagHistory.filter((ts: string) => new Date(ts) >= startOfMonth).length;
-
-    return {
-      monthlyServiceCount,
-      monthlyFuelCount,
-      monthlyAiScanCount,
-      monthlyAiDiagnosticCount
-    };
-  },
-
-  incrementDiagnosticUsage: () => {
-    const history = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
-    history.push(new Date().toISOString());
-    localStorage.setItem('autopal_diag_usage', JSON.stringify(history));
-    set({ isInitialized: true });
-  },
 
   checkDirtyStatus: async () => {
     const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords();
@@ -181,19 +141,15 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const { user: supabaseUser } = session;
     const meta = supabaseUser.user_metadata || {};
     
-    const expiryDate = meta.subscription_expires_at ? new Date(meta.subscription_expires_at) : null;
-    const isExpired = expiryDate && expiryDate < new Date();
-    
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
       displayName: meta.display_name || meta.full_name || '',
       phone: meta.phone || '',
-      tier: isExpired ? 'free' : (meta.tier || 'free'),
+      tier: meta.tier || 'free',
       role: meta.role || 'user',
       onboarded: meta.onboarded || false,
       createdAt: supabaseUser.created_at || new Date().toISOString(),
-      subscriptionExpiresAt: meta.subscription_expires_at,
     };
     set({ session, user: newUserObj });
   },
@@ -232,7 +188,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     localDb.saveVehicle({ ...vehicle, isDirty: true, syncStatus: 'pending' });
     get().checkDirtyStatus();
   },
-  // Added Vehicle type to parameter
   updateVehicleStore: (vehicle: Vehicle) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicle.id ? vehicle : v)
@@ -240,7 +195,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     localDb.saveVehicle({ ...vehicle, isDirty: true, syncStatus: 'pending' });
     get().checkDirtyStatus();
   },
-  // Added vehicleId and updates types to parameters
   syncVehicleState: (vehicleId: string, updates: Partial<Vehicle>) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, ...updates } : v)
@@ -259,7 +213,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     localDb.deleteVehicle(vehicleId);
     get().checkDirtyStatus();
   },
-  // Added vehicleId type to parameter
   updateMileage: (vehicleId: string, mileage: number) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, mileage } : v)
@@ -270,7 +223,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       get().checkDirtyStatus();
     }
   },
-  // Added taskId, cost, and currentMileage types to parameters
   completeTask: (taskId: string, cost: number, currentMileage: number) => {
     set((state) => ({
       tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'completed' } : t)
@@ -318,7 +270,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     localDb.deleteFuelLog(logId);
     get().checkDirtyStatus();
   },
-  // Added vehicleId and report types to parameters
   setAIValuationReport: (vehicleId: string, report: AIValuationReport) => {
     set((state) => ({
       aiValuationReports: { ...state.aiValuationReports, [vehicleId]: report }
@@ -335,5 +286,24 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       aiValuationReports: {}, activeVehicleId: null, transientVehicle: null, guestAttempts: 0,
       isRecovering: false, marketplaceFilter: '', isSyncing: false, hasDirtyData: false
     });
+  },
+
+  // Implementation of getUsageStats to calculate monthly counts for quota enforcement
+  getUsageStats: () => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const monthlyServiceCount = get().serviceLogs.filter(log => {
+      const logDate = new Date(log.serviceDate);
+      return logDate.getMonth() === currentMonth && logDate.getFullYear() === currentYear;
+    }).length;
+
+    const monthlyFuelCount = get().fuelLogs.filter(log => {
+      const logDate = new Date(log.createdAt);
+      return logDate.getMonth() === currentMonth && logDate.getFullYear() === currentYear;
+    }).length;
+
+    return { monthlyServiceCount, monthlyFuelCount };
   },
 }));

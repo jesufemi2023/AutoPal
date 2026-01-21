@@ -1,7 +1,6 @@
 import React, { useRef } from 'react';
 import { AIResponse, Vehicle } from '../../shared/types.ts';
 import { useAutoPalStore } from '../../shared/store.ts';
-import { EntitlementEngine } from '../../services/entitlementService.ts';
 
 interface Props {
   vehicle: Vehicle;
@@ -18,25 +17,7 @@ interface Props {
 export const DiagnosticsPanel: React.FC<Props> = ({ 
   vehicle, symptom, setSymptom, diagImage, setDiagImage, isAskingAI, onAnalyze, aiAdvice, compact = false 
 }) => {
-  const { user, getUsageStats, incrementDiagnosticUsage, setCurrentView } = useAutoPalStore();
   const diagImageRef = useRef<HTMLInputElement>(null);
-
-  const tier = user?.tier || 'free';
-  const stats = getUsageStats();
-  const used = stats.monthlyAiDiagnosticCount;
-  const limit = EntitlementEngine.getLimit(tier, 'monthlyAiDiagnostics') as number;
-  const canAnalyze = used < limit;
-
-  const handleAnalyze = () => {
-    if (!canAnalyze) {
-      if (confirm(`Quota Exceeded: Your current ${tier.toUpperCase()} plan only allows ${limit} AI Mechanic sessions per month. Upgrade to Premium for 8 sessions?`)) {
-        setCurrentView('profile');
-      }
-      return;
-    }
-    onAnalyze();
-    incrementDiagnosticUsage();
-  };
 
   const containerClasses = compact 
     ? "bg-slate-950 text-white rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col border border-white/10"
@@ -61,12 +42,7 @@ export const DiagnosticsPanel: React.FC<Props> = ({
               <span className="text-xl animate-pulse text-white">✧</span>
             </div>
             <div>
-              <div className="flex items-center gap-3">
-                <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Mechanic</h3>
-                <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${canAnalyze ? 'bg-blue-600/10 text-blue-400' : 'bg-rose-600/10 text-rose-400'}`}>
-                  Usage: {used}/{limit}
-                </span>
-              </div>
+              <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Mechanic</h3>
               <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Active Link: {vehicle.make} {vehicle.model}</p>
             </div>
           </div>
@@ -112,10 +88,10 @@ export const DiagnosticsPanel: React.FC<Props> = ({
 
             <button 
               disabled={isAskingAI || !symptom}
-              onClick={handleAnalyze}
-              className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl transition-all active:scale-95 ${canAnalyze ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'}`}
+              onClick={onAnalyze}
+              className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl transition-all active:scale-95 bg-blue-600 text-white hover:bg-blue-700`}
             >
-              {canAnalyze ? 'Initialize Diagnosis' : 'Monthly Limit Reached'}
+              Initialize Diagnosis
             </button>
           </div>
 

@@ -17,8 +17,6 @@ import { fetchUserVehicles, archiveVehicle } from './services/vehicleService.ts'
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
-import { PlanGuard } from './components/PlanGuard.tsx';
-import { EntitlementEngine } from './services/entitlementService.ts';
 import { Car, Menu, X } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -162,7 +160,7 @@ const App: React.FC = () => {
             <div className="w-10 h-10 bg-gradient-to-br from-slate-800 to-slate-950 rounded-xl flex items-center justify-center text-white shadow-lg"><Car size={22} strokeWidth={2.5} /></div>
             <div>
               <span className="block font-black tracking-tighter text-slate-900 text-base mb-1">AutoPal NG</span>
-              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">{user?.tier.toUpperCase()} Control Center</span>
+              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">Fleet Control Center</span>
             </div>
           </div>
         </div>
@@ -198,15 +196,7 @@ const App: React.FC = () => {
             {currentView === 'marketplace' && <Marketplace />}
             {currentView === 'admin' && <AdminPanel />}
             {currentView === 'profile' && <ProfileDossier />}
-            {currentView === 'report' && (
-              <PlanGuard 
-                requirement={(t) => EntitlementEngine.getOwnershipReportStatus(t) === 'full' ? true : (EntitlementEngine.getOwnershipReportStatus(t) === 'blur' ? 'blurred' : false)} 
-                fallbackMode="blur" 
-                label="Ownership Intelligence"
-              >
-                <GlobalReportingCenter />
-              </PlanGuard>
-            )}
+            {currentView === 'report' && <GlobalReportingCenter />}
             {currentView === 'diagnostic' && activeVehicle && (
               <div className="max-w-4xl mx-auto w-full">
                 <DiagnosticsPanel 

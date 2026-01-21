@@ -5,13 +5,11 @@ import { formatCurrency, formatDate, kmlToMpg, exportToCSV, triggerProfessionalP
 import FuelEntryTerminal from '../FuelEntryTerminal.tsx';
 import { FuelLog } from '../../shared/types.ts';
 import { ENV } from '../../services/envService.ts';
-import { VehicleOverview } from './VehicleOverview.tsx';
-import { EntitlementEngine } from '../../services/entitlementService.ts';
 
 const FuelIntelligenceCenter: React.FC = () => {
   const { 
     vehicles, fuelLogs, setFuelLogs, removeFuelLogStore, 
-    activeVehicleId, setActiveVehicleId, user, getUsageStats, setCurrentView
+    activeVehicleId, setActiveVehicleId, user, setCurrentView
   } = useAutoPalStore();
   
   const [isLoading, setIsLoading] = useState(false);
@@ -22,12 +20,6 @@ const FuelIntelligenceCenter: React.FC = () => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
-  const tier = user?.tier || 'free';
-  const canExport = EntitlementEngine.hasExportAccess(tier);
-  const stats = getUsageStats();
-  const fuelUsed = stats.monthlyFuelCount;
-  const fuelLimit = EntitlementEngine.getLimit(tier, 'monthlyFuelLogs') as number;
-  const canAddMore = fuelUsed < fuelLimit;
 
   useEffect(() => {
     const loadHistoryLogs = async () => {
@@ -46,15 +38,9 @@ const FuelIntelligenceCenter: React.FC = () => {
     loadHistoryLogs();
   }, [activeVehicleId, setFuelLogs]);
 
-  const totalFuelSpend = useMemo(() => fuelLogs.reduce((acc, l) => acc + (l.totalCost || 0), 0), [fuelLogs]);
+  const totalFuelSpend = useMemo(() => fuelLogs.filter(l => l.vehicleId === activeVehicleId).reduce((acc, l) => acc + (l.totalCost || 0), 0), [fuelLogs, activeVehicleId]);
 
   const handleAddLog = () => {
-    if (!canAddMore) {
-      if (confirm(`Fuel Quota Reached: Your current ${tier.toUpperCase()} plan allows ${fuelLimit} fuel logs per month. Upgrade to Premium for unlimited logging?`)) {
-        setCurrentView('profile');
-      }
-      return;
-    }
     setEditingLog(null);
     setShowTerminal(true);
   };
@@ -73,14 +59,8 @@ const FuelIntelligenceCenter: React.FC = () => {
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Fuel <br/><span className="text-blue-600">Tracker</span></h2>
           
           <div className="flex gap-3 pt-6">
-            {canExport ? (
-              <>
-                <button onClick={() => exportToCSV(fuelLogs, `Fuel_History_${activeVehicle?.model}`)} className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-emerald-600 hover:text-white transition-all">📊 Excel</button>
-                <button onClick={() => triggerProfessionalPrint('fuel-report-content')} className="bg-blue-50 text-blue-600 border border-blue-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-blue-600 hover:text-white transition-all">📄 PDF</button>
-              </>
-            ) : (
-              <button onClick={() => setCurrentView('profile')} className="bg-slate-100 text-slate-400 border border-slate-200 px-6 py-3 rounded-2xl text-[8px] font-black uppercase tracking-widest">🔒 Upgrade to Export Reports</button>
-            )}
+            <button onClick={() => exportToCSV(fuelLogs.filter(l => l.vehicleId === activeVehicleId), `Fuel_History_${activeVehicle?.model}`)} className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-emerald-600 hover:text-white transition-all">📊 Excel</button>
+            <button onClick={() => triggerProfessionalPrint('fuel-report-content')} className="bg-blue-50 text-blue-600 border border-blue-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-blue-600 hover:text-white transition-all">📄 PDF</button>
           </div>
 
           <div className="relative group/scroll flex-grow max-w-sm mt-6">
@@ -105,25 +85,17 @@ const FuelIntelligenceCenter: React.FC = () => {
               <button key={m} onClick={() => setMetric(m as any)} className={`px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${metric === m ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}>{m === 'KML' ? 'KM/L' : m}</button>
             ))}
           </div>
-          <button disabled={!activeVehicle} onClick={handleAddLog} className={`px-8 sm:px-12 py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-3xl transition-all flex items-center justify-center gap-3 ${canAddMore ? 'bg-slate-900 text-white hover:bg-blue-600' : 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'}`}>
-            <span className="text-xl">⛽</span> {canAddMore ? 'Add Log' : 'Monthly Limit'}
+          <button disabled={!activeVehicle} onClick={handleAddLog} className={`px-8 sm:px-12 py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-3xl transition-all flex items-center justify-center gap-3 bg-slate-900 text-white hover:bg-blue-600`}>
+            <span className="text-xl">⛽</span> Add Log
           </button>
         </div>
       </header>
 
       {activeVehicle && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 px-2 no-print">
-            <div className="bg-white card-radius border border-slate-100 p-8 flex flex-col justify-between shadow-sm">
-              <div className="space-y-4">
-                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Monthly Usage</h3>
-                <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">
-                  {fuelUsed} <span className="text-xs text-slate-300 ml-2 font-bold">/ {fuelLimit}</span>
-                </div>
-              </div>
-            </div>
             <div className="bg-emerald-600 card-radius p-8 text-white flex flex-col justify-between shadow-xl">
                <div className="space-y-4">
-                <h3 className="text-emerald-200 text-[8px] font-black uppercase tracking-[0.4em]">Total Spent</h3>
+                <h3 className="text-emerald-200 text-[8px] font-black uppercase tracking-[0.4em]">Total Fuel Spent</h3>
                 <div className="text-3xl font-black tracking-tighter">{formatCurrency(totalFuelSpend)}</div>
               </div>
             </div>

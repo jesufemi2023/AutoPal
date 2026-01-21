@@ -1,9 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { fetchMarketplaceProducts, generateWhatsAppLink } from '../services/marketplaceService.ts';
-import { MarketplaceProduct, MarketplaceAccess } from '../shared/types.ts';
-import { EntitlementEngine } from '../services/entitlementService.ts';
+import { MarketplaceProduct } from '../shared/types.ts';
 
 const Marketplace: React.FC = () => {
   const { user, marketplace, setMarketplace, suggestedPartNames, marketplaceFilter, setMarketplaceFilter, vehicles } = useAutoPalStore();
@@ -11,8 +9,6 @@ const Marketplace: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('all');
 
-  const tier = user?.tier || 'free';
-  const userAccess = EntitlementEngine.getMarketplaceAccess(tier);
   const activeVehicle = vehicles[0];
 
   useEffect(() => {
@@ -29,12 +25,6 @@ const Marketplace: React.FC = () => {
     };
     loadMarketplace();
   }, [setMarketplace]);
-
-  const getAccessPriority = (level: MarketplaceAccess) => {
-    if (level === 'premium') return 3;
-    if (level === 'standard') return 2;
-    return 1;
-  };
 
   const filteredItems = marketplace.filter(item => {
     const matchesSearch = item.name.toLowerCase().includes(filter.toLowerCase()) || 
@@ -81,7 +71,7 @@ const Marketplace: React.FC = () => {
           <button 
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`flex-shrink-0 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest border transition-all ${activeCategory === cat ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-300'}`}
+            className={`flex-shrink-0 px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest border transition-all ${activeCategory === cat ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'bg-white border-slate-100 text-slate-400 hover:border-blue-200'}`}
           >
             {cat}
           </button>
@@ -91,38 +81,28 @@ const Marketplace: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8 md:gap-10">
         {sortedItems.map((item) => {
           const isMatch = activeVehicle && item.compatibility.some(c => item.name.toLowerCase().includes(activeVehicle.model.toLowerCase()) || c.toLowerCase().includes(activeVehicle.make.toLowerCase()));
-          const isLocked = getAccessPriority(item.accessLevel) > getAccessPriority(userAccess);
 
           return (
             <div key={item.id} className="bg-white card-radius p-6 sm:p-8 border transition-all hover:shadow-2xl flex flex-col group relative">
-              {isLocked && (
-                <div className="absolute inset-0 z-20 bg-slate-950/5 backdrop-blur-[2px] rounded-[2.5rem] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
-                   <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-xl shadow-xl mb-4 border border-slate-100">🔒</div>
-                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-900 mb-2">Access Level: {item.accessLevel}</p>
-                   <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">Upgrade to {item.accessLevel.toUpperCase()} to unlock parts</p>
-                </div>
-              )}
-              
               <div className="flex justify-between items-start mb-6">
                 <span className="bg-slate-50 text-slate-400 text-[7px] font-black px-3 py-1 rounded-lg uppercase tracking-widest border border-slate-100">
-                  {item.accessLevel === 'premium' ? '✨ Premium' : item.accessLevel === 'standard' ? '⭐ Standard' : '🛠️ Basic'}
+                  {item.accessLevel.toUpperCase()}
                 </span>
                 {isMatch && <span className="bg-blue-600 text-white text-[7px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest">Match</span>}
               </div>
-              <h3 className={`text-xl font-black text-slate-900 mb-3 group-hover:text-blue-600 transition-colors ${isLocked ? 'opacity-40' : ''}`}>{item.name}</h3>
-              <p className={`text-slate-400 text-[9px] font-black uppercase tracking-widest mb-6 ${isLocked ? 'opacity-40' : ''}`}>{item.vendorName}</p>
+              <h3 className="text-xl font-black text-slate-900 mb-3 group-hover:text-blue-600 transition-colors">{item.name}</h3>
+              <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest mb-6">{item.vendorName}</p>
               
               <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
-                <div className={isLocked ? 'opacity-40' : ''}>
+                <div>
                   <div className="text-[7px] font-black text-slate-300 uppercase tracking-widest mb-1">Price</div>
                   <div className="text-xl font-black text-slate-900 leading-none">₦{item.price.toLocaleString()}</div>
                 </div>
                 <button 
-                  disabled={isLocked}
                   onClick={() => window.open(generateWhatsAppLink(item, activeVehicle ? `${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}` : 'Generic'), '_blank')}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isLocked ? 'bg-slate-100 text-slate-300' : 'bg-slate-900 text-white hover:bg-emerald-600'}`}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center transition-all bg-slate-900 text-white hover:bg-emerald-600"
                 >
-                  {isLocked ? '🔒' : '🛒'}
+                  🛒
                 </button>
               </div>
             </div>

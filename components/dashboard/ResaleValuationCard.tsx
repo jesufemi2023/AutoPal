@@ -3,7 +3,6 @@ import { Vehicle, MaintenanceTask, ServiceLog, FuelLog } from '../../shared/type
 import { generateAIValuation } from '../../services/geminiService.ts';
 import { updateVehicle } from '../../services/vehicleService.ts';
 import { useAutoPalStore } from '../../shared/store.ts';
-import { EntitlementEngine } from '../../services/entitlementService.ts';
 
 export const ResaleValuationCard: React.FC<{
   vehicle: Vehicle;
@@ -11,22 +10,10 @@ export const ResaleValuationCard: React.FC<{
   serviceLogs: ServiceLog[];
   fuelLogs: FuelLog[];
 }> = ({ vehicle, tasks, serviceLogs, fuelLogs }) => {
-  const { updateVehicleStore, user, getUsageStats, setAIValuationReport, setCurrentView } = useAutoPalStore();
+  const { updateVehicleStore, setAIValuationReport } = useAutoPalStore();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const tier = user?.tier || 'free';
-  const stats = getUsageStats();
-  const used = stats.monthlyAiScanCount;
-  const limit = EntitlementEngine.getLimit(tier, 'monthlyAiScans') as number;
-  const canScan = used < limit;
-
   const handleAiAnalysis = async () => {
-    if (!canScan) {
-      if (confirm(`Scan Limit Reached: Your current ${tier.toUpperCase()} plan allows ${limit} AI Resale Scans per month. Upgrade for up to 7 scans?`)) {
-        setCurrentView('profile');
-      }
-      return;
-    }
     setIsAnalyzing(true);
     try {
       const report = await generateAIValuation(vehicle, tasks, serviceLogs, fuelLogs);
@@ -55,11 +42,6 @@ export const ResaleValuationCard: React.FC<{
        <div className="flex justify-between items-start mb-10">
           <div>
              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-2">Market Valuation</h3>
-             <div className="flex items-center gap-3">
-                <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${canScan ? 'bg-blue-600/20 text-blue-400' : 'bg-rose-600/20 text-rose-400'}`}>
-                   Monthly Scans: {used}/{limit}
-                </span>
-             </div>
           </div>
           <div className="text-4xl">💰</div>
        </div>
@@ -91,9 +73,9 @@ export const ResaleValuationCard: React.FC<{
        <div className="pt-10">
          <button 
            onClick={handleAiAnalysis} 
-           className={`w-full py-8 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[11px] transition-all border-2 ${canScan ? 'bg-blue-600 shadow-xl hover:bg-blue-500 border-blue-400/30 text-white' : 'bg-slate-800 border-slate-700 opacity-50 text-slate-500'}`}
+           className={`w-full py-8 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[11px] transition-all border-2 bg-blue-600 shadow-xl hover:bg-blue-500 border-blue-400/30 text-white`}
          >
-           {canScan ? (vehicle.latestAiAudit ? 'Recalculate Audit' : 'Initialize Neural Scan') : 'Scan Limit Reached'}
+           {vehicle.latestAiAudit ? 'Recalculate Audit' : 'Initialize Neural Scan'}
          </button>
        </div>
     </section>
