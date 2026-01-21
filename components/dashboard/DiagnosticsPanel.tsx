@@ -1,4 +1,3 @@
-
 import React, { useRef } from 'react';
 import { AIResponse, Vehicle } from '../../shared/types.ts';
 import { useAutoPalStore } from '../../shared/store.ts';
@@ -19,20 +18,19 @@ interface Props {
 export const DiagnosticsPanel: React.FC<Props> = ({ 
   vehicle, symptom, setSymptom, diagImage, setDiagImage, isAskingAI, onAnalyze, aiAdvice, compact = false 
 }) => {
-  const { user, getUsageStats, incrementDiagnosticUsage } = useAutoPalStore();
+  const { user, getUsageStats, incrementDiagnosticUsage, setCurrentView } = useAutoPalStore();
   const diagImageRef = useRef<HTMLInputElement>(null);
 
   const tier = user?.tier || 'free';
   const stats = getUsageStats();
+  const used = stats.monthlyAiDiagnosticCount;
   const limit = EntitlementEngine.getLimit(tier, 'monthlyAiDiagnostics') as number;
-  const canAnalyze = EntitlementEngine.canRunAiDiagnostic(tier, stats.monthlyAiDiagnosticCount);
+  const canAnalyze = used < limit;
 
   const handleAnalyze = () => {
     if (!canAnalyze) {
-      if (tier === 'premium') {
-        alert("Monthly Quota Reached: You have exhausted your 8 monthly diagnostic scans. Please wait for the next billing cycle or contact fleet support.");
-      } else {
-        alert(`Quota Reached: Your current ${tier} plan only allows ${limit} scans. Upgrade to PREMIUM for up to 8 monthly diagnostic checks.`);
+      if (confirm(`Quota Exceeded: Your current ${tier.toUpperCase()} plan only allows ${limit} AI Mechanic sessions per month. Upgrade to Premium for 8 sessions?`)) {
+        setCurrentView('profile');
       }
       return;
     }
@@ -66,7 +64,7 @@ export const DiagnosticsPanel: React.FC<Props> = ({
               <div className="flex items-center gap-3">
                 <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Mechanic</h3>
                 <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${canAnalyze ? 'bg-blue-600/10 text-blue-400' : 'bg-rose-600/10 text-rose-400'}`}>
-                  Usage: {stats.monthlyAiDiagnosticCount}/{limit}
+                  Usage: {used}/{limit}
                 </span>
               </div>
               <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Active Link: {vehicle.make} {vehicle.model}</p>
@@ -125,7 +123,7 @@ export const DiagnosticsPanel: React.FC<Props> = ({
             {aiAdvice ? (
               <div className={`p-6 rounded-2xl animate-slide-up relative z-10 border-2 backdrop-blur-md flex-grow ${aiAdvice.severity === 'critical' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-blue-600/10 border-blue-600/20'}`}>
                 <div className={`flex items-center gap-2 mb-4 text-[8px] font-black uppercase tracking-wider ${aiAdvice.severity === 'critical' ? 'text-rose-400' : 'text-blue-400'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_10px_currentColor] ${aiAdvice.severity === 'critical' ? 'bg-rose-500 animate-pulse' : 'bg-blue-500'}`}></div>
+                  <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_10px_currentColor] ${aiAdvice.severity === 'critical' ? 'bg-rose-500 animate-pulse' : 'bg-blue-50'}`}></div>
                   Severity: {aiAdvice.severity}
                 </div>
                 <h5 className="text-xl font-black text-white leading-tight mb-6 font-sans">{aiAdvice.advice}</h5>
@@ -139,17 +137,6 @@ export const DiagnosticsPanel: React.FC<Props> = ({
                       </li>
                     ))}
                   </ul>
-
-                  {aiAdvice.partsIdentified && aiAdvice.partsIdentified.length > 0 && (
-                    <div className="pt-4">
-                      <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-3">Parts Identified</div>
-                      <div className="flex flex-wrap gap-2">
-                        {aiAdvice.partsIdentified.map((part, i) => (
-                          <span key={i} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[9px] font-bold text-blue-400 uppercase tracking-tight">{part}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             ) : (

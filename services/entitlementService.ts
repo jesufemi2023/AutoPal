@@ -1,4 +1,3 @@
-
 import { Tier, MarketplaceAccess } from '../shared/types.ts';
 
 /**
@@ -27,7 +26,7 @@ export const TIER_REGISTRY = {
     ownershipReportMode: 'blur' as 'locked' | 'blur' | 'full',
   },
   premium: {
-    maxVehicles: 999, // Unlimited effectively
+    maxVehicles: 999, // Unlimited
     monthlyServiceLogs: 9999, 
     monthlyFuelLogs: 9999,
     monthlyAiScans: 7,
@@ -40,6 +39,10 @@ export const TIER_REGISTRY = {
 
 export type Capability = keyof typeof TIER_REGISTRY.free;
 
+/**
+ * Entitlement Engine
+ * Centralized logic for capability checks and quota enforcement.
+ */
 export class EntitlementEngine {
   static getLimit(tier: Tier, cap: Capability) {
     return TIER_REGISTRY[tier][cap];
@@ -72,5 +75,13 @@ export class EntitlementEngine {
 
   static getMarketplaceAccess(tier: Tier): MarketplaceAccess {
     return this.getLimit(tier, 'marketplaceAccess') as MarketplaceAccess;
+  }
+  
+  static hasExportAccess(tier: Tier): boolean {
+    return !!this.getLimit(tier, 'canExportReports');
+  }
+  
+  static getOwnershipReportStatus(tier: Tier): 'locked' | 'blur' | 'full' {
+    return this.getLimit(tier, 'ownershipReportMode') as 'locked' | 'blur' | 'full';
   }
 }

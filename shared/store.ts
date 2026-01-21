@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport, Tier } from './types.ts';
 import { localDb } from '../services/localDb.ts';
@@ -47,11 +46,15 @@ interface AutoPalState {
   incrementDiagnosticUsage: () => void;
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
-  updateVehicleStore: (vehicle) => void;
-  syncVehicleState: (vehicleId, updates) => void;
+  // Added type for vehicle parameter
+  updateVehicleStore: (vehicle: Vehicle) => void;
+  // Added types for vehicleId and updates parameters
+  syncVehicleState: (vehicleId: string, updates: Partial<Vehicle>) => void;
   removeVehicleStore: (vehicleId: string) => void;
-  updateMileage: (vehicleId, mileage) => void;
-  completeTask: (taskId, cost, currentMileage) => void;
+  // Added type for vehicleId parameter
+  updateMileage: (vehicleId: string, mileage: number) => void;
+  // Added types for taskId, cost, and currentMileage parameters
+  completeTask: (taskId: string, cost: number, currentMileage: number) => void;
   setTasks: (tasks: MaintenanceTask[]) => void;
   setServiceLogs: (logs: ServiceLog[]) => void;
   addServiceLog: (log: ServiceLog) => void;
@@ -60,7 +63,8 @@ interface AutoPalState {
   addFuelLogStore: (log: FuelLog) => void;
   updateFuelLogStore: (log: FuelLog) => void;
   removeFuelLogStore: (logId: string) => void;
-  setAIValuationReport: (vehicleId, report) => void;
+  // Added types for vehicleId and report parameters
+  setAIValuationReport: (vehicleId: string, report: AIValuationReport) => void;
   setMarketplace: (items: any[]) => void;
   setSuggestedParts: (parts: string[]) => void;
   setMarketplaceFilter: (filter: string) => void;
@@ -96,21 +100,27 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const filterMonthly = (items: any[]) => items.filter(i => {
-      const dateStr = i.createdAt || i.serviceDate || i.timestamp;
+    const isCurrentMonth = (dateStr?: string) => {
       if (!dateStr) return false;
       return new Date(dateStr) >= startOfMonth;
-    }).length;
+    };
 
-    // AI Mechanic usage (Diagnostics) is tracked in localStorage for the month
+    const monthlyServiceCount = get().serviceLogs.filter(l => isCurrentMonth(l.serviceDate)).length;
+    const monthlyFuelCount = get().fuelLogs.filter(l => isCurrentMonth(l.createdAt)).length;
+    
+    // AI Scans are tracked by the timestamp on the latestAiAudit of vehicles or stored reports
+    // Fix: Explicitly typed 'r' to AIValuationReport to resolve property 'timestamp' access on unknown type error
+    const monthlyAiScanCount = Object.values(get().aiValuationReports).filter((r: AIValuationReport) => isCurrentMonth(r.timestamp)).length;
+
+    // AI Mechanic usage (Diagnostics) is tracked in localStorage for accuracy across sessions
     const diagHistory = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
-    const currentMonthDiagCount = diagHistory.filter((ts: string) => new Date(ts) >= startOfMonth).length;
+    const monthlyAiDiagnosticCount = diagHistory.filter((ts: string) => new Date(ts) >= startOfMonth).length;
 
     return {
-      monthlyServiceCount: filterMonthly(get().serviceLogs),
-      monthlyFuelCount: filterMonthly(get().fuelLogs),
-      monthlyAiScanCount: filterMonthly(Object.values(get().aiValuationReports)),
-      monthlyAiDiagnosticCount: currentMonthDiagCount
+      monthlyServiceCount,
+      monthlyFuelCount,
+      monthlyAiScanCount,
+      monthlyAiDiagnosticCount
     };
   },
 
@@ -171,7 +181,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const { user: supabaseUser } = session;
     const meta = supabaseUser.user_metadata || {};
     
-    // Check for subscription expiry
     const expiryDate = meta.subscription_expires_at ? new Date(meta.subscription_expires_at) : null;
     const isExpired = expiryDate && expiryDate < new Date();
     
@@ -223,14 +232,16 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     localDb.saveVehicle({ ...vehicle, isDirty: true, syncStatus: 'pending' });
     get().checkDirtyStatus();
   },
-  updateVehicleStore: (vehicle) => {
+  // Added Vehicle type to parameter
+  updateVehicleStore: (vehicle: Vehicle) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicle.id ? vehicle : v)
     }));
     localDb.saveVehicle({ ...vehicle, isDirty: true, syncStatus: 'pending' });
     get().checkDirtyStatus();
   },
-  syncVehicleState: (vehicleId, updates) => {
+  // Added vehicleId and updates types to parameters
+  syncVehicleState: (vehicleId: string, updates: Partial<Vehicle>) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, ...updates } : v)
     }));
@@ -248,7 +259,8 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     localDb.deleteVehicle(vehicleId);
     get().checkDirtyStatus();
   },
-  updateMileage: (vehicleId, mileage) => {
+  // Added vehicleId type to parameter
+  updateMileage: (vehicleId: string, mileage: number) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, mileage } : v)
     }));
@@ -258,7 +270,8 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       get().checkDirtyStatus();
     }
   },
-  completeTask: (taskId, cost, currentMileage) => {
+  // Added taskId, cost, and currentMileage types to parameters
+  completeTask: (taskId: string, cost: number, currentMileage: number) => {
     set((state) => ({
       tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'completed' } : t)
     }));
@@ -305,9 +318,12 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     localDb.deleteFuelLog(logId);
     get().checkDirtyStatus();
   },
-  setAIValuationReport: (vehicleId, report) => set((state) => ({
-    aiValuationReports: { ...state.aiValuationReports, [vehicleId]: report }
-  })),
+  // Added vehicleId and report types to parameters
+  setAIValuationReport: (vehicleId: string, report: AIValuationReport) => {
+    set((state) => ({
+      aiValuationReports: { ...state.aiValuationReports, [vehicleId]: report }
+    }));
+  },
   setMarketplace: (marketplace) => set({ marketplace }),
   setSuggestedParts: (parts) => set({ suggestedPartNames: parts }),
   setMarketplaceFilter: (filter) => set({ marketplaceFilter: filter }),

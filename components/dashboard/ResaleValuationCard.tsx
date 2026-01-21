@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Vehicle, MaintenanceTask, ServiceLog, FuelLog } from '../../shared/types.ts';
 import { generateAIValuation } from '../../services/geminiService.ts';
@@ -12,17 +11,20 @@ export const ResaleValuationCard: React.FC<{
   serviceLogs: ServiceLog[];
   fuelLogs: FuelLog[];
 }> = ({ vehicle, tasks, serviceLogs, fuelLogs }) => {
-  const { updateVehicleStore, user, getUsageStats } = useAutoPalStore();
+  const { updateVehicleStore, user, getUsageStats, setAIValuationReport, setCurrentView } = useAutoPalStore();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const tier = user?.tier || 'free';
   const stats = getUsageStats();
+  const used = stats.monthlyAiScanCount;
   const limit = EntitlementEngine.getLimit(tier, 'monthlyAiScans') as number;
-  const canScan = EntitlementEngine.canRunAiScan(tier, stats.monthlyAiScanCount);
+  const canScan = used < limit;
 
   const handleAiAnalysis = async () => {
     if (!canScan) {
-      alert(`Monthly AI Scan Quota Reached (${stats.monthlyAiScanCount}/${limit}). Scans reset on the 1st of the month.`);
+      if (confirm(`Scan Limit Reached: Your current ${tier.toUpperCase()} plan allows ${limit} AI Resale Scans per month. Upgrade for up to 7 scans?`)) {
+        setCurrentView('profile');
+      }
       return;
     }
     setIsAnalyzing(true);
@@ -33,6 +35,7 @@ export const ResaleValuationCard: React.FC<{
         healthScore: report.auditedScores.vitality 
       });
       updateVehicleStore(updatedVehicle);
+      setAIValuationReport(vehicle.id, report);
     } catch (e) {
       alert("Neural Link Interrupted. Check connection.");
     } finally {
@@ -54,7 +57,7 @@ export const ResaleValuationCard: React.FC<{
              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-2">Market Valuation</h3>
              <div className="flex items-center gap-3">
                 <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${canScan ? 'bg-blue-600/20 text-blue-400' : 'bg-rose-600/20 text-rose-400'}`}>
-                   Monthly Scans: {stats.monthlyAiScanCount}/{limit}
+                   Monthly Scans: {used}/{limit}
                 </span>
              </div>
           </div>
@@ -73,7 +76,7 @@ export const ResaleValuationCard: React.FC<{
                       <p className="text-xl font-black text-white">{vehicle.latestAiAudit.marketGrade}</p>
                    </div>
                    <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                      <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Health Confidence</p>
+                      <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Health Score</p>
                       <p className="text-xl font-black text-white">{vehicle.latestAiAudit.auditedScores.vitality}%</p>
                    </div>
                 </div>
@@ -88,10 +91,9 @@ export const ResaleValuationCard: React.FC<{
        <div className="pt-10">
          <button 
            onClick={handleAiAnalysis} 
-           disabled={!canScan}
-           className={`w-full py-8 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[11px] transition-all border-2 ${canScan ? 'bg-blue-600 shadow-xl hover:bg-blue-500 border-blue-400/30' : 'bg-slate-800 border-slate-700 opacity-50 cursor-not-allowed'}`}
+           className={`w-full py-8 rounded-[2rem] font-black uppercase tracking-[0.3em] text-[11px] transition-all border-2 ${canScan ? 'bg-blue-600 shadow-xl hover:bg-blue-500 border-blue-400/30 text-white' : 'bg-slate-800 border-slate-700 opacity-50 text-slate-500'}`}
          >
-           {canScan ? `Initialize Neural Scan` : 'Monthly Scan Limit Reached'}
+           {canScan ? (vehicle.latestAiAudit ? 'Recalculate Audit' : 'Initialize Neural Scan') : 'Scan Limit Reached'}
          </button>
        </div>
     </section>
