@@ -223,8 +223,8 @@ const FuelIntelligenceCenter: React.FC = () => {
                 <div className="text-3xl font-black tracking-tighter">{formatCurrency(totalFuelSpend)}</div>
             </div>
             <div className="bg-slate-900 card-radius p-8 text-white flex flex-col justify-between shadow-xl relative overflow-hidden">
-                <h3 className="text-slate-400 text-[8px] font-black uppercase tracking-[0.4em]">Life-to-Date Efficiency</h3>
-                <div className="text-4xl font-black text-white tracking-tighter flex items-baseline">{avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}<span className="text-xs text-slate-500 ml-2 font-bold">{metric}</span></div>
+                <h3 className="text-slate-500 text-[8px] font-black uppercase tracking-[0.4em]">Life-to-Date Efficiency</h3>
+                <div className="text-4xl font-black text-slate-900 tracking-tighter flex items-baseline">{avgEfficiency ? avgEfficiency.toFixed(1) : '--.-'}<span className="text-xs text-slate-600 ml-2 font-bold">{metric}</span></div>
             </div>
           </div>
 

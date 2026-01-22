@@ -1,8 +1,8 @@
+
 export type Tier = 'free' | 'standard' | 'premium';
 export type UserRole = 'user' | 'admin';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback' | 'other';
 export type TaskStatus = 'pending' | 'completed' | 'skipped';
-export type SyncStatus = 'synced' | 'pending' | 'error';
 
 export enum Priority {
   LOW = 'low',
@@ -13,17 +13,6 @@ export enum Priority {
 export type LogStatus = 'upcoming' | 'overdue' | 'completed';
 export type ServiceCategory = 'engine' | 'tires' | 'brakes' | 'fluids' | 'suspension' | 'other' | 'electrical' | 'cooling';
 export type VerificationLevel = 'self_declared' | 'receipt_verified' | 'mechanic_verified';
-
-export interface SystemFeedback {
-  id: string;
-  userId: string;
-  userEmail: string;
-  rating: number;
-  tags: string[];
-  comment: string;
-  vehicleContext?: string;
-  createdAt: string;
-}
 
 export interface UserProfile {
   id: string;
@@ -56,8 +45,8 @@ export interface AIValuationReport {
   };
   metabolicAudit: {
     trueKml: number;
-    consumptionGap: number; 
-    monthlyNeglectTax: number; 
+    consumptionGap: number; // percentage
+    monthlyNeglectTax: number; // NGN wasted
     efficiencyTrend: 'improving' | 'stable' | 'degrading';
   };
   diagnostics: {
@@ -70,7 +59,7 @@ export interface AIValuationReport {
     reason: string;
     impact: string;
   }>;
-  strategicInsights: string[];
+  strategicInsights: string[]; // Exactly 5 insights
   insights: {
     trustPremium: { value: number; description: string };
     mechanicalVitality: { score: number; description: string };
@@ -93,11 +82,11 @@ export interface VehicleSpecs {
 }
 
 export interface HealthBreakdown {
-  metabolic: number;
-  hygiene: number;
-  provenance: number;
+  metabolic: number; // Fuel efficiency score
+  hygiene: number;    // Maintenance adherence
+  provenance: number; // Trust/Verification score
   metabolicStatus: 'optimal' | 'warning' | 'critical';
-  wasteMonthly: number;
+  wasteMonthly: number; // Estimated ₦ wasted
   variance: number;
 }
 
@@ -122,7 +111,6 @@ export interface Vehicle {
   avgDailyKm?: number;
   efficiencyBaseline?: number; 
   isDirty?: boolean;
-  syncStatus?: SyncStatus;
   latestAiAudit?: AIValuationReport;
 }
 
@@ -135,8 +123,6 @@ export interface FuelLog {
   isFullTank: boolean;
   vendor?: string;
   createdAt: string;
-  syncStatus?: SyncStatus;
-  isDirty?: boolean;
 }
 
 export interface ServiceLog {
@@ -155,8 +141,6 @@ export interface ServiceLog {
   taskId?: string;
   verificationLevel?: VerificationLevel;
   receiptUrl?: string;
-  syncStatus?: SyncStatus;
-  isDirty?: boolean;
 }
 
 export interface MaintenanceTask {
@@ -177,8 +161,6 @@ export interface MaintenanceTask {
   projectedDate?: string; 
   lastVerificationLevel?: VerificationLevel;
   lastReceiptUrl?: string;
-  syncStatus?: SyncStatus;
-  isDirty?: boolean;
 }
 
 export interface AIResponse {

@@ -1,7 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { signIn, signUp, signInWithGoogle, sendPasswordResetEmail, updatePassword, signOut } from '../auth/authService.ts';
 import { useAutoPalStore } from '../shared/store.ts';
-import { Car, ChevronLeft } from 'lucide-react';
 
 type AuthMode = 'login' | 'signup' | 'forgot' | 'reset';
 
@@ -17,6 +17,7 @@ const AuthScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Sync mode based on global recovery state
   useEffect(() => {
     if (isRecovering) {
       setMode('reset');
@@ -36,78 +37,91 @@ const AuthScreen: React.FC = () => {
         await signIn(email, password);
       } else if (mode === 'signup') {
         await signUp(email, password);
-        setSuccessMessage(`Confirmation email sent to ${email}.`);
+        setSuccessMessage(`Confirmation email sent to ${email}. Please check your inbox.`);
       } else if (mode === 'forgot') {
         await sendPasswordResetEmail(email);
-        setSuccessMessage(`Reset link sent to ${email}.`);
+        setSuccessMessage(`Reset link sent to ${email}. Check your inbox or spam.`);
       } else if (mode === 'reset') {
         await updatePassword(password);
-        setSuccessMessage('Password updated successfully!');
+        setSuccessMessage('Password updated successfully! Redirecting to login...');
         await signOut();
         setTimeout(() => {
           setRecovering(false);
+          if (window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
           setMode('login');
+          setSuccessMessage(null);
           window.location.reload();
         }, 2000);
       }
     } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+      setError(err.message || 'An unexpected error occurred');
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-slate-500/5 blur-[120px] rounded-full pointer-events-none"></div>
-
-      <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] p-8 sm:p-12 border border-slate-100 relative overflow-hidden animate-slide-up">
-        <div className="absolute top-0 right-0 p-8 opacity-[0.02] select-none pointer-events-none">
-          <Car size={140} />
-        </div>
-
-        <div className="text-center mb-10">
-          {/* Enhanced Clickable Logo with clearer feedback */}
+  if (successMessage && (mode === 'signup' || mode === 'forgot')) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-10 border border-slate-100 text-center animate-slide-in">
+          <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-6">
+            {mode === 'signup' ? '✉️' : '🔑'}
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-2">
+            {mode === 'signup' ? 'Verify Your Email' : 'Check Your Inbox'}
+          </h2>
+          <p className="text-slate-500 mb-8 leading-relaxed text-sm">
+            {successMessage}
+          </p>
           <button 
-            onClick={() => setCurrentView('landing')}
-            className="group flex flex-col items-center mx-auto mb-8 outline-none rounded-3xl p-3 transition-all hover:bg-slate-50"
-            title="Go back to Home Page"
+            onClick={() => {
+              setSuccessMessage(null);
+              setMode('login');
+            }}
+            className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold hover:bg-slate-800 transition"
           >
-            <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white mb-3 shadow-xl group-hover:scale-110 group-hover:bg-blue-600 transition-all duration-500 relative">
-               <Car size={32} strokeWidth={2.5} />
-               {/* Tooltip hint on hover */}
-               <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">
-                 Go Home
-               </div>
-            </div>
-            <div className="flex items-center gap-2 text-slate-400 group-hover:text-blue-600 transition-colors">
-              <ChevronLeft size={10} className="group-hover:-translate-x-1 transition-transform" />
-              <span className="text-[9px] font-black uppercase tracking-[0.2em]">Return to Homepage</span>
-            </div>
+            Back to Sign In
           </button>
+        </div>
+      </div>
+    );
+  }
 
-          <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase mb-2">
+  return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 border border-slate-100 relative overflow-hidden">
+        {/* Navigation Back Link */}
+        <button 
+          onClick={() => setCurrentView('landing')}
+          className="absolute top-8 left-8 flex items-center gap-2 group transition-all"
+        >
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black text-xs shadow-md shadow-blue-500/20 group-hover:scale-110 transition-transform">A</div>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Back Home</span>
+        </button>
+
+        <div className="text-center mb-8 mt-12">
+          <h1 className="text-2xl font-black text-slate-900 tracking-tighter">
             {mode === 'login' && 'Welcome Back'}
-            {mode === 'signup' && 'Join AutoPal'}
+            {mode === 'signup' && 'Join AutoPal NG'}
             {mode === 'forgot' && 'Reset Password'}
-            {mode === 'reset' && 'Secure Update'}
+            {mode === 'reset' && 'New Password'}
           </h1>
-          <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-            Manage your vehicle history with AI precision
+          <p className="text-slate-500 text-sm">
+            {mode === 'reset' ? 'Please set a secure new password.' : 'Vehicle Ownership Intelligence'}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {mode !== 'reset' && (
-            <div className="space-y-2">
-              <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Email Address</label>
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Email Address</label>
               <input 
                 type="email" 
                 required
-                placeholder="you@example.com"
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-blue-500 focus:bg-white outline-none transition text-sm font-bold shadow-inner"
+                placeholder="alex@example.com"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -115,39 +129,49 @@ const AuthScreen: React.FC = () => {
           )}
           
           {(mode === 'login' || mode === 'signup' || mode === 'reset') && (
-            <div className="space-y-2">
-              <div className="flex justify-between items-center mb-1 ml-1">
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                  Password
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-xs font-bold text-slate-400 uppercase">
+                  {mode === 'reset' ? 'Create Password' : 'Password'}
                 </label>
                 {mode === 'login' && (
-                  <button type="button" onClick={() => setMode('forgot')} className="text-[9px] font-black text-blue-600 hover:underline uppercase tracking-wider">Forgot?</button>
+                  <button 
+                    type="button"
+                    onClick={() => setMode('forgot')}
+                    className="text-[10px] font-bold text-blue-600 hover:underline uppercase tracking-wider"
+                  >
+                    Forgot?
+                  </button>
                 )}
               </div>
               <input 
                 type="password" 
                 required
                 placeholder="••••••••"
-                className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-blue-500 focus:bg-white outline-none transition text-sm font-bold shadow-inner"
+                className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-sm"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
           )}
 
-          {error && <div className="p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-[10px] font-black uppercase tracking-widest leading-tight text-center">{error}</div>}
-          {successMessage && <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-600 text-[10px] font-black uppercase tracking-widest leading-tight text-center">{successMessage}</div>}
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-100 rounded-xl">
+              <p className="text-red-500 text-xs font-bold leading-tight">{error}</p>
+            </div>
+          )}
+
+          {successMessage && mode === 'reset' && (
+            <div className="p-3 bg-emerald-50 border border-emerald-100 rounded-xl">
+              <p className="text-emerald-600 text-xs font-bold leading-tight">{successMessage}</p>
+            </div>
+          )}
 
           <button 
             disabled={loading}
-            className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] hover:bg-blue-600 transition-all disabled:opacity-50 shadow-xl shadow-slate-900/10 active:scale-95"
+            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition disabled:opacity-50 shadow-lg shadow-blue-500/20"
           >
-            {loading ? (
-              <div className="flex items-center justify-center gap-2">
-                <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                <span>Processing...</span>
-              </div>
-            ) : (
+            {loading ? 'Processing...' : (
               mode === 'login' ? 'Sign In' : 
               mode === 'signup' ? 'Create Account' : 
               mode === 'forgot' ? 'Send Reset Link' : 'Update Password'
@@ -156,46 +180,32 @@ const AuthScreen: React.FC = () => {
         </form>
 
         {mode !== 'reset' && (
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-100"></div>
+          <>
+            <div className="mt-6 flex items-center gap-4">
+              <div className="flex-1 h-px bg-slate-100"></div>
+              <span className="text-[10px] font-bold text-slate-300 uppercase">Or</span>
+              <div className="flex-1 h-px bg-slate-100"></div>
             </div>
-            <div className="relative flex justify-center text-[9px] font-black uppercase tracking-widest">
-              <span className="bg-white px-4 text-slate-300">Or continue with</span>
-            </div>
-          </div>
+
+            <button 
+              type="button"
+              onClick={() => signInWithGoogle()}
+              className="w-full mt-6 py-4 border border-slate-200 rounded-2xl font-bold text-slate-700 flex items-center justify-center gap-2 hover:bg-slate-50 transition"
+            >
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+              Google
+            </button>
+          </>
         )}
 
-        {mode !== 'reset' && (
-          <button 
-            type="button"
-            onClick={() => signInWithGoogle()}
-            className="w-full py-4 border-2 border-slate-100 rounded-2xl font-black uppercase tracking-widest text-[10px] text-slate-600 flex items-center justify-center gap-3 hover:bg-slate-50 hover:border-slate-200 transition active:scale-95"
-          >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-4 h-4" />
-            Google Login
-          </button>
-        )}
-
-        <div className="mt-10 text-center space-y-4">
-           {mode === 'login' && (
-             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-               New to AutoPal? <button onClick={() => setMode('signup')} className="text-blue-600 font-black hover:underline">Create Account</button>
-             </p>
-           )}
-           {(mode === 'signup' || mode === 'forgot') && (
-             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">
-               Have an account? <button onClick={() => setMode('login')} className="text-blue-600 font-black hover:underline">Sign In</button>
-             </p>
-           )}
-           
-           <button 
-             onClick={() => setCurrentView('landing')} 
-             className="text-[9px] font-black uppercase tracking-widest text-slate-300 hover:text-slate-900 transition-colors pt-4 flex items-center justify-center gap-2 mx-auto border-t border-slate-50 w-full"
-           >
-             Exit back to Welcome Page
-           </button>
-        </div>
+        <p className="mt-8 text-center text-sm text-slate-500">
+          {mode === 'login' && (
+            <>Don't have an account? <button onClick={() => setMode('signup')} className="text-blue-600 font-bold hover:underline">Sign Up</button></>
+          )}
+          {(mode === 'signup' || mode === 'forgot' || (mode === 'reset' && !isRecovering)) && (
+            <>Already have an account? <button onClick={() => setMode('login')} className="text-blue-600 font-bold hover:underline">Log In</button></>
+          )}
+        </p>
       </div>
     </div>
   );

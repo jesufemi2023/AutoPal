@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { 
@@ -17,7 +18,7 @@ const Dashboard: React.FC = () => {
     vehicles, tasks, serviceLogs, fuelLogs,
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
-    updateMileage: updateStoreMileage,
+    updateMileage: updateStoreMileage, updateVehicleStore,
     loadLocalData, setVehicles
   } = useAutoPalStore();
 
@@ -26,35 +27,19 @@ const Dashboard: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const activeVehicle = useMemo(() => 
-    vehicles.find(v => v.id === activeVehicleId), 
-    [vehicles, activeVehicleId]
-  );
+  const activeVehicle = useMemo(() => vehicles.find(v => v.id === activeVehicleId), [vehicles, activeVehicleId]);
   
-  const vehicleTasks = useMemo(() => 
-    tasks.filter(t => t.vehicleId === activeVehicleId), 
-    [tasks, activeVehicleId]
-  );
-  
-  const activeServiceLogs = useMemo(() => 
-    serviceLogs.filter(l => l.vehicleId === activeVehicleId), 
-    [serviceLogs, activeVehicleId]
-  );
-  
-  const activeFuelLogs = useMemo(() => 
-    fuelLogs.filter(l => l.vehicleId === activeVehicleId), 
-    [fuelLogs, activeVehicleId]
-  );
+  // CRITICAL FIX: Memoize filtered arrays to prevent infinite render loops
+  const vehicleTasks = useMemo(() => tasks.filter(t => t.vehicleId === activeVehicleId), [tasks, activeVehicleId]);
+  const activeServiceLogs = useMemo(() => serviceLogs.filter(l => l.vehicleId === activeVehicleId), [serviceLogs, activeVehicleId]);
+  const activeFuelLogs = useMemo(() => fuelLogs.filter(l => l.vehicleId === activeVehicleId), [fuelLogs, activeVehicleId]);
 
-  const displayHealthScore = useMemo(() => {
-    if (!activeVehicle) return 100;
-    return calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
-  }, [activeVehicle, tasks, activeFuelLogs, activeServiceLogs]);
-
+  // 1. Initial Local Load (Instant UX)
   useEffect(() => {
     loadLocalData();
   }, [loadLocalData]);
 
+  // 2. Background Sync (Silent Update)
   useEffect(() => {
     const syncVehicles = async () => {
       setIsSyncing(true);
@@ -64,7 +49,7 @@ const Dashboard: React.FC = () => {
           setVehicles(cloudVehicles);
         }
       } catch (err) {
-        console.warn("Sync deferred.");
+        console.warn("Cloud sync deferred: Network unstable or RLS restriction.");
       } finally {
         setIsSyncing(false);
       }
@@ -95,6 +80,18 @@ const Dashboard: React.FC = () => {
     }
   }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
 
+  // Real-time Health Recalculation (Local Evidence)
+  useEffect(() => {
+    if (activeVehicle && vehicleTasks.length > 0) {
+      const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
+      // Only update if there is a meaningful drift to prevent flickering
+      if (Math.abs(newScore - activeVehicle.healthScore) > 0.5) {
+        updateVehicle(activeVehicle.id, { healthScore: newScore });
+        updateVehicleStore({ ...activeVehicle, healthScore: newScore });
+      }
+    }
+  }, [vehicleTasks, activeVehicle?.mileage, activeFuelLogs, activeServiceLogs, updateVehicleStore]);
+
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
       const scrollAmount = 300;
@@ -110,10 +107,10 @@ const Dashboard: React.FC = () => {
       <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 px-1">
         <div className="shrink-0">
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">Vehicle <span className="text-blue-600">Hub</span></h1>
-            {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2"></div>}
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">My <span className="text-blue-600">Garage</span></h1>
+            {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2" title="Syncing with Cloud"></div>}
           </div>
-          <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">Active Fleet Monitoring</p>
+          <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">System Status: Monitoring Active</p>
         </div>
         
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
@@ -138,7 +135,7 @@ const Dashboard: React.FC = () => {
                 <div className="text-base font-black tracking-tight truncate w-full">{v.model}</div>
                 <div className="flex items-center gap-2 mt-3">
                    <div className={`w-2 h-2 rounded-full ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_8px_#3b82f6]' : 'bg-slate-200'}`}></div>
-                   <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year} Model</div>
+                   <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year} model</div>
                 </div>
               </button>
             ))}
@@ -155,16 +152,13 @@ const Dashboard: React.FC = () => {
 
       {activeVehicle ? (
         <div className="w-full flex flex-col gap-6 lg:gap-10">
-          <VehicleOverview 
-            vehicle={{...activeVehicle, healthScore: displayHealthScore}} 
-            onUpdateOdometer={() => setShowOdometerModal(true)} 
-          />
+          <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
           
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-10 items-stretch">
-            <div className="xl:col-span-12 flex flex-col h-full">
+            <div className="xl:col-span-5 flex flex-col h-full">
               <ResaleValuationCard vehicle={activeVehicle} tasks={tasks} serviceLogs={activeServiceLogs} fuelLogs={activeFuelLogs} />
             </div>
-            <div className="xl:col-span-12 flex flex-col h-full">
+            <div className="xl:col-span-7 flex flex-col h-full">
                <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
             </div>
           </div>
@@ -175,9 +169,9 @@ const Dashboard: React.FC = () => {
         !isLoadingDetails && (
           <div className="py-20 sm:py-24 text-center bg-white rounded-[2.5rem] border border-slate-100 p-8 sm:p-14 shadow-sm mx-auto max-w-2xl w-full">
              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-3xl mx-auto mb-6 sm:mb-8 shadow-inner">🚙</div>
-             <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-1.5">No Vehicles in Garage</h3>
-             <p className="text-slate-400 mb-8 text-[8px] sm:text-[9px] font-black uppercase tracking-widest max-w-xs mx-auto">Click below to add your first car and start tracking.</p>
-             <button onClick={() => setCurrentView('onboarding')} className="w-full sm:w-auto bg-slate-900 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-[1.25rem] font-black uppercase tracking-widest text-[9px] shadow-lg hover:bg-blue-600 transition-all">Add New Car →</button>
+             <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-1.5">No Vehicles Found</h3>
+             <p className="text-slate-400 mb-8 text-[8px] sm:text-[9px] font-black uppercase tracking-widest max-w-xs mx-auto">Get started by adding your vehicle to the system.</p>
+             <button onClick={() => setCurrentView('onboarding')} className="w-full sm:w-auto bg-slate-900 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-[1.25rem] font-black uppercase tracking-widest text-[9px] shadow-lg hover:bg-blue-600 transition-all">Add Your Vehicle →</button>
           </div>
         )
       )}

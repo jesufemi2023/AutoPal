@@ -1,10 +1,10 @@
+
 import React, { useState } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
-import { Car } from 'lucide-react';
 
 const LandingTerminal: React.FC = () => {
-  const { setTransientVehicle, setCurrentView, setLoading, guestAttempts, incrementGuestAttempts, session, reset } = useAutoPalStore();
+  const { setTransientVehicle, setCurrentView, setLoading, guestAttempts, incrementGuestAttempts, session } = useAutoPalStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [form, setForm] = useState({
     make: '',
@@ -46,22 +46,8 @@ const LandingTerminal: React.FC = () => {
   };
 
   const handleSignOut = async () => {
-    setIsMenuOpen(false);
-    if (!supabase) {
-      await reset();
-      window.location.reload();
-      return;
-    }
-    try {
-      await Promise.race([
-        supabase.auth.signOut(),
-        new Promise(resolve => setTimeout(resolve, 2000))
-      ]);
-      await reset();
-      setCurrentView('landing');
-    } catch (e) {
-      console.error("Signout Error:", e);
-      await reset();
+    if (supabase) {
+      await supabase.auth.signOut();
       window.location.reload();
     }
   };
@@ -77,9 +63,7 @@ const LandingTerminal: React.FC = () => {
             className="flex items-center gap-3 cursor-pointer group" 
             onClick={() => setCurrentView('landing')}
           >
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg flex items-center justify-center text-white group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/20">
-              <Car size={18} strokeWidth={2.5} />
-            </div>
+            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-black group-hover:scale-110 transition-transform shadow-lg shadow-blue-500/20">A</div>
             <span className="font-black text-white tracking-tighter uppercase text-sm">AutoPal NG</span>
           </div>
 
@@ -145,7 +129,7 @@ const LandingTerminal: React.FC = () => {
                   Dashboard
                 </button>
                 <button 
-                  onClick={handleSignOut}
+                  onClick={() => { handleSignOut(); setIsMenuOpen(false); }}
                   className="text-rose-500 text-[11px] font-black uppercase tracking-[0.2em] py-4 text-left"
                 >
                   Sign Out

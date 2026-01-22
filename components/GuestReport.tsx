@@ -1,8 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { generateMaintenanceSchedule } from '../services/geminiService.ts';
 import { MaintenanceScheduleResponse } from '../shared/types.ts';
-import { Car } from 'lucide-react';
 
 const GuestReport: React.FC = () => {
   const { transientVehicle, setTransientVehicle, setCurrentView } = useAutoPalStore();
@@ -51,9 +51,7 @@ const GuestReport: React.FC = () => {
           className="flex items-center gap-3 cursor-pointer group"
           onClick={() => setCurrentView('landing')}
         >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/30 group-hover:scale-110 transition-transform">
-            <Car size={16} strokeWidth={2.5} />
-          </div>
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-sm shadow-lg shadow-blue-500/30 group-hover:scale-110 transition-transform">A</div>
           <div className="space-y-0.5">
             <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-400">One-Time Guest Pass</h4>
             <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400">This report will vanish if you close this window.</p>

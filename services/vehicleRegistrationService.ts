@@ -1,3 +1,4 @@
+
 import { generateMaintenanceSchedule } from './geminiService.ts';
 import { createVehicle, createMaintenanceTasksBatch } from './vehicleService.ts';
 import { getCachedRoadmap, saveRoadmapTemplate } from './templateService.ts';
@@ -36,8 +37,7 @@ export const initializeVehicleAsset = async (
     status: 'active',
     imageUrl: '',
     specs: confirmedData.specs || {},
-    isDirty: true,
-    syncStatus: 'pending'
+    isDirty: false
   };
 
   return await createVehicle(payload);
@@ -63,8 +63,7 @@ export const prepareProposedRoadmap = async (vehicle: Vehicle): Promise<{ tasks:
       ...t,
       vehicleId: vehicle.id,
       status: 'pending' as const,
-      isDirty: true,
-      syncStatus: 'pending' as const
+      isDirty: false
     }));
 
     return { tasks, isNewTemplate };
@@ -79,7 +78,5 @@ export const commitFinalRoadmap = async (vehicle: Vehicle, tasks: Omit<Maintenan
   await createMaintenanceTasksBatch(tasks);
   
   // If this was a fresh AI generation, we cache it for the next user of this car model
-  if (isNewTemplate && tasks.length > 0) {
-    // Logic to save as template could be added here
-  }
+  // Note: We don't cache user's 'custom' manual additions to prevent cluttering the global template.
 };
