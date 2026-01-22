@@ -1,42 +1,69 @@
-
 import React from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
-import { Tier } from '../shared/types.ts';
+import { CapabilityKey } from '../shared/types.ts';
+import { getTierCapability } from '../services/capabilityService.ts';
+import { useUsageQuota } from '../hooks/useUsageQuota.ts';
 
 interface TierGuardProps {
-  requiredTier: Tier;
+  capability: CapabilityKey;
   children: React.ReactNode;
   fallback?: React.ReactNode;
+  mode?: 'lock' | 'quota' | 'stealth';
 }
 
-const TIER_LEVELS: Record<Tier, number> = {
-  'free': 1,
-  'standard': 2,
-  'premium': 3
-};
-
-export const TierGuard: React.FC<TierGuardProps> = ({ requiredTier, children, fallback }) => {
+/**
+ * TierGuard Component
+ * Implements "Visibly Deactivated" pattern.
+ * Uses high-end backdrop blurs and grayscale to signal premium exclusivity.
+ */
+export const TierGuard: React.FC<TierGuardProps> = ({ 
+  capability, 
+  children, 
+  fallback,
+  mode = 'lock'
+}) => {
   const { user } = useAutoPalStore();
+  const quota = useUsageQuota(capability);
   
-  const userLevel = TIER_LEVELS[user?.tier || 'free'];
-  const requiredLevel = TIER_LEVELS[requiredTier];
+  const tier = user?.tier || 'free';
+  const capabilityValue = getTierCapability(tier, capability);
+  const hasBaseAccess = typeof capabilityValue === 'boolean' ? capabilityValue : true;
 
-  if (userLevel < requiredLevel) {
-    if (fallback) return <>{fallback}</>;
-    
-    return (
-      <div className="p-8 bg-slate-900 border border-white/5 rounded-[2rem] text-center space-y-4">
-        <div className="w-12 h-12 bg-blue-600/20 text-blue-500 rounded-xl flex items-center justify-center text-xl mx-auto">🔒</div>
-        <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Clearance Required</h4>
-        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
-          Upgrade to {requiredTier.toUpperCase()} Operational License for access.
-        </p>
-        <button className="bg-blue-600 text-white text-[8px] font-black px-6 py-2.5 rounded-lg uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:scale-105 transition-transform">
-          Upgrade Hub
-        </button>
+  const isLockedByTier = !hasBaseAccess;
+  const isLockedByQuota = quota.isExhausted && typeof capabilityValue === 'number';
+
+  if (mode === 'stealth' && (isLockedByTier || isLockedByQuota)) return null;
+  if (fallback && (isLockedByTier || isLockedByQuota)) return <>{fallback}</>;
+
+  return (
+    <div className="relative group/gate h-full w-full">
+      {/* Visual State: Deactivated but visible */}
+      <div className={`transition-all duration-700 h-full w-full ${isLockedByTier ? 'grayscale opacity-25 blur-[1px] pointer-events-none' : (isLockedByQuota ? 'opacity-40 pointer-events-none' : '')}`}>
+        {children}
       </div>
-    );
-  }
 
-  return <>{children}</>;
+      {/* Locked Overlay for Exclusivity */}
+      {isLockedByTier && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center rounded-[inherit] z-20 pointer-events-auto">
+          <div className="bg-slate-950 text-white px-5 py-2.5 rounded-2xl shadow-3xl border border-white/10 flex flex-col items-center gap-1 group-hover/gate:scale-110 transition-transform duration-500">
+            <span className="text-[7px] font-black uppercase tracking-[0.5em] text-blue-500">Exclusivity</span>
+            <span className="text-[9px] font-black uppercase tracking-widest">
+              {tier === 'free' ? 'Standard Tier' : 'Premium Tier'}
+            </span>
+          </div>
+          <button className="mt-4 text-[8px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-400 transition-colors">Upgrade Pilot License →</button>
+        </div>
+      )}
+
+      {/* Quota Exhausted Overlay */}
+      {isLockedByQuota && !isLockedByTier && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/5 backdrop-blur-[1px] rounded-[inherit] z-20 pointer-events-auto">
+          <div className="bg-rose-600 text-white px-5 py-2.5 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-2xl border border-white/20">
+             Monthly Quota Fulfilled
+          </div>
+          <p className="mt-2 text-[7px] font-black text-slate-400 uppercase tracking-widest">Refreshes in 30 days or Upgrade</p>
+        </div>
+      )}
+    </div>
+  );
 };

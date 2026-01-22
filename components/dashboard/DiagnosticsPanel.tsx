@@ -1,6 +1,8 @@
-
 import React, { useRef } from 'react';
 import { AIResponse, Vehicle } from '../../shared/types.ts';
+import { TierGuard } from '../TierGuard.tsx';
+import { useAutoPalStore } from '../../shared/store.ts';
+import { logFeatureUsage } from '../../services/usageService.ts';
 
 interface Props {
   vehicle: Vehicle;
@@ -17,7 +19,15 @@ interface Props {
 export const DiagnosticsPanel: React.FC<Props> = ({ 
   vehicle, symptom, setSymptom, diagImage, setDiagImage, isAskingAI, onAnalyze, aiAdvice, compact = false 
 }) => {
+  const { user } = useAutoPalStore();
   const diagImageRef = useRef<HTMLInputElement>(null);
+
+  const handleAnalyzeWithUsage = async () => {
+    onAnalyze();
+    if (user?.id) {
+      await logFeatureUsage(user.id, 'ai_mechanic_monthly');
+    }
+  };
 
   const containerClasses = compact 
     ? "bg-slate-950 text-white rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col border border-white/10"
@@ -86,13 +96,15 @@ export const DiagnosticsPanel: React.FC<Props> = ({
               )}
             </div>
 
-            <button 
-              disabled={isAskingAI || !symptom}
-              onClick={onAnalyze}
-              className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl disabled:opacity-20 transition-all hover:bg-blue-700 active:scale-95"
-            >
-              Analyze Symptoms
-            </button>
+            <TierGuard capability="AI_MECHANIC_MONTHLY">
+              <button 
+                disabled={isAskingAI || !symptom}
+                onClick={handleAnalyzeWithUsage}
+                className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl disabled:opacity-20 transition-all hover:bg-blue-700 active:scale-95"
+              >
+                Analyze Symptoms
+              </button>
+            </TierGuard>
           </div>
 
           <div className="flex flex-col min-h-[300px]">

@@ -3,7 +3,8 @@ import { Vehicle, MaintenanceTask, ServiceLog, FuelLog } from '../../shared/type
 import { generateAIValuation } from '../../services/geminiService.ts';
 import { updateVehicle } from '../../services/vehicleService.ts';
 import { useAutoPalStore } from '../../shared/store.ts';
-import { formatCurrency } from '../../shared/utils.ts';
+import { logFeatureUsage } from '../../services/usageService.ts';
+import { TierGuard } from '../TierGuard.tsx';
 
 export const ResaleValuationCard: React.FC<{
   vehicle: Vehicle;
@@ -11,7 +12,7 @@ export const ResaleValuationCard: React.FC<{
   serviceLogs: ServiceLog[];
   fuelLogs: FuelLog[];
 }> = ({ vehicle, tasks, serviceLogs, fuelLogs }) => {
-  const { updateVehicleStore, setMarketplaceFilter, setCurrentView } = useAutoPalStore();
+  const { updateVehicleStore, setMarketplaceFilter, setCurrentView, user } = useAutoPalStore();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const cachedReport = vehicle.latestAiAudit;
@@ -24,6 +25,12 @@ export const ResaleValuationCard: React.FC<{
         latestAiAudit: report,
         healthScore: report.auditedScores.vitality 
       });
+      
+      // Log usage for quota tracking
+      if (user?.id) {
+        await logFeatureUsage(user.id, 'ai_scan_monthly');
+      }
+
       updateVehicleStore(updatedVehicle);
     } catch (e) {
       console.error(e);
@@ -89,12 +96,15 @@ export const ResaleValuationCard: React.FC<{
                 : 'Perform a deep mechanical audit to certify your car\'s market value and detect hidden inefficiency.'}
             </p>
           </div>
-          <button onClick={handleAiAnalysis} className="w-full bg-blue-600 text-white py-10 rounded-[2.5rem] font-black uppercase tracking-[0.4em] text-[13px] shadow-[0_20px_50px_rgba(59,130,246,0.4)] hover:bg-blue-500 active:scale-95 transition-all mt-6 border-2 border-blue-400/30 group">
-            <span className="flex items-center justify-center gap-4">
-              <span className="text-2xl group-hover:scale-125 transition-transform">✧</span>
-              {isLegacyReport ? 'Run Full System Update' : 'Initialize AI Condition Scan'}
-            </span>
-          </button>
+          
+          <TierGuard capability="AI_SCAN_MONTHLY">
+            <button onClick={handleAiAnalysis} className="w-full bg-blue-600 text-white py-10 rounded-[2.5rem] font-black uppercase tracking-[0.4em] text-[13px] shadow-[0_20px_50px_rgba(59,130,246,0.4)] hover:bg-blue-500 active:scale-95 transition-all mt-6 border-2 border-blue-400/30 group">
+              <span className="flex items-center justify-center gap-4">
+                <span className="text-2xl group-hover:scale-125 transition-transform">✧</span>
+                {isLegacyReport ? 'Run Full System Update' : 'Initialize AI Condition Scan'}
+              </span>
+            </button>
+          </TierGuard>
         </div>
       </section>
     );
@@ -170,7 +180,7 @@ export const ResaleValuationCard: React.FC<{
            </div>
            <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-center justify-between">
               <span className="text-[9px] font-black text-blue-600 uppercase tracking-widest">System Rating</span>
-              <span className="text-[10px] font-black text-blue-700 uppercase">{(cachedReport.metabolicAudit?.consumptionGap ?? 0) < 12 ? 'OPTIMAL' : 'WATCHING'}</span>
+              <span className="text-sm font-black text-blue-700 uppercase">{(cachedReport.metabolicAudit?.consumptionGap ?? 0) < 12 ? 'OPTIMAL' : 'WATCHING'}</span>
            </div>
         </div>
 
@@ -242,19 +252,21 @@ export const ResaleValuationCard: React.FC<{
 
         {/* HIGH-IMPACT RE-SCAN BUTTON */}
         <div className="lg:col-span-2 pt-6">
-           <button 
-             onClick={handleAiAnalysis} 
-             className="w-full bg-slate-900 border-2 border-blue-500/30 text-white py-12 rounded-[2.5rem] font-black uppercase tracking-[0.5em] text-[13px] shadow-[0_30px_60px_rgba(59,130,246,0.25)] hover:bg-blue-600 hover:border-blue-400 transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-4 group overflow-hidden relative"
-           >
-             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
-             <span className="text-4xl group-hover:rotate-[360deg] transition-transform duration-1000">✧</span>
-             <span className="relative z-10">Recalibrate System & Run New Scan</span>
-             <div className="flex items-center gap-2 mt-2 opacity-50 text-[8px] font-bold tracking-[0.2em]">
-               <span>Last Audit: {new Date(cachedReport.timestamp).toLocaleDateString()}</span>
-               <span>•</span>
-               <span>Neural Link Ready</span>
-             </div>
-           </button>
+           <TierGuard capability="AI_SCAN_MONTHLY">
+             <button 
+               onClick={handleAiAnalysis} 
+               className="w-full bg-slate-900 border-2 border-blue-500/30 text-white py-12 rounded-[2.5rem] font-black uppercase tracking-[0.5em] text-[13px] shadow-[0_30px_60px_rgba(59,130,246,0.25)] hover:bg-blue-600 hover:border-blue-400 transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-4 group overflow-hidden relative"
+             >
+               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-shimmer"></div>
+               <span className="text-4xl group-hover:rotate-[360deg] transition-transform duration-1000">✧</span>
+               <span className="relative z-10">Recalibrate System & Run New Scan</span>
+               <div className="flex items-center gap-2 mt-2 opacity-50 text-[8px] font-bold tracking-[0.2em]">
+                 <span>Last Audit: {new Date(cachedReport.timestamp).toLocaleDateString()}</span>
+                 <span>•</span>
+                 <span>Neural Link Ready</span>
+               </div>
+             </button>
+           </TierGuard>
         </div>
       </div>
     </div>
