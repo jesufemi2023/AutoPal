@@ -12,6 +12,10 @@ import { FuelLog, ServiceLog, Vehicle, MaintenanceTask } from '../shared/types.t
 export const performPushSync = async () => {
   if (!supabase) return { status: 'offline' };
   
+  // 0. IDENTITY HEALER: Resolve correct UID from session before starting
+  const { data: { session } } = await supabase.auth.getSession();
+  const activeUid = session?.user?.id;
+
   const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords();
   const total = vehicles.length + tasks.length + logs.length + fuel.length;
   
@@ -22,13 +26,23 @@ export const performPushSync = async () => {
   // 1. Sync Vehicles
   for (const v of vehicles) {
     try {
-      const payload = { ...v };
-      delete payload.isDirty;
-      delete payload.syncStatus;
+      let finalOwnerId = v.ownerId;
+
+      // Identity Correction: If the vehicle was created as 'guest' but we are now logged in
+      if (activeUid && (v.ownerId === 'guest' || !v.ownerId)) {
+        console.log(`SyncEngine: Healing Identity for vehicle ${v.id} -> ${activeUid}`);
+        finalOwnerId = activeUid;
+        // Update local DB so future edits don't revert to 'guest'
+        await localDb.saveVehicle({ ...v, ownerId: activeUid });
+      }
+
+      const payload = { ...v, ownerId: finalOwnerId };
+      delete (payload as any).isDirty;
+      delete (payload as any).syncStatus;
       
       const { error } = await supabase.from('vehicles').upsert({
         id: v.id,
-        owner_id: v.ownerId,
+        owner_id: finalOwnerId,
         make: v.make,
         model: v.model,
         year: v.year,
@@ -45,8 +59,15 @@ export const performPushSync = async () => {
         latest_ai_audit: v.latestAiAudit
       });
 
-      if (!error) await localDb.markSynced(v.id, 'vehicles');
-    } catch (e) { console.warn("Vehicle Sync Fail", e); }
+      if (error) {
+        console.error(`SyncEngine: Vehicle Upsert Rejection [${error.code}]: ${error.message}`);
+        continue; 
+      }
+
+      await localDb.markSynced(v.id, 'vehicles');
+    } catch (e) { 
+      console.warn("Vehicle Sync Fault", e); 
+    }
   }
 
   // 2. Sync Maintenance Tasks
@@ -66,15 +87,19 @@ export const performPushSync = async () => {
         interval_km: t.intervalKm,
         interval_months: t.intervalMonths
       });
-      if (!error) await localDb.markSynced(t.id, 'tasks');
-    } catch (e) { console.warn("Task Sync Fail", e); }
+      if (error) {
+        console.error(`SyncEngine: Task Upsert Rejection [${error.code}]: ${error.message}`);
+        continue;
+      }
+      await localDb.markSynced(t.id, 'tasks');
+    } catch (e) { console.warn("Task Sync Fault", e); }
   }
 
   // 3. Sync Fuel Logs
   for (const f of fuel) {
     try {
       const { error } = await supabase.from('fuel_logs').upsert({
-        id: f.id.startsWith('local-') ? undefined : f.id, // Supabase generates UUID for new items
+        id: f.id.startsWith('local-') ? undefined : f.id, 
         vehicle_id: f.vehicleId,
         liters: f.liters,
         total_cost: f.totalCost,
@@ -83,8 +108,12 @@ export const performPushSync = async () => {
         vendor_brand: f.vendor,
         captured_at: f.createdAt
       });
-      if (!error) await localDb.markSynced(f.id, 'fuelLogs');
-    } catch (e) { console.warn("Fuel Sync Fail", e); }
+      if (error) {
+        console.error(`SyncEngine: Fuel Log Upsert Rejection [${error.code}]: ${error.message}`);
+        continue;
+      }
+      await localDb.markSynced(f.id, 'fuelLogs');
+    } catch (e) { console.warn("Fuel Sync Fault", e); }
   }
 
   // 4. Sync Service Logs
@@ -104,8 +133,12 @@ export const performPushSync = async () => {
         verification_level: l.verificationLevel,
         receipt_url: l.receiptUrl
       });
-      if (!error) await localDb.markSynced(l.id, 'serviceLogs');
-    } catch (e) { console.warn("Service Sync Fail", e); }
+      if (error) {
+        console.error(`SyncEngine: Service Log Upsert Rejection [${error.code}]: ${error.message}`);
+        continue;
+      }
+      await localDb.markSynced(l.id, 'serviceLogs');
+    } catch (e) { console.warn("Service Sync Fault", e); }
   }
 
   return { status: 'success', pushed: total };
