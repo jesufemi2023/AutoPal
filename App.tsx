@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
 import AuthScreen from './components/AuthScreen.tsx';
@@ -16,20 +16,23 @@ import { validateEnv } from './services/envService.ts';
 import { fetchUserVehicles, archiveVehicle } from './services/vehicleService.ts';
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
+import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
+import { TierGuard } from './components/TierGuard.tsx';
+import { Car, Menu, X } from 'lucide-react';
 
 const App: React.FC = () => {
   const { 
     session, setSession, isInitialized, setInitialized, isSyncing, loadLocalData, hasDirtyData, triggerSync,
-    user, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
-    setSuggestedParts, transientVehicle, removeVehicleStore
+    user, setUser, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
+    transientVehicle, removeVehicleStore, reset
   } = useAutoPalStore();
 
   const [isAskingAI, setIsAskingAI] = useState(false);
   const [symptom, setSymptom] = useState('');
   const [diagImage, setDiagImage] = useState<string | null>(null);
   const [aiAdvice, setAiAdvice] = useState<any>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isManagePanelOpen, setIsManagePanelOpen] = useState(false);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
@@ -38,28 +41,74 @@ const App: React.FC = () => {
     loadLocalData();
   }, []);
 
+  // Sync session and fetch full user profile
   useEffect(() => {
+    let authSubscription: { unsubscribe: () => void } | null = null;
+
     const initAuth = async () => {
-      if (!isSupabaseConfigured) {
+      if (!isSupabaseConfigured || !supabase) {
         setInitialized(true);
         return;
       }
       try {
-        if (!supabase) return;
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         setSession(currentSession);
+        
+        if (currentSession?.user) {
+          const { data: profile } = await supabase
+            .from('Users')
+            .select('*')
+            .eq('id', currentSession.user.id)
+            .maybeSingle();
+          
+          if (profile) {
+            setUser({
+              id: currentSession.user.id,
+              email: currentSession.user.email || '',
+              displayName: profile.display_name || '',
+              phone: profile.phone || '',
+              tier: profile.tier || 'free',
+              role: profile.role || 'user',
+              onboarded: profile.onboarded || false,
+              createdAt: profile.created_at || ''
+            });
+          }
+        }
+
         setInitialized(true);
         
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           setSession(session);
+          if (!session) {
+            reset();
+          } else {
+            const { data: profile } = await supabase.from('Users').select('*').eq('id', session.user.id).maybeSingle();
+            if (profile) {
+              setUser({
+                id: session.user.id,
+                email: session.user.email || '',
+                displayName: profile.display_name || '',
+                phone: profile.phone || '',
+                tier: profile.tier || 'free',
+                role: profile.role || 'user',
+                onboarded: profile.onboarded || false,
+                createdAt: profile.created_at || ''
+              });
+            }
+          }
         });
-        return () => subscription.unsubscribe();
+        authSubscription = subscription;
       } catch (err) {
         setInitialized(true);
       }
     };
+    
     initAuth();
-  }, [setSession, setInitialized]);
+
+    return () => {
+      if (authSubscription) authSubscription.unsubscribe();
+    };
+  }, [setSession, setInitialized, reset, setUser]);
 
   useEffect(() => {
     if (session && user && vehicles.length === 0) {
@@ -74,6 +123,30 @@ const App: React.FC = () => {
     }
   }, [session?.user?.id, user?.id]);
 
+  const handleSignOut = async () => {
+    setIsMobileMenuOpen(false);
+    setIsManagePanelOpen(false);
+    if (!supabase) {
+      await reset();
+      setCurrentView('landing');
+      return;
+    }
+    try {
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise(resolve => setTimeout(resolve, 2000))
+      ]);
+      await reset();
+      setCurrentView('landing');
+    } catch (e) {
+      console.error("Signout Error:", e);
+      await reset();
+      window.location.reload(); 
+    }
+  };
+
+  const closeManagement = () => setIsManagePanelOpen(false);
+
   const handleArchiveAsset = async () => {
     if (!activeVehicleId || !activeVehicle) return;
     const confirmed = confirm(`DELETE VEHICLE: Remove ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}?`);
@@ -82,7 +155,7 @@ const App: React.FC = () => {
     try {
       await archiveVehicle(activeVehicleId);
       removeVehicleStore(activeVehicleId);
-      setIsSettingsOpen(false);
+      closeManagement();
       setCurrentView('garage');
     } catch (e: any) {
       alert(`System Error: ${e.message}`);
@@ -92,9 +165,24 @@ const App: React.FC = () => {
   const handleEditAsset = () => {
     if (!activeVehicleId) return;
     setEditingVehicle(activeVehicleId);
-    setIsSettingsOpen(false);
+    closeManagement();
     setCurrentView('edit');
   };
+
+  const NavItem = ({ view, label, icon, isNeural = false }: { view: any; label: string; icon: string; isNeural?: boolean }) => (
+    <button 
+      onClick={() => { 
+        setCurrentView(view); 
+        setIsMobileMenuOpen(false); 
+        closeManagement();
+      }}
+      className={`flex items-center gap-4 px-5 py-3.5 w-full transition-all group relative rounded-xl ${currentView === view ? 'bg-blue-50 text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
+    >
+      <span className={`text-lg group-hover:scale-110 transition-transform ${isNeural && 'text-blue-500 animate-pulse'}`}>{icon}</span>
+      <span className="text-[9px] font-black uppercase tracking-[0.2em]">{label}</span>
+      {currentView === view && <div className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-blue-600 rounded-full"></div>}
+    </button>
+  );
 
   const SyncShield = () => (
     <button 
@@ -111,8 +199,44 @@ const App: React.FC = () => {
       <div className={`w-1.5 h-1.5 rounded-full ${
         isSyncing ? 'bg-blue-500 animate-pulse' : hasDirtyData ? 'bg-amber-500 animate-bounce' : 'bg-emerald-500'
       }`}></div>
-      {isSyncing ? 'Vaulting...' : hasDirtyData ? 'Backup Required' : 'Vault Synced'}
+      {isSyncing ? 'Vaulting...' : hasDirtyData ? 'Sync Needed' : 'Synced'}
     </button>
+  );
+
+  const NavigationMenu = () => (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center justify-between px-5 mb-4">
+          <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.4em]">Navigation</p>
+          <SyncShield />
+        </div>
+        <NavItem view="garage" label="Garage Overview" icon="🏠" />
+        <NavItem view="diagnostic" label="AI Mechanic" icon="✧" isNeural />
+        <NavItem view="service" label="Service History" icon="🛠️" />
+        <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
+        <NavItem view="marketplace" label="Find Parts" icon="🛒" />
+      </div>
+
+      <div className="pt-4 border-t border-slate-100 mx-2">
+        <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Reports & Audit</p>
+        <TierGuard capability="OWNERSHIP_REPORT">
+           <NavItem view="report" label="Ownership Report" icon="📄" />
+        </TierGuard>
+        <NavItem view="profile" label="Pilot Profile" icon="👤" />
+        {user?.role === 'admin' && <NavItem view="admin" label="Admin Command" icon="⚡" />}
+        
+        <button 
+          onClick={() => setIsManagePanelOpen(!isManagePanelOpen)} 
+          className={`mt-2 flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isManagePanelOpen ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-[1.02]' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}
+        >
+          <div className="flex items-center gap-4">
+            <span className={`text-lg transition-transform ${isManagePanelOpen ? 'rotate-90 text-blue-400' : 'group-hover:rotate-12'}`}>⚙</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Vehicle Controls</span>
+          </div>
+          <span className={`text-[10px] transition-transform duration-300 ${isManagePanelOpen ? 'rotate-180' : ''}`}>▾</span>
+        </button>
+      </div>
+    </div>
   );
 
   if (!isInitialized) return (
@@ -131,113 +255,72 @@ const App: React.FC = () => {
     return <AssetIntelligenceCenter mode={currentView} />;
   }
 
-  const NavItem = ({ view, label, icon, isNeural = false }: { view: any; label: string; icon: string; isNeural?: boolean }) => (
-    <button 
-      onClick={() => { setCurrentView(view); setIsMobileMenuOpen(false); }}
-      className={`flex items-center gap-4 px-5 py-3.5 w-full transition-all group relative ${currentView === view ? 'sidebar-link-active' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
-    >
-      <span className={`text-lg group-hover:scale-110 transition-transform ${isNeural && 'text-blue-500 animate-pulse'}`}>{icon}</span>
-      <span className="text-[9px] font-black uppercase tracking-[0.2em]">{label}</span>
-      {currentView === view && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-blue-600 rounded-l-full"></div>}
-    </button>
-  );
-
-  const NavigationMenu = () => (
-    <div className="space-y-6">
-      <div>
-        <div className="flex items-center justify-between px-5 mb-4">
-          <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.4em]">Navigation</p>
-          <SyncShield />
-        </div>
-        <NavItem view="garage" label="Garage Overview" icon="🏠" />
-        <NavItem view="diagnostic" label="AI Mechanic" icon="✧" isNeural />
-        <NavItem view="service" label="Service History" icon="🛠️" />
-        <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
-        <NavItem view="marketplace" label="Find Parts" icon="🛒" />
-      </div>
-
-      <div className="pt-4 border-t border-slate-50 mx-2">
-        <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Reports & Audit</p>
-        <NavItem view="report" label="Ownership Report" icon="📄" />
-        <NavItem view="profile" label="Pilot Profile" icon="👤" />
-        
-        <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`mt-2 flex items-center justify-between w-full px-5 py-4 rounded-2xl transition-all group border ${isSettingsOpen ? 'bg-slate-900 border-slate-900 text-white shadow-xl' : 'text-slate-500 hover:bg-slate-50 border-transparent'}`}>
-          <div className="flex items-center gap-4">
-            <span className={`text-lg transition-transform ${isSettingsOpen ? 'rotate-90 text-blue-400' : 'group-hover:rotate-12'}`}>⚙</span>
-            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Manage Vehicles</span>
-          </div>
-          <span className={`text-[10px] transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}>▾</span>
-        </button>
-      </div>
-    </div>
-  );
-
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
+      {/* Mobile Top Header */}
       <header className="lg:hidden h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 z-[100] w-full">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
-          <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center text-white font-black text-sm shadow-md">A</div>
+          <div className="w-8 h-8 bg-gradient-to-br from-slate-800 to-slate-950 rounded-lg flex items-center justify-center text-white shadow-md">
+            <Car size={18} strokeWidth={2.5} />
+          </div>
           <span className="font-black tracking-tighter text-slate-900 text-sm">AutoPal NG</span>
         </div>
-        <div className="flex items-center gap-4">
-          <SyncShield />
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-900 p-2">
-            <div className="w-6 h-5 relative flex flex-col justify-between">
-              <span className={`w-full h-0.5 bg-slate-900 transition-all ${isMobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`}></span>
-              <span className={`w-full h-0.5 bg-slate-900 transition-all ${isMobileMenuOpen ? 'opacity-0' : ''}`}></span>
-              <span className={`w-full h-0.5 bg-slate-900 transition-all ${isMobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`}></span>
-            </div>
-          </button>
-        </div>
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-900 p-2 hover:bg-slate-50 rounded-lg transition-colors">
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
       </header>
 
-      <div className={`lg:hidden fixed inset-0 bg-slate-950/20 backdrop-blur-sm z-[110] transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMobileMenuOpen(false)}>
-        <aside className={`w-[280px] h-full bg-white shadow-2xl flex flex-col transition-transform transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`} onClick={(e) => e.stopPropagation()}>
-          <div className="p-8 pb-6 flex justify-between items-center border-b border-slate-50">
-            <div>
-              <span className="block font-black tracking-tighter text-slate-900 text-base mb-1">AutoPal NG</span>
-              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">Navigation Hub</span>
-            </div>
-          </div>
-          <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 py-6"><NavigationMenu /></nav>
-          <div className="p-6 border-t border-slate-50">
-             <button onClick={() => supabase?.auth.signOut()} className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center">🚪 Sign Out</button>
-          </div>
-        </aside>
-      </div>
+      {/* Mobile Menu Backdrop */}
+      {isMobileMenuOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 z-[110] bg-slate-950/20 backdrop-blur-sm transition-opacity"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
 
-      <aside className="hidden lg:flex flex-col w-[300px] bg-white border-r border-slate-100 fixed inset-y-0 z-[100] h-full overflow-hidden">
+      {/* Main Sidebar Navigation */}
+      <aside className={`fixed lg:sticky top-0 left-0 z-[120] h-screen w-[300px] bg-white border-r border-slate-100 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-8 pb-6 shrink-0 bg-white">
-          <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
-            <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center text-white font-black text-lg shadow-lg">A</div>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setCurrentView('landing'); setIsMobileMenuOpen(false); }}>
+            <div className="w-10 h-10 bg-gradient-to-br from-slate-800 to-slate-950 rounded-xl flex items-center justify-center text-white shadow-lg">
+              <Car size={22} strokeWidth={2.5} />
+            </div>
             <div>
               <span className="block font-black tracking-tighter text-slate-900 text-base mb-1">AutoPal NG</span>
-              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">My Garage</span>
+              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">Master Fleet</span>
             </div>
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 pb-8 bg-white"><NavigationMenu /></nav>
         <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white">
-           <button onClick={() => supabase?.auth.signOut()} className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center">🚪 Sign Out</button>
-        </div>
-
-        {/* Secondary Slide-out Menu for Vehicle Management */}
-        <div className={`absolute top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[20px_0_40px_rgba(0,0,0,0.05)] z-[90] transition-all duration-500 pt-24 px-6 ${isSettingsOpen ? 'translate-x-[300px] opacity-100' : 'translate-x-0 opacity-0 pointer-events-none'}`}>
-          <div className="mb-10 px-2"><h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Garage Controls</h4><div className="w-10 h-1 bg-blue-600 rounded-full"></div></div>
-          <div className="space-y-1">
-            <button onClick={() => setCurrentView('onboarding')} className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all">+ Add New Car</button>
-            {activeVehicle && (
-              <>
-                <button onClick={handleEditAsset} className="w-full p-4 text-left text-slate-600 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 rounded-xl transition-all">✎ Update Details</button>
-                <button onClick={handleArchiveAsset} className="w-full p-4 text-left text-rose-500 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 rounded-xl transition-all">📁 Decommission</button>
-              </>
-            )}
-          </div>
-          <button onClick={() => setIsSettingsOpen(false)} className="absolute bottom-10 left-6 right-6 p-4 text-slate-400 text-[8px] font-black uppercase tracking-widest hover:text-slate-900 transition-colors">Close Panel</button>
+           <button onClick={handleSignOut} className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center">🚪 Sign Out</button>
         </div>
       </aside>
 
-      <div className="flex-grow lg:ml-[300px] flex flex-col min-h-screen w-full overflow-x-hidden">
+      {/* Slide-out Control Panel (Secondary Menu) */}
+      <div 
+        className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[-300px] opacity-0 pointer-events-none translate-x-[-50px]'}`}
+      >
+        <div className="mb-10 px-2">
+          <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Fleet Ops</h4>
+          <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
+        </div>
+        <div className="space-y-1">
+          <TierGuard capability="MAX_VEHICLES">
+            <button onClick={() => { setCurrentView('onboarding'); closeManagement(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all">+ Add New Asset</button>
+          </TierGuard>
+          {activeVehicle && (
+            <>
+              <button onClick={() => { handleEditAsset(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-slate-600 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 rounded-xl transition-all">✎ Modify Specs</button>
+              <button onClick={() => { handleArchiveAsset(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-rose-500 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 rounded-xl transition-all">📁 Decommission</button>
+            </>
+          )}
+        </div>
+        <button onClick={closeManagement} className="absolute bottom-10 left-6 right-6 p-4 text-slate-400 text-[8px] font-black uppercase tracking-widest hover:text-slate-900 transition-colors border-t border-slate-50 pt-8">Close Panel</button>
+      </div>
+
+      {/* Main Layout Area */}
+      <div className="flex-grow flex flex-col min-h-screen w-full overflow-x-hidden">
         <main className={`p-4 sm:p-6 lg:p-10 xl:p-12 max-w-full lg:max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow flex flex-col items-center ${currentView === 'landing' ? '!p-0 !max-w-none' : ''}`}>
           <div className={`animate-slide-up w-full max-w-full ${currentView === 'landing' ? '!max-w-none' : ''}`}>
             {currentView === 'landing' && <LandingTerminal />}
@@ -251,8 +334,8 @@ const App: React.FC = () => {
             {currentView === 'diagnostic' && activeVehicle && (
               <div className="max-w-4xl mx-auto w-full space-y-8">
                 <header className="px-1">
-                  <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter mb-1 leading-none uppercase">AI Mechanic Assistant</h1>
-                  <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[9px]">Intelligent Troubleshooting</p>
+                  <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter mb-1 leading-none uppercase">AI Diagnostics</h1>
+                  <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[9px]">Neural Mechanical Link</p>
                 </header>
                 <DiagnosticsPanel 
                   vehicle={activeVehicle} 
@@ -267,7 +350,7 @@ const App: React.FC = () => {
                     try {
                       const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
                       setAiAdvice(advice);
-                    } catch (e) { alert("AI System Error"); } finally { setIsAskingAI(false); }
+                    } catch (e) { alert("Neural Fail"); } finally { setIsAskingAI(false); }
                   }} 
                   aiAdvice={aiAdvice}
                   compact={false}
@@ -278,13 +361,16 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/90 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-2xl">
-        <button onClick={() => setCurrentView('garage')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">🏠</span><span className="text-[7px] font-black uppercase tracking-widest">Garage</span></button>
-        <button onClick={() => setCurrentView('diagnostic')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">✧</span><span className="text-[7px] font-black uppercase tracking-widest">Mechanic</span></button>
-        <button onClick={() => setCurrentView('onboarding')} className="flex flex-col items-center -translate-y-4 flex-none px-4"><div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl border-4 border-white">➕</div></button>
-        <button onClick={() => setCurrentView('fuel')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'fuel' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">⛽</span><span className="text-[7px] font-black uppercase tracking-widest">Fuel</span></button>
-        <button onClick={() => setCurrentView('report')} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'report' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">📄</span><span className="text-[7px] font-black uppercase tracking-widest">Report</span></button>
+      {/* Mobile Tab Bar */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/95 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
+        <button onClick={() => { setCurrentView('garage'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">🏠</span><span className="text-[7px] font-black uppercase tracking-widest">Garage</span></button>
+        <button onClick={() => { setCurrentView('diagnostic'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">✧</span><span className="text-[7px] font-black uppercase tracking-widest">Repair</span></button>
+        <button onClick={() => { setCurrentView('onboarding'); setIsMobileMenuOpen(false); }} className="flex flex-col items-center -translate-y-4 flex-none px-4"><div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl border-4 border-white"><Car size={24} strokeWidth={2.5} /></div></button>
+        <button onClick={() => { setCurrentView('fuel'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'fuel' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">⛽</span><span className="text-[7px] font-black uppercase tracking-widest">Fuel</span></button>
+        <button onClick={() => { setCurrentView('report'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'report' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">📄</span><span className="text-[7px] font-black uppercase tracking-widest">Report</span></button>
       </nav>
+
+      <CalibrationTerminal />
     </div>
   );
 };

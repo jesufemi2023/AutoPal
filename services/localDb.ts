@@ -57,6 +57,16 @@ export const localDb = {
   
   markSynced: async (id: string, table: 'vehicles' | 'tasks' | 'serviceLogs' | 'fuelLogs') => {
     return (db[table] as any).update(id, { isDirty: false, syncStatus: 'synced' });
+  },
+
+  // Account Isolation
+  clearDatabase: async () => {
+    await Promise.all([
+      db.vehicles.clear(),
+      db.tasks.clear(),
+      db.serviceLogs.clear(),
+      db.fuelLogs.clear()
+    ]);
   }
 };
 

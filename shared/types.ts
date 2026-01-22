@@ -10,6 +10,17 @@ export enum Priority {
   HIGH = 'high'
 }
 
+export type CapabilityKey = 
+  | 'MAX_VEHICLES'
+  | 'FUEL_LOGS_MONTHLY'
+  | 'AI_MECHANIC_MONTHLY'
+  | 'AI_SCAN_MONTHLY'
+  | 'SERVICE_LOGS_TOTAL'
+  | 'EXPORT_PDF'
+  | 'EXPORT_EXCEL'
+  | 'OWNERSHIP_REPORT'
+  | 'RENEWABLE_LICENSE';
+
 export type LogStatus = 'upcoming' | 'overdue' | 'completed';
 export type ServiceCategory = 'engine' | 'tires' | 'brakes' | 'fluids' | 'suspension' | 'other' | 'electrical' | 'cooling';
 export type VerificationLevel = 'self_declared' | 'receipt_verified' | 'mechanic_verified';
@@ -25,12 +36,29 @@ export interface UserProfile {
   createdAt: string;
 }
 
+export interface UsageQuota {
+  feature: CapabilityKey;
+  current: number;
+  limit: number;
+  isExhausted: boolean;
+}
+
 export interface TransientVehicle {
   make: string;
   model: string;
   year: number;
   mileage: number;
   vin?: string;
+}
+
+/** Added HealthBreakdown interface to fix import error in maintenanceLogic.ts */
+export interface HealthBreakdown {
+  metabolic: number;
+  hygiene: number;
+  provenance: number;
+  metabolicStatus: 'optimal' | 'warning' | 'critical';
+  wasteMonthly: number;
+  variance: number;
 }
 
 export interface AIValuationReport {
@@ -69,27 +97,6 @@ export interface AIValuationReport {
   };
 }
 
-export interface VehicleSpecs {
-  oilGrade?: string;
-  tireSize?: string;
-  batteryType?: string;
-  engineType?: 'petrol' | 'diesel' | 'hybrid' | 'electric';
-  transmission?: 'manual' | 'automatic';
-  recommendedFuel?: string;
-  sparkPlugGap?: string;
-  currency?: string;
-  [key: string]: any;
-}
-
-export interface HealthBreakdown {
-  metabolic: number;
-  hygiene: number;
-  provenance: number;
-  metabolicStatus: 'optimal' | 'warning' | 'critical';
-  wasteMonthly: number;
-  variance: number;
-}
-
 export interface Vehicle {
   id: string;
   ownerId: string;
@@ -99,20 +106,19 @@ export interface Vehicle {
   vin?: string;
   mileage: number; 
   healthScore: number;
-  healthBreakdown?: HealthBreakdown;
   bodyType: BodyType;
   imageUrl?: string;
   status: 'active' | 'archived' | 'sold';
-  specs: VehicleSpecs;
+  specs: any;
   fuelType?: string;
   engineSize?: string;
   createdAt?: string;
   updatedAt?: string;
   avgDailyKm?: number;
-  efficiencyBaseline?: number; 
+  latestAiAudit?: AIValuationReport;
+  /** Added sync status properties for local database tracking */
   isDirty?: boolean;
   syncStatus?: SyncStatus;
-  latestAiAudit?: AIValuationReport;
 }
 
 export interface FuelLog {
@@ -124,8 +130,9 @@ export interface FuelLog {
   isFullTank: boolean;
   vendor?: string;
   createdAt: string;
-  syncStatus?: SyncStatus;
+  /** Added sync status properties for local database tracking */
   isDirty?: boolean;
+  syncStatus?: SyncStatus;
 }
 
 export interface ServiceLog {
@@ -144,8 +151,9 @@ export interface ServiceLog {
   taskId?: string;
   verificationLevel?: VerificationLevel;
   receiptUrl?: string;
-  syncStatus?: SyncStatus;
+  /** Added sync status properties for local database tracking */
   isDirty?: boolean;
+  syncStatus?: SyncStatus;
 }
 
 export interface MaintenanceTask {
@@ -166,8 +174,9 @@ export interface MaintenanceTask {
   projectedDate?: string; 
   lastVerificationLevel?: VerificationLevel;
   lastReceiptUrl?: string;
-  syncStatus?: SyncStatus;
+  /** Added sync status properties for local database tracking */
   isDirty?: boolean;
+  syncStatus?: SyncStatus;
 }
 
 export interface AIResponse {

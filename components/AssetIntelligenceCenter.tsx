@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { initializeVehicleAsset, prepareProposedRoadmap, commitFinalRoadmap } from '../services/vehicleRegistrationService.ts';
@@ -6,6 +5,7 @@ import { uploadVehicleImage, updateVehicle, archiveVehicle, syncVehicleVitals } 
 import { BodyType, Vehicle, MaintenanceTask, Priority, ServiceCategory } from '../shared/types.ts';
 import { compressImage } from '../shared/utils.ts';
 import { VehicleBlueprint } from './VehicleBlueprint.tsx';
+import { Car } from 'lucide-react';
 
 interface AssetIntelligenceCenterProps {
   mode: 'onboarding' | 'edit';
@@ -340,7 +340,9 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
         
         <header className="p-6 sm:p-10 relative z-10 shrink-0 flex justify-between items-center">
           <div className="flex items-center gap-4 sm:gap-5">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center text-white font-black text-base sm:text-lg shadow-xl shadow-blue-600/20">A</div>
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-600/20">
+              <Car size={24} strokeWidth={2.5} />
+            </div>
             <div>
               <h1 className="text-white font-black text-sm sm:text-xl tracking-tighter uppercase leading-tight">
                 {mode === 'edit' ? 'Update Car' : 'New Vehicle Setup'}

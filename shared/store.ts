@@ -55,7 +55,7 @@ interface AutoPalState {
   setMarketplace: (items: any[]) => void;
   setSuggestedParts: (parts: string[]) => void;
   setMarketplaceFilter: (filter: string) => void;
-  reset: () => void;
+  reset: () => Promise<void>;
   loadLocalData: () => Promise<void>;
   triggerSync: () => Promise<void>;
   checkDirtyStatus: () => Promise<void>;
@@ -275,9 +275,12 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   setSuggestedParts: (parts) => set({ suggestedPartNames: parts }),
   setMarketplaceFilter: (filter) => set({ marketplaceFilter: filter }),
 
-  reset: () => set({ 
-    user: null, session: null, vehicles: [], tasks: [], serviceLogs: [], fuelLogs: [],
-    aiValuationReports: {}, activeVehicleId: null, transientVehicle: null, guestAttempts: 0,
-    isRecovering: false, marketplaceFilter: '', isSyncing: false, hasDirtyData: false
-  }),
+  reset: async () => {
+    await localDb.clearDatabase();
+    set({ 
+      user: null, session: null, vehicles: [], tasks: [], serviceLogs: [], fuelLogs: [],
+      aiValuationReports: {}, activeVehicleId: null, transientVehicle: null, guestAttempts: 0,
+      isRecovering: false, marketplaceFilter: '', isSyncing: false, hasDirtyData: false
+    });
+  },
 }));

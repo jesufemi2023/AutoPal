@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { 
@@ -27,7 +26,6 @@ const Dashboard: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  // STABILITY: Derived data should be memoized to prevent recursive re-render loops
   const activeVehicle = useMemo(() => 
     vehicles.find(v => v.id === activeVehicleId), 
     [vehicles, activeVehicleId]
@@ -48,19 +46,15 @@ const Dashboard: React.FC = () => {
     [fuelLogs, activeVehicleId]
   );
 
-  // CRITICAL FIX: Calculate the health score for DISPLAY ONLY. 
-  // Do not call updateVehicleStore here as it causes an infinite loop.
   const displayHealthScore = useMemo(() => {
     if (!activeVehicle) return 100;
     return calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
   }, [activeVehicle, tasks, activeFuelLogs, activeServiceLogs]);
 
-  // 1. Initial Local Load
   useEffect(() => {
     loadLocalData();
   }, [loadLocalData]);
 
-  // 2. Background Sync
   useEffect(() => {
     const syncVehicles = async () => {
       setIsSyncing(true);
@@ -70,7 +64,7 @@ const Dashboard: React.FC = () => {
           setVehicles(cloudVehicles);
         }
       } catch (err) {
-        console.warn("Cloud sync deferred.");
+        console.warn("Sync deferred.");
       } finally {
         setIsSyncing(false);
       }
@@ -116,10 +110,10 @@ const Dashboard: React.FC = () => {
       <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 px-1">
         <div className="shrink-0">
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">My <span className="text-blue-600">Garage</span></h1>
-            {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2" title="Syncing with Cloud"></div>}
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">Vehicle <span className="text-blue-600">Hub</span></h1>
+            {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2"></div>}
           </div>
-          <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">System Status: Monitoring Active</p>
+          <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">Active Fleet Monitoring</p>
         </div>
         
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
@@ -144,7 +138,7 @@ const Dashboard: React.FC = () => {
                 <div className="text-base font-black tracking-tight truncate w-full">{v.model}</div>
                 <div className="flex items-center gap-2 mt-3">
                    <div className={`w-2 h-2 rounded-full ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_8px_#3b82f6]' : 'bg-slate-200'}`}></div>
-                   <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year} model Модель</div>
+                   <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year} Model</div>
                 </div>
               </button>
             ))}
@@ -181,9 +175,9 @@ const Dashboard: React.FC = () => {
         !isLoadingDetails && (
           <div className="py-20 sm:py-24 text-center bg-white rounded-[2.5rem] border border-slate-100 p-8 sm:p-14 shadow-sm mx-auto max-w-2xl w-full">
              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-3xl mx-auto mb-6 sm:mb-8 shadow-inner">🚙</div>
-             <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-1.5">No Vehicles Found</h3>
-             <p className="text-slate-400 mb-8 text-[8px] sm:text-[9px] font-black uppercase tracking-widest max-w-xs mx-auto">Get started by adding your vehicle to the system.</p>
-             <button onClick={() => setCurrentView('onboarding')} className="w-full sm:w-auto bg-slate-900 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-[1.25rem] font-black uppercase tracking-widest text-[9px] shadow-lg hover:bg-blue-600 transition-all">Add Your Vehicle →</button>
+             <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-1.5">No Vehicles in Garage</h3>
+             <p className="text-slate-400 mb-8 text-[8px] sm:text-[9px] font-black uppercase tracking-widest max-w-xs mx-auto">Click below to add your first car and start tracking.</p>
+             <button onClick={() => setCurrentView('onboarding')} className="w-full sm:w-auto bg-slate-900 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-[1.25rem] font-black uppercase tracking-widest text-[9px] shadow-lg hover:bg-blue-600 transition-all">Add New Car →</button>
           </div>
         )
       )}
