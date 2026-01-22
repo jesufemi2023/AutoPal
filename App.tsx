@@ -17,7 +17,6 @@ import { fetchUserVehicles, archiveVehicle } from './services/vehicleService.ts'
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
-import { TierGuard } from './components/TierGuard.tsx';
 import { Car, Menu, X } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -132,6 +131,7 @@ const App: React.FC = () => {
       return;
     }
     try {
+      // Execute sign out and wait briefly but proceed to cleanup even if network hangs
       await Promise.race([
         supabase.auth.signOut(),
         new Promise(resolve => setTimeout(resolve, 2000))
@@ -219,9 +219,7 @@ const App: React.FC = () => {
 
       <div className="pt-4 border-t border-slate-100 mx-2">
         <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Reports & Audit</p>
-        <TierGuard capability="OWNERSHIP_REPORT">
-           <NavItem view="report" label="Ownership Report" icon="📄" />
-        </TierGuard>
+        <NavItem view="report" label="Ownership Report" icon="📄" />
         <NavItem view="profile" label="Pilot Profile" icon="👤" />
         {user?.role === 'admin' && <NavItem view="admin" label="Admin Command" icon="⚡" />}
         
@@ -306,9 +304,7 @@ const App: React.FC = () => {
           <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
         </div>
         <div className="space-y-1">
-          <TierGuard capability="MAX_VEHICLES">
-            <button onClick={() => { setCurrentView('onboarding'); closeManagement(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all">+ Add New Asset</button>
-          </TierGuard>
+          <button onClick={() => { setCurrentView('onboarding'); closeManagement(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all">+ Add New Asset</button>
           {activeVehicle && (
             <>
               <button onClick={() => { handleEditAsset(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-slate-600 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 rounded-xl transition-all">✎ Modify Specs</button>

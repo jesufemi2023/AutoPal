@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { fetchFuelLogs, calculateAverageEfficiency, deleteFuelLog } from '../../services/fuelService.ts';
@@ -5,7 +6,6 @@ import { formatCurrency, formatDate, kmlToMpg, exportToCSV, triggerProfessionalP
 import FuelEntryTerminal from '../FuelEntryTerminal.tsx';
 import { FuelLog } from '../../shared/types.ts';
 import { ENV } from '../../services/envService.ts';
-import { TierGuard } from '../TierGuard.tsx';
 
 const FuelIntelligenceCenter: React.FC = () => {
   const { 
@@ -23,6 +23,7 @@ const FuelIntelligenceCenter: React.FC = () => {
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
+  // AUTOMATIC SYNC: Load logs whenever activeVehicleId changes
   useEffect(() => {
     const loadHistoryLogs = async () => {
       if (!activeVehicleId) return;
@@ -178,16 +179,12 @@ const FuelIntelligenceCenter: React.FC = () => {
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Fuel <br/><span className="text-blue-600">Tracker</span></h2>
           
           <div className="flex gap-3 pt-6">
-             <TierGuard capability="EXPORT_EXCEL">
-               <button onClick={handleExportCSV} className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-3">
-                 <span className="text-base">📊</span> Export Excel
-               </button>
-             </TierGuard>
-             <TierGuard capability="EXPORT_PDF">
-               <button onClick={handleExportPDF} className="bg-blue-50 text-blue-600 border border-blue-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-blue-600 hover:text-white transition-all flex items-center gap-3">
-                 <span className="text-base">📄</span> Performance PDF
-               </button>
-             </TierGuard>
+             <button onClick={handleExportCSV} className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-3">
+               <span className="text-base">📊</span> Export Excel (CSV)
+             </button>
+             <button onClick={handleExportPDF} className="bg-blue-50 text-blue-600 border border-blue-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-blue-600 hover:text-white transition-all flex items-center gap-3">
+               <span className="text-base">📄</span> Performance PDF
+             </button>
           </div>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
@@ -196,11 +193,9 @@ const FuelIntelligenceCenter: React.FC = () => {
               <button key={m} onClick={() => setMetric(m as any)} className={`px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${metric === m ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-900'}`}>{m === 'KML' ? 'KM/L' : m}</button>
             ))}
           </div>
-          <TierGuard capability="FUEL_LOGS_MONTHLY">
-            <button disabled={!activeVehicle} onClick={() => { setEditingLog(null); setShowTerminal(true); }} className="bg-slate-900 text-white px-8 sm:px-12 py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-4xl hover:bg-blue-600 transition-all flex items-center justify-center gap-4">
-              <span className="text-2xl">⛽</span> Log Refill
-            </button>
-          </TierGuard>
+          <button disabled={!activeVehicle} onClick={() => { setEditingLog(null); setShowTerminal(true); }} className="bg-slate-900 text-white px-8 sm:px-12 py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-4xl hover:bg-blue-600 transition-all flex items-center justify-center gap-4">
+            <span className="text-2xl">⛽</span> Log Refill
+          </button>
         </div>
       </header>
 
