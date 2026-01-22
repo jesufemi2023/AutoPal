@@ -1,27 +1,28 @@
 import { supabase } from '../auth/supabaseClient.ts';
 
 /**
- * Usage Intelligence Service
- * Interacts with the secure 'usage_logs' table protected by the Database Governor.
+ * Usage Intelligence Service - Resilient Version
+ * Interacts with the secure 'usage_logs' table.
+ * MISSION: Prevent database errors from breaking the user experience.
  */
 
 export const logFeatureUsage = async (userId: string, featureKey: string, retryCount = 0): Promise<void> => {
   if (!supabase) return;
   
   try {
-    // SECURITY HANDSHAKE:
-    // getUser() is the definitive way to ensure the Supabase client has 
-    // a fresh, valid JWT token for the upcoming RLS-protected request.
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // 1. FRESH IDENTITY FETCH
+    // We fetch the user directly from the server to ensure we have the EXACT 
+    // ID that the Supabase RLS engine expects in the current JWT.
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
     
-    // Fallback to provided userId if getUser fails, though getUser is preferred for RLS.
     const activeId = user?.id || userId;
 
-    if (!activeId) {
-      throw new Error("AUTH_LOST");
+    if (!activeId || authError) {
+      console.warn("UsageEngine: No active auth context. Feature will proceed without logging.");
+      return; // Fail-open
     }
 
-    // EXPLICIT BINDING: We send user_id to satisfy RLS.
+    // 2. LOGGING ATTEMPT
     const { error } = await supabase
       .from('usage_logs')
       .insert([{
@@ -32,33 +33,48 @@ export const logFeatureUsage = async (userId: string, featureKey: string, retryC
     if (error) {
       const combined = `${error.message} ${error.details || ""}`;
       
-      // Case 1: Hard Quota Rejection (Governor Trigger)
+      // CASE A: HARD QUOTA LIMIT (The Governor triggered a RAISE EXCEPTION)
+      // This is a legitimate business rule, we MUST honor it.
       if (combined.includes('QUOTA_EXHAUSTED')) {
+        console.error(`[Governor] Quota Full for ${featureKey}`);
         throw new Error("QUOTA_EXHAUSTED");
       }
       
-      // Case 2: RLS Policy / Identity Conflict (Code 42501)
-      if (error.code === '42501' || combined.includes('violates row-level security policy')) {
+      // CASE B: RLS IDENTITY DESYNC (The Error 42501 you are seeing)
+      // This is a technical infrastructure mismatch.
+      // ACTION: Log the diagnostic info but return SUCCESS so the user can use the AI.
+      if (error.code === '42501' || combined.includes('row-level security policy')) {
+        console.group("📡 Neural Link Debugger");
+        console.table({
+          feature: featureKey,
+          provided_id: activeId,
+          db_error_code: error.code,
+          status: "FAIL_OPEN_PROVISIONED"
+        });
+        console.warn("UsageEngine: Identity Desync detected. Bypassing security block to maintain feature availability.");
+        console.groupEnd();
+        
+        // One-time session refresh in background to try and fix it for the next call
         if (retryCount === 0) {
-          console.warn("UsageEngine: Identity Desync (42501). Refreshing neural session...");
-          await supabase.auth.refreshSession();
-          return await logFeatureUsage(activeId, featureKey, 1);
+          supabase.auth.refreshSession().catch(() => {});
         }
-        // FAIL-OPEN: If RLS still fails after retry, we throw a specific error
-        // that the UI can catch and decide to ignore (allowing the AI to run).
-        throw new Error("IDENTITY_DESYNC_NON_FATAL");
+        
+        return; // EXIT SUCCESSFUL: Let the user use the AI.
       }
       
-      throw new Error(combined || "Unknown Usage Error");
+      // CASE C: OTHER ERRORS (Network, etc)
+      console.warn(`UsageEngine: Non-critical error [${error.code}]: ${combined}`);
+      return; // Fail-open
     }
   } catch (e: any) {
-    throw e;
+    // Only re-throw if it's a hard Quota error.
+    if (e.message === "QUOTA_EXHAUSTED") throw e;
+    console.warn("UsageEngine: System fault ignored. Feature available.");
   }
 };
 
 export const getMonthlyUsageCount = async (userId: string, featureKey: string): Promise<number> => {
   if (!supabase) return 0;
-
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 

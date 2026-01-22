@@ -24,35 +24,29 @@ export const DiagnosticsPanel: React.FC<Props> = ({
   const diagImageRef = useRef<HTMLInputElement>(null);
 
   const handleAnalyzeWithUsage = async () => {
-    if (!vehicle) {
-      alert("System Error: No vehicle asset linked for analysis.");
-      return;
-    }
+    if (!vehicle) return;
 
     try {
-      // 1. Quota Check - Log usage before calling AI
+      // 1. Attempt Quota Check
       if (user?.id) {
-        await logFeatureUsage(user.id, 'ai_mechanic_monthly');
+        try {
+          await logFeatureUsage(user.id, 'ai_mechanic_monthly');
+        } catch (err: any) {
+          // BLOCK ONLY if it's a hard business quota limit
+          if (err.message === 'QUOTA_EXHAUSTED') {
+            alert("Quota Full: Your current Pilot License allows for 1 AI Mechanical diagnostic per month. Upgrade to increase capacity.");
+            return;
+          }
+          // LOG but ignore technical errors
+          console.warn("AI Diagnostic: Security log deferred, initiating neural link anyway.");
+        }
       }
       
-      // 2. Trigger analysis (this calls the Gemini Service)
+      // 2. Call AI Brain
       await onAnalyze();
     } catch (err: any) {
-      const msg = err?.message || "";
-      console.warn("AI Diagnostic Catch:", msg);
-
-      if (msg === 'QUOTA_EXHAUSTED' || msg.includes('QUOTA_EXHAUSTED')) {
-        alert("Quota Full: Your current Pilot License allows for 1 AI Mechanical diagnostic per month. Upgrade to increase capacity.");
-      } else if (msg === 'AUTH_LOST') {
-        alert("Session Expired: Your security token has lapsed. Please sign out and sign back in to continue.");
-      } else if (msg === 'IDENTITY_DESYNC') {
-        alert("Critical Identity Conflict: The database cannot verify your Pilot ID. If you have already refreshed, please Sign Out and Sign In again to reset your secure neural link.");
-      } else if (msg.includes('Infrastructure missing')) {
-        alert("System Configuration Error: The usage tracking table has not been initialized in the database.");
-      } else {
-        // Fallback for non-security related Gemini failures
-        alert(msg || "Neural link interrupted. Please verify your connection.");
-      }
+      console.error("Neural Analysis Logic Fault:", err);
+      alert("Neural link interrupted. Please verify your connection.");
     }
   };
 
