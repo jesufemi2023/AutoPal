@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { initializeVehicleAsset, prepareProposedRoadmap, commitFinalRoadmap } from '../services/vehicleRegistrationService.ts';
@@ -5,6 +6,7 @@ import { uploadVehicleImage, updateVehicle, archiveVehicle, syncVehicleVitals } 
 import { BodyType, Vehicle, MaintenanceTask, Priority, ServiceCategory } from '../shared/types.ts';
 import { compressImage } from '../shared/utils.ts';
 import { VehicleBlueprint } from './VehicleBlueprint.tsx';
+import { EntitlementEngine } from '../services/entitlementService.ts';
 import { Car } from 'lucide-react';
 
 interface AssetIntelligenceCenterProps {
@@ -30,6 +32,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
   const [isNewTemplate, setIsNewTemplate] = useState(false);
 
   const initialVehicle = mode === 'edit' ? vehicles.find(v => v.id === editingVehicleId) : null;
+  const tier = user?.tier || 'free';
 
   const [form, setForm] = useState({
     make: initialVehicle?.make || '',
@@ -70,6 +73,12 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
   const handleStartCalibration = async () => {
     if (!form.make || !form.model) {
       alert("Please provide the car make and model to continue.");
+      return;
+    }
+
+    if (mode === 'onboarding' && !EntitlementEngine.canAddVehicle(tier, vehicles.length)) {
+      const limit = EntitlementEngine.getLimit(tier, 'maxVehicles');
+      alert(`Limit Reached: Your current plan only allows ${limit} active vehicle. Please upgrade to add more.`);
       return;
     }
 

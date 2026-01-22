@@ -1,39 +1,37 @@
-import { Tier, MarketplaceAccess } from '../shared/types.ts';
+
+import { Tier } from '../shared/types.ts';
 
 /**
  * AutoPal NG Capability Matrix
- * Isolated configuration for all plan limits as per Product Spec v4.0.
+ * Isolated configuration for all plan limits.
  */
 export const TIER_REGISTRY = {
   free: {
     maxVehicles: 1,
     monthlyServiceLogs: 4,
     monthlyFuelLogs: 2,
-    monthlyAiScans: 1,        
-    monthlyAiDiagnostics: 1,  
+    monthlyAiScans: 1,        // Resale Valuation
+    monthlyAiDiagnostics: 1,  // AI Mechanic / Symptom Analysis
     canExportReports: false,
-    marketplaceAccess: 'basic' as MarketplaceAccess,
-    ownershipReportMode: 'locked' as 'locked' | 'blur' | 'full',
+    marketplaceAccess: 'basic' as const,
   },
   standard: {
     maxVehicles: 3,
-    monthlyServiceLogs: 12,
-    monthlyFuelLogs: 8,
-    monthlyAiScans: 4,
-    monthlyAiDiagnostics: 4,
+    monthlyServiceLogs: 20,
+    monthlyFuelLogs: 15,
+    monthlyAiScans: 10,
+    monthlyAiDiagnostics: 10,
     canExportReports: true,
-    marketplaceAccess: 'standard' as MarketplaceAccess,
-    ownershipReportMode: 'blur' as 'locked' | 'blur' | 'full',
+    marketplaceAccess: 'full' as const,
   },
   premium: {
-    maxVehicles: 999, // Unlimited
-    monthlyServiceLogs: 9999, 
-    monthlyFuelLogs: 9999,
-    monthlyAiScans: 7,
-    monthlyAiDiagnostics: 8,
+    maxVehicles: 99,
+    monthlyServiceLogs: 999,
+    monthlyFuelLogs: 999,
+    monthlyAiScans: 999,
+    monthlyAiDiagnostics: 999,
     canExportReports: true,
-    marketplaceAccess: 'premium' as MarketplaceAccess,
-    ownershipReportMode: 'full' as 'locked' | 'blur' | 'full',
+    marketplaceAccess: 'full' as const,
   }
 };
 
@@ -41,7 +39,7 @@ export type Capability = keyof typeof TIER_REGISTRY.free;
 
 /**
  * Entitlement Engine
- * Centralized logic for capability checks and quota enforcement.
+ * Pure logic class to check permissions.
  */
 export class EntitlementEngine {
   static getLimit(tier: Tier, cap: Capability) {
@@ -49,39 +47,27 @@ export class EntitlementEngine {
   }
 
   static canAddVehicle(tier: Tier, currentCount: number): boolean {
-    const limit = this.getLimit(tier, 'maxVehicles') as number;
-    return currentCount < limit;
+    return currentCount < (this.getLimit(tier, 'maxVehicles') as number);
   }
 
   static canAddServiceLog(tier: Tier, logsThisMonth: number): boolean {
-    const limit = this.getLimit(tier, 'monthlyServiceLogs') as number;
-    return logsThisMonth < limit;
+    return logsThisMonth < (this.getLimit(tier, 'monthlyServiceLogs') as number);
   }
 
   static canAddFuelLog(tier: Tier, logsThisMonth: number): boolean {
-    const limit = this.getLimit(tier, 'monthlyFuelLogs') as number;
-    return logsThisMonth < limit;
+    return logsThisMonth < (this.getLimit(tier, 'monthlyFuelLogs') as number);
   }
 
   static canRunAiScan(tier: Tier, scansThisMonth: number): boolean {
-    const limit = this.getLimit(tier, 'monthlyAiScans') as number;
-    return scansThisMonth < limit;
+    return scansThisMonth < (this.getLimit(tier, 'monthlyAiScans') as number);
   }
 
   static canRunAiDiagnostic(tier: Tier, diagsThisMonth: number): boolean {
-    const limit = this.getLimit(tier, 'monthlyAiDiagnostics') as number;
-    return diagsThisMonth < limit;
+    return diagsThisMonth < (this.getLimit(tier, 'monthlyAiDiagnostics') as number);
   }
 
-  static getMarketplaceAccess(tier: Tier): MarketplaceAccess {
-    return this.getLimit(tier, 'marketplaceAccess') as MarketplaceAccess;
-  }
-  
-  static hasExportAccess(tier: Tier): boolean {
-    return !!this.getLimit(tier, 'canExportReports');
-  }
-  
-  static getOwnershipReportStatus(tier: Tier): 'locked' | 'blur' | 'full' {
-    return this.getLimit(tier, 'ownershipReportMode') as 'locked' | 'blur' | 'full';
+  static filterHistoryData<T extends { createdAt: string }>(tier: Tier, data: T[]): T[] {
+    // We show all data but restrict interactions or exportability via components
+    return data;
   }
 }

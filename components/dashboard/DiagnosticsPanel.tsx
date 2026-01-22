@@ -1,6 +1,8 @@
+
 import React, { useRef } from 'react';
 import { AIResponse, Vehicle } from '../../shared/types.ts';
 import { useAutoPalStore } from '../../shared/store.ts';
+import { EntitlementEngine } from '../../services/entitlementService.ts';
 
 interface Props {
   vehicle: Vehicle;
@@ -17,7 +19,24 @@ interface Props {
 export const DiagnosticsPanel: React.FC<Props> = ({ 
   vehicle, symptom, setSymptom, diagImage, setDiagImage, isAskingAI, onAnalyze, aiAdvice, compact = false 
 }) => {
+  const { user, getUsageStats, incrementDiagnosticUsage } = useAutoPalStore();
   const diagImageRef = useRef<HTMLInputElement>(null);
+
+  const tier = user?.tier || 'free';
+  const stats = getUsageStats();
+  const canAnalyze = EntitlementEngine.canRunAiDiagnostic(tier, stats.monthlyAiDiagnosticCount);
+
+  const handleAnalyze = () => {
+    if (!canAnalyze) {
+      const limit = EntitlementEngine.getLimit(tier, 'monthlyAiDiagnostics');
+      alert(`Quota Reached: Your current plan only allows ${limit} AI Diagnostic per month. Please upgrade for more.`);
+      return;
+    }
+    onAnalyze();
+    // In a real app, this would be handled inside the service call, 
+    // but for the MVP UI guard, we increment it here.
+    incrementDiagnosticUsage();
+  };
 
   const containerClasses = compact 
     ? "bg-slate-950 text-white rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col border border-white/10"
@@ -31,7 +50,7 @@ export const DiagnosticsPanel: React.FC<Props> = ({
         <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 text-center animate-in fade-in duration-300">
           <div className="w-12 h-12 border-[4px] border-blue-500 border-t-transparent rounded-full animate-spin mb-6 shadow-[0_0_20px_#3b82f6]"></div>
           <h4 className="text-sm font-black tracking-tight mb-2 uppercase">Analyzing...</h4>
-          <p className="text-slate-400 text-[8px] font-black uppercase tracking-[0.3em]">Neural Link Established</p>
+          <p className="text-slate-400 text-[8px] font-black uppercase tracking-[0.3em]">AI Assistant is Processing Your Input</p>
         </div>
       )}
       
@@ -42,7 +61,12 @@ export const DiagnosticsPanel: React.FC<Props> = ({
               <span className="text-xl animate-pulse text-white">✧</span>
             </div>
             <div>
-              <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Mechanic</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Diagnostic</h3>
+                <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest bg-blue-600/10 px-2 py-0.5 rounded">
+                  Quota: {stats.monthlyAiDiagnosticCount}/{EntitlementEngine.getLimit(tier, 'monthlyAiDiagnostics')}
+                </span>
+              </div>
               <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Active Link: {vehicle.make} {vehicle.model}</p>
             </div>
           </div>
@@ -88,10 +112,10 @@ export const DiagnosticsPanel: React.FC<Props> = ({
 
             <button 
               disabled={isAskingAI || !symptom}
-              onClick={onAnalyze}
-              className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl transition-all active:scale-95 bg-blue-600 text-white hover:bg-blue-700`}
+              onClick={handleAnalyze}
+              className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl transition-all active:scale-95 ${canAnalyze ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'}`}
             >
-              Initialize Diagnosis
+              {canAnalyze ? 'Analyze Symptoms' : 'Monthly Limit Reached'}
             </button>
           </div>
 
@@ -99,7 +123,7 @@ export const DiagnosticsPanel: React.FC<Props> = ({
             {aiAdvice ? (
               <div className={`p-6 rounded-2xl animate-slide-up relative z-10 border-2 backdrop-blur-md flex-grow ${aiAdvice.severity === 'critical' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-blue-600/10 border-blue-600/20'}`}>
                 <div className={`flex items-center gap-2 mb-4 text-[8px] font-black uppercase tracking-wider ${aiAdvice.severity === 'critical' ? 'text-rose-400' : 'text-blue-400'}`}>
-                  <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_10px_currentColor] ${aiAdvice.severity === 'critical' ? 'bg-rose-500 animate-pulse' : 'bg-blue-50'}`}></div>
+                  <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_10px_currentColor] ${aiAdvice.severity === 'critical' ? 'bg-rose-500 animate-pulse' : 'bg-blue-500'}`}></div>
                   Severity: {aiAdvice.severity}
                 </div>
                 <h5 className="text-xl font-black text-white leading-tight mb-6 font-sans">{aiAdvice.advice}</h5>
@@ -113,12 +137,23 @@ export const DiagnosticsPanel: React.FC<Props> = ({
                       </li>
                     ))}
                   </ul>
+
+                  {aiAdvice.partsIdentified && aiAdvice.partsIdentified.length > 0 && (
+                    <div className="pt-4">
+                      <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-3">Parts Identified</div>
+                      <div className="flex flex-wrap gap-2">
+                        {aiAdvice.partsIdentified.map((part, i) => (
+                          <span key={i} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[9px] font-bold text-blue-400 uppercase tracking-tight">{part}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
               <div className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-3xl text-center p-10 opacity-40">
                 <div className="text-4xl mb-4">🩺</div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 max-w-[200px]">Awaiting symptom description for analysis</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 max-w-[200px]">Awaiting symptom description for AI analysis</p>
               </div>
             )}
           </div>

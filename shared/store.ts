@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
 import { localDb } from '../services/localDb.ts';
@@ -25,6 +26,14 @@ interface AutoPalState {
   marketplace: any[];
   marketplaceFilter: string;
 
+  // Usage Stats
+  getUsageStats: () => {
+    monthlyServiceCount: number;
+    monthlyFuelCount: number;
+    monthlyAiScanCount: number;
+    monthlyAiDiagnosticCount: number;
+  };
+
   setSession: (session: any) => void;
   setUser: (user: UserProfile | null) => void;
   setInitialized: (initialized: boolean) => void;
@@ -36,6 +45,7 @@ interface AutoPalState {
   setActiveVehicleId: (id: string | null) => void;
   setTransientVehicle: (vehicle: TransientVehicle | null) => void;
   incrementGuestAttempts: () => void;
+  incrementDiagnosticUsage: () => void;
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
   updateVehicleStore: (vehicle: Vehicle) => void;
@@ -59,7 +69,6 @@ interface AutoPalState {
   loadLocalData: () => Promise<void>;
   triggerSync: () => Promise<void>;
   checkDirtyStatus: () => Promise<void>;
-  getUsageStats: () => { monthlyServiceCount: number; monthlyFuelCount: number; };
 }
 
 export const useAutoPalStore = create<AutoPalState>((set, get) => ({
@@ -84,6 +93,33 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   marketplace: [],
   marketplaceFilter: '',
 
+  getUsageStats: () => {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const filterMonthly = (items: any[]) => items.filter(i => {
+      const date = new Date(i.createdAt || i.serviceDate || i.timestamp);
+      return date >= startOfMonth;
+    }).length;
+
+    const diagHistory = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
+    const currentMonthDiagCount = diagHistory.filter((ts: string) => new Date(ts) >= startOfMonth).length;
+
+    return {
+      monthlyServiceCount: filterMonthly(get().serviceLogs),
+      monthlyFuelCount: filterMonthly(get().fuelLogs),
+      monthlyAiScanCount: filterMonthly(Object.values(get().aiValuationReports)),
+      monthlyAiDiagnosticCount: currentMonthDiagCount
+    };
+  },
+
+  incrementDiagnosticUsage: () => {
+    const history = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
+    history.push(new Date().toISOString());
+    localStorage.setItem('autopal_diag_usage', JSON.stringify(history));
+    set({ isInitialized: true });
+  },
+
   checkDirtyStatus: async () => {
     const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords();
     set({ hasDirtyData: vehicles.length + tasks.length + logs.length + fuel.length > 0 });
@@ -95,6 +131,15 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     try {
       await performPushSync();
       await get().checkDirtyStatus();
+      if (get().activeVehicleId) {
+        const vehicleId = get().activeVehicleId!;
+        const [logs, fuel, tasks] = await Promise.all([
+          localDb.getLogs(vehicleId),
+          localDb.getFuelLogs(vehicleId),
+          localDb.getTasks(vehicleId)
+        ]);
+        set({ serviceLogs: logs, fuelLogs: fuel, tasks: tasks });
+      }
     } finally {
       set({ isSyncing: false });
     }
@@ -133,7 +178,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     }
     const { user: supabaseUser } = session;
     const meta = supabaseUser.user_metadata || {};
-    
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
@@ -181,14 +225,14 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     localDb.saveVehicle({ ...vehicle, isDirty: true, syncStatus: 'pending' });
     get().checkDirtyStatus();
   },
-  updateVehicleStore: (vehicle: Vehicle) => {
+  updateVehicleStore: (vehicle) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicle.id ? vehicle : v)
     }));
     localDb.saveVehicle({ ...vehicle, isDirty: true, syncStatus: 'pending' });
     get().checkDirtyStatus();
   },
-  syncVehicleState: (vehicleId: string, updates: Partial<Vehicle>) => {
+  syncVehicleState: (vehicleId, updates) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, ...updates } : v)
     }));
@@ -206,7 +250,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     localDb.deleteVehicle(vehicleId);
     get().checkDirtyStatus();
   },
-  updateMileage: (vehicleId: string, mileage: number) => {
+  updateMileage: (vehicleId, mileage) => {
     set((state) => ({
       vehicles: state.vehicles.map(v => v.id === vehicleId ? { ...v, mileage } : v)
     }));
@@ -216,7 +260,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       get().checkDirtyStatus();
     }
   },
-  completeTask: (taskId: string, cost: number, currentMileage: number) => {
+  completeTask: (taskId, cost, currentMileage) => {
     set((state) => ({
       tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'completed' } : t)
     }));
@@ -263,11 +307,9 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     localDb.deleteFuelLog(logId);
     get().checkDirtyStatus();
   },
-  setAIValuationReport: (vehicleId: string, report: AIValuationReport) => {
-    set((state) => ({
-      aiValuationReports: { ...state.aiValuationReports, [vehicleId]: report }
-    }));
-  },
+  setAIValuationReport: (vehicleId, report) => set((state) => ({
+    aiValuationReports: { ...state.aiValuationReports, [vehicleId]: report }
+  })),
   setMarketplace: (marketplace) => set({ marketplace }),
   setSuggestedParts: (parts) => set({ suggestedPartNames: parts }),
   setMarketplaceFilter: (filter) => set({ marketplaceFilter: filter }),
@@ -279,23 +321,5 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       aiValuationReports: {}, activeVehicleId: null, transientVehicle: null, guestAttempts: 0,
       isRecovering: false, marketplaceFilter: '', isSyncing: false, hasDirtyData: false
     });
-  },
-
-  getUsageStats: () => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    const monthlyServiceCount = get().serviceLogs.filter(log => {
-      const logDate = new Date(log.serviceDate);
-      return logDate.getMonth() === currentMonth && logDate.getFullYear() === currentYear;
-    }).length;
-
-    const monthlyFuelCount = get().fuelLogs.filter(log => {
-      const logDate = new Date(log.createdAt);
-      return logDate.getMonth() === currentMonth && logDate.getFullYear() === currentYear;
-    }).length;
-
-    return { monthlyServiceCount, monthlyFuelCount };
   },
 }));
