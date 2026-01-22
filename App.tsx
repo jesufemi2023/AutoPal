@@ -357,13 +357,14 @@ const App: React.FC = () => {
                     if (!activeVehicle) return;
                     setIsAskingAI(true);
                     try {
-                      // Attempt to log usage. If it fails for non-quota reasons, we proceed to AI.
+                      // Attempt to log usage.
                       if (user?.id) {
                         try {
                           await logFeatureUsage(user.id, 'ai_mechanic_monthly');
                         } catch (usageErr: any) {
+                          // FAIL-OPEN: Only stop if definitively quota exhausted.
                           if (usageErr.message === 'QUOTA_EXHAUSTED') throw usageErr;
-                          console.warn("Usage Link Deferred, proceeding to Neural analysis.");
+                          console.warn("Usage logging skipped due to technical synchronization. Proceeding to Analysis.");
                         }
                       }
                       
@@ -372,7 +373,7 @@ const App: React.FC = () => {
                       if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
                     } catch (e: any) { 
                       if (e.message === 'QUOTA_EXHAUSTED') alert("Monthly quota for AI Diagnostics reached.");
-                      else alert("Neural analysis encountered a synchronization fault."); 
+                      else alert("Neural analysis encountered a synchronization fault. Please check your connection."); 
                     } finally { 
                       setIsAskingAI(false); 
                     }

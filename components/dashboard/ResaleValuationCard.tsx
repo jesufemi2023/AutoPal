@@ -24,14 +24,17 @@ export const ResaleValuationCard: React.FC<{
       if (user?.id) {
         try {
           await logFeatureUsage(user.id, 'ai_scan_monthly');
-        } catch (quotaErr: any) {
-          const msg = quotaErr?.message || "";
+        } catch (usageErr: any) {
+          const msg = usageErr?.message || "";
+          
+          // BLOCK: If the governor says the quota is full, we must stop.
           if (msg === 'QUOTA_EXHAUSTED' || msg.includes('QUOTA_EXHAUSTED')) {
             throw new Error("QUOTA: You have reached the monthly AI Scan limit for your current Pilot License.");
-          } else if (msg === 'IDENTITY_DESYNC') {
-            throw new Error("SYNC: Your security token is desynchronized. Please refresh your browser to re-establish the neural link.");
           }
-          throw quotaErr;
+          
+          // FAIL-OPEN: If it's a technical sync/RLS error, we log it but ALLOW the AI call.
+          // This prevents database-level sync issues from bricking the user experience.
+          console.warn("Usage Link Deferred due to synchronization delay. Proceeding with Neural Analysis.");
         }
       }
 
@@ -48,10 +51,10 @@ export const ResaleValuationCard: React.FC<{
       console.error("AI Audit Logic Fault:", e);
       const errorMsg = e?.message || "";
       
-      if (errorMsg.startsWith("QUOTA") || errorMsg.startsWith("SYNC")) {
+      if (errorMsg.startsWith("QUOTA")) {
         alert(errorMsg.split(": ")[1] || errorMsg);
       } else {
-        alert("Verification Link Failure. Please check your Pilot License status or network connection.");
+        alert("Neural Link Encountered a Fault. Please check your Pilot License status or network connection.");
       }
     } finally {
       setIsAnalyzing(false);

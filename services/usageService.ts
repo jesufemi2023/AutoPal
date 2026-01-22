@@ -10,18 +10,18 @@ export const logFeatureUsage = async (userId: string, featureKey: string, retryC
   
   try {
     // SECURITY HANDSHAKE:
-    // getSession() is faster and less prone to RLS rejection than getUser() 
-    // when we just need the local ID for a write operation.
-    const { data: { session } } = await supabase.auth.getSession();
-    const activeId = session?.user?.id || userId;
+    // getUser() is the definitive way to ensure the Supabase client has 
+    // a fresh, valid JWT token for the upcoming RLS-protected request.
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    // Fallback to provided userId if getUser fails, though getUser is preferred for RLS.
+    const activeId = user?.id || userId;
 
     if (!activeId) {
       throw new Error("AUTH_LOST");
     }
 
-    // EXPLICIT BINDING: We must send the user_id to satisfy the 
-    // 'WITH CHECK (auth.uid() = user_id)' RLS policy. 
-    // Omitting it causes the check to run against a NULL value.
+    // EXPLICIT BINDING: We send user_id to satisfy RLS.
     const { error } = await supabase
       .from('usage_logs')
       .insert([{
@@ -31,22 +31,22 @@ export const logFeatureUsage = async (userId: string, featureKey: string, retryC
     
     if (error) {
       const combined = `${error.message} ${error.details || ""}`;
-      console.error(`[Governor Rejection] Code: ${error.code} | Msg: ${combined}`);
-
-      // Case 1: Quota actually full
+      
+      // Case 1: Hard Quota Rejection (Governor Trigger)
       if (combined.includes('QUOTA_EXHAUSTED')) {
         throw new Error("QUOTA_EXHAUSTED");
       }
       
-      // Case 2: RLS Policy blocked it (Identity Conflict)
-      if (combined.includes('violates row-level security policy')) {
-        // Attempt ONE session refresh if it looks like a token drift
+      // Case 2: RLS Policy / Identity Conflict (Code 42501)
+      if (error.code === '42501' || combined.includes('violates row-level security policy')) {
         if (retryCount === 0) {
-          console.warn("UsageEngine: Identity Desync. Refreshing...");
+          console.warn("UsageEngine: Identity Desync (42501). Refreshing neural session...");
           await supabase.auth.refreshSession();
           return await logFeatureUsage(activeId, featureKey, 1);
         }
-        throw new Error("IDENTITY_DESYNC");
+        // FAIL-OPEN: If RLS still fails after retry, we throw a specific error
+        // that the UI can catch and decide to ignore (allowing the AI to run).
+        throw new Error("IDENTITY_DESYNC_NON_FATAL");
       }
       
       throw new Error(combined || "Unknown Usage Error");
