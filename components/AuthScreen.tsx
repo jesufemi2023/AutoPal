@@ -65,9 +65,20 @@ const AuthScreen: React.FC = () => {
         </div>
 
         <div className="text-center mb-10">
-          <div className="w-16 h-16 bg-gradient-to-br from-slate-800 to-slate-950 rounded-2xl flex items-center justify-center text-white mx-auto mb-6 shadow-xl shadow-slate-900/20">
-            <Car size={32} strokeWidth={2.5} />
-          </div>
+          {/* Enhanced Clickable Logo */}
+          <button 
+            onClick={() => setCurrentView('landing')}
+            className="group flex flex-col items-center mx-auto mb-8 outline-none focus:ring-2 focus:ring-blue-500 rounded-3xl p-2 transition-all"
+            title="Exit to Landing Page"
+          >
+            <div className="w-16 h-16 bg-gradient-to-br from-slate-800 to-slate-950 rounded-2xl flex items-center justify-center text-white mb-4 shadow-xl shadow-slate-900/20 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 group-active:scale-95">
+              <Car size={32} strokeWidth={2.5} />
+            </div>
+            <span className="text-[7px] font-black uppercase tracking-[0.4em] text-slate-300 group-hover:text-blue-500 transition-colors duration-300">
+              Return Home
+            </span>
+          </button>
+
           <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase mb-1">
             {mode === 'login' && 'Identity Link'}
             {mode === 'signup' && 'Create Pilot ID'}
@@ -144,7 +155,7 @@ const AuthScreen: React.FC = () => {
         <div className="mt-10 text-center space-y-2">
            {mode === 'login' && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">New Pilot? <button onClick={() => setMode('signup')} className="text-blue-600 font-black">Register Terminal</button></p>}
            {(mode === 'signup' || mode === 'forgot') && <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Existing User? <button onClick={() => setMode('login')} className="text-blue-600 font-black">Return to Deck</button></p>}
-           <button onClick={() => setCurrentView('landing')} className="block w-full text-[9px] font-black uppercase tracking-widest text-slate-300 hover:text-slate-600 transition-colors pt-4">Return Home</button>
+           <button onClick={() => setCurrentView('landing')} className="block w-full text-[9px] font-black uppercase tracking-widest text-slate-300 hover:text-slate-600 transition-colors pt-4 underline underline-offset-4 decoration-slate-200">System Exit</button>
         </div>
       </div>
     </div>
