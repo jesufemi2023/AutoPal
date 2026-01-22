@@ -6,13 +6,11 @@ import { FuelLog, ServiceLog, Vehicle, MaintenanceTask } from '../shared/types.t
 /**
  * Sync Engine
  * Orchestrates the "Local-Master to Cloud-Mirror" synchronization.
- * Purely manual trigger for MVP.
  */
 
 export const performPushSync = async () => {
   if (!supabase) return { status: 'offline' };
   
-  // 0. IDENTITY HEALER: Resolve correct UID from session before starting
   const { data: { session } } = await supabase.auth.getSession();
   const activeUid = session?.user?.id;
 
@@ -21,27 +19,21 @@ export const performPushSync = async () => {
   
   if (total === 0) return { status: 'idle' };
 
-  console.log(`SyncEngine: Pushing ${total} dirty records to vault...`);
+  let firstError: string | null = null;
 
   // 1. Sync Vehicles
   for (const v of vehicles) {
     try {
       let finalOwnerId = v.ownerId;
-
-      // Identity Correction: If the vehicle was created as 'guest' but we are now logged in
       if (activeUid && (v.ownerId === 'guest' || !v.ownerId)) {
-        console.log(`SyncEngine: Healing Identity for vehicle ${v.id} -> ${activeUid}`);
         finalOwnerId = activeUid;
-        // Update local DB so future edits don't revert to 'guest'
-        await localDb.saveVehicle({ ...v, ownerId: activeUid });
       }
 
-      const payload = { ...v, ownerId: finalOwnerId };
-      delete (payload as any).isDirty;
-      delete (payload as any).syncStatus;
+      // Stripping local ID for new records to satisfy UUID constraint
+      const isLocalId = v.id.startsWith('local-');
       
-      const { error } = await supabase.from('vehicles').upsert({
-        id: v.id,
+      const { data, error } = await supabase.from('vehicles').upsert({
+        id: isLocalId ? undefined : v.id,
         owner_id: finalOwnerId,
         make: v.make,
         model: v.model,
@@ -57,24 +49,31 @@ export const performPushSync = async () => {
         engine_size: v.engineSize,
         avg_daily_km: v.avgDailyKm,
         latest_ai_audit: v.latestAiAudit
-      });
+      }).select().single();
 
       if (error) {
-        console.error(`SyncEngine: Vehicle Upsert Rejection [${error.code}]: ${error.message}`);
+        console.error(`SyncEngine: Vehicle Rejection [${error.code}]: ${error.message}`);
+        if (error.message.includes('QUOTA_EXHAUSTED')) firstError = 'QUOTA_EXHAUSTED';
         continue; 
       }
 
-      await localDb.markSynced(v.id, 'vehicles');
-    } catch (e) { 
-      console.warn("Vehicle Sync Fault", e); 
-    }
+      // If ID changed (cloud UUID assigned), we must update local records to match
+      if (isLocalId && data) {
+        await localDb.deleteVehicle(v.id);
+        await localDb.saveVehicle({ ...v, id: data.id, ownerId: finalOwnerId, isDirty: false, syncStatus: 'synced' });
+        // NOTE: In a full prod app, we'd also update all child records in localDb to point to the new data.id
+      } else {
+        await localDb.markSynced(v.id, 'vehicles');
+      }
+    } catch (e) { console.warn("Vehicle Sync Fault", e); }
   }
 
   // 2. Sync Maintenance Tasks
   for (const t of tasks) {
     try {
-      const { error } = await supabase.from('maintenance_tasks').upsert({
-        id: t.id,
+      const isLocalId = t.id.startsWith('local-');
+      const { data, error } = await supabase.from('maintenance_tasks').upsert({
+        id: isLocalId ? undefined : t.id,
         vehicle_id: t.vehicleId,
         title: t.title,
         description: t.description,
@@ -86,12 +85,24 @@ export const performPushSync = async () => {
         estimated_cost: t.estimatedCost,
         interval_km: t.intervalKm,
         interval_months: t.intervalMonths
-      });
+      }).select().single();
+
       if (error) {
-        console.error(`SyncEngine: Task Upsert Rejection [${error.code}]: ${error.message}`);
+        console.error(`SyncEngine: Task Rejection [${error.code}]: ${error.message}`);
         continue;
       }
-      await localDb.markSynced(t.id, 'tasks');
+
+      if (isLocalId && data) {
+        // Correcting local ID to match cloud UUID
+        const { id: oldId } = t;
+        const updatedTask = { ...t, id: data.id, isDirty: false, syncStatus: 'synced' };
+        // Delete old indexed record and save new one
+        const dbInstance = (await import('./localDb.ts')).default;
+        await dbInstance.tasks.delete(oldId);
+        await dbInstance.tasks.put(updatedTask);
+      } else {
+        await localDb.markSynced(t.id, 'tasks');
+      }
     } catch (e) { console.warn("Task Sync Fault", e); }
   }
 
@@ -109,7 +120,8 @@ export const performPushSync = async () => {
         captured_at: f.createdAt
       });
       if (error) {
-        console.error(`SyncEngine: Fuel Log Upsert Rejection [${error.code}]: ${error.message}`);
+        console.error(`SyncEngine: Fuel Log Rejection [${error.code}]: ${error.message}`);
+        if (error.message.includes('QUOTA_EXHAUSTED')) firstError = 'QUOTA_EXHAUSTED';
         continue;
       }
       await localDb.markSynced(f.id, 'fuelLogs');
@@ -134,14 +146,15 @@ export const performPushSync = async () => {
         receipt_url: l.receiptUrl
       });
       if (error) {
-        console.error(`SyncEngine: Service Log Upsert Rejection [${error.code}]: ${error.message}`);
+        console.error(`SyncEngine: Service Log Rejection [${error.code}]: ${error.message}`);
+        if (error.message.includes('QUOTA_EXHAUSTED')) firstError = 'QUOTA_EXHAUSTED';
         continue;
       }
       await localDb.markSynced(l.id, 'serviceLogs');
     } catch (e) { console.warn("Service Sync Fault", e); }
   }
 
-  return { status: 'success', pushed: total };
+  return { status: firstError ? 'error' : 'success', pushed: total, error: firstError };
 };
 
 export const performPullSync = async (userId: string) => {

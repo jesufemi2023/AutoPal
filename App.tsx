@@ -18,11 +18,11 @@ import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
 import { TierGuard } from './components/TierGuard.tsx';
-import { Car, Menu, X } from 'lucide-react';
+import { Car, Menu, X, AlertCircle } from 'lucide-react';
 
 const App: React.FC = () => {
   const { 
-    session, setSession, isInitialized, setInitialized, isSyncing, loadLocalData, hasDirtyData, triggerSync,
+    session, setSession, isInitialized, setInitialized, isSyncing, loadLocalData, hasDirtyData, triggerSync, syncError,
     user, setUser, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
     transientVehicle, removeVehicleStore, reset
   } = useAutoPalStore();
@@ -184,24 +184,32 @@ const App: React.FC = () => {
     </button>
   );
 
-  const SyncShield = () => (
-    <button 
-      onClick={() => hasDirtyData && triggerSync()}
-      disabled={isSyncing}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[8px] font-black uppercase tracking-widest transition-all ${
-        isSyncing 
-          ? 'bg-blue-50 border-blue-100 text-blue-500' 
-          : hasDirtyData 
-            ? 'bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100' 
-            : 'bg-emerald-50 border-emerald-100 text-emerald-600 opacity-60'
-      }`}
-    >
-      <div className={`w-1.5 h-1.5 rounded-full ${
-        isSyncing ? 'bg-blue-500 animate-pulse' : hasDirtyData ? 'bg-amber-500 animate-bounce' : 'bg-emerald-500'
-      }`}></div>
-      {isSyncing ? 'Vaulting...' : hasDirtyData ? 'Sync Needed' : 'Synced'}
-    </button>
-  );
+  const SyncShield = () => {
+    const isQuotaError = syncError === 'QUOTA_EXHAUSTED';
+    
+    return (
+      <button 
+        onClick={() => hasDirtyData && triggerSync()}
+        disabled={isSyncing}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[8px] font-black uppercase tracking-widest transition-all ${
+          isSyncing 
+            ? 'bg-blue-50 border-blue-100 text-blue-500' 
+            : isQuotaError
+              ? 'bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100'
+              : hasDirtyData 
+                ? 'bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100' 
+                : 'bg-emerald-50 border-emerald-100 text-emerald-600 opacity-60'
+        }`}
+        title={isQuotaError ? "Database blocked sync: Quota Reached. Upgrade required." : undefined}
+      >
+        <div className={`w-1.5 h-1.5 rounded-full ${
+          isSyncing ? 'bg-blue-500 animate-pulse' : isQuotaError ? 'bg-rose-500 animate-pulse' : hasDirtyData ? 'bg-amber-500 animate-bounce' : 'bg-emerald-500'
+        }`}></div>
+        {isSyncing ? 'Vaulting...' : isQuotaError ? 'Quota Full' : hasDirtyData ? 'Sync Needed' : 'Synced'}
+        {isQuotaError && <AlertCircle size={8} />}
+      </button>
+    );
+  };
 
   const NavigationMenu = () => (
     <div className="space-y-6">
