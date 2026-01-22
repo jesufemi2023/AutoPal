@@ -9,20 +9,21 @@ export const logFeatureUsage = async (userId: string, featureKey: string, retryC
   if (!supabase) return;
   
   try {
-    // SECURITY HANDSHAKE: 
-    // Always fetch the freshest session ID directly from the auth client 
-    // to ensure the JWT headers are injected into the following request.
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    const activeUid = session?.user?.id;
+    // HARD HANDSHAKE:
+    // getUser() re-validates the JWT with the server and ensures the client
+    // instance has the most up-to-date Authorization headers.
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    if (!activeUid || sessionError) {
+    if (!user || userError) {
       throw new Error("AUTH_LOST");
     }
 
+    // We no longer pass 'user_id' in the payload.
+    // The database migration now defaults this column to auth.uid().
+    // This removes any "Desync" between client and server identity.
     const { error } = await supabase
       .from('usage_logs')
       .insert([{
-        user_id: activeUid, // Ensure ID matches the authenticated session
         feature_key: featureKey
       }]);
     
@@ -39,8 +40,8 @@ export const logFeatureUsage = async (userId: string, featureKey: string, retryC
       }
       
       // Case 2: RLS Policy blocked it (Identity Conflict)
-      // This often happens if the Supabase client headers haven't refreshed yet.
-      // We attempt ONE retry with a forced session refresh.
+      // This is now much less likely due to removing user_id from payload, 
+      // but we keep the retry logic for extreme network latency.
       if (combined.includes('violates row-level security policy') && retryCount === 0) {
         console.warn("UsageEngine: Identity Desync detected. Refreshing session and retrying...");
         await supabase.auth.refreshSession();

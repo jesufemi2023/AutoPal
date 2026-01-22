@@ -1,13 +1,23 @@
 -- 1. INFRASTRUCTURE: Track ephemeral usage (AI Scans, etc)
 CREATE TABLE IF NOT EXISTS usage_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  -- Set default to auth.uid() to handle identity server-side
+  user_id UUID DEFAULT auth.uid() REFERENCES auth.users(id) ON DELETE CASCADE,
   feature_key TEXT NOT NULL, -- e.g. 'ai_mechanic_monthly', 'ai_scan_monthly'
   created_at TIMESTAMPTZ DEFAULT now()
 );
 ALTER TABLE usage_logs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users view own usage" ON usage_logs FOR SELECT TO authenticated USING (auth.uid() = user_id);
-CREATE POLICY "Users insert own usage" ON usage_logs FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+
+-- Refined Policies: Ensure users can only interact with their own logs
+DROP POLICY IF EXISTS "Users view own usage" ON usage_logs;
+CREATE POLICY "Users view own usage" ON usage_logs 
+FOR SELECT TO authenticated 
+USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users insert own usage" ON usage_logs;
+CREATE POLICY "Users insert own usage" ON usage_logs 
+FOR INSERT TO authenticated 
+WITH CHECK (auth.uid() = user_id);
 
 -- 2. IDENTITY LOCK: Prevent users from self-upgrading their tier via Client API
 CREATE OR REPLACE FUNCTION fn_lock_user_tier()
@@ -34,7 +44,7 @@ DECLARE
   curr_count INTEGER;
   max_limit INTEGER;
 BEGIN
-  -- Identify the pilot's tier
+  -- Identify the pilot's tier using the secure server-side ID
   SELECT tier INTO u_tier FROM "Users" WHERE id = auth.uid();
   
   -- Logic for VEHICLES (Hard total of active assets)
