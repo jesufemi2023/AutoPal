@@ -46,8 +46,21 @@ const LandingTerminal: React.FC = () => {
   };
 
   const handleSignOut = async () => {
-    if (supabase) {
-      await supabase.auth.signOut();
+    setIsMenuOpen(false);
+    if (!supabase) {
+      await reset();
+      window.location.reload();
+      return;
+    }
+    try {
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise(resolve => setTimeout(resolve, 2000))
+      ]);
+      await reset();
+      setCurrentView('landing');
+    } catch (e) {
+      console.error("Signout Error:", e);
       await reset();
       window.location.reload();
     }
@@ -132,7 +145,7 @@ const LandingTerminal: React.FC = () => {
                   Dashboard
                 </button>
                 <button 
-                  onClick={() => { handleSignOut(); setIsMenuOpen(false); }}
+                  onClick={handleSignOut}
                   className="text-rose-500 text-[11px] font-black uppercase tracking-[0.2em] py-4 text-left"
                 >
                   Sign Out

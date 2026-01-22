@@ -40,15 +40,16 @@ const App: React.FC = () => {
     loadLocalData();
   }, []);
 
-  // Sync session and fetch full user profile (including updated roles)
+  // Sync session and fetch full user profile
   useEffect(() => {
+    let authSubscription: { unsubscribe: () => void } | null = null;
+
     const initAuth = async () => {
-      if (!isSupabaseConfigured) {
+      if (!isSupabaseConfigured || !supabase) {
         setInitialized(true);
         return;
       }
       try {
-        if (!supabase) return;
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         setSession(currentSession);
         
@@ -57,7 +58,7 @@ const App: React.FC = () => {
             .from('Users')
             .select('*')
             .eq('id', currentSession.user.id)
-            .single();
+            .maybeSingle();
           
           if (profile) {
             setUser({
@@ -80,7 +81,7 @@ const App: React.FC = () => {
           if (!session) {
             reset();
           } else {
-            const { data: profile } = await supabase.from('Users').select('*').eq('id', session.user.id).single();
+            const { data: profile } = await supabase.from('Users').select('*').eq('id', session.user.id).maybeSingle();
             if (profile) {
               setUser({
                 id: session.user.id,
@@ -95,12 +96,17 @@ const App: React.FC = () => {
             }
           }
         });
-        return () => subscription.unsubscribe();
+        authSubscription = subscription;
       } catch (err) {
         setInitialized(true);
       }
     };
+    
     initAuth();
+
+    return () => {
+      if (authSubscription) authSubscription.unsubscribe();
+    };
   }, [setSession, setInitialized, reset, setUser]);
 
   useEffect(() => {
@@ -117,15 +123,24 @@ const App: React.FC = () => {
   }, [session?.user?.id, user?.id]);
 
   const handleSignOut = async () => {
-    if (!supabase) return;
-    try {
-      await supabase.auth.signOut();
+    setIsMobileMenuOpen(false);
+    setIsManagePanelOpen(false);
+    if (!supabase) {
       await reset();
-      setIsMobileMenuOpen(false);
-      setIsManagePanelOpen(false);
+      setCurrentView('landing');
+      return;
+    }
+    try {
+      // Execute sign out and wait briefly but proceed to cleanup even if network hangs
+      await Promise.race([
+        supabase.auth.signOut(),
+        new Promise(resolve => setTimeout(resolve, 2000))
+      ]);
+      await reset();
       setCurrentView('landing');
     } catch (e) {
       console.error("Signout Error:", e);
+      await reset();
       window.location.reload(); 
     }
   };
@@ -282,7 +297,7 @@ const App: React.FC = () => {
 
       {/* Slide-out Control Panel (Secondary Menu) */}
       <div 
-        className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[20px] opacity-0 pointer-events-none translate-x-[-50px]'}`}
+        className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[-300px] opacity-0 pointer-events-none translate-x-[-50px]'}`}
       >
         <div className="mb-10 px-2">
           <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Fleet Ops</h4>
