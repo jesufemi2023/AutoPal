@@ -1,33 +1,23 @@
 import { localDb } from './localDb.ts';
 import { supabase } from '../auth/supabaseClient.ts';
-import { updateVehicle, updateTaskStatus } from './vehicleService.ts';
 import { FuelLog, ServiceLog, Vehicle, MaintenanceTask } from '../shared/types.ts';
 
 /**
- * Sync Engine
- * Orchestrates the "Local-Master to Cloud-Mirror" synchronization.
- * Purely manual trigger for MVP.
+ * Sync Engine v2
+ * Handles the "Local-Master to Cloud-Mirror" synchronization with ID reconciliation.
  */
 
 export const performPushSync = async () => {
   if (!supabase) return { status: 'offline' };
   
-  const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords();
-  const total = vehicles.length + tasks.length + logs.length + fuel.length;
+  // 1. SYNC VEHICLES FIRST (The Parent Assets)
+  const dirtyVehicles = await localDb.getDirtyRecords().then(r => r.vehicles);
   
-  if (total === 0) return { status: 'idle' };
-
-  console.log(`SyncEngine: Pushing ${total} dirty records to vault...`);
-
-  // 1. Sync Vehicles
-  for (const v of vehicles) {
+  for (const v of dirtyVehicles) {
     try {
-      const payload = { ...v };
-      delete payload.isDirty;
-      delete payload.syncStatus;
+      const isLocalId = v.id.startsWith('local-');
       
-      const { error } = await supabase.from('vehicles').upsert({
-        id: v.id,
+      const payload: any = {
         owner_id: v.ownerId,
         make: v.make,
         model: v.model,
@@ -43,17 +33,60 @@ export const performPushSync = async () => {
         engine_size: v.engineSize,
         avg_daily_km: v.avgDailyKm,
         latest_ai_audit: v.latestAiAudit
-      });
+      };
 
-      if (!error) await localDb.markSynced(v.id, 'vehicles');
+      // If it's an update to an existing cloud record, include the ID
+      if (!isLocalId) payload.id = v.id;
+
+      const { data, error } = await supabase
+        .from('vehicles')
+        .upsert(payload)
+        .select()
+        .single();
+
+      if (!error && data) {
+        if (isLocalId) {
+          // ID RECONCILIATION: We have a new cloud UUID. 
+          // We must update all local records referencing the old local ID.
+          const oldId = v.id;
+          const newId = data.id;
+
+          console.log(`SyncEngine: Reconciling ID ${oldId} -> ${newId}`);
+
+          // Update child records in Local DB to point to new cloud UUID
+          const [tasks, logs, fuel] = await Promise.all([
+            localDb.getTasks(oldId),
+            localDb.getLogs(oldId),
+            localDb.getFuelLogs(oldId)
+          ]);
+
+          for (const t of tasks) await localDb.saveTask({ ...t, vehicleId: newId, isDirty: true });
+          for (const l of logs) await localDb.saveLog({ ...l, vehicleId: newId, isDirty: true });
+          for (const f of fuel) await localDb.saveFuelLog({ ...f, vehicleId: newId, isDirty: true });
+
+          // Swap the vehicle record itself
+          await localDb.deleteVehicle(oldId);
+        }
+        
+        // Save/Update local record with cloud-state
+        await localDb.saveVehicle({
+          ...v,
+          id: data.id,
+          isDirty: false,
+          syncStatus: 'synced'
+        });
+      }
     } catch (e) { console.warn("Vehicle Sync Fail", e); }
   }
+
+  // RE-FETCH DIRTY AFTER VEHICLE ID RECONCILIATION
+  const { tasks, logs, fuel } = await localDb.getDirtyRecords();
 
   // 2. Sync Maintenance Tasks
   for (const t of tasks) {
     try {
-      const { error } = await supabase.from('maintenance_tasks').upsert({
-        id: t.id,
+      const isLocalId = t.id.startsWith('local-');
+      const payload: any = {
         vehicle_id: t.vehicleId,
         title: t.title,
         description: t.description,
@@ -65,16 +98,23 @@ export const performPushSync = async () => {
         estimated_cost: t.estimatedCost,
         interval_km: t.intervalKm,
         interval_months: t.intervalMonths
-      });
-      if (!error) await localDb.markSynced(t.id, 'tasks');
+      };
+
+      if (!isLocalId) payload.id = t.id;
+
+      const { data, error } = await supabase.from('maintenance_tasks').upsert(payload).select().single();
+      if (!error && data) {
+        if (isLocalId) await (localDb as any).db.tasks.delete(t.id);
+        await localDb.saveTask({ ...t, id: data.id, isDirty: false, syncStatus: 'synced' });
+      }
     } catch (e) { console.warn("Task Sync Fail", e); }
   }
 
   // 3. Sync Fuel Logs
   for (const f of fuel) {
     try {
-      const { error } = await supabase.from('fuel_logs').upsert({
-        id: f.id.startsWith('local-') ? undefined : f.id, // Supabase generates UUID for new items
+      const isLocalId = f.id.startsWith('local-');
+      const payload: any = {
         vehicle_id: f.vehicleId,
         liters: f.liters,
         total_cost: f.totalCost,
@@ -82,18 +122,25 @@ export const performPushSync = async () => {
         is_full_tank: f.isFullTank,
         vendor_brand: f.vendor,
         captured_at: f.createdAt
-      });
-      if (!error) await localDb.markSynced(f.id, 'fuelLogs');
+      };
+
+      if (!isLocalId) payload.id = f.id;
+
+      const { data, error } = await supabase.from('fuel_logs').upsert(payload).select().single();
+      if (!error && data) {
+        if (isLocalId) await localDb.deleteFuelLog(f.id);
+        await localDb.saveFuelLog({ ...f, id: data.id, isDirty: false, syncStatus: 'synced' });
+      }
     } catch (e) { console.warn("Fuel Sync Fail", e); }
   }
 
   // 4. Sync Service Logs
   for (const l of logs) {
     try {
-      const { error } = await supabase.from('service_logs').upsert({
-        id: l.id.startsWith('local-') ? undefined : l.id,
+      const isLocalId = l.id.startsWith('local-');
+      const payload: any = {
         vehicle_id: l.vehicleId,
-        task_id: l.taskId,
+        task_id: l.taskId && !l.taskId.startsWith('local-') ? l.taskId : undefined,
         service_type: l.serviceType,
         service_date: l.serviceDate,
         mileage_at_service: l.mileageAtService,
@@ -103,12 +150,23 @@ export const performPushSync = async () => {
         category: l.category,
         verification_level: l.verificationLevel,
         receipt_url: l.receiptUrl
-      });
-      if (!error) await localDb.markSynced(l.id, 'serviceLogs');
+      };
+
+      if (!isLocalId) payload.id = l.id;
+
+      const { data, error } = await supabase.from('service_logs').upsert(payload).select().single();
+      if (!error && data) {
+        if (isLocalId) await localDb.deleteServiceLog(l.id);
+        await localDb.saveLog({ ...l, id: data.id, isDirty: false, syncStatus: 'synced' });
+      }
     } catch (e) { console.warn("Service Sync Fail", e); }
   }
 
-  return { status: 'success', pushed: total };
+  const finalDirty = await localDb.getDirtyRecords();
+  return { 
+    status: 'success', 
+    remaining: finalDirty.vehicles.length + finalDirty.tasks.length + finalDirty.logs.length + finalDirty.fuel.length 
+  };
 };
 
 export const performPullSync = async (userId: string) => {
@@ -134,7 +192,7 @@ export const performPullSync = async (userId: string) => {
         fuelType: v.fuel_type,
         engineSize: v.engine_size,
         avgDailyKm: v.avg_daily_km,
-        latestAiAudit: v.latest_ai_audit,
+        latestAiAudit: v.latestAiAudit,
         syncStatus: 'synced',
         isDirty: false
       });

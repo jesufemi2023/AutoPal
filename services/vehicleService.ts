@@ -65,51 +65,7 @@ export const updateMileage = async (vehicleId: string, mileage: number): Promise
 };
 
 export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt' | 'healthScore'>): Promise<Vehicle> => {
-  // Initial creation must be cloud-bound to associate with user ID if online
-  if (supabase) {
-    const { data, error } = await supabase
-      .from(DB_TABLES.VEHICLES)
-      .insert([{
-        owner_id: vehicle.ownerId,
-        make: vehicle.make,
-        model: vehicle.model,
-        year: vehicle.year,
-        vin: vehicle.vin,
-        current_mileage: vehicle.mileage,
-        body_type: vehicle.bodyType,
-        fuel_type: vehicle.fuelType,
-        engine_size: vehicle.engineSize,
-        status: vehicle.status,
-        image_url: vehicle.imageUrl,
-        specs: vehicle.specs,
-        avg_daily_km: vehicle.avgDailyKm || 30
-      }])
-      .select()
-      .single();
-
-    if (!error && data) {
-      const v: Vehicle = {
-        id: data.id,
-        ownerId: data.owner_id,
-        make: data.make,
-        model: data.model,
-        year: data.year,
-        vin: data.vin,
-        mileage: parseFloat(data.current_mileage),
-        healthScore: 100,
-        bodyType: data.body_type,
-        imageUrl: data.image_url,
-        status: data.status,
-        specs: data.specs,
-        syncStatus: 'synced',
-        isDirty: false
-      };
-      await localDb.saveVehicle(v);
-      return v;
-    }
-  }
-
-  // Fallback to local only creation
+  // Always create locally first to ensure immediate responsiveness
   const localV: Vehicle = {
     ...vehicle,
     id: `local-car-${Date.now()}`,
@@ -168,7 +124,7 @@ export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceT
     status: t.status,
     priority: t.priority,
     category: t.category,
-    estimatedCost: t.estimated_cost,
+    estimated_cost: t.estimated_cost,
     intervalKm: t.interval_km,
     intervalMonths: t.interval_months,
     syncStatus: 'synced',
@@ -199,8 +155,8 @@ export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<Servic
     provider: l.provider,
     status: l.status,
     category: l.category,
-    verificationLevel: l.verification_level,
-    receiptUrl: l.receipt_url,
+    verification_level: l.verification_level,
+    receipt_url: l.receipt_url,
     syncStatus: 'synced',
     isDirty: false
   }));

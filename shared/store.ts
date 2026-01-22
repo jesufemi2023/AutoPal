@@ -92,18 +92,9 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     if (get().isSyncing) return;
     set({ isSyncing: true });
     try {
-      await performPushSync();
-      await get().checkDirtyStatus();
-      // Re-load to ensure UI has latest cloud IDs
-      if (get().activeVehicleId) {
-        const vehicleId = get().activeVehicleId!;
-        const [logs, fuel, tasks] = await Promise.all([
-          localDb.getLogs(vehicleId),
-          localDb.getFuelLogs(vehicleId),
-          localDb.getTasks(vehicleId)
-        ]);
-        set({ serviceLogs: logs, fuelLogs: fuel, tasks: tasks });
-      }
+      const result = await performPushSync();
+      // Force reload to update store with cloud-generated IDs
+      await get().loadLocalData();
     } finally {
       set({ isSyncing: false });
     }
