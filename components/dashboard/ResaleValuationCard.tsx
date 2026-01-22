@@ -30,6 +30,8 @@ export const ResaleValuationCard: React.FC<{
           const msg = quotaErr?.message || "";
           if (msg === 'QUOTA_EXHAUSTED' || msg.includes('QUOTA_EXHAUSTED')) {
             throw new Error("QUOTA: You have reached the monthly AI Scan limit for your current Pilot License.");
+          } else if (msg === 'IDENTITY_DESYNC') {
+            throw new Error("SYNC: Your security token is desynchronized. Please refresh your browser to re-establish the neural link.");
           }
           throw quotaErr;
         }
@@ -43,10 +45,10 @@ export const ResaleValuationCard: React.FC<{
       updateVehicleStore(updatedVehicle);
     } catch (e: any) {
       console.error("AI Audit Logic Fault:", e);
-      const errorMsg = e?.message || "Neural Link Interrupted";
+      const errorMsg = e?.message || "";
       
-      if (errorMsg.startsWith("QUOTA")) {
-        alert(errorMsg);
+      if (errorMsg.startsWith("QUOTA") || errorMsg.startsWith("SYNC")) {
+        alert(errorMsg.split(": ")[1] || errorMsg);
       } else {
         alert("Verification Link Failure. Please check your Pilot License status or network connection.");
       }

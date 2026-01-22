@@ -16,21 +16,24 @@ export const logFeatureUsage = async (userId: string, featureKey: string) => {
         feature_key: featureKey
       }]);
     
-    // CRITICAL: Extract the actual database message
     if (error) {
-      // Supabase errors often wrap the PG message in the 'message' property
-      // If it's a RAISE EXCEPTION, it will be clearly strings in error.message
       const detailMsg = error.details || "";
       const mainMsg = error.message || "";
       const combined = `${mainMsg} ${detailMsg}`;
       
       console.error(`[Governor Rejection] Code: ${error.code} | Msg: ${combined}`);
 
+      // Case 1: Database Governor Trigger blocked it (Quota Full)
       if (combined.includes('QUOTA_EXHAUSTED')) {
         throw new Error("QUOTA_EXHAUSTED");
       }
       
-      // If it's a 404, the table is missing
+      // Case 2: RLS Policy blocked it (Identity Mismatch or Profile missing)
+      if (combined.includes('violates row-level security policy')) {
+        throw new Error("IDENTITY_DESYNC");
+      }
+      
+      // Case 3: Infrastructure Fault (Table missing)
       if (error.code === '42P01') {
         throw new Error("Infrastructure missing: 'usage_logs' table not deployed.");
       }
@@ -38,7 +41,6 @@ export const logFeatureUsage = async (userId: string, featureKey: string) => {
       throw new Error(combined || "Unknown Usage Error");
     }
   } catch (e: any) {
-    // Re-throw standardized errors
     throw e;
   }
 };

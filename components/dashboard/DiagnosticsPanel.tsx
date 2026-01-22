@@ -38,10 +38,11 @@ export const DiagnosticsPanel: React.FC<Props> = ({
 
       if (msg === 'QUOTA_EXHAUSTED' || msg.includes('QUOTA_EXHAUSTED')) {
         alert("Quota Full: Your current Pilot License allows for 1 AI Mechanical diagnostic per month. Upgrade to increase capacity.");
+      } else if (msg === 'IDENTITY_DESYNC') {
+        alert("Profile Initialization Pending: Your secure neural link is being established. Please refresh the page to finalize your Pilot ID sync.");
       } else if (msg.includes('Infrastructure missing')) {
         alert("System Configuration Error: The usage tracking table has not been initialized in the database.");
       } else {
-        // Only show the generic "sync error" if we truly have no descriptive error
         alert(msg || "Neural sync error. Verification link interrupted.");
       }
     }
