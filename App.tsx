@@ -18,13 +18,14 @@ import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
 import { TierGuard } from './components/TierGuard.tsx';
+import { logFeatureUsage } from './services/usageService.ts';
 import { Car, Menu, X, AlertCircle } from 'lucide-react';
 
 const App: React.FC = () => {
   const { 
     session, setSession, isInitialized, setInitialized, isSyncing, loadLocalData, hasDirtyData, triggerSync, syncError,
     user, setUser, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
-    transientVehicle, removeVehicleStore, reset
+    transientVehicle, removeVehicleStore, reset, setSuggestedParts
   } = useAutoPalStore();
 
   const [isAskingAI, setIsAskingAI] = useState(false);
@@ -356,9 +357,25 @@ const App: React.FC = () => {
                     if (!activeVehicle) return;
                     setIsAskingAI(true);
                     try {
+                      // Attempt to log usage. If it fails for non-quota reasons, we proceed to AI.
+                      if (user?.id) {
+                        try {
+                          await logFeatureUsage(user.id, 'ai_mechanic_monthly');
+                        } catch (usageErr: any) {
+                          if (usageErr.message === 'QUOTA_EXHAUSTED') throw usageErr;
+                          console.warn("Usage Link Deferred, proceeding to Neural analysis.");
+                        }
+                      }
+                      
                       const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
                       setAiAdvice(advice);
-                    } catch (e) { alert("Neural Fail"); } finally { setIsAskingAI(false); }
+                      if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
+                    } catch (e: any) { 
+                      if (e.message === 'QUOTA_EXHAUSTED') alert("Monthly quota for AI Diagnostics reached.");
+                      else alert("Neural analysis encountered a synchronization fault."); 
+                    } finally { 
+                      setIsAskingAI(false); 
+                    }
                   }} 
                   aiAdvice={aiAdvice}
                   compact={false}
