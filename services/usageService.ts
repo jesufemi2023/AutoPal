@@ -16,17 +16,29 @@ export const logFeatureUsage = async (userId: string, featureKey: string) => {
         feature_key: featureKey
       }]);
     
-    // CRITICAL: If the Database Governor (Trigger) blocks this, we catch and throw
+    // CRITICAL: Extract the actual database message
     if (error) {
-      const errMsg = error.message || "Unknown Usage Error";
-      // Ensure we always throw a standard JS Error object
-      if (errMsg.includes('QUOTA_EXHAUSTED')) {
+      // Supabase errors often wrap the PG message in the 'message' property
+      // If it's a RAISE EXCEPTION, it will be clearly strings in error.message
+      const detailMsg = error.details || "";
+      const mainMsg = error.message || "";
+      const combined = `${mainMsg} ${detailMsg}`;
+      
+      console.error(`[Governor Rejection] Code: ${error.code} | Msg: ${combined}`);
+
+      if (combined.includes('QUOTA_EXHAUSTED')) {
         throw new Error("QUOTA_EXHAUSTED");
       }
-      throw new Error(errMsg);
+      
+      // If it's a 404, the table is missing
+      if (error.code === '42P01') {
+        throw new Error("Infrastructure missing: 'usage_logs' table not deployed.");
+      }
+
+      throw new Error(combined || "Unknown Usage Error");
     }
   } catch (e: any) {
-    console.warn(`[QuotaEnforcement] Access Restricted: ${e.message}`);
+    // Re-throw standardized errors
     throw e;
   }
 };
@@ -45,7 +57,7 @@ export const getMonthlyUsageCount = async (userId: string, featureKey: string): 
       .eq('feature_key', featureKey)
       .gte('created_at', thirtyDaysAgo.toISOString());
 
-    if (error) throw error;
+    if (error) return 0;
     return count || 0;
   } catch (e) {
     return 0;

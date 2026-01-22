@@ -24,22 +24,26 @@ export const DiagnosticsPanel: React.FC<Props> = ({
   const diagImageRef = useRef<HTMLInputElement>(null);
 
   const handleAnalyzeWithUsage = async () => {
-    // 1. Quota Check - Must happen at start to prevent "wasted" AI generation if blocked
     try {
+      // 1. Quota Check - Log usage before calling AI
       if (user?.id) {
         await logFeatureUsage(user.id, 'ai_mechanic_monthly');
       }
       
-      // 2. Trigger parent analysis logic and wait for its completion
+      // 2. Trigger analysis
       await onAnalyze();
-    } catch (quotaErr: any) {
-      const msg = quotaErr?.message || "";
+    } catch (err: any) {
+      const msg = err?.message || "";
+      console.warn("AI Diagnostic Catch:", msg);
+
       if (msg === 'QUOTA_EXHAUSTED' || msg.includes('QUOTA_EXHAUSTED')) {
         alert("Quota Full: Your current Pilot License allows for 1 AI Mechanical diagnostic per month. Upgrade to increase capacity.");
+      } else if (msg.includes('Infrastructure missing')) {
+        alert("System Configuration Error: The usage tracking table has not been initialized in the database.");
       } else {
-        alert("Neural sync error. Verification link interrupted.");
+        // Only show the generic "sync error" if we truly have no descriptive error
+        alert(msg || "Neural sync error. Verification link interrupted.");
       }
-      // Note: isAskingAI is managed by the parent, but we handle the rejection here.
     }
   };
 
