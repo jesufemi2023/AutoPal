@@ -17,15 +17,13 @@ import { fetchUserVehicles, archiveVehicle } from './services/vehicleService.ts'
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
-import { TierGuard } from './components/TierGuard.tsx';
-import { logFeatureUsage } from './services/usageService.ts';
-import { Car, Menu, X, AlertCircle } from 'lucide-react';
+import { Car, Menu, X } from 'lucide-react';
 
 const App: React.FC = () => {
   const { 
-    session, setSession, isInitialized, setInitialized, isSyncing, loadLocalData, hasDirtyData, triggerSync, syncError,
+    session, setSession, isInitialized, setInitialized, isSyncing, loadLocalData, hasDirtyData, triggerSync,
     user, setUser, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
-    transientVehicle, removeVehicleStore, reset, setSuggestedParts
+    transientVehicle, removeVehicleStore, reset
   } = useAutoPalStore();
 
   const [isAskingAI, setIsAskingAI] = useState(false);
@@ -133,6 +131,7 @@ const App: React.FC = () => {
       return;
     }
     try {
+      // Execute sign out and wait briefly but proceed to cleanup even if network hangs
       await Promise.race([
         supabase.auth.signOut(),
         new Promise(resolve => setTimeout(resolve, 2000))
@@ -185,32 +184,24 @@ const App: React.FC = () => {
     </button>
   );
 
-  const SyncShield = () => {
-    const isQuotaError = syncError === 'QUOTA_EXHAUSTED';
-    
-    return (
-      <button 
-        onClick={() => hasDirtyData && triggerSync()}
-        disabled={isSyncing}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[8px] font-black uppercase tracking-widest transition-all ${
-          isSyncing 
-            ? 'bg-blue-50 border-blue-100 text-blue-500' 
-            : isQuotaError
-              ? 'bg-rose-50 border-rose-100 text-rose-600 hover:bg-rose-100'
-              : hasDirtyData 
-                ? 'bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100' 
-                : 'bg-emerald-50 border-emerald-100 text-emerald-600 opacity-60'
-        }`}
-        title={isQuotaError ? "Database blocked sync: Quota Reached. Upgrade required." : undefined}
-      >
-        <div className={`w-1.5 h-1.5 rounded-full ${
-          isSyncing ? 'bg-blue-500 animate-pulse' : isQuotaError ? 'bg-rose-500 animate-pulse' : hasDirtyData ? 'bg-amber-500 animate-bounce' : 'bg-emerald-500'
-        }`}></div>
-        {isSyncing ? 'Vaulting...' : isQuotaError ? 'Quota Full' : hasDirtyData ? 'Sync Needed' : 'Synced'}
-        {isQuotaError && <AlertCircle size={8} />}
-      </button>
-    );
-  };
+  const SyncShield = () => (
+    <button 
+      onClick={() => hasDirtyData && triggerSync()}
+      disabled={isSyncing}
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[8px] font-black uppercase tracking-widest transition-all ${
+        isSyncing 
+          ? 'bg-blue-50 border-blue-100 text-blue-500' 
+          : hasDirtyData 
+            ? 'bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100' 
+            : 'bg-emerald-50 border-emerald-100 text-emerald-600 opacity-60'
+      }`}
+    >
+      <div className={`w-1.5 h-1.5 rounded-full ${
+        isSyncing ? 'bg-blue-500 animate-pulse' : hasDirtyData ? 'bg-amber-500 animate-bounce' : 'bg-emerald-500'
+      }`}></div>
+      {isSyncing ? 'Vaulting...' : hasDirtyData ? 'Sync Needed' : 'Synced'}
+    </button>
+  );
 
   const NavigationMenu = () => (
     <div className="space-y-6">
@@ -228,9 +219,7 @@ const App: React.FC = () => {
 
       <div className="pt-4 border-t border-slate-100 mx-2">
         <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Reports & Audit</p>
-        <TierGuard capability="OWNERSHIP_REPORT">
-           <NavItem view="report" label="Ownership Report" icon="📄" />
-        </TierGuard>
+        <NavItem view="report" label="Ownership Report" icon="📄" />
         <NavItem view="profile" label="Pilot Profile" icon="👤" />
         {user?.role === 'admin' && <NavItem view="admin" label="Admin Command" icon="⚡" />}
         
@@ -315,9 +304,7 @@ const App: React.FC = () => {
           <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
         </div>
         <div className="space-y-1">
-          <TierGuard capability="MAX_VEHICLES">
-            <button onClick={() => { setCurrentView('onboarding'); closeManagement(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all">+ Add New Asset</button>
-          </TierGuard>
+          <button onClick={() => { setCurrentView('onboarding'); closeManagement(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all">+ Add New Asset</button>
           {activeVehicle && (
             <>
               <button onClick={() => { handleEditAsset(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-slate-600 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 rounded-xl transition-all">✎ Modify Specs</button>
@@ -357,26 +344,9 @@ const App: React.FC = () => {
                     if (!activeVehicle) return;
                     setIsAskingAI(true);
                     try {
-                      // Attempt to log usage.
-                      if (user?.id) {
-                        try {
-                          await logFeatureUsage(user.id, 'ai_mechanic_monthly');
-                        } catch (usageErr: any) {
-                          // FAIL-OPEN: Only stop if definitively quota exhausted.
-                          if (usageErr.message === 'QUOTA_EXHAUSTED') throw usageErr;
-                          console.warn("Usage logging skipped due to technical synchronization. Proceeding to Analysis.");
-                        }
-                      }
-                      
                       const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
                       setAiAdvice(advice);
-                      if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
-                    } catch (e: any) { 
-                      if (e.message === 'QUOTA_EXHAUSTED') alert("Monthly quota for AI Diagnostics reached.");
-                      else alert("Neural analysis encountered a synchronization fault. Please check your connection."); 
-                    } finally { 
-                      setIsAskingAI(false); 
-                    }
+                    } catch (e) { alert("Neural Fail"); } finally { setIsAskingAI(false); }
                   }} 
                   aiAdvice={aiAdvice}
                   compact={false}

@@ -10,7 +10,6 @@ interface AutoPalState {
   isRecovering: boolean;
   isLoading: boolean;
   isSyncing: boolean;
-  syncError: string | null;
   hasDirtyData: boolean;
   currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service' | 'diagnostic' | 'landing' | 'profile' | 'report';
   editingVehicleId: string | null;
@@ -69,7 +68,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   isRecovering: false,
   isLoading: false,
   isSyncing: false,
-  syncError: null,
   hasDirtyData: false,
   currentView: 'landing',
   editingVehicleId: null,
@@ -92,14 +90,9 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
 
   triggerSync: async () => {
     if (get().isSyncing) return;
-    set({ isSyncing: true, syncError: null });
+    set({ isSyncing: true });
     try {
-      const result = await performPushSync();
-      
-      if (result.error) {
-        set({ syncError: result.error });
-      }
-
+      await performPushSync();
       await get().checkDirtyStatus();
       // Re-load to ensure UI has latest cloud IDs
       if (get().activeVehicleId) {
@@ -287,7 +280,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     set({ 
       user: null, session: null, vehicles: [], tasks: [], serviceLogs: [], fuelLogs: [],
       aiValuationReports: {}, activeVehicleId: null, transientVehicle: null, guestAttempts: 0,
-      isRecovering: false, marketplaceFilter: '', isSyncing: false, hasDirtyData: false, syncError: null
+      isRecovering: false, marketplaceFilter: '', isSyncing: false, hasDirtyData: false
     });
   },
 }));

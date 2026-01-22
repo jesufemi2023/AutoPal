@@ -6,41 +6,29 @@ import { FuelLog, ServiceLog, Vehicle, MaintenanceTask } from '../shared/types.t
 /**
  * Sync Engine
  * Orchestrates the "Local-Master to Cloud-Mirror" synchronization.
+ * Purely manual trigger for MVP.
  */
 
 export const performPushSync = async () => {
   if (!supabase) return { status: 'offline' };
   
-  // Hardening: Ensure session is strictly recognized by the database before pushing records
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session) {
-    // Periodically refresh to keep headers "warm" for the RLS check
-    await supabase.auth.refreshSession();
-  }
-  
-  const activeUid = session?.user?.id;
-
   const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords();
   const total = vehicles.length + tasks.length + logs.length + fuel.length;
   
   if (total === 0) return { status: 'idle' };
 
-  let firstError: string | null = null;
+  console.log(`SyncEngine: Pushing ${total} dirty records to vault...`);
 
   // 1. Sync Vehicles
   for (const v of vehicles) {
     try {
-      let finalOwnerId = v.ownerId;
-      if (activeUid && (v.ownerId === 'guest' || !v.ownerId)) {
-        finalOwnerId = activeUid;
-      }
-
-      // Stripping local ID for new records to satisfy UUID constraint
-      const isLocalId = v.id.startsWith('local-');
+      const payload = { ...v };
+      delete payload.isDirty;
+      delete payload.syncStatus;
       
-      const { data, error } = await supabase.from('vehicles').upsert({
-        id: isLocalId ? undefined : v.id,
-        owner_id: finalOwnerId,
+      const { error } = await supabase.from('vehicles').upsert({
+        id: v.id,
+        owner_id: v.ownerId,
         make: v.make,
         model: v.model,
         year: v.year,
@@ -55,30 +43,17 @@ export const performPushSync = async () => {
         engine_size: v.engineSize,
         avg_daily_km: v.avgDailyKm,
         latest_ai_audit: v.latestAiAudit
-      }).select().single();
+      });
 
-      if (error) {
-        console.error(`SyncEngine: Vehicle Rejection [${error.code}]: ${error.message}`);
-        if (error.message.includes('QUOTA_EXHAUSTED')) firstError = 'QUOTA_EXHAUSTED';
-        continue; 
-      }
-
-      // If ID changed (cloud UUID assigned), we must update local records to match
-      if (isLocalId && data) {
-        await localDb.deleteVehicle(v.id);
-        await localDb.saveVehicle({ ...v, id: data.id, ownerId: finalOwnerId, isDirty: false, syncStatus: 'synced' });
-      } else {
-        await localDb.markSynced(v.id, 'vehicles');
-      }
-    } catch (e) { console.warn("Vehicle Sync Fault", e); }
+      if (!error) await localDb.markSynced(v.id, 'vehicles');
+    } catch (e) { console.warn("Vehicle Sync Fail", e); }
   }
 
   // 2. Sync Maintenance Tasks
   for (const t of tasks) {
     try {
-      const isLocalId = t.id.startsWith('local-');
-      const { data, error } = await supabase.from('maintenance_tasks').upsert({
-        id: isLocalId ? undefined : t.id,
+      const { error } = await supabase.from('maintenance_tasks').upsert({
+        id: t.id,
         vehicle_id: t.vehicleId,
         title: t.title,
         description: t.description,
@@ -90,30 +65,16 @@ export const performPushSync = async () => {
         estimated_cost: t.estimatedCost,
         interval_km: t.intervalKm,
         interval_months: t.intervalMonths
-      }).select().single();
-
-      if (error) {
-        console.error(`SyncEngine: Task Rejection [${error.code}]: ${error.message}`);
-        continue;
-      }
-
-      if (isLocalId && data) {
-        const { id: oldId } = t;
-        const updatedTask = { ...t, id: data.id, isDirty: false, syncStatus: 'synced' };
-        const dbInstance = (await import('./localDb.ts')).default;
-        await dbInstance.tasks.delete(oldId);
-        await dbInstance.tasks.put(updatedTask);
-      } else {
-        await localDb.markSynced(t.id, 'tasks');
-      }
-    } catch (e) { console.warn("Task Sync Fault", e); }
+      });
+      if (!error) await localDb.markSynced(t.id, 'tasks');
+    } catch (e) { console.warn("Task Sync Fail", e); }
   }
 
   // 3. Sync Fuel Logs
   for (const f of fuel) {
     try {
       const { error } = await supabase.from('fuel_logs').upsert({
-        id: f.id.startsWith('local-') ? undefined : f.id, 
+        id: f.id.startsWith('local-') ? undefined : f.id, // Supabase generates UUID for new items
         vehicle_id: f.vehicleId,
         liters: f.liters,
         total_cost: f.totalCost,
@@ -122,13 +83,8 @@ export const performPushSync = async () => {
         vendor_brand: f.vendor,
         captured_at: f.createdAt
       });
-      if (error) {
-        console.error(`SyncEngine: Fuel Log Rejection [${error.code}]: ${error.message}`);
-        if (error.message.includes('QUOTA_EXHAUSTED')) firstError = 'QUOTA_EXHAUSTED';
-        continue;
-      }
-      await localDb.markSynced(f.id, 'fuelLogs');
-    } catch (e) { console.warn("Fuel Sync Fault", e); }
+      if (!error) await localDb.markSynced(f.id, 'fuelLogs');
+    } catch (e) { console.warn("Fuel Sync Fail", e); }
   }
 
   // 4. Sync Service Logs
@@ -148,16 +104,11 @@ export const performPushSync = async () => {
         verification_level: l.verificationLevel,
         receipt_url: l.receiptUrl
       });
-      if (error) {
-        console.error(`SyncEngine: Service Log Rejection [${error.code}]: ${error.message}`);
-        if (error.message.includes('QUOTA_EXHAUSTED')) firstError = 'QUOTA_EXHAUSTED';
-        continue;
-      }
-      await localDb.markSynced(l.id, 'serviceLogs');
-    } catch (e) { console.warn("Service Sync Fault", e); }
+      if (!error) await localDb.markSynced(l.id, 'serviceLogs');
+    } catch (e) { console.warn("Service Sync Fail", e); }
   }
 
-  return { status: firstError ? 'error' : 'success', pushed: total, error: firstError };
+  return { status: 'success', pushed: total };
 };
 
 export const performPullSync = async (userId: string) => {

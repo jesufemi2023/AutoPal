@@ -1,9 +1,6 @@
+
 import React, { useRef } from 'react';
 import { AIResponse, Vehicle } from '../../shared/types.ts';
-import { TierGuard } from '../TierGuard.tsx';
-import { useAutoPalStore } from '../../shared/store.ts';
-import { logFeatureUsage } from '../../services/usageService.ts';
-import { QuotaIndicator } from '../QuotaIndicator.tsx';
 
 interface Props {
   vehicle: Vehicle;
@@ -12,7 +9,7 @@ interface Props {
   diagImage: string | null;
   setDiagImage: (img: string | null) => void;
   isAskingAI: boolean;
-  onAnalyze: () => Promise<void>;
+  onAnalyze: () => void;
   aiAdvice: AIResponse | null;
   compact?: boolean;
 }
@@ -20,35 +17,7 @@ interface Props {
 export const DiagnosticsPanel: React.FC<Props> = ({ 
   vehicle, symptom, setSymptom, diagImage, setDiagImage, isAskingAI, onAnalyze, aiAdvice, compact = false 
 }) => {
-  const { user } = useAutoPalStore();
   const diagImageRef = useRef<HTMLInputElement>(null);
-
-  const handleAnalyzeWithUsage = async () => {
-    if (!vehicle) return;
-
-    try {
-      // 1. Attempt Quota Check
-      if (user?.id) {
-        try {
-          await logFeatureUsage(user.id, 'ai_mechanic_monthly');
-        } catch (err: any) {
-          // BLOCK ONLY if it's a hard business quota limit
-          if (err.message === 'QUOTA_EXHAUSTED') {
-            alert("Quota Full: Your current Pilot License allows for 1 AI Mechanical diagnostic per month. Upgrade to increase capacity.");
-            return;
-          }
-          // LOG but ignore technical errors
-          console.warn("AI Diagnostic: Security log deferred, initiating neural link anyway.");
-        }
-      }
-      
-      // 2. Call AI Brain
-      await onAnalyze();
-    } catch (err: any) {
-      console.error("Neural Analysis Logic Fault:", err);
-      alert("Neural link interrupted. Please verify your connection.");
-    }
-  };
 
   const containerClasses = compact 
     ? "bg-slate-950 text-white rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col border border-white/10"
@@ -68,17 +37,14 @@ export const DiagnosticsPanel: React.FC<Props> = ({
       
       <div className="relative z-10 flex flex-col flex-grow">
         {!compact && (
-          <div className="flex items-center justify-between mb-10">
-            <div className="flex items-center gap-5">
-              <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30">
-                <span className="text-xl animate-pulse text-white">✧</span>
-              </div>
-              <div>
-                <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Diagnostic</h3>
-                <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Active Link: {vehicle.make} {vehicle.model}</p>
-              </div>
+          <div className="flex items-center gap-5 mb-10">
+            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30">
+              <span className="text-xl animate-pulse text-white">✧</span>
             </div>
-            <QuotaIndicator capability="AI_MECHANIC_MONTHLY" label="Neural Bandwidth" />
+            <div>
+              <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Diagnostic</h3>
+              <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Active Link: {vehicle.make} {vehicle.model}</p>
+            </div>
           </div>
         )}
         
@@ -120,15 +86,13 @@ export const DiagnosticsPanel: React.FC<Props> = ({
               )}
             </div>
 
-            <TierGuard capability="AI_MECHANIC_MONTHLY">
-              <button 
-                disabled={isAskingAI || !symptom}
-                onClick={handleAnalyzeWithUsage}
-                className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl disabled:opacity-20 transition-all hover:bg-blue-700 active:scale-95"
-              >
-                Analyze Symptoms
-              </button>
-            </TierGuard>
+            <button 
+              disabled={isAskingAI || !symptom}
+              onClick={onAnalyze}
+              className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl disabled:opacity-20 transition-all hover:bg-blue-700 active:scale-95"
+            >
+              Analyze Symptoms
+            </button>
           </div>
 
           <div className="flex flex-col min-h-[300px]">

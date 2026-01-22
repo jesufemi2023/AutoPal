@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { ENV } from "./envService.ts";
 import { PROMPTS } from "./promptService.ts";
@@ -48,17 +49,22 @@ export const generateAIValuation = async (
         - Calculate 'Neglect Tax' (Monthly NGN wasted due to inefficiency).
         
         QUADRANT 2: ENGINEERING DIAGNOSTICS
-        - Correlate dropping efficiency with maintenance lag.
+        - Correlate dropping efficiency with maintenance lag (e.g. poor KM/L + overdue spark plugs = High Confidence Ignition Fault).
         - Severity: normal, advisory, critical.
         
         QUADRANT 3: PRECISION PARTS
-        - Suggest specific components to close the Consumption Gap.
+        - Suggest specific components (e.g. Bosch Iridium Plugs, Synthetic Filters) to close the Consumption Gap.
         
-        QUADRANT 4: STRATEGIC INSIGHTS
-        - Exit strategy and value added by verified records.
+        QUADRANT 4: 5 STRATEGIC INSIGHTS
+        - Trust Premium Impact: Financial value added by verified records.
+        - Optimal Exit: When to sell based on depreciation vs mileage velocity.
+        - Maintenance Debt: Cost of neglect vs future risk cost.
+        - Regional Benchmark: Performance vs Nigeria average.
+        - Fuel Strategy: Recommended brand switch based on log performance.
         
         RULES:
-        - Currency: NGN.`,
+        - Currency: NGN.
+        - Scores (vitality/discipline) 0-100.`,
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.OBJECT,
@@ -155,12 +161,15 @@ const getStandardProtocol = (mileage: number): MaintenanceScheduleResponse => {
   const sixMonthsLater = new Date();
   sixMonthsLater.setMonth(sixMonthsLater.getMonth() + 6);
   
+  const oneYearLater = new Date();
+  oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+
   return {
     summary: "Standard regional maintenance protocol applied (AI Quota Sleep).",
     tasks: [
       { 
-        title: "Synthetic Oil Service", 
-        description: "Premium oil replacement for high tropical heat.", 
+        title: "Full Synthetic Oil Service", 
+        description: "Premium oil and filter replacement to protect against high tropical heat.", 
         dueMileage: mileage + 5000, 
         dueDate: sixMonthsLater.toISOString().split('T')[0],
         priority: Priority.HIGH, 
@@ -168,6 +177,27 @@ const getStandardProtocol = (mileage: number): MaintenanceScheduleResponse => {
         estimatedCost: 45000,
         intervalKm: 5000,
         intervalMonths: 6
+      },
+      { 
+        title: "Brake System Calibration", 
+        description: "Inspect pads, rotors, and flush fluid for heavy stop-and-go urban traffic.", 
+        dueMileage: mileage + 10000, 
+        dueDate: oneYearLater.toISOString().split('T')[0],
+        priority: Priority.HIGH, 
+        category: "brakes", 
+        estimatedCost: 15000,
+        intervalKm: 10000,
+        intervalMonths: 12
+      },
+      { 
+        title: "Air Intake & Filter Swap", 
+        description: "Replace engine air filter to combat high dust levels in the environment.", 
+        dueMileage: mileage + 15000, 
+        priority: Priority.MEDIUM, 
+        category: "engine", 
+        estimatedCost: 12000,
+        intervalKm: 15000,
+        intervalMonths: 12
       }
     ]
   };
@@ -176,7 +206,10 @@ const getStandardProtocol = (mileage: number): MaintenanceScheduleResponse => {
 export const generateMaintenanceSchedule = async (
   make: string, model: string, year: number, mileage: number
 ): Promise<MaintenanceScheduleResponse> => {
-  if (ENV.MOCK_AI) return getStandardProtocol(mileage);
+  if (ENV.MOCK_AI) {
+    return getStandardProtocol(mileage);
+  }
+
   const ai = getAIClient();
   
   try {
@@ -213,7 +246,9 @@ export const generateMaintenanceSchedule = async (
         }
       }
     });
-    return JSON.parse((response.text || "{}").trim()) as MaintenanceScheduleResponse;
+
+    const jsonStr = (response.text || "{}").trim();
+    return JSON.parse(jsonStr) as MaintenanceScheduleResponse;
   } catch (error: any) {
     return getStandardProtocol(mileage);
   }
@@ -241,7 +276,8 @@ export const decodeVIN = async (vin: string): Promise<{ make: string; model: str
         }
       }
     });
-    return JSON.parse((response.text || "{}").trim());
+    const jsonStr = (response.text || "{}").trim();
+    return JSON.parse(jsonStr);
   } catch (error) {
     throw error;
   }
@@ -251,15 +287,14 @@ export const getAdvancedDiagnostic = async (
   vehicle: any, symptoms: string, isPremium: boolean, imageBase64?: string
 ): Promise<AIResponse> => {
   const ai = getAIClient();
-  const parts: any[] = [{ text: `Asset: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Issue: ${symptoms}` }];
-  
+  const modelId = 'gemini-3-flash-preview';
+  const parts: any[] = [{ text: `Vehicle Asset: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Reported Symptoms: ${symptoms}` }];
   if (imageBase64) {
     const data = imageBase64.includes(",") ? imageBase64.split(",")[1] : imageBase64;
     parts.push({ inlineData: { mimeType: "image/jpeg", data: data } });
   }
-
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: modelId,
     contents: { parts },
     config: {
       systemInstruction: PROMPTS.DIAGNOSTIC_EXPERT,
@@ -276,5 +311,6 @@ export const getAdvancedDiagnostic = async (
       }
     }
   });
-  return JSON.parse((response.text || "{}").trim()) as AIResponse;
+  const jsonStr = (response.text || "{}").trim();
+  return JSON.parse(jsonStr) as AIResponse;
 };

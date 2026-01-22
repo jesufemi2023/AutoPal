@@ -7,7 +7,6 @@ import { MaintenanceTask, ServiceLog } from '../../shared/types.ts';
 import { calculateFinancialLedger } from '../../services/maintenanceLogic.ts';
 import { MaintenanceRoadmap } from './MaintenanceRoadmap.tsx';
 import { ServiceLogTerminal } from '../ServiceLogTerminal.tsx';
-import { QuotaIndicator } from '../QuotaIndicator.tsx';
 
 const ServiceIntelligenceCenter: React.FC = () => {
   const { 
@@ -183,7 +182,6 @@ const ServiceIntelligenceCenter: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-spin' : 'bg-blue-600 animate-pulse'}`}></div>
             <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">{isLoading ? 'Syncing...' : 'Records Operational'}</span>
-            <QuotaIndicator capability="SERVICE_LOGS_TOTAL" label="Service History Cap" />
           </div>
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Service <br/><span className="text-blue-600">Records</span></h2>
           
