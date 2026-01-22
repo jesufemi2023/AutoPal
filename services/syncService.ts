@@ -11,7 +11,13 @@ import { FuelLog, ServiceLog, Vehicle, MaintenanceTask } from '../shared/types.t
 export const performPushSync = async () => {
   if (!supabase) return { status: 'offline' };
   
+  // Hardening: Ensure session is strictly recognized by the database before pushing records
   const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    // Periodically refresh to keep headers "warm" for the RLS check
+    await supabase.auth.refreshSession();
+  }
+  
   const activeUid = session?.user?.id;
 
   const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords();
@@ -61,7 +67,6 @@ export const performPushSync = async () => {
       if (isLocalId && data) {
         await localDb.deleteVehicle(v.id);
         await localDb.saveVehicle({ ...v, id: data.id, ownerId: finalOwnerId, isDirty: false, syncStatus: 'synced' });
-        // NOTE: In a full prod app, we'd also update all child records in localDb to point to the new data.id
       } else {
         await localDb.markSynced(v.id, 'vehicles');
       }
@@ -93,10 +98,8 @@ export const performPushSync = async () => {
       }
 
       if (isLocalId && data) {
-        // Correcting local ID to match cloud UUID
         const { id: oldId } = t;
         const updatedTask = { ...t, id: data.id, isDirty: false, syncStatus: 'synced' };
-        // Delete old indexed record and save new one
         const dbInstance = (await import('./localDb.ts')).default;
         await dbInstance.tasks.delete(oldId);
         await dbInstance.tasks.put(updatedTask);

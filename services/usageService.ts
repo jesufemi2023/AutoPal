@@ -5,24 +5,24 @@ import { supabase } from '../auth/supabaseClient.ts';
  * Interacts with the secure 'usage_logs' table protected by the Database Governor.
  */
 
-export const logFeatureUsage = async (userId: string, featureKey: string) => {
+export const logFeatureUsage = async (userId: string, featureKey: string, retryCount = 0): Promise<void> => {
   if (!supabase) return;
   
   try {
     // SECURITY HANDSHAKE: 
-    // Instead of trusting the userId passed from the UI state (which can be stale),
-    // we fetch the current session's UID directly from the auth client.
-    const { data: { session } } = await supabase.auth.getSession();
+    // Always fetch the freshest session ID directly from the auth client 
+    // to ensure the JWT headers are injected into the following request.
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     const activeUid = session?.user?.id;
 
-    if (!activeUid) {
+    if (!activeUid || sessionError) {
       throw new Error("AUTH_LOST");
     }
 
     const { error } = await supabase
       .from('usage_logs')
       .insert([{
-        user_id: activeUid, // Force alignment with session UID
+        user_id: activeUid, // Ensure ID matches the authenticated session
         feature_key: featureKey
       }]);
     
@@ -38,7 +38,15 @@ export const logFeatureUsage = async (userId: string, featureKey: string) => {
         throw new Error("QUOTA_EXHAUSTED");
       }
       
-      // Case 2: RLS Policy blocked it (Persistent Identity Mismatch)
+      // Case 2: RLS Policy blocked it (Identity Conflict)
+      // This often happens if the Supabase client headers haven't refreshed yet.
+      // We attempt ONE retry with a forced session refresh.
+      if (combined.includes('violates row-level security policy') && retryCount === 0) {
+        console.warn("UsageEngine: Identity Desync detected. Refreshing session and retrying...");
+        await supabase.auth.refreshSession();
+        return await logFeatureUsage(userId, featureKey, 1);
+      }
+
       if (combined.includes('violates row-level security policy')) {
         throw new Error("IDENTITY_DESYNC");
       }
