@@ -24,13 +24,18 @@ export const DiagnosticsPanel: React.FC<Props> = ({
   const diagImageRef = useRef<HTMLInputElement>(null);
 
   const handleAnalyzeWithUsage = async () => {
+    if (!vehicle) {
+      alert("System Error: No vehicle asset linked for analysis.");
+      return;
+    }
+
     try {
       // 1. Quota Check - Log usage before calling AI
       if (user?.id) {
         await logFeatureUsage(user.id, 'ai_mechanic_monthly');
       }
       
-      // 2. Trigger analysis
+      // 2. Trigger analysis (this calls the Gemini Service)
       await onAnalyze();
     } catch (err: any) {
       const msg = err?.message || "";
@@ -45,7 +50,8 @@ export const DiagnosticsPanel: React.FC<Props> = ({
       } else if (msg.includes('Infrastructure missing')) {
         alert("System Configuration Error: The usage tracking table has not been initialized in the database.");
       } else {
-        alert(msg || "Neural sync error. Verification link interrupted.");
+        // Fallback for non-security related Gemini failures
+        alert(msg || "Neural link interrupted. Please verify your connection.");
       }
     }
   };

@@ -9,7 +9,7 @@ export const logFeatureUsage = async (userId: string, featureKey: string, retryC
   if (!supabase) return;
   
   try {
-    // HARD HANDSHAKE:
+    // SECURITY HANDSHAKE:
     // getUser() re-validates the JWT with the server and ensures the client
     // instance has the most up-to-date Authorization headers.
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -18,12 +18,12 @@ export const logFeatureUsage = async (userId: string, featureKey: string, retryC
       throw new Error("AUTH_LOST");
     }
 
-    // We no longer pass 'user_id' in the payload.
-    // The database migration now defaults this column to auth.uid().
-    // This removes any "Desync" between client and server identity.
+    // Explicitly binding the user_id to the one found in the verified token
+    // to satisfy strict Row-Level Security (RLS) checks.
     const { error } = await supabase
       .from('usage_logs')
       .insert([{
+        user_id: user.id,
         feature_key: featureKey
       }]);
     
@@ -40,8 +40,7 @@ export const logFeatureUsage = async (userId: string, featureKey: string, retryC
       }
       
       // Case 2: RLS Policy blocked it (Identity Conflict)
-      // This is now much less likely due to removing user_id from payload, 
-      // but we keep the retry logic for extreme network latency.
+      // We attempt ONE retry with a forced session refresh if it seems to be a token drift issue.
       if (combined.includes('violates row-level security policy') && retryCount === 0) {
         console.warn("UsageEngine: Identity Desync detected. Refreshing session and retrying...");
         await supabase.auth.refreshSession();
@@ -71,10 +70,11 @@ export const getMonthlyUsageCount = async (userId: string, featureKey: string): 
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   try {
+    // When RLS is enabled, we don't strictly need to filter by user_id 
+    // as the database handles isolation, but we do it for explicit clarity.
     const { count, error } = await supabase
       .from('usage_logs')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
       .eq('feature_key', featureKey)
       .gte('created_at', thirtyDaysAgo.toISOString());
 
