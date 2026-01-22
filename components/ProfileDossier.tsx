@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
 import { Tier, UserProfile } from '../shared/types.ts';
+import { QuotaIndicator } from './QuotaIndicator.tsx';
 
 /**
  * ProfileDossier
@@ -16,7 +17,7 @@ const ProfileDossier: React.FC = () => {
   const [isUpgrading, setIsUpgrading] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'info' | 'subscription'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'subscription' | 'telemetry'>('info');
   
   const [formData, setFormData] = useState({
     displayName: '',
@@ -143,9 +144,10 @@ const ProfileDossier: React.FC = () => {
           <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[8px] sm:text-[9px]">Pilot License: {user?.tier.toUpperCase()}</p>
         </div>
         
-        <div className="flex bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm">
-          <button onClick={() => setActiveTab('info')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'info' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>Details</button>
-          <button onClick={() => setActiveTab('subscription')} className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'subscription' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>Upgrade Plan</button>
+        <div className="flex bg-white p-1.5 rounded-2xl border border-slate-100 shadow-sm overflow-x-auto scrollbar-hide">
+          <button onClick={() => setActiveTab('info')} className={`whitespace-nowrap px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'info' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>Details</button>
+          <button onClick={() => setActiveTab('telemetry')} className={`whitespace-nowrap px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'telemetry' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>Telemetry</button>
+          <button onClick={() => setActiveTab('subscription')} className={`whitespace-nowrap px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'subscription' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}>Upgrades</button>
         </div>
       </header>
 
@@ -164,7 +166,7 @@ const ProfileDossier: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
         <div className="lg:col-span-12">
-          {activeTab === 'info' ? (
+          {activeTab === 'info' && (
             <section className="bg-white rounded-[2.5rem] p-8 sm:p-12 shadow-sm border border-slate-100 relative overflow-hidden group">
               <div className="relative z-10 space-y-12">
                 <div className="flex items-center justify-between">
@@ -228,7 +230,41 @@ const ProfileDossier: React.FC = () => {
                 </form>
               </div>
             </section>
-          ) : (
+          )}
+
+          {activeTab === 'telemetry' && (
+            <section className="space-y-8 animate-slide-up">
+              <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 shadow-sm border border-slate-100">
+                <div className="space-y-1.5 mb-12">
+                   <h4 className="text-xl font-black text-slate-900 uppercase tracking-tighter">Pilot Telemetry</h4>
+                   <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">Resource Monitoring Dashboard</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                   <div className="space-y-10">
+                      <h5 className="text-[9px] font-black text-blue-600 uppercase tracking-[0.3em] border-b border-slate-50 pb-4">Infrastructure Quotas</h5>
+                      <QuotaIndicator capability="MAX_VEHICLES" label="Active Assets" variant="detailed" />
+                      <QuotaIndicator capability="SERVICE_LOGS_TOTAL" label="Service History Cap" variant="detailed" />
+                   </div>
+                   
+                   <div className="space-y-10">
+                      <h5 className="text-[9px] font-black text-emerald-600 uppercase tracking-[0.3em] border-b border-slate-50 pb-4">Neural Bandwidth (30d)</h5>
+                      <QuotaIndicator capability="AI_MECHANIC_MONTHLY" label="AI Mechanical Link" variant="detailed" />
+                      <QuotaIndicator capability="AI_SCAN_MONTHLY" label="Deep Condition Scans" variant="detailed" />
+                      <QuotaIndicator capability="FUEL_LOGS_MONTHLY" label="Fuel Intelligence Logs" variant="detailed" />
+                   </div>
+                </div>
+
+                <div className="mt-16 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                   <p className="text-[9px] text-slate-500 font-bold leading-relaxed uppercase tracking-widest">
+                     💡 PRO TIP: Upgrading your license instantly increases your neural bandwidth and storage capacity across all modules.
+                   </p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'subscription' && (
             <section className="space-y-8 animate-slide-up">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {(['free', 'standard', 'premium'] as Tier[]).map((tier) => (

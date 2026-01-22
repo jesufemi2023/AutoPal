@@ -6,6 +6,7 @@ import FuelEntryTerminal from '../FuelEntryTerminal.tsx';
 import { FuelLog } from '../../shared/types.ts';
 import { ENV } from '../../services/envService.ts';
 import { TierGuard } from '../TierGuard.tsx';
+import { QuotaIndicator } from '../QuotaIndicator.tsx';
 
 const FuelIntelligenceCenter: React.FC = () => {
   const { 
@@ -174,6 +175,7 @@ const FuelIntelligenceCenter: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-spin' : (fetchError ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse')}`}></div>
             <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">{isLoading ? 'Syncing...' : (fetchError ? 'Sync Error' : 'Metabolic Link Active')}</span>
+            <QuotaIndicator capability="FUEL_LOGS_MONTHLY" label="Refills This Month" />
           </div>
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Fuel <br/><span className="text-blue-600">Tracker</span></h2>
           

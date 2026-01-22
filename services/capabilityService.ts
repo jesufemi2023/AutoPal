@@ -3,7 +3,7 @@ import { Tier, CapabilityKey } from '../shared/types.ts';
 /**
  * AutoPal NG Capability Registry
  * Centralized mapping of features to their tiered constraints.
- * This is the VISUAL TRUTH for the UI.
+ * Aligned with the PostgreSQL 'fn_auto_pal_governor' trigger logic.
  */
 
 type CapabilityValue = number | boolean;
@@ -33,10 +33,10 @@ export const CAPABILITIES: Record<Tier, Record<CapabilityKey, CapabilityValue>> 
   },
   premium: {
     MAX_VEHICLES: 10,
-    FUEL_LOGS_MONTHLY: 999,
+    FUEL_LOGS_MONTHLY: 999, // Unrestricted in Governor
     AI_MECHANIC_MONTHLY: 8,
-    AI_SCAN_MONTHLY: 999,
-    SERVICE_LOGS_TOTAL: 12,
+    AI_SCAN_MONTHLY: 999,   // Unrestricted in Governor
+    SERVICE_LOGS_TOTAL: 100, // Aligned with SQL limit
     EXPORT_PDF: true,
     EXPORT_EXCEL: true,
     OWNERSHIP_REPORT: true,

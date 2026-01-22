@@ -3,6 +3,7 @@ import { AIResponse, Vehicle } from '../../shared/types.ts';
 import { TierGuard } from '../TierGuard.tsx';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { logFeatureUsage } from '../../services/usageService.ts';
+import { QuotaIndicator } from '../QuotaIndicator.tsx';
 
 interface Props {
   vehicle: Vehicle;
@@ -60,14 +61,17 @@ export const DiagnosticsPanel: React.FC<Props> = ({
       
       <div className="relative z-10 flex flex-col flex-grow">
         {!compact && (
-          <div className="flex items-center gap-5 mb-10">
-            <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30">
-              <span className="text-xl animate-pulse text-white">✧</span>
+          <div className="flex items-center justify-between mb-10">
+            <div className="flex items-center gap-5">
+              <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/30">
+                <span className="text-xl animate-pulse text-white">✧</span>
+              </div>
+              <div>
+                <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Diagnostic</h3>
+                <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Active Link: {vehicle.make} {vehicle.model}</p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Diagnostic</h3>
-              <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Active Link: {vehicle.make} {vehicle.model}</p>
-            </div>
+            <QuotaIndicator capability="AI_MECHANIC_MONTHLY" label="Neural Bandwidth" />
           </div>
         )}
         
