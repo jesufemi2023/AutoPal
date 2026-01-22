@@ -23,9 +23,21 @@ export const DiagnosticsPanel: React.FC<Props> = ({
   const diagImageRef = useRef<HTMLInputElement>(null);
 
   const handleAnalyzeWithUsage = async () => {
-    onAnalyze();
-    if (user?.id) {
-      await logFeatureUsage(user.id, 'ai_mechanic_monthly');
+    // 1. Quota Check - Must happen at start to prevent "wasted" AI generation if blocked
+    try {
+      if (user?.id) {
+        await logFeatureUsage(user.id, 'ai_mechanic_monthly');
+      }
+      
+      // 2. Trigger parent analysis logic
+      onAnalyze();
+    } catch (quotaErr: any) {
+      if (quotaErr.message === 'QUOTA_EXHAUSTED') {
+        alert("Quota Full: Your current Pilot License allows for 1 AI Mechanical diagnostic per month. Upgrade to increase capacity.");
+      } else {
+        alert("Neural sync error. Please try again.");
+      }
+      // Note: we don't need to manually clear isAskingAI here because the parent's onAnalyze handles the finally block
     }
   };
 

@@ -42,7 +42,7 @@ const ProfileDossier: React.FC = () => {
     try {
       if (!supabase) throw new Error("Connection Error: Cloud link offline.");
 
-      // Update Database - Note: This will be blocked if the tr_lock_user_tier trigger is active
+      // Update Database - Note: This will be blocked by tr_lock_user_tier trigger for security
       const { error } = await supabase
         .from('Users')
         .update({ tier: newTier })
@@ -56,10 +56,16 @@ const ProfileDossier: React.FC = () => {
       
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
-      // If the trigger blocks it, we show the specialized security message
-      setErrorMessage(err.message || "Failed to upgrade tier. Security restriction or connection fault.");
-      console.error("Tier Upgrade Error:", err);
+      // Catch trigger-based security errors and explain the lock
+      const msg = err.message || "";
+      if (msg.includes('UNAUTHORIZED')) {
+        setErrorMessage("Identity Locked: Tier changes must be processed via the Secure Payment Gateway. Self-update is restricted.");
+      } else {
+        setErrorMessage(err.message || "Failed to upgrade tier. Connection fault.");
+      }
+      console.error("Tier Upgrade Refused:", err);
     } finally {
+      // CRITICAL: Ensure rolling stops even on error
       setIsUpgrading(null);
     }
   };
@@ -75,7 +81,7 @@ const ProfileDossier: React.FC = () => {
     try {
       if (!supabase) throw new Error("Connection Error: Cloud link offline.");
       
-      // 1. Update the Public Profile Table
+      // 1. Update the Public Profile Table ("Users")
       const { error: dbError } = await supabase
         .from('Users')
         .update({ 
@@ -86,15 +92,19 @@ const ProfileDossier: React.FC = () => {
       
       if (dbError) throw dbError;
 
-      // 2. Update Auth Metadata
-      const { data: authData, error: authError } = await supabase.auth.updateUser({
+      // Reset UI state immediately after DB success to prevent "hanging" 
+      // if metadata sync is sluggish
+      setIsSaving(false);
+      setIsEditing(false);
+      setSuccessMessage("Profile synchronized successfully.");
+
+      // 2. Background Sync with Auth Metadata
+      supabase.auth.updateUser({
         data: {
           display_name: formData.displayName,
           phone: formData.phone
         }
-      });
-      
-      if (authError) throw authError;
+      }).catch(err => console.warn("Background Auth Sync Latency:", err));
       
       // 3. Update Local Global State
       setUser({
@@ -103,16 +113,9 @@ const ProfileDossier: React.FC = () => {
         phone: formData.phone
       });
       
-      setSuccessMessage("Profile synchronized successfully.");
-      setIsEditing(false);
-      
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
+      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to update profile.");
-      console.error("Profile Update Error:", err);
-    } finally {
       setIsSaving(false);
     }
   };

@@ -21,21 +21,34 @@ export const ResaleValuationCard: React.FC<{
     setIsAnalyzing(true);
     try {
       const report = await generateAIValuation(vehicle, tasks, serviceLogs, fuelLogs);
+      
+      // Attempt to Log Usage - This is the "Governor" check
+      if (user?.id) {
+        try {
+          await logFeatureUsage(user.id, 'ai_scan_monthly');
+        } catch (quotaErr: any) {
+          if (quotaErr.message === 'QUOTA_EXHAUSTED') {
+            throw new Error("QUOTA: You have reached the monthly AI Scan limit for your current Pilot License.");
+          }
+          throw quotaErr;
+        }
+      }
+
       const updatedVehicle = await updateVehicle(vehicle.id, { 
         latestAiAudit: report,
         healthScore: report.auditedScores.vitality 
       });
       
-      // Log usage for quota tracking
-      if (user?.id) {
-        await logFeatureUsage(user.id, 'ai_scan_monthly');
-      }
-
       updateVehicleStore(updatedVehicle);
-    } catch (e) {
-      console.error(e);
-      alert("Neural Link Interrupted. Please check your network and try again.");
+    } catch (e: any) {
+      console.error("AI Audit Logic Fault:", e);
+      if (e.message.startsWith("QUOTA")) {
+        alert(e.message);
+      } else {
+        alert("Neural Link Interrupted. Please check your network and try again.");
+      }
     } finally {
+      // Ensure "Rolling" state is ALWAYS cleared
       setIsAnalyzing(false);
     }
   };
