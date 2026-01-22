@@ -38,8 +38,10 @@ export const DiagnosticsPanel: React.FC<Props> = ({
 
       if (msg === 'QUOTA_EXHAUSTED' || msg.includes('QUOTA_EXHAUSTED')) {
         alert("Quota Full: Your current Pilot License allows for 1 AI Mechanical diagnostic per month. Upgrade to increase capacity.");
+      } else if (msg === 'AUTH_LOST') {
+        alert("Session Expired: Your security token has lapsed. Please sign out and sign back in to continue.");
       } else if (msg === 'IDENTITY_DESYNC') {
-        alert("Profile Initialization Pending: Your secure neural link is being established. Please refresh the page to finalize your Pilot ID sync.");
+        alert("Critical Identity Conflict: The database cannot verify your Pilot ID. If you have already refreshed, please Sign Out and Sign In again to reset your secure neural link.");
       } else if (msg.includes('Infrastructure missing')) {
         alert("System Configuration Error: The usage tracking table has not been initialized in the database.");
       } else {

@@ -9,10 +9,20 @@ export const logFeatureUsage = async (userId: string, featureKey: string) => {
   if (!supabase) return;
   
   try {
+    // SECURITY HANDSHAKE: 
+    // Instead of trusting the userId passed from the UI state (which can be stale),
+    // we fetch the current session's UID directly from the auth client.
+    const { data: { session } } = await supabase.auth.getSession();
+    const activeUid = session?.user?.id;
+
+    if (!activeUid) {
+      throw new Error("AUTH_LOST");
+    }
+
     const { error } = await supabase
       .from('usage_logs')
       .insert([{
-        user_id: userId,
+        user_id: activeUid, // Force alignment with session UID
         feature_key: featureKey
       }]);
     
@@ -28,7 +38,7 @@ export const logFeatureUsage = async (userId: string, featureKey: string) => {
         throw new Error("QUOTA_EXHAUSTED");
       }
       
-      // Case 2: RLS Policy blocked it (Identity Mismatch or Profile missing)
+      // Case 2: RLS Policy blocked it (Persistent Identity Mismatch)
       if (combined.includes('violates row-level security policy')) {
         throw new Error("IDENTITY_DESYNC");
       }
