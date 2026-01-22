@@ -9,7 +9,7 @@ import { Tier, UserProfile } from '../shared/types.ts';
  * Handles Tier switching and personal information updates.
  */
 const ProfileDossier: React.FC = () => {
-  const { user, setUser, vehicles, serviceLogs } = useAutoPalStore();
+  const { user, setUser } = useAutoPalStore();
   
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -37,11 +37,12 @@ const ProfileDossier: React.FC = () => {
     
     setIsUpgrading(newTier);
     setErrorMessage(null);
+    setSuccessMessage(null);
 
     try {
-      if (!supabase) throw new Error("Connection Error");
+      if (!supabase) throw new Error("Connection Error: Cloud link offline.");
 
-      // Update Database
+      // Update Database - Note: This will be blocked if the tr_lock_user_tier trigger is active
       const { error } = await supabase
         .from('Users')
         .update({ tier: newTier })
@@ -55,7 +56,9 @@ const ProfileDossier: React.FC = () => {
       
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to upgrade tier. Contact support.");
+      // If the trigger blocks it, we show the specialized security message
+      setErrorMessage(err.message || "Failed to upgrade tier. Security restriction or connection fault.");
+      console.error("Tier Upgrade Error:", err);
     } finally {
       setIsUpgrading(null);
     }
@@ -70,42 +73,46 @@ const ProfileDossier: React.FC = () => {
     setSuccessMessage(null);
 
     try {
-      if (!supabase) throw new Error("Connection Error");
+      if (!supabase) throw new Error("Connection Error: Cloud link offline.");
       
+      // 1. Update the Public Profile Table
       const { error: dbError } = await supabase
         .from('Users')
         .update({ 
-          "display_name": formData.displayName, 
-          "phone": formData.phone 
+          display_name: formData.displayName, 
+          phone: formData.phone 
         })
         .eq('id', user.id);
       
       if (dbError) throw dbError;
 
+      // 2. Update Auth Metadata
       const { data: authData, error: authError } = await supabase.auth.updateUser({
         data: {
-          "display_name": formData.displayName,
-          "phone": formData.phone
+          display_name: formData.displayName,
+          phone: formData.phone
         }
       });
       
       if (authError) throw authError;
       
-      if (authData?.user) {
-        setUser({
-          ...user,
-          displayName: formData.displayName,
-          phone: formData.phone
-        });
-        setSuccessMessage("Profile updated successfully.");
-        setTimeout(() => {
-          setIsEditing(false);
-          setSuccessMessage(null);
-          setIsSaving(false);
-        }, 1500);
-      }
+      // 3. Update Local Global State
+      setUser({
+        ...user,
+        displayName: formData.displayName,
+        phone: formData.phone
+      });
+      
+      setSuccessMessage("Profile synchronized successfully.");
+      setIsEditing(false);
+      
+      setTimeout(() => {
+        setSuccessMessage(null);
+      }, 3000);
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to update profile.");
+      console.error("Profile Update Error:", err);
+    } finally {
       setIsSaving(false);
     }
   };
@@ -176,19 +183,43 @@ const ProfileDossier: React.FC = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-8">
                     <div className="space-y-3">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
-                      <input type="text" required disabled={!isEditing || isSaving} className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-5 font-bold text-sm outline-none focus:border-blue-600 transition-all" value={formData.displayName} onChange={e => setFormData({ ...formData, displayName: e.target.value })} />
+                      <input 
+                        type="text" 
+                        required 
+                        disabled={!isEditing || isSaving} 
+                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-5 font-bold text-sm outline-none focus:border-blue-600 transition-all disabled:opacity-60" 
+                        value={formData.displayName} 
+                        onChange={e => setFormData({ ...formData, displayName: e.target.value })} 
+                      />
                     </div>
                     <div className="space-y-3">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phone</label>
-                      <input type="tel" disabled={!isEditing || isSaving} className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-5 font-mono font-bold text-sm outline-none focus:border-blue-600 transition-all" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} />
+                      <input 
+                        type="tel" 
+                        disabled={!isEditing || isSaving} 
+                        className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-5 font-mono font-bold text-sm outline-none focus:border-blue-600 transition-all disabled:opacity-60" 
+                        value={formData.phone} 
+                        onChange={e => setFormData({ ...formData, phone: e.target.value })} 
+                      />
                     </div>
                   </div>
                   {isEditing && (
                     <div className="flex gap-4">
-                      <button type="submit" disabled={isSaving} className="flex-grow bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-blue-700 transition-all disabled:opacity-50">
-                        {isSaving ? 'Updating...' : 'Save Profile'}
+                      <button 
+                        type="submit" 
+                        disabled={isSaving} 
+                        className="flex-grow bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] hover:bg-blue-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {isSaving && <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>}
+                        {isSaving ? 'Synchronizing...' : 'Save Profile'}
                       </button>
-                      <button type="button" onClick={() => setIsEditing(false)} className="px-10 py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[11px]">Cancel</button>
+                      <button 
+                        type="button" 
+                        onClick={() => setIsEditing(false)} 
+                        className="px-10 py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[11px]"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   )}
                 </form>
@@ -215,7 +246,7 @@ const ProfileDossier: React.FC = () => {
                     <button 
                       onClick={() => handleTierChange(tier)}
                       disabled={user?.tier === tier || isUpgrading !== null}
-                      className={`mt-10 w-full py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] transition-all flex items-center justify-center gap-3 ${user?.tier === tier ? 'bg-emerald-50 text-emerald-600 cursor-default' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-lg active:scale-95'}`}
+                      className={`mt-10 w-full py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] transition-all flex items-center justify-center gap-3 ${user?.tier === tier ? 'bg-emerald-50 text-emerald-600 cursor-default' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-lg active:scale-95 disabled:opacity-70'}`}
                     >
                       {isUpgrading === tier ? (
                         <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
