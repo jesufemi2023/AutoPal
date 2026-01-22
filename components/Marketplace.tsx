@@ -5,12 +5,11 @@ import { fetchMarketplaceProducts, generateWhatsAppLink } from '../services/mark
 import { MarketplaceProduct } from '../shared/types.ts';
 
 const Marketplace: React.FC = () => {
-  const { user, marketplace, setMarketplace, suggestedPartNames, marketplaceFilter, setMarketplaceFilter, vehicles } = useAutoPalStore();
+  const { marketplace, setMarketplace, suggestedPartNames, marketplaceFilter, setMarketplaceFilter, vehicles } = useAutoPalStore();
   const [filter, setFilter] = useState(marketplaceFilter);
   const [loading, setLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('all');
 
-  const tier = user?.tier || 'free';
   const activeVehicle = vehicles[0];
 
   useEffect(() => {
@@ -28,6 +27,7 @@ const Marketplace: React.FC = () => {
     loadMarketplace();
   }, [setMarketplace]);
 
+  // Sync internal filter with store filter
   useEffect(() => {
     if (marketplaceFilter) {
       setFilter(marketplaceFilter);
@@ -56,7 +56,7 @@ const Marketplace: React.FC = () => {
       <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 sm:gap-8 px-2">
         <div>
           <h2 className="text-4xl sm:text-6xl lg:text-7xl font-black text-slate-900 tracking-tighter">Marketplace</h2>
-          <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] sm:text-[10px] mt-2 sm:mt-4">Supply Chain Intelligence v1.4</p>
+          <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] sm:text-[10px] mt-2 sm:mt-4">Supply Chain v1.3</p>
         </div>
         
         <div className="relative group w-full lg:w-96">
@@ -74,6 +74,15 @@ const Marketplace: React.FC = () => {
         </div>
       </header>
 
+      {marketplaceFilter && (
+        <div className="flex justify-between items-center bg-blue-50 p-4 rounded-2xl border border-blue-100">
+          <p className="text-[10px] font-black uppercase tracking-widest text-blue-600">
+            Filtered for Task: <span className="text-blue-800">{marketplaceFilter}</span>
+          </p>
+          <button onClick={() => {setFilter(''); setMarketplaceFilter('');}} className="text-blue-600 text-[10px] font-black">CLEAR X</button>
+        </div>
+      )}
+
       {/* Category Pills */}
       <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0">
         {categories.map(cat => (
@@ -88,40 +97,26 @@ const Marketplace: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8 md:gap-10">
-        {sortedItems.map((item) => {
+        {sortedItems.map((item, idx) => {
           const isMatch = activeVehicle && item.compatibility.some(c => item.name.toLowerCase().includes(activeVehicle.model.toLowerCase()) || c.toLowerCase().includes(activeVehicle.make.toLowerCase()));
-          const isLocked = item.isPremium && tier === 'free';
-
           return (
             <div key={item.id} className="bg-white card-radius p-6 sm:p-8 border transition-all hover:shadow-2xl flex flex-col group relative">
-              {isLocked && (
-                <div className="absolute inset-0 z-20 bg-slate-950/5 backdrop-blur-[2px] rounded-[2.5rem] flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-300">
-                   <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-xl shadow-xl mb-4 border border-slate-100">🔒</div>
-                   <p className="text-[10px] font-black uppercase tracking-widest text-slate-900 mb-2">Performance Upgrade</p>
-                   <p className="text-[8px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed">Available for Standard & Premium Pilots</p>
-                </div>
-              )}
-              
               <div className="flex justify-between items-start mb-6">
-                <span className="bg-slate-50 text-slate-400 text-[7px] font-black px-3 py-1 rounded-lg uppercase tracking-widest border border-slate-100">
-                  {item.isPremium && '✨ '} {item.category}
-                </span>
+                <span className="bg-slate-50 text-slate-400 text-[7px] font-black px-3 py-1 rounded-lg uppercase tracking-widest border border-slate-100">{item.category}</span>
                 {isMatch && <span className="bg-blue-600 text-white text-[7px] font-black px-2.5 py-1 rounded-lg uppercase tracking-widest">Match</span>}
               </div>
-              <h3 className={`text-xl font-black text-slate-900 mb-3 group-hover:text-blue-600 transition-colors ${isLocked ? 'opacity-40' : ''}`}>{item.name}</h3>
-              <p className={`text-slate-400 text-[9px] font-black uppercase tracking-widest mb-6 ${isLocked ? 'opacity-40' : ''}`}>{item.vendorName}</p>
-              
+              <h3 className="text-xl font-black text-slate-900 mb-3 group-hover:text-blue-600 transition-colors">{item.name}</h3>
+              <p className="text-slate-400 text-[9px] font-black uppercase tracking-widest mb-6">{item.vendorName}</p>
               <div className="mt-auto pt-6 border-t border-slate-50 flex items-center justify-between">
-                <div className={isLocked ? 'opacity-40' : ''}>
+                <div>
                   <div className="text-[7px] font-black text-slate-300 uppercase tracking-widest mb-1">Price</div>
                   <div className="text-xl font-black text-slate-900 leading-none">₦{item.price.toLocaleString()}</div>
                 </div>
                 <button 
-                  disabled={isLocked}
                   onClick={() => window.open(generateWhatsAppLink(item, activeVehicle ? `${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}` : 'Generic'), '_blank')}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${isLocked ? 'bg-slate-100 text-slate-300' : 'bg-slate-900 text-white hover:bg-emerald-600'}`}
+                  className="bg-slate-900 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-emerald-600 transition-all"
                 >
-                  {isLocked ? '🔒' : '🛒'}
+                  🛒
                 </button>
               </div>
             </div>
@@ -132,4 +127,5 @@ const Marketplace: React.FC = () => {
   );
 };
 
+// Fix: Added missing default export
 export default Marketplace;

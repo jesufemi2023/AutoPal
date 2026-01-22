@@ -1,8 +1,6 @@
 
 import React, { useRef } from 'react';
 import { AIResponse, Vehicle } from '../../shared/types.ts';
-import { useAutoPalStore } from '../../shared/store.ts';
-import { EntitlementEngine } from '../../services/entitlementService.ts';
 
 interface Props {
   vehicle: Vehicle;
@@ -19,24 +17,7 @@ interface Props {
 export const DiagnosticsPanel: React.FC<Props> = ({ 
   vehicle, symptom, setSymptom, diagImage, setDiagImage, isAskingAI, onAnalyze, aiAdvice, compact = false 
 }) => {
-  const { user, getUsageStats, incrementDiagnosticUsage } = useAutoPalStore();
   const diagImageRef = useRef<HTMLInputElement>(null);
-
-  const tier = user?.tier || 'free';
-  const stats = getUsageStats();
-  const canAnalyze = EntitlementEngine.canRunAiDiagnostic(tier, stats.monthlyAiDiagnosticCount);
-
-  const handleAnalyze = () => {
-    if (!canAnalyze) {
-      const limit = EntitlementEngine.getLimit(tier, 'monthlyAiDiagnostics');
-      alert(`Quota Reached: Your current plan only allows ${limit} AI Diagnostic per month. Please upgrade for more.`);
-      return;
-    }
-    onAnalyze();
-    // In a real app, this would be handled inside the service call, 
-    // but for the MVP UI guard, we increment it here.
-    incrementDiagnosticUsage();
-  };
 
   const containerClasses = compact 
     ? "bg-slate-950 text-white rounded-2xl p-4 shadow-xl relative overflow-hidden flex flex-col border border-white/10"
@@ -61,12 +42,7 @@ export const DiagnosticsPanel: React.FC<Props> = ({
               <span className="text-xl animate-pulse text-white">✧</span>
             </div>
             <div>
-              <div className="flex items-center gap-3">
-                <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Diagnostic</h3>
-                <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest bg-blue-600/10 px-2 py-0.5 rounded">
-                  Quota: {stats.monthlyAiDiagnosticCount}/{EntitlementEngine.getLimit(tier, 'monthlyAiDiagnostics')}
-                </span>
-              </div>
+              <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Diagnostic</h3>
               <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Active Link: {vehicle.make} {vehicle.model}</p>
             </div>
           </div>
@@ -112,10 +88,10 @@ export const DiagnosticsPanel: React.FC<Props> = ({
 
             <button 
               disabled={isAskingAI || !symptom}
-              onClick={handleAnalyze}
-              className={`w-full py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl transition-all active:scale-95 ${canAnalyze ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-50'}`}
+              onClick={onAnalyze}
+              className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl disabled:opacity-20 transition-all hover:bg-blue-700 active:scale-95"
             >
-              {canAnalyze ? 'Analyze Symptoms' : 'Monthly Limit Reached'}
+              Analyze Symptoms
             </button>
           </div>
 

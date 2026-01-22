@@ -18,7 +18,7 @@ const Dashboard: React.FC = () => {
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
     updateMileage: updateStoreMileage,
-    loadLocalData, setVehicles, isInitialized
+    loadLocalData, setVehicles
   } = useAutoPalStore();
 
   const [showOdometerModal, setShowOdometerModal] = useState(false);
@@ -52,8 +52,8 @@ const Dashboard: React.FC = () => {
   }, [activeVehicle, tasks, activeFuelLogs, activeServiceLogs]);
 
   useEffect(() => {
-    if (!isInitialized) loadLocalData();
-  }, [isInitialized, loadLocalData]);
+    loadLocalData();
+  }, [loadLocalData]);
 
   useEffect(() => {
     const syncVehicles = async () => {
@@ -75,8 +75,6 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     if (vehicles.length > 0 && !activeVehicleId) {
       setActiveVehicleId(vehicles[0].id);
-    } else if (activeVehicleId && !vehicles.some(v => v.id === activeVehicleId) && vehicles.length > 0) {
-      setActiveVehicleId(vehicles[0].id);
     }
   }, [vehicles, activeVehicleId, setActiveVehicleId]);
 
@@ -92,9 +90,6 @@ const Dashboard: React.FC = () => {
         setTasks(taskList);
         setServiceLogs(logList);
         setFuelLogs(fuelList);
-      })
-      .catch((err) => {
-        console.error("Dashboard Intelligence Sync Fault:", err);
       })
       .finally(() => setIsLoadingDetails(false));
     }
@@ -116,34 +111,22 @@ const Dashboard: React.FC = () => {
         <div className="shrink-0">
           <div className="flex items-center gap-2 mb-1">
             <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">Vehicle <span className="text-blue-600">Hub</span></h1>
-            {(isSyncing || isLoadingDetails) && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2"></div>}
+            {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2"></div>}
           </div>
           <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">Active Fleet Monitoring</p>
         </div>
         
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
-          {vehicles.length > 1 && (
-            <>
-              <button 
-                onClick={() => handleScroll('left')}
-                className="flex absolute -left-2 top-1/2 -translate-y-1/2 z-[100] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-2xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all active:scale-90"
-                aria-label="Scroll Left"
-              >
-                ←
-              </button>
-              <button 
-                onClick={() => handleScroll('right')}
-                className="flex absolute -right-2 top-1/2 -translate-y-1/2 z-[100] w-10 h-10 bg-white border border-slate-200 rounded-full items-center justify-center shadow-2xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all active:scale-90"
-                aria-label="Scroll Right"
-              >
-                →
-              </button>
-            </>
-          )}
+          <button 
+            onClick={() => handleScroll('left')}
+            className="hidden lg:flex absolute left-4 top-1/2 -translate-y-1/2 z-[30] w-10 h-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
+          >
+            ←
+          </button>
           
           <div 
             ref={scrollContainerRef}
-            className="flex gap-3 overflow-x-auto scrollbar-hide scrollbar-desktop-show py-2 px-4 -mx-0.5 flex-nowrap snap-x snap-mandatory scroll-smooth"
+            className="flex gap-3 overflow-x-auto scrollbar-hide scrollbar-desktop-show py-1.5 px-0.5 -mx-0.5 flex-nowrap snap-x snap-mandatory scroll-smooth"
           >
             {vehicles.map(v => (
               <button 
@@ -160,6 +143,13 @@ const Dashboard: React.FC = () => {
               </button>
             ))}
           </div>
+
+          <button 
+            onClick={() => handleScroll('right')}
+            className="hidden lg:flex absolute right-4 top-1/2 -translate-y-1/2 z-[30] w-10 h-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
+          >
+            →
+          </button>
         </div>
       </header>
 
@@ -179,13 +169,7 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          <MaintenanceRoadmap 
-            vehicle={activeVehicle} 
-            tasks={vehicleTasks} 
-            logs={activeServiceLogs} 
-            isLoading={isLoadingDetails} 
-            onLog={() => setCurrentView('service')} 
-          />
+          <MaintenanceRoadmap vehicle={activeVehicle} tasks={vehicleTasks} isLoading={isLoadingDetails} onLog={() => setCurrentView('service')} />
         </div>
       ) : (
         !isLoadingDetails && (
@@ -200,7 +184,7 @@ const Dashboard: React.FC = () => {
 
       {showOdometerModal && activeVehicle && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-xl">
-          <div className="w-full max-sm animate-slide-up">
+          <div className="w-full max-w-sm animate-slide-up">
             <OdometerInput value={activeVehicle.mileage} onSave={async (v) => { 
               await updateMileage(activeVehicle.id, v); 
               updateStoreMileage(activeVehicle.id, v); 

@@ -14,8 +14,7 @@ const MOCK_PARTS: MarketplaceProduct[] = [
     price: 18500,
     vendorName: 'Autozuby Parts Lagos',
     isVerified: true,
-    compatibility: ['Honda Civic', 'Toyota Corolla', 'Toyota Camry'],
-    isPremium: false
+    compatibility: ['Honda Civic', 'Toyota Corolla', 'Toyota Camry']
   },
   {
     id: 'p2',
@@ -24,8 +23,7 @@ const MOCK_PARTS: MarketplaceProduct[] = [
     price: 45000,
     vendorName: 'Lubricant Hub Abuja',
     isVerified: true,
-    compatibility: ['Toyota', 'Honda', 'Lexus', 'Mazda'],
-    isPremium: false
+    compatibility: ['Toyota', 'Honda', 'Lexus', 'Mazda']
   },
   {
     id: 'p3',
@@ -34,8 +32,7 @@ const MOCK_PARTS: MarketplaceProduct[] = [
     price: 32000,
     vendorName: 'Genuine Spares Garki',
     isVerified: true,
-    compatibility: ['Toyota Camry', 'Toyota Avalon', 'Lexus ES350'],
-    isPremium: true
+    compatibility: ['Toyota Camry', 'Toyota Avalon', 'Lexus ES350']
   },
   {
     id: 'p4',
@@ -44,8 +41,7 @@ const MOCK_PARTS: MarketplaceProduct[] = [
     price: 8500,
     vendorName: 'QuickParts Port Harcourt',
     isVerified: false,
-    compatibility: ['Toyota Corolla', 'Toyota Rav4'],
-    isPremium: false
+    compatibility: ['Toyota Corolla', 'Toyota Rav4']
   },
   {
     id: 'p5',
@@ -54,8 +50,7 @@ const MOCK_PARTS: MarketplaceProduct[] = [
     price: 120000,
     vendorName: 'Ladipo Master Parts',
     isVerified: true,
-    compatibility: ['Lexus RX350', 'Toyota Highlander'],
-    isPremium: true
+    compatibility: ['Lexus RX350', 'Toyota Highlander']
   }
 ];
 

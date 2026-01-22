@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -18,7 +17,6 @@ import { fetchUserVehicles, archiveVehicle } from './services/vehicleService.ts'
 import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
-import { PlanGuard } from './components/PlanGuard.tsx';
 import { Car, Menu, X } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -42,6 +40,7 @@ const App: React.FC = () => {
     loadLocalData();
   }, []);
 
+  // Sync session and fetch full user profile (including updated roles)
   useEffect(() => {
     const initAuth = async () => {
       if (!isSupabaseConfigured) {
@@ -77,10 +76,10 @@ const App: React.FC = () => {
         setInitialized(true);
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          setSession(session);
           if (!session) {
-            await reset();
+            reset();
           } else {
-            setSession(session);
             const { data: profile } = await supabase.from('Users').select('*').eq('id', session.user.id).single();
             if (profile) {
               setUser({
@@ -120,22 +119,13 @@ const App: React.FC = () => {
   const handleSignOut = async () => {
     if (!supabase) return;
     try {
-      // 1. Instant local reset to snap the UI back to landing
-      setSession(null);
-      setUser(null);
+      await supabase.auth.signOut();
+      await reset();
       setIsMobileMenuOpen(false);
       setIsManagePanelOpen(false);
       setCurrentView('landing');
-      
-      // 2. Perform background cleanup
-      await Promise.all([
-        supabase.auth.signOut(),
-        reset()
-      ]);
     } catch (e) {
-      console.error("Critical Signout Fault:", e);
-      // Fallback: Clear storage and force reload if logic hangs
-      localStorage.clear();
+      console.error("Signout Error:", e);
       window.location.reload(); 
     }
   };
@@ -290,7 +280,7 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Slide-out Control Panel */}
+      {/* Slide-out Control Panel (Secondary Menu) */}
       <div 
         className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[20px] opacity-0 pointer-events-none translate-x-[-50px]'}`}
       >
@@ -321,11 +311,7 @@ const App: React.FC = () => {
             {currentView === 'marketplace' && <Marketplace />}
             {currentView === 'admin' && <AdminPanel />}
             {currentView === 'profile' && <ProfileDossier />}
-            {currentView === 'report' && (
-              <PlanGuard requirement={(t) => t !== 'free'} fallbackMode="blur" label="Ownership Intelligence">
-                <GlobalReportingCenter />
-              </PlanGuard>
-            )}
+            {currentView === 'report' && <GlobalReportingCenter />}
             {currentView === 'diagnostic' && activeVehicle && (
               <div className="max-w-4xl mx-auto w-full space-y-8">
                 <header className="px-1">

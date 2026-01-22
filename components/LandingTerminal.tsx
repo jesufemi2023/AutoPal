@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
@@ -47,17 +46,9 @@ const LandingTerminal: React.FC = () => {
   };
 
   const handleSignOut = async () => {
-    if (!supabase) return;
-    try {
-      // 1. Force state reset locally first
-      await reset();
-      // 2. Perform background logout
+    if (supabase) {
       await supabase.auth.signOut();
-      // 3. Clear storage and refresh to ensure total isolation
-      localStorage.clear();
-      window.location.reload();
-    } catch (e) {
-      console.warn("Signout Handshake Delayed:", e);
+      await reset();
       window.location.reload();
     }
   };

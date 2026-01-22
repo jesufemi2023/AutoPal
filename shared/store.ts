@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
 import { localDb } from '../services/localDb.ts';
@@ -26,14 +25,6 @@ interface AutoPalState {
   marketplace: any[];
   marketplaceFilter: string;
 
-  // Usage Stats
-  getUsageStats: () => {
-    monthlyServiceCount: number;
-    monthlyFuelCount: number;
-    monthlyAiScanCount: number;
-    monthlyAiDiagnosticCount: number;
-  };
-
   setSession: (session: any) => void;
   setUser: (user: UserProfile | null) => void;
   setInitialized: (initialized: boolean) => void;
@@ -45,7 +36,6 @@ interface AutoPalState {
   setActiveVehicleId: (id: string | null) => void;
   setTransientVehicle: (vehicle: TransientVehicle | null) => void;
   incrementGuestAttempts: () => void;
-  incrementDiagnosticUsage: () => void;
   setVehicles: (vehicles: Vehicle[]) => void;
   addVehicle: (vehicle: Vehicle) => void;
   updateVehicleStore: (vehicle: Vehicle) => void;
@@ -93,33 +83,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   marketplace: [],
   marketplaceFilter: '',
 
-  getUsageStats: () => {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-
-    const filterMonthly = (items: any[]) => items.filter(i => {
-      const date = new Date(i.createdAt || i.serviceDate || i.timestamp);
-      return date >= startOfMonth;
-    }).length;
-
-    const diagHistory = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
-    const currentMonthDiagCount = diagHistory.filter((ts: string) => new Date(ts) >= startOfMonth).length;
-
-    return {
-      monthlyServiceCount: filterMonthly(get().serviceLogs),
-      monthlyFuelCount: filterMonthly(get().fuelLogs),
-      monthlyAiScanCount: filterMonthly(Object.values(get().aiValuationReports)),
-      monthlyAiDiagnosticCount: currentMonthDiagCount
-    };
-  },
-
-  incrementDiagnosticUsage: () => {
-    const history = JSON.parse(localStorage.getItem('autopal_diag_usage') || '[]');
-    history.push(new Date().toISOString());
-    localStorage.setItem('autopal_diag_usage', JSON.stringify(history));
-    set({ isInitialized: true });
-  },
-
   checkDirtyStatus: async () => {
     const { vehicles, tasks, logs, fuel } = await localDb.getDirtyRecords();
     set({ hasDirtyData: vehicles.length + tasks.length + logs.length + fuel.length > 0 });
@@ -131,6 +94,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     try {
       await performPushSync();
       await get().checkDirtyStatus();
+      // Re-load to ensure UI has latest cloud IDs
       if (get().activeVehicleId) {
         const vehicleId = get().activeVehicleId!;
         const [logs, fuel, tasks] = await Promise.all([
@@ -164,8 +128,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       activeVehicleId: activeId,
       fuelLogs: localFuel,
       serviceLogs: localService,
-      tasks: localTasks,
-      isInitialized: true
+      tasks: localTasks
     });
     
     await get().checkDirtyStatus();
@@ -173,7 +136,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
 
   setSession: (session) => {
     if (!session) {
-      set({ session: null, user: null });
+      if (get().session !== null) set({ session: null, user: null });
       return;
     }
     const { user: supabaseUser } = session;
@@ -208,11 +171,9 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   }),
 
   setVehicles: (vehicles) => {
-    const currentActiveId = get().activeVehicleId;
-    const isCurrentIdStillValid = vehicles.some(v => v.id === currentActiveId);
     set({ 
       vehicles,
-      activeVehicleId: isCurrentIdStillValid ? currentActiveId : (vehicles.length > 0 ? vehicles[0].id : null)
+      activeVehicleId: get().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
     });
     vehicles.forEach(v => localDb.saveVehicle(v));
     get().checkDirtyStatus();
