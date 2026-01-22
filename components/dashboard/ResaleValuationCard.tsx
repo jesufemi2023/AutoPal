@@ -20,9 +20,7 @@ export const ResaleValuationCard: React.FC<{
   const handleAiAnalysis = async () => {
     setIsAnalyzing(true);
     try {
-      const report = await generateAIValuation(vehicle, tasks, serviceLogs, fuelLogs);
-      
-      // Attempt to Log Usage - This is the "Governor" check
+      // 1. Quota Check - Log usage BEFORE calling expensive AI
       if (user?.id) {
         try {
           await logFeatureUsage(user.id, 'ai_scan_monthly');
@@ -37,6 +35,9 @@ export const ResaleValuationCard: React.FC<{
         }
       }
 
+      // 2. AI Execution - Now safe to call
+      const report = await generateAIValuation(vehicle, tasks, serviceLogs, fuelLogs);
+      
       const updatedVehicle = await updateVehicle(vehicle.id, { 
         latestAiAudit: report,
         healthScore: report.auditedScores.vitality 
@@ -53,7 +54,6 @@ export const ResaleValuationCard: React.FC<{
         alert("Verification Link Failure. Please check your Pilot License status or network connection.");
       }
     } finally {
-      // Ensure "Rolling" state is ALWAYS cleared, even if catch crashes
       setIsAnalyzing(false);
     }
   };

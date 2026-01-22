@@ -18,12 +18,13 @@ export const logFeatureUsage = async (userId: string, featureKey: string, retryC
       throw new Error("AUTH_LOST");
     }
 
-    // Explicitly binding the user_id to the one found in the verified token
-    // to satisfy strict Row-Level Security (RLS) checks.
+    // SURGICAL FIX: We omit 'user_id' from the payload.
+    // The database column has 'DEFAULT auth.uid()'. 
+    // This allows the server to handle the identity mapping via the JWT, 
+    // which is the only 100% reliable way to pass RLS checks.
     const { error } = await supabase
       .from('usage_logs')
       .insert([{
-        user_id: user.id,
         feature_key: featureKey
       }]);
     
@@ -40,7 +41,6 @@ export const logFeatureUsage = async (userId: string, featureKey: string, retryC
       }
       
       // Case 2: RLS Policy blocked it (Identity Conflict)
-      // We attempt ONE retry with a forced session refresh if it seems to be a token drift issue.
       if (combined.includes('violates row-level security policy') && retryCount === 0) {
         console.warn("UsageEngine: Identity Desync detected. Refreshing session and retrying...");
         await supabase.auth.refreshSession();
@@ -70,8 +70,6 @@ export const getMonthlyUsageCount = async (userId: string, featureKey: string): 
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   try {
-    // When RLS is enabled, we don't strictly need to filter by user_id 
-    // as the database handles isolation, but we do it for explicit clarity.
     const { count, error } = await supabase
       .from('usage_logs')
       .select('*', { count: 'exact', head: true })
