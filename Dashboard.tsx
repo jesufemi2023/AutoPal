@@ -18,7 +18,7 @@ const Dashboard: React.FC = () => {
     vehicles, tasks, serviceLogs, fuelLogs,
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
-    updateMileage: updateStoreMileage, updateVehicleStore,
+    updateMileage: updateStoreMileage,
     loadLocalData, setVehicles
   } = useAutoPalStore();
 
@@ -27,19 +27,40 @@ const Dashboard: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const activeVehicle = useMemo(() => vehicles.find(v => v.id === activeVehicleId), [vehicles, activeVehicleId]);
+  // STABILITY: Derived data should be memoized to prevent recursive re-render loops
+  const activeVehicle = useMemo(() => 
+    vehicles.find(v => v.id === activeVehicleId), 
+    [vehicles, activeVehicleId]
+  );
   
-  // CRITICAL FIX: Memoize filtered arrays to prevent infinite render loops
-  const vehicleTasks = useMemo(() => tasks.filter(t => t.vehicleId === activeVehicleId), [tasks, activeVehicleId]);
-  const activeServiceLogs = useMemo(() => serviceLogs.filter(l => l.vehicleId === activeVehicleId), [serviceLogs, activeVehicleId]);
-  const activeFuelLogs = useMemo(() => fuelLogs.filter(l => l.vehicleId === activeVehicleId), [fuelLogs, activeVehicleId]);
+  const vehicleTasks = useMemo(() => 
+    tasks.filter(t => t.vehicleId === activeVehicleId), 
+    [tasks, activeVehicleId]
+  );
+  
+  const activeServiceLogs = useMemo(() => 
+    serviceLogs.filter(l => l.vehicleId === activeVehicleId), 
+    [serviceLogs, activeVehicleId]
+  );
+  
+  const activeFuelLogs = useMemo(() => 
+    fuelLogs.filter(l => l.vehicleId === activeVehicleId), 
+    [fuelLogs, activeVehicleId]
+  );
 
-  // 1. Initial Local Load (Instant UX)
+  // CRITICAL FIX: Calculate the health score for DISPLAY ONLY. 
+  // Do not call updateVehicleStore here as it causes an infinite loop.
+  const displayHealthScore = useMemo(() => {
+    if (!activeVehicle) return 100;
+    return calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
+  }, [activeVehicle, tasks, activeFuelLogs, activeServiceLogs]);
+
+  // 1. Initial Local Load
   useEffect(() => {
     loadLocalData();
   }, [loadLocalData]);
 
-  // 2. Background Sync (Silent Update)
+  // 2. Background Sync
   useEffect(() => {
     const syncVehicles = async () => {
       setIsSyncing(true);
@@ -49,7 +70,7 @@ const Dashboard: React.FC = () => {
           setVehicles(cloudVehicles);
         }
       } catch (err) {
-        console.warn("Cloud sync deferred: Network unstable or RLS restriction.");
+        console.warn("Cloud sync deferred.");
       } finally {
         setIsSyncing(false);
       }
@@ -79,18 +100,6 @@ const Dashboard: React.FC = () => {
       .finally(() => setIsLoadingDetails(false));
     }
   }, [activeVehicleId, setTasks, setServiceLogs, setFuelLogs]);
-
-  // Real-time Health Recalculation (Local Evidence)
-  useEffect(() => {
-    if (activeVehicle && vehicleTasks.length > 0) {
-      const newScore = calculateVitalityScore(activeVehicle, tasks, activeFuelLogs, activeServiceLogs);
-      // Only update if there is a meaningful drift to prevent flickering
-      if (Math.abs(newScore - activeVehicle.healthScore) > 0.5) {
-        updateVehicle(activeVehicle.id, { healthScore: newScore });
-        updateVehicleStore({ ...activeVehicle, healthScore: newScore });
-      }
-    }
-  }, [vehicleTasks, activeVehicle?.mileage, activeFuelLogs, activeServiceLogs, updateVehicleStore]);
 
   const handleScroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
@@ -135,7 +144,7 @@ const Dashboard: React.FC = () => {
                 <div className="text-base font-black tracking-tight truncate w-full">{v.model}</div>
                 <div className="flex items-center gap-2 mt-3">
                    <div className={`w-2 h-2 rounded-full ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_8px_#3b82f6]' : 'bg-slate-200'}`}></div>
-                   <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year} model</div>
+                   <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year} model Модель</div>
                 </div>
               </button>
             ))}
@@ -152,13 +161,16 @@ const Dashboard: React.FC = () => {
 
       {activeVehicle ? (
         <div className="w-full flex flex-col gap-6 lg:gap-10">
-          <VehicleOverview vehicle={activeVehicle} onUpdateOdometer={() => setShowOdometerModal(true)} />
+          <VehicleOverview 
+            vehicle={{...activeVehicle, healthScore: displayHealthScore}} 
+            onUpdateOdometer={() => setShowOdometerModal(true)} 
+          />
           
           <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 lg:gap-10 items-stretch">
-            <div className="xl:col-span-5 flex flex-col h-full">
+            <div className="xl:col-span-12 flex flex-col h-full">
               <ResaleValuationCard vehicle={activeVehicle} tasks={tasks} serviceLogs={activeServiceLogs} fuelLogs={activeFuelLogs} />
             </div>
-            <div className="xl:col-span-7 flex flex-col h-full">
+            <div className="xl:col-span-12 flex flex-col h-full">
                <VitalityDashboard vehicle={activeVehicle} tasks={tasks} logs={activeServiceLogs} fuelLogs={activeFuelLogs} />
             </div>
           </div>
