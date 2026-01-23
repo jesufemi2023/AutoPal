@@ -1,7 +1,7 @@
+
 import { supabase } from '../auth/supabaseClient.ts';
 import { Vehicle, MaintenanceTask, ServiceLog, VerificationLevel, FuelLog, Priority, TaskStatus } from '../shared/types.ts';
 import { calculateNextMilestone, calculateAverageDailyKm, calculateVitalityScore } from './maintenanceLogic.ts';
-import { fetchFuelLogs } from './fuelService.ts';
 import { localDb } from './localDb.ts';
 
 const DB_TABLES = {
@@ -109,10 +109,10 @@ export const createVehicle = async (vehicle: Omit<Vehicle, 'id' | 'createdAt' | 
     }
   }
 
-  // Fallback to local only creation
+  // Fallback to local only creation using Option B: Universal UUID
   const localV: Vehicle = {
     ...vehicle,
-    id: `local-car-${Date.now()}`,
+    id: crypto.randomUUID(),
     healthScore: 100,
     syncStatus: 'pending',
     isDirty: true
@@ -168,7 +168,7 @@ export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceT
     status: t.status,
     priority: t.priority,
     category: t.category,
-    estimatedCost: t.estimated_cost,
+    estimated_cost: t.estimated_cost,
     intervalKm: t.interval_km,
     intervalMonths: t.interval_months,
     syncStatus: 'synced',
@@ -212,7 +212,7 @@ export const fetchVehicleServiceLogs = async (vehicleId: string): Promise<Servic
 export const createManualServiceLog = async (vehicle: Vehicle, log: Omit<ServiceLog, 'id' | 'createdAt' | 'updatedAt'>): Promise<ServiceLog> => {
   const newLog: ServiceLog = {
     ...log,
-    id: `local-svc-${Date.now()}`,
+    id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
     syncStatus: 'pending',
     isDirty: true
@@ -241,7 +241,7 @@ export const finalizeMaintenanceCompletion = async (
   const { nextMileage, nextDate } = calculateNextMilestone(completionData.mileageAtService, completionData.serviceDate, targetIntervalKm, targetIntervalMonths);
 
   const log: ServiceLog = {
-    id: `local-svc-${Date.now()}`,
+    id: crypto.randomUUID(),
     vehicleId: vehicle.id,
     taskId: task.id,
     serviceType: task.title,
@@ -305,7 +305,7 @@ export const uploadVehicleImage = async (userId: string, vehicleId: string, blob
 export const createMaintenanceTasksBatch = async (tasks: Omit<MaintenanceTask, 'id'>[]): Promise<void> => {
   const localTasks = tasks.map(t => ({
     ...t,
-    id: `local-task-${Math.random().toString(36).substr(2, 9)}`,
+    id: crypto.randomUUID(),
     syncStatus: 'pending' as const,
     isDirty: true
   }));

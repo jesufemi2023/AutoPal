@@ -1,3 +1,4 @@
+
 import { supabase } from '../auth/supabaseClient.ts';
 import { ServiceLog } from '../shared/types.ts';
 import { localDb } from './localDb.ts';
@@ -50,7 +51,7 @@ export const fetchServiceLogs = async (vehicleId: string): Promise<ServiceLog[]>
 export const createServiceLog = async (log: Omit<ServiceLog, 'id' | 'createdAt' | 'updatedAt'>): Promise<ServiceLog> => {
   const newLog: ServiceLog = {
     ...log,
-    id: `local-svc-${Date.now()}`,
+    id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
     syncStatus: 'pending',
     isDirty: true

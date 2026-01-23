@@ -1,6 +1,6 @@
+
 import { localDb } from './localDb.ts';
 import { supabase } from '../auth/supabaseClient.ts';
-import { updateVehicle, updateTaskStatus } from './vehicleService.ts';
 import { FuelLog, ServiceLog, Vehicle, MaintenanceTask } from '../shared/types.ts';
 
 /**
@@ -74,7 +74,7 @@ export const performPushSync = async () => {
   for (const f of fuel) {
     try {
       const { error } = await supabase.from('fuel_logs').upsert({
-        id: f.id.startsWith('local-') ? undefined : f.id, // Supabase generates UUID for new items
+        id: f.id,
         vehicle_id: f.vehicleId,
         liters: f.liters,
         total_cost: f.totalCost,
@@ -91,7 +91,7 @@ export const performPushSync = async () => {
   for (const l of logs) {
     try {
       const { error } = await supabase.from('service_logs').upsert({
-        id: l.id.startsWith('local-') ? undefined : l.id,
+        id: l.id,
         vehicle_id: l.vehicleId,
         task_id: l.taskId,
         service_type: l.serviceType,

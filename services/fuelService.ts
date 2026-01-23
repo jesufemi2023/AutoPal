@@ -1,3 +1,4 @@
+
 import { supabase } from '../auth/supabaseClient.ts';
 import { FuelLog } from '../shared/types.ts';
 import { localDb } from './localDb.ts';
@@ -43,7 +44,7 @@ export const fetchFuelLogs = async (vehicleId: string): Promise<FuelLog[]> => {
 export const addFuelLog = async (log: Omit<FuelLog, 'id' | 'createdAt'>): Promise<FuelLog> => {
   const newLog: FuelLog = {
     ...log,
-    id: `local-fuel-${Date.now()}`,
+    id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
     syncStatus: 'pending',
     isDirty: true
