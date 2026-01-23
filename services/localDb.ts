@@ -1,3 +1,4 @@
+
 import Dexie, { type EntityTable } from 'dexie';
 import { Vehicle, MaintenanceTask, ServiceLog, FuelLog } from '../shared/types.ts';
 
@@ -59,14 +60,16 @@ export const localDb = {
     return (db[table] as any).update(id, { isDirty: false, syncStatus: 'synced' });
   },
 
-  // Account Isolation
+  // Account Isolation: Deep Purge
   clearDatabase: async () => {
-    await Promise.all([
-      db.vehicles.clear(),
-      db.tasks.clear(),
-      db.serviceLogs.clear(),
-      db.fuelLogs.clear()
-    ]);
+    await db.transaction('rw', db.vehicles, db.tasks, db.serviceLogs, db.fuelLogs, async () => {
+      await Promise.all([
+        db.vehicles.clear(),
+        db.tasks.clear(),
+        db.serviceLogs.clear(),
+        db.fuelLogs.clear()
+      ]);
+    });
   }
 };
 

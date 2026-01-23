@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
 import { localDb } from '../services/localDb.ts';
@@ -94,7 +95,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     try {
       await performPushSync();
       await get().checkDirtyStatus();
-      // Re-load to ensure UI has latest cloud IDs
       if (get().activeVehicleId) {
         const vehicleId = get().activeVehicleId!;
         const [logs, fuel, tasks] = await Promise.all([
@@ -276,11 +276,28 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   setMarketplaceFilter: (filter) => set({ marketplaceFilter: filter }),
 
   reset: async () => {
+    // 1. Deep Purge IndexedDB
     await localDb.clearDatabase();
+    
+    // 2. Clear LocalStorage identifiers
+    localStorage.removeItem('autopal_guest_attempts');
+    
+    // 3. Clear application state
     set({ 
-      user: null, session: null, vehicles: [], tasks: [], serviceLogs: [], fuelLogs: [],
-      aiValuationReports: {}, activeVehicleId: null, transientVehicle: null, guestAttempts: 0,
-      isRecovering: false, marketplaceFilter: '', isSyncing: false, hasDirtyData: false
+      user: null, 
+      session: null, 
+      vehicles: [], 
+      tasks: [], 
+      serviceLogs: [], 
+      fuelLogs: [],
+      aiValuationReports: {}, 
+      activeVehicleId: null, 
+      transientVehicle: null, 
+      guestAttempts: 0,
+      isRecovering: false, 
+      marketplaceFilter: '', 
+      isSyncing: false, 
+      hasDirtyData: false 
     });
   },
 }));
