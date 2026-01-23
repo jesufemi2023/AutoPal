@@ -83,12 +83,9 @@ const ProfileDossier: React.FC = () => {
         })
         .eq('id', user.id);
       
-      if (dbError) {
-        console.error("Database Profile Update Error:", dbError);
-        throw new Error(dbError.message || "Profile table update failed. Check database policies.");
-      }
+      if (dbError) throw new Error(dbError.message || "Database update failed. Check RLS policies.");
 
-      // 2. Update Auth metadata (This keeps the session in sync)
+      // 2. Update Auth metadata (Triggers global re-render via App.tsx)
       const { error: authError } = await supabase.auth.updateUser({
         data: {
           display_name: formData.displayName,
@@ -96,28 +93,24 @@ const ProfileDossier: React.FC = () => {
         }
       });
       
-      if (authError) {
-        console.error("Auth Metadata Update Error:", authError);
-        throw new Error(authError.message || "Identity metadata update failed.");
-      }
+      if (authError) throw new Error(authError.message || "Identity synchronization failed.");
       
-      // 3. Update local state
+      // 3. Clear local editing state immediately BEFORE store updates trigger re-renders
+      setIsEditing(false);
+      setIsSaving(false);
+      setSuccessMessage("Profile synchronized successfully.");
+      
+      // 4. Update local Zustand store
       setUser({
         ...user,
         displayName: formData.displayName,
         phone: formData.phone
       });
       
-      setSuccessMessage("Profile synchronized successfully.");
-      setIsEditing(false);
-      
-      setTimeout(() => {
-        setSuccessMessage(null);
-      }, 3000);
+      setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
+      console.error("Profile Sync Error:", err);
       setErrorMessage(err.message || "A system synchronization fault occurred.");
-    } finally {
-      // CRITICAL: Ensure the spinner stops regardless of outcome
       setIsSaving(false);
     }
   };
@@ -127,7 +120,7 @@ const ProfileDossier: React.FC = () => {
     
     const confirmationText = "DELETE MY ACCOUNT";
     const input = window.prompt(
-      `CRITICAL ACTION: This will permanently delete all vehicles, fuel logs, and maintenance history from the cloud and this device.\n\nType "${confirmationText}" to proceed.`
+      `CRITICAL ACTION: This will permanently delete all vehicles and history.\n\nType "${confirmationText}" to proceed.`
     );
 
     if (input !== confirmationText) return;
@@ -139,9 +132,7 @@ const ProfileDossier: React.FC = () => {
       await deleteAccountPermanently(user.id);
       await reset();
       setCurrentView('landing');
-      alert("Account decommissioned. Your data has been purged from the neural link.");
     } catch (err: any) {
-      console.error("Nuclear Purge Error:", err);
       setErrorMessage("System Error: Failed to decommission account.");
       setIsDeleting(false);
     }
@@ -236,7 +227,7 @@ const ProfileDossier: React.FC = () => {
                       </button>
                       <button 
                         type="button" 
-                        onClick={() => setIsEditing(false)} 
+                        onClick={() => { setIsEditing(false); setIsSaving(false); }} 
                         className="px-10 py-5 bg-slate-100 text-slate-400 rounded-2xl font-black uppercase tracking-widest text-[11px]"
                       >
                         Cancel
@@ -286,7 +277,7 @@ const ProfileDossier: React.FC = () => {
             <div className="space-y-2 text-center sm:text-left">
               <h4 className="text-xl font-black text-rose-600 uppercase tracking-tighter">Nuclear Option</h4>
               <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest leading-relaxed max-w-md">
-                Permanently decommission your pilot account. This will wipe all vehicles, fuel logs, and service records from our cloud and this device instantly.
+                Permanently decommission your pilot account. This will wipe all vehicles and records from the cloud.
               </p>
             </div>
             <button 

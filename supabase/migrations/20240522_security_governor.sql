@@ -6,14 +6,8 @@ CREATE TABLE IF NOT EXISTS usage_logs (
   feature_key TEXT NOT NULL, -- e.g. 'ai_mechanic_monthly', 'ai_scan_monthly'
   created_at TIMESTAMPTZ DEFAULT now()
 );
-
 ALTER TABLE usage_logs ENABLE ROW LEVEL SECURITY;
-
--- Idempotent Policy Creation
-DROP POLICY IF EXISTS "Users view own usage" ON usage_logs;
 CREATE POLICY "Users view own usage" ON usage_logs FOR SELECT TO authenticated USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Users insert own usage" ON usage_logs;
 CREATE POLICY "Users insert own usage" ON usage_logs FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
 -- 2. IDENTITY LOCK: Prevent users from self-upgrading their tier via Client API
