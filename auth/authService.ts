@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient.ts';
 
 /**
@@ -63,8 +64,6 @@ export const updatePassword = async (newPassword: string) => {
 
 /**
  * Google OAuth Flow
- * Automatically redirects to Google's consent screen.
- * Callback handled by Supabase, then redirected back to App origin.
  */
 export const signInWithGoogle = async () => {
   const client = ensureClient();
@@ -88,6 +87,21 @@ export const signInWithGoogle = async () => {
 export const signOut = async () => {
   const client = ensureClient();
   const { error } = await client.auth.signOut();
+  if (error) throw error;
+};
+
+/** 
+ * NUCLEAR OPTION: Delete Account Permanently
+ * Deleting the row in public."Users" triggers the server-side 
+ * 'fn_nuclear_account_purge' which wipes Auth and all Cascaded data.
+ */
+export const deleteAccountPermanently = async (userId: string) => {
+  const client = ensureClient();
+  const { error } = await client
+    .from('Users')
+    .delete()
+    .eq('id', userId);
+  
   if (error) throw error;
 };
 

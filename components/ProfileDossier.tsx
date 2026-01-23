@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
+import { deleteAccountPermanently } from '../auth/authService.ts';
 import { Tier, UserProfile } from '../shared/types.ts';
 
 /**
@@ -9,11 +11,12 @@ import { Tier, UserProfile } from '../shared/types.ts';
  * Handles Tier switching and personal information updates.
  */
 const ProfileDossier: React.FC = () => {
-  const { user, setUser } = useAutoPalStore();
+  const { user, setUser, reset, setCurrentView } = useAutoPalStore();
   
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'info' | 'subscription'>('info');
@@ -42,7 +45,6 @@ const ProfileDossier: React.FC = () => {
     try {
       if (!supabase) throw new Error("Connection Error: Cloud link offline.");
 
-      // Update Database - Note: This will be blocked if the tr_lock_user_tier trigger is active
       const { error } = await supabase
         .from('Users')
         .update({ tier: newTier })
@@ -50,15 +52,12 @@ const ProfileDossier: React.FC = () => {
 
       if (error) throw error;
 
-      // Update Local Store
       setUser({ ...user, tier: newTier });
       setSuccessMessage(`Pilot license upgraded to ${newTier.toUpperCase()}`);
       
       setTimeout(() => setSuccessMessage(null), 3000);
     } catch (err: any) {
-      // If the trigger blocks it, we show the specialized security message
       setErrorMessage(err.message || "Failed to upgrade tier. Security restriction or connection fault.");
-      console.error("Tier Upgrade Error:", err);
     } finally {
       setIsUpgrading(null);
     }
@@ -75,7 +74,6 @@ const ProfileDossier: React.FC = () => {
     try {
       if (!supabase) throw new Error("Connection Error: Cloud link offline.");
       
-      // 1. Update the Public Profile Table
       const { error: dbError } = await supabase
         .from('Users')
         .update({ 
@@ -86,8 +84,7 @@ const ProfileDossier: React.FC = () => {
       
       if (dbError) throw dbError;
 
-      // 2. Update Auth Metadata
-      const { data: authData, error: authError } = await supabase.auth.updateUser({
+      const { error: authError } = await supabase.auth.updateUser({
         data: {
           display_name: formData.displayName,
           phone: formData.phone
@@ -96,7 +93,6 @@ const ProfileDossier: React.FC = () => {
       
       if (authError) throw authError;
       
-      // 3. Update Local Global State
       setUser({
         ...user,
         displayName: formData.displayName,
@@ -111,9 +107,39 @@ const ProfileDossier: React.FC = () => {
       }, 3000);
     } catch (err: any) {
       setErrorMessage(err.message || "Failed to update profile.");
-      console.error("Profile Update Error:", err);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleAccountDeletion = async () => {
+    if (!user?.id) return;
+    
+    const confirmationText = "DELETE MY ACCOUNT";
+    const input = window.prompt(
+      `CRITICAL ACTION: This will permanently delete all vehicles, fuel logs, and maintenance history from the cloud and this device.\n\nType "${confirmationText}" to proceed.`
+    );
+
+    if (input !== confirmationText) return;
+
+    setIsDeleting(true);
+    setErrorMessage(null);
+
+    try {
+      // 1. Purge from Cloud (Triggers fn_nuclear_account_purge on backend)
+      await deleteAccountPermanently(user.id);
+      
+      // 2. Purge from Local IndexedDB & Global Store
+      await reset();
+      
+      // 3. Exit to Landing
+      setCurrentView('landing');
+      
+      alert("Account decommissioned. Your data has been purged from the neural link.");
+    } catch (err: any) {
+      console.error("Nuclear Purge Error:", err);
+      setErrorMessage("System Error: Failed to decommission account. Please check your connection.");
+      setIsDeleting(false);
     }
   };
 
@@ -121,15 +147,6 @@ const ProfileDossier: React.FC = () => {
     free: ["1 Vehicle Profile", "Manual Maintenance Logs", "Basic Fuel Tracking"],
     standard: ["3 Vehicle Profiles", "AI Maintenance Roadmap", "Advanced Fuel Analytics", "PDF & Excel Exports"],
     premium: ["10 Vehicle Profiles", "Deep AI Condition Audits", "Full Ownership Reports", "Priority Support"]
-  };
-
-  const handleAccountDeletion = async () => {
-    const confirmed = confirm("Are you sure? This will permanently delete your account data.");
-    if (!confirmed) return;
-    if (supabase) {
-      await supabase.auth.signOut();
-      window.location.reload();
-    }
   };
 
   return (
@@ -261,7 +278,23 @@ const ProfileDossier: React.FC = () => {
       </div>
       
       <div className="pt-20 border-t border-slate-100">
-         <button onClick={handleAccountDeletion} className="text-[9px] font-black text-rose-400 uppercase tracking-widest hover:text-rose-600 transition-colors">Decommission Pilot Account</button>
+         <div className="bg-rose-50 p-8 sm:p-12 rounded-[2.5rem] border border-rose-100 flex flex-col sm:flex-row items-center justify-between gap-8">
+            <div className="space-y-2 text-center sm:text-left">
+              <h4 className="text-xl font-black text-rose-600 uppercase tracking-tighter">Nuclear Option</h4>
+              <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest leading-relaxed max-w-md">
+                Permanently decommission your pilot account. This will wipe all vehicles, fuel logs, and service records from our cloud and this device instantly.
+              </p>
+            </div>
+            <button 
+              onClick={handleAccountDeletion} 
+              disabled={isDeleting}
+              className="bg-rose-600 text-white px-10 py-5 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl hover:bg-rose-700 transition-all active:scale-95 flex items-center gap-4 disabled:opacity-50"
+            >
+              {isDeleting ? (
+                <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+              ) : "Purge Account Data"}
+            </button>
+         </div>
       </div>
     </div>
   );
