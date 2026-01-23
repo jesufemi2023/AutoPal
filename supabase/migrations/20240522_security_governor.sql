@@ -1,3 +1,4 @@
+
 -- 1. INFRASTRUCTURE: Track ephemeral usage (AI Scans, etc)
 CREATE TABLE IF NOT EXISTS usage_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -5,12 +6,17 @@ CREATE TABLE IF NOT EXISTS usage_logs (
   feature_key TEXT NOT NULL, -- e.g. 'ai_mechanic_monthly', 'ai_scan_monthly'
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
 ALTER TABLE usage_logs ENABLE ROW LEVEL SECURITY;
+
+-- Idempotent Policy Creation
+DROP POLICY IF EXISTS "Users view own usage" ON usage_logs;
 CREATE POLICY "Users view own usage" ON usage_logs FOR SELECT TO authenticated USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users insert own usage" ON usage_logs;
 CREATE POLICY "Users insert own usage" ON usage_logs FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
 -- 2. IDENTITY LOCK: Prevent users from self-upgrading their tier via Client API
--- Also initializes license_expires_at on tier change
 CREATE OR REPLACE FUNCTION fn_lock_user_tier()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -72,19 +78,19 @@ BEGIN
       IF curr_count >= max_limit THEN RAISE EXCEPTION 'QUOTA_EXHAUSTED: Monthly Fuel Logs'; END IF;
     END IF;
 
-  -- Logic for SERVICE LOGS (REFINED: MONTHLY ENFORCEMENT)
+  -- Logic for SERVICE LOGS (REFINED: TOTAL ACCUMULATED ENFORCEMENT)
   ELSIF TG_TABLE_NAME = 'service_logs' AND TG_OP = 'INSERT' THEN
     SELECT EXISTS(SELECT 1 FROM service_logs WHERE id = NEW.id) INTO record_exists;
     IF NOT record_exists THEN
-      -- Count logs across the last month
+      -- Count total logs ever recorded for this vehicle
       SELECT count(*) INTO curr_count FROM service_logs 
-      WHERE vehicle_id = NEW.vehicle_id AND created_at >= now() - interval '30 days';
+      WHERE vehicle_id = NEW.vehicle_id;
       
-      -- Exact Match to User Requirements
-      max_limit := CASE WHEN u_tier = 'premium' THEN 999 WHEN u_tier = 'standard' THEN 8 ELSE 3 END;
+      -- Exact Match to User Requirements: Free (4), Standard (8), Premium (Inf)
+      max_limit := CASE WHEN u_tier = 'premium' THEN 999 WHEN u_tier = 'standard' THEN 8 ELSE 4 END;
       
       IF curr_count >= max_limit THEN 
-        RAISE EXCEPTION 'QUOTA_EXHAUSTED: Service Log Capacity (Limit: % per month)', max_limit; 
+        RAISE EXCEPTION 'QUOTA_EXHAUSTED: Service Log Capacity (Total Limit: % reached)', max_limit; 
       END IF;
     END IF;
 

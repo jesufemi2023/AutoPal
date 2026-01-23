@@ -1,3 +1,4 @@
+
 import { useMemo, useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { CapabilityKey, UsageQuota } from '../shared/types.ts';
@@ -7,7 +8,7 @@ import { getMonthlyUsageCount } from '../services/usageService.ts';
 /**
  * useUsageQuota Hook
  * Central logic for determining if a feature is available.
- * Now incorporates License Expiry logic: All writing actions are blocked if license is expired.
+ * Updated: Service logs now count TOTAL accumulated records for the active vehicle.
  */
 export const useUsageQuota = (capability: CapabilityKey) => {
   const { user, vehicles, fuelLogs, serviceLogs, activeVehicleId } = useAutoPalStore();
@@ -37,10 +38,12 @@ export const useUsageQuota = (capability: CapabilityKey) => {
         return vehicles.filter(v => v.status === 'active').length;
       case 'FUEL_LOGS_MONTHLY':
         if (!activeVehicleId) return 0;
+        // Fuel remains a rolling monthly quota
         return fuelLogs.filter(l => l.vehicleId === activeVehicleId && new Date(l.createdAt) > thirtyDaysAgo).length;
       case 'SERVICE_LOGS_MONTHLY':
         if (!activeVehicleId) return 0;
-        return serviceLogs.filter(l => l.vehicleId === activeVehicleId && new Date(l.createdAt || '') > thirtyDaysAgo).length;
+        // REFINED: Now counts TOTAL accumulated logs for the specific vehicle record
+        return serviceLogs.filter(l => l.vehicleId === activeVehicleId).length;
       case 'AI_MECHANIC_MONTHLY':
       case 'AI_SCAN_MONTHLY':
         return asyncUsage;
