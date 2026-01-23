@@ -1,4 +1,5 @@
-import React, { useRef } from 'react';
+
+import React, { useRef, useState } from 'react';
 import { AIResponse, Vehicle } from '../../shared/types.ts';
 import { TierGuard } from '../TierGuard.tsx';
 import { useAutoPalStore } from '../../shared/store.ts';
@@ -21,11 +22,21 @@ export const DiagnosticsPanel: React.FC<Props> = ({
 }) => {
   const { user } = useAutoPalStore();
   const diagImageRef = useRef<HTMLInputElement>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   const handleAnalyzeWithUsage = async () => {
-    onAnalyze();
-    if (user?.id) {
-      await logFeatureUsage(user.id, 'ai_mechanic_monthly');
+    setLocalError(null);
+    try {
+      onAnalyze();
+      if (user?.id) {
+        await logFeatureUsage(user.id, 'ai_mechanic_monthly');
+      }
+    } catch (e: any) {
+      if (e.message.includes("QUOTA_EXHAUSTED")) {
+        setLocalError("Google API Quota reached. Please wait 60 seconds and try again.");
+      } else {
+        setLocalError(e.message || "A neural link error occurred.");
+      }
     }
   };
 
@@ -58,6 +69,12 @@ export const DiagnosticsPanel: React.FC<Props> = ({
           </div>
         )}
         
+        {localError && (
+          <div className="mb-6 p-4 bg-rose-500/20 border border-rose-500/30 rounded-xl text-rose-400 text-[10px] font-black uppercase tracking-widest text-center animate-in slide-in-from-top-2">
+            ⚠️ {localError}
+          </div>
+        )}
+
         <div className={`grid ${compact ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'} gap-10 flex-grow`}>
           <div className="space-y-6">
             <div className="relative">
@@ -65,7 +82,7 @@ export const DiagnosticsPanel: React.FC<Props> = ({
               <textarea 
                 value={symptom}
                 onChange={(e) => setSymptom(e.target.value)}
-                placeholder="What sounds or leaks are you noticing? Describe any changes in behavior..."
+                placeholder="Describe sounds, leaks or behavior changes..."
                 className={`w-full bg-slate-900/60 border border-slate-800 rounded-2xl p-4 pt-9 text-[11px] focus:ring-1 focus:ring-blue-600/30 outline-none ${compact ? 'h-24' : 'h-48'} transition-all text-slate-100 resize-none font-medium placeholder-slate-700 shadow-inner leading-relaxed`}
               />
             </div>
