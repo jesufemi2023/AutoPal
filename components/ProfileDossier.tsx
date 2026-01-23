@@ -129,22 +129,11 @@ const ProfileDossier: React.FC = () => {
     setErrorMessage(null);
 
     try {
-      // 1. Trigger Cloud Purge (Server-side triggers handle record cascading)
       await deleteAccountPermanently(user.id);
-      
-      // 2. Invalidate Client Identity (Clear browser cookies/session storage)
-      if (supabase) {
-        await supabase.auth.signOut();
-      }
-
-      // 3. Await Deep Local Purge (Clear IndexedDB vehicles/logs)
       await reset();
-      
-      // 4. Hard Redirect to Origin (Force clear all remaining memory-resident state)
-      window.location.href = window.location.origin;
+      setCurrentView('landing');
     } catch (err: any) {
-      console.error("Nuclear Deletion Error:", err);
-      setErrorMessage("System Error: Failed to decommission account. Check your network connection.");
+      setErrorMessage("System Error: Failed to decommission account.");
       setIsDeleting(false);
     }
   };
