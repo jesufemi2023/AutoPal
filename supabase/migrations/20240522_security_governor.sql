@@ -78,30 +78,26 @@ BEGIN
       IF curr_count >= max_limit THEN RAISE EXCEPTION 'QUOTA_EXHAUSTED: Monthly Fuel Logs'; END IF;
     END IF;
 
-  -- Logic for SERVICE LOGS (REFINED: TOTAL ACCUMULATED ENFORCEMENT)
+  -- Logic for SERVICE LOGS
   ELSIF TG_TABLE_NAME = 'service_logs' AND TG_OP = 'INSERT' THEN
     SELECT EXISTS(SELECT 1 FROM service_logs WHERE id = NEW.id) INTO record_exists;
     IF NOT record_exists THEN
-      -- Count total logs ever recorded for this vehicle
       SELECT count(*) INTO curr_count FROM service_logs 
       WHERE vehicle_id = NEW.vehicle_id;
-      
-      -- Exact Match to User Requirements: Free (4), Standard (8), Premium (Inf)
       max_limit := CASE WHEN u_tier = 'premium' THEN 999 WHEN u_tier = 'standard' THEN 8 ELSE 4 END;
-      
       IF curr_count >= max_limit THEN 
         RAISE EXCEPTION 'QUOTA_EXHAUSTED: Service Log Capacity (Total Limit: % reached)', max_limit; 
       END IF;
     END IF;
 
-  -- Logic for EPHEMERAL USAGE
+  -- Logic for EPHEMERAL USAGE (Neural Link and AI Mechanic)
   ELSIF TG_TABLE_NAME = 'usage_logs' AND TG_OP = 'INSERT' THEN
     SELECT count(*) INTO curr_count FROM usage_logs 
     WHERE user_id = auth.uid() AND feature_key = NEW.feature_key AND created_at >= now() - interval '30 days';
     
     max_limit := CASE 
-      WHEN NEW.feature_key = 'ai_mechanic_monthly' THEN CASE WHEN u_tier = 'premium' THEN 8 WHEN u_tier = 'standard' THEN 4 ELSE 1 END
-      WHEN NEW.feature_key = 'ai_scan_monthly' THEN CASE WHEN u_tier = 'premium' THEN 999 WHEN u_tier = 'standard' THEN 4 ELSE 1 END
+      WHEN NEW.feature_key = 'ai_mechanic_monthly' THEN CASE WHEN u_tier = 'premium' THEN 4 WHEN u_tier = 'standard' THEN 2 ELSE 0 END
+      WHEN NEW.feature_key = 'ai_scan_monthly' THEN CASE WHEN u_tier = 'premium' THEN 4 WHEN u_tier = 'standard' THEN 2 ELSE 0 END
       ELSE 999
     END;
     

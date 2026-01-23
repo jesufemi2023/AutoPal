@@ -1,3 +1,4 @@
+
 import { Tier, CapabilityKey } from '../shared/types.ts';
 import { ENV } from './envService.ts';
 
@@ -13,8 +14,8 @@ export const CAPABILITIES: Record<Tier, Record<CapabilityKey, CapabilityValue>> 
   free: {
     MAX_VEHICLES: ENV.MAX_VEHICLES_FREE,
     FUEL_LOGS_MONTHLY: ENV.MAX_FUEL_FREE,
-    AI_MECHANIC_MONTHLY: ENV.MAX_AI_SCAN_FREE,
-    AI_SCAN_MONTHLY: ENV.MAX_AI_SCAN_FREE,
+    AI_MECHANIC_MONTHLY: 0, // Visibly deactivated
+    AI_SCAN_MONTHLY: 0, // Visibly deactivated (Neural Link)
     SERVICE_LOGS_MONTHLY: ENV.MAX_LOGS_FREE,
     EXPORT_PDF: false,
     EXPORT_EXCEL: false,
@@ -24,8 +25,8 @@ export const CAPABILITIES: Record<Tier, Record<CapabilityKey, CapabilityValue>> 
   standard: {
     MAX_VEHICLES: ENV.MAX_VEHICLES_STANDARD,
     FUEL_LOGS_MONTHLY: ENV.MAX_FUEL_STANDARD,
-    AI_MECHANIC_MONTHLY: ENV.MAX_AI_SCAN_STANDARD,
-    AI_SCAN_MONTHLY: ENV.MAX_AI_SCAN_STANDARD,
+    AI_MECHANIC_MONTHLY: 2, // Maximum of two
+    AI_SCAN_MONTHLY: 2, // Matches mechanic logic for Standard
     SERVICE_LOGS_MONTHLY: ENV.MAX_LOGS_STANDARD,
     EXPORT_PDF: true,
     EXPORT_EXCEL: true,
@@ -35,8 +36,8 @@ export const CAPABILITIES: Record<Tier, Record<CapabilityKey, CapabilityValue>> 
   premium: {
     MAX_VEHICLES: ENV.MAX_VEHICLES_PREMIUM,
     FUEL_LOGS_MONTHLY: 999,
-    AI_MECHANIC_MONTHLY: 8,
-    AI_SCAN_MONTHLY: 999,
+    AI_MECHANIC_MONTHLY: 4, // Maximum of four
+    AI_SCAN_MONTHLY: 4, // Maximum of four (Neural Link)
     SERVICE_LOGS_MONTHLY: 999,
     EXPORT_PDF: true,
     EXPORT_EXCEL: true,
