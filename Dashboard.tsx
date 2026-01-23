@@ -11,10 +11,11 @@ import { MaintenanceRoadmap } from './components/dashboard/MaintenanceRoadmap.ts
 import { VitalityDashboard } from './components/dashboard/VitalityDashboard.tsx';
 import { calculateVitalityScore } from './services/maintenanceLogic.ts';
 import { ResaleValuationCard } from './components/dashboard/ResaleValuationCard.tsx';
+import { ShieldCheck, Zap, Activity } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const { 
-    vehicles, tasks, serviceLogs, fuelLogs,
+    vehicles, tasks, serviceLogs, fuelLogs, user,
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
     updateMileage: updateStoreMileage,
@@ -105,15 +106,30 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  // Environment Theming
+  const protocolMeta = {
+    free: { label: 'Standard Protocol', color: 'bg-slate-100 text-slate-500 border-slate-200', icon: <Activity size={10} /> },
+    standard: { label: 'Enthusiast Protocol', color: 'bg-blue-600 text-white border-blue-500 shadow-blue-500/20', icon: <ShieldCheck size={10} /> },
+    premium: { label: 'Commander Protocol', color: 'bg-slate-900 text-blue-400 border-slate-800 shadow-xl', icon: <Zap size={10} className="animate-pulse" /> }
+  };
+
+  const currentProtocol = protocolMeta[user?.tier || 'free'];
+
   return (
     <div className="space-y-6 sm:space-y-10 lg:space-y-14 w-full max-w-full overflow-x-hidden pb-10 px-1">
       <header className="flex flex-col xl:flex-row xl:items-end justify-between gap-6 px-1">
-        <div className="shrink-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">Vehicle <span className="text-blue-600">Hub</span></h1>
-            {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2"></div>}
+        <div className="shrink-0 space-y-4">
+          <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-[8px] font-black uppercase tracking-[0.25em] transition-all duration-700 ${currentProtocol.color}`}>
+            {currentProtocol.icon}
+            {currentProtocol.label}
           </div>
-          <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">Active Fleet Monitoring</p>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">Vehicle <span className="text-blue-600">Hub</span></h1>
+              {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2"></div>}
+            </div>
+            <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">Active Fleet Monitoring</p>
+          </div>
         </div>
         
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
@@ -142,6 +158,12 @@ const Dashboard: React.FC = () => {
                 </div>
               </button>
             ))}
+            {vehicles.length < (user?.tier === 'premium' ? 10 : user?.tier === 'standard' ? 3 : 1) && (
+              <button onClick={() => setCurrentView('onboarding')} className="flex-shrink-0 px-6 py-5 rounded-[1.75rem] border-2 border-dashed border-slate-200 text-slate-300 hover:border-blue-300 hover:text-blue-500 transition-all min-w-[140px] flex flex-col items-center justify-center gap-2 group/add">
+                <span className="text-xl group-hover/add:scale-125 transition-transform">+</span>
+                <span className="text-[8px] font-black uppercase tracking-widest">New Twin</span>
+              </button>
+            )}
           </div>
 
           <button 
@@ -154,7 +176,7 @@ const Dashboard: React.FC = () => {
       </header>
 
       {activeVehicle ? (
-        <div className="w-full flex flex-col gap-6 lg:gap-10">
+        <div className="w-full flex flex-col gap-6 lg:gap-10 animate-in fade-in duration-1000">
           <VehicleOverview 
             vehicle={{...activeVehicle, healthScore: displayHealthScore}} 
             onUpdateOdometer={() => setShowOdometerModal(true)} 
