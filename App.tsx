@@ -62,6 +62,7 @@ const App: React.FC = () => {
             .maybeSingle();
           
           if (profile) {
+            // Fix: Added missing isRenewable property to satisfy UserProfile interface requirement.
             setUser({
               id: currentSession.user.id,
               email: currentSession.user.email || '',
@@ -70,7 +71,8 @@ const App: React.FC = () => {
               tier: profile.tier || 'free',
               role: profile.role || 'user',
               onboarded: profile.onboarded || false,
-              createdAt: profile.created_at || ''
+              createdAt: profile.created_at || '',
+              isRenewable: profile.is_renewable || false
             });
           }
         }
@@ -84,6 +86,7 @@ const App: React.FC = () => {
           } else {
             const { data: profile } = await supabase.from('Users').select('*').eq('id', session.user.id).maybeSingle();
             if (profile) {
+              // Fix: Added missing isRenewable property to satisfy UserProfile interface requirement.
               setUser({
                 id: session.user.id,
                 email: session.user.email || '',
@@ -92,7 +95,8 @@ const App: React.FC = () => {
                 tier: profile.tier || 'free',
                 role: profile.role || 'user',
                 onboarded: profile.onboarded || false,
-                createdAt: profile.created_at || ''
+                createdAt: profile.created_at || '',
+                isRenewable: profile.is_renewable || false
               });
             }
           }
