@@ -74,6 +74,7 @@ const ProfileDossier: React.FC = () => {
     try {
       if (!supabase) throw new Error("Connection Error: Cloud link offline.");
       
+      // 1. Update public profile table
       const { error: dbError } = await supabase
         .from('Users')
         .update({ 
@@ -82,8 +83,12 @@ const ProfileDossier: React.FC = () => {
         })
         .eq('id', user.id);
       
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error("Database Profile Update Error:", dbError);
+        throw new Error(dbError.message || "Profile table update failed. Check database policies.");
+      }
 
+      // 2. Update Auth metadata (This keeps the session in sync)
       const { error: authError } = await supabase.auth.updateUser({
         data: {
           display_name: formData.displayName,
@@ -91,8 +96,12 @@ const ProfileDossier: React.FC = () => {
         }
       });
       
-      if (authError) throw authError;
+      if (authError) {
+        console.error("Auth Metadata Update Error:", authError);
+        throw new Error(authError.message || "Identity metadata update failed.");
+      }
       
+      // 3. Update local state
       setUser({
         ...user,
         displayName: formData.displayName,
@@ -106,8 +115,9 @@ const ProfileDossier: React.FC = () => {
         setSuccessMessage(null);
       }, 3000);
     } catch (err: any) {
-      setErrorMessage(err.message || "Failed to update profile.");
+      setErrorMessage(err.message || "A system synchronization fault occurred.");
     } finally {
+      // CRITICAL: Ensure the spinner stops regardless of outcome
       setIsSaving(false);
     }
   };
@@ -126,19 +136,13 @@ const ProfileDossier: React.FC = () => {
     setErrorMessage(null);
 
     try {
-      // 1. Purge from Cloud (Triggers fn_nuclear_account_purge on backend)
       await deleteAccountPermanently(user.id);
-      
-      // 2. Purge from Local IndexedDB & Global Store
       await reset();
-      
-      // 3. Exit to Landing
       setCurrentView('landing');
-      
       alert("Account decommissioned. Your data has been purged from the neural link.");
     } catch (err: any) {
       console.error("Nuclear Purge Error:", err);
-      setErrorMessage("System Error: Failed to decommission account. Please check your connection.");
+      setErrorMessage("System Error: Failed to decommission account.");
       setIsDeleting(false);
     }
   };
