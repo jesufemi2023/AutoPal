@@ -1,4 +1,3 @@
-
 -- 1. INFRASTRUCTURE: Track ephemeral usage (AI Scans, etc)
 CREATE TABLE IF NOT EXISTS usage_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -11,6 +10,7 @@ CREATE POLICY "Users view own usage" ON usage_logs FOR SELECT TO authenticated U
 CREATE POLICY "Users insert own usage" ON usage_logs FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
 -- 2. IDENTITY LOCK: Prevent users from self-upgrading their tier via Client API
+-- Also initializes license_expires_at on tier change
 CREATE OR REPLACE FUNCTION fn_lock_user_tier()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -19,6 +19,12 @@ BEGIN
      AND current_setting('role') = 'authenticated' THEN
     RAISE EXCEPTION 'UNAUTHORIZED: Tier/Role changes are restricted to secure billing events.';
   END IF;
+
+  -- Set/Extend Expiry on tier activation
+  IF OLD.tier IS DISTINCT FROM NEW.tier THEN
+    NEW.license_expires_at := now() + interval '1 month';
+  END IF;
+
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -27,24 +33,27 @@ DROP TRIGGER IF EXISTS tr_lock_user_tier ON "Users";
 CREATE TRIGGER tr_lock_user_tier BEFORE UPDATE ON "Users"
 FOR EACH ROW EXECUTE FUNCTION fn_lock_user_tier();
 
--- 3. THE GOVERNOR: Central Quota Enforcement Logic (Fixed for Upserts)
+-- 3. THE GOVERNOR: Central Quota Enforcement Logic
 CREATE OR REPLACE FUNCTION fn_auto_pal_governor()
 RETURNS TRIGGER AS $$
 DECLARE
   u_tier TEXT;
+  u_expiry TIMESTAMPTZ;
   curr_count INTEGER;
   max_limit INTEGER;
   record_exists BOOLEAN;
 BEGIN
-  -- Identify the pilot's tier
-  SELECT tier INTO u_tier FROM "Users" WHERE id = auth.uid();
+  -- Identify the pilot's tier and status
+  SELECT tier, license_expires_at INTO u_tier, u_expiry FROM "Users" WHERE id = auth.uid();
   
+  -- Hard Expiration Check: Prevent all additions if license is expired
+  IF u_expiry IS NOT NULL AND u_expiry < now() THEN
+    RAISE EXCEPTION 'LICENSE_EXPIRED: Your environment is locked. Please renew or upgrade to continue.';
+  END IF;
+
   -- Logic for VEHICLES
   IF TG_TABLE_NAME = 'vehicles' AND TG_OP = 'INSERT' THEN
-    -- FIX: Check if this ID already exists (Upsert scenario)
     SELECT EXISTS(SELECT 1 FROM vehicles WHERE id = NEW.id) INTO record_exists;
-    
-    -- Only enforce limit if it's a NEW record
     IF NOT record_exists THEN
       SELECT count(*) INTO curr_count FROM vehicles WHERE owner_id = auth.uid() AND status = 'active';
       max_limit := CASE WHEN u_tier = 'premium' THEN 10 WHEN u_tier = 'standard' THEN 3 ELSE 1 END;
@@ -56,7 +65,6 @@ BEGIN
   -- Logic for FUEL LOGS
   ELSIF TG_TABLE_NAME = 'fuel_logs' AND TG_OP = 'INSERT' THEN
     SELECT EXISTS(SELECT 1 FROM fuel_logs WHERE id = NEW.id) INTO record_exists;
-    
     IF NOT record_exists THEN
       SELECT count(*) INTO curr_count FROM fuel_logs 
       WHERE vehicle_id = NEW.vehicle_id AND captured_at >= now() - interval '30 days';
@@ -64,17 +72,23 @@ BEGIN
       IF curr_count >= max_limit THEN RAISE EXCEPTION 'QUOTA_EXHAUSTED: Monthly Fuel Logs'; END IF;
     END IF;
 
-  -- Logic for SERVICE LOGS
+  -- Logic for SERVICE LOGS (REFINED: MONTHLY ENFORCEMENT)
   ELSIF TG_TABLE_NAME = 'service_logs' AND TG_OP = 'INSERT' THEN
     SELECT EXISTS(SELECT 1 FROM service_logs WHERE id = NEW.id) INTO record_exists;
-    
     IF NOT record_exists THEN
-      SELECT count(*) INTO curr_count FROM service_logs WHERE vehicle_id = NEW.vehicle_id;
-      max_limit := CASE WHEN u_tier = 'premium' THEN 100 WHEN u_tier = 'standard' THEN 8 ELSE 4 END;
-      IF curr_count >= max_limit THEN RAISE EXCEPTION 'QUOTA_EXHAUSTED: Service Log Capacity'; END IF;
+      -- Count logs across the last month
+      SELECT count(*) INTO curr_count FROM service_logs 
+      WHERE vehicle_id = NEW.vehicle_id AND created_at >= now() - interval '30 days';
+      
+      -- Exact Match to User Requirements
+      max_limit := CASE WHEN u_tier = 'premium' THEN 999 WHEN u_tier = 'standard' THEN 8 ELSE 3 END;
+      
+      IF curr_count >= max_limit THEN 
+        RAISE EXCEPTION 'QUOTA_EXHAUSTED: Service Log Capacity (Limit: % per month)', max_limit; 
+      END IF;
     END IF;
 
-  -- Logic for EPHEMERAL USAGE (Always counts as new)
+  -- Logic for EPHEMERAL USAGE
   ELSIF TG_TABLE_NAME = 'usage_logs' AND TG_OP = 'INSERT' THEN
     SELECT count(*) INTO curr_count FROM usage_logs 
     WHERE user_id = auth.uid() AND feature_key = NEW.feature_key AND created_at >= now() - interval '30 days';

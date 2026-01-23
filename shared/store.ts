@@ -150,6 +150,8 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       role: meta.role || 'user',
       onboarded: meta.onboarded || false,
       createdAt: supabaseUser.created_at || new Date().toISOString(),
+      // Fix: Added missing isRenewable property to satisfy UserProfile interface requirement.
+      isRenewable: meta.is_renewable || false,
     };
     set({ session, user: newUserObj });
   },

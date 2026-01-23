@@ -18,17 +18,19 @@ export const useUsageQuota = (capability: CapabilityKey) => {
   }, [user?.id, capability]);
 
   const currentUsage = useMemo(() => {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
     switch (capability) {
       case 'MAX_VEHICLES':
         return vehicles.filter(v => v.status === 'active').length;
       case 'FUEL_LOGS_MONTHLY':
         if (!activeVehicleId) return 0;
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
         return fuelLogs.filter(l => l.vehicleId === activeVehicleId && new Date(l.createdAt) > thirtyDaysAgo).length;
-      case 'SERVICE_LOGS_TOTAL':
+      case 'SERVICE_LOGS_MONTHLY':
         if (!activeVehicleId) return 0;
-        return serviceLogs.filter(l => l.vehicleId === activeVehicleId).length;
+        // Corrected: Track monthly logs rather than total
+        return serviceLogs.filter(l => l.vehicleId === activeVehicleId && new Date(l.createdAt || '') > thirtyDaysAgo).length;
       case 'AI_MECHANIC_MONTHLY':
       case 'AI_SCAN_MONTHLY':
         return asyncUsage;

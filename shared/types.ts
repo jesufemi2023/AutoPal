@@ -15,7 +15,7 @@ export type CapabilityKey =
   | 'FUEL_LOGS_MONTHLY'
   | 'AI_MECHANIC_MONTHLY'
   | 'AI_SCAN_MONTHLY'
-  | 'SERVICE_LOGS_TOTAL'
+  | 'SERVICE_LOGS_MONTHLY'
   | 'EXPORT_PDF'
   | 'EXPORT_EXCEL'
   | 'OWNERSHIP_REPORT'
@@ -34,6 +34,8 @@ export interface UserProfile {
   role: UserRole;
   onboarded: boolean;
   createdAt: string;
+  licenseExpiresAt?: string;
+  isRenewable: boolean;
 }
 
 export interface UsageQuota {
@@ -51,7 +53,6 @@ export interface TransientVehicle {
   vin?: string;
 }
 
-/** Added HealthBreakdown interface to fix import error in maintenanceLogic.ts */
 export interface HealthBreakdown {
   metabolic: number;
   hygiene: number;
@@ -116,7 +117,6 @@ export interface Vehicle {
   updatedAt?: string;
   avgDailyKm?: number;
   latestAiAudit?: AIValuationReport;
-  /** Added sync status properties for local database tracking */
   isDirty?: boolean;
   syncStatus?: SyncStatus;
 }
@@ -130,7 +130,6 @@ export interface FuelLog {
   isFullTank: boolean;
   vendor?: string;
   createdAt: string;
-  /** Added sync status properties for local database tracking */
   isDirty?: boolean;
   syncStatus?: SyncStatus;
 }
@@ -151,7 +150,6 @@ export interface ServiceLog {
   taskId?: string;
   verificationLevel?: VerificationLevel;
   receiptUrl?: string;
-  /** Added sync status properties for local database tracking */
   isDirty?: boolean;
   syncStatus?: SyncStatus;
 }
@@ -174,7 +172,6 @@ export interface MaintenanceTask {
   projectedDate?: string; 
   lastVerificationLevel?: VerificationLevel;
   lastReceiptUrl?: string;
-  /** Added sync status properties for local database tracking */
   isDirty?: boolean;
   syncStatus?: SyncStatus;
 }
