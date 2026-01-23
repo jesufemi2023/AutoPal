@@ -4,12 +4,23 @@ import { CapabilityKey, UsageQuota } from '../shared/types.ts';
 import { getTierCapability } from '../services/capabilityService.ts';
 import { getMonthlyUsageCount } from '../services/usageService.ts';
 
+/**
+ * useUsageQuota Hook
+ * Central logic for determining if a feature is available.
+ * Now incorporates License Expiry logic: All writing actions are blocked if license is expired.
+ */
 export const useUsageQuota = (capability: CapabilityKey) => {
   const { user, vehicles, fuelLogs, serviceLogs, activeVehicleId } = useAutoPalStore();
   const [asyncUsage, setAsyncUsage] = useState(0);
 
   const tier = user?.tier || 'free';
   const limit = getTierCapability(tier, capability);
+
+  // License Validity Check
+  const isLicenseExpired = useMemo(() => {
+    if (!user?.licenseExpiresAt) return false;
+    return new Date(user.licenseExpiresAt) < new Date();
+  }, [user?.licenseExpiresAt]);
 
   useEffect(() => {
     if (user?.id && (capability === 'AI_MECHANIC_MONTHLY' || capability === 'AI_SCAN_MONTHLY')) {
@@ -29,7 +40,6 @@ export const useUsageQuota = (capability: CapabilityKey) => {
         return fuelLogs.filter(l => l.vehicleId === activeVehicleId && new Date(l.createdAt) > thirtyDaysAgo).length;
       case 'SERVICE_LOGS_MONTHLY':
         if (!activeVehicleId) return 0;
-        // Corrected: Track monthly logs rather than total
         return serviceLogs.filter(l => l.vehicleId === activeVehicleId && new Date(l.createdAt || '') > thirtyDaysAgo).length;
       case 'AI_MECHANIC_MONTHLY':
       case 'AI_SCAN_MONTHLY':
@@ -43,7 +53,8 @@ export const useUsageQuota = (capability: CapabilityKey) => {
     feature: capability,
     current: currentUsage,
     limit: typeof limit === 'number' ? limit : 0,
-    isExhausted: typeof limit === 'number' ? currentUsage >= limit : !limit
+    // CRITICAL: Exhaustion triggered by EITHER count limit OR license expiry
+    isExhausted: isLicenseExpired || (typeof limit === 'number' ? currentUsage >= limit : !limit)
   };
 
   return quota;

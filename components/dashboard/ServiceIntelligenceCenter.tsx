@@ -7,6 +7,7 @@ import { MaintenanceTask, ServiceLog } from '../../shared/types.ts';
 import { calculateFinancialLedger } from '../../services/maintenanceLogic.ts';
 import { MaintenanceRoadmap } from './MaintenanceRoadmap.tsx';
 import { ServiceLogTerminal } from '../ServiceLogTerminal.tsx';
+import { TierGuard } from '../TierGuard.tsx';
 
 const ServiceIntelligenceCenter: React.FC = () => {
   const { 
@@ -71,7 +72,6 @@ const ServiceIntelligenceCenter: React.FC = () => {
     triggerProfessionalPrint('service-report-content');
   };
 
-  // Fixed: Added missing getVerificationBadge helper function
   const getVerificationBadge = (level?: string) => {
     switch (level) {
       case 'mechanic_verified': return <span className="text-[7px] font-black bg-emerald-600 text-white px-2 py-0.5 rounded uppercase tracking-widest">Verified ✓</span>;
@@ -186,12 +186,16 @@ const ServiceIntelligenceCenter: React.FC = () => {
           <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Service <br/><span className="text-blue-600">Records</span></h2>
           
           <div className="flex gap-3 pt-6">
-             <button onClick={handleExportCSV} className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-3">
-               <span className="text-base">📊</span> Export Excel (CSV)
-             </button>
-             <button onClick={handleExportPDF} className="bg-blue-50 text-blue-600 border border-blue-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-blue-600 hover:text-white transition-all flex items-center gap-3">
-               <span className="text-base">📄</span> Official PDF Dossier
-             </button>
+             <TierGuard capability="EXPORT_EXCEL">
+                <button onClick={handleExportCSV} className="bg-emerald-50 text-emerald-600 border border-emerald-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-emerald-600 hover:text-white transition-all flex items-center gap-3">
+                  <span className="text-base">📊</span> Export Excel
+                </button>
+             </TierGuard>
+             <TierGuard capability="EXPORT_PDF">
+                <button onClick={handleExportPDF} className="bg-blue-50 text-blue-600 border border-blue-100 px-6 py-3 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] shadow-sm hover:bg-blue-600 hover:text-white transition-all flex items-center gap-3">
+                  <span className="text-base">📄</span> Performance PDF
+                </button>
+             </TierGuard>
           </div>
 
           {vehicles.length > 1 && (
@@ -208,9 +212,11 @@ const ServiceIntelligenceCenter: React.FC = () => {
             </div>
           )}
         </div>
-        <button disabled={!activeVehicle} onClick={() => setShowLogTerminal(true)} className="bg-slate-900 text-white px-8 sm:px-12 py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-4xl hover:bg-blue-600 transition-all flex items-center justify-center gap-4">
-          <span className="text-2xl">🛠️</span> Record Maintenance
-        </button>
+        <TierGuard capability="SERVICE_LOGS_MONTHLY">
+          <button disabled={!activeVehicle} onClick={() => setShowLogTerminal(true)} className="bg-slate-900 text-white px-8 sm:px-12 py-6 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-4xl hover:bg-blue-600 transition-all flex items-center justify-center gap-4">
+            <span className="text-2xl">🛠️</span> Record Maintenance
+          </button>
+        </TierGuard>
       </header>
 
       {!activeVehicle ? (

@@ -1,46 +1,47 @@
 import { Tier, CapabilityKey } from '../shared/types.ts';
+import { ENV } from './envService.ts';
 
 /**
  * AutoPal NG Capability Registry
  * Centralized mapping of features to their tiered constraints.
- * CALIBRATED: Match exact user specifications for Service Logs and Renewal.
+ * REFACTORED: Driven by ENV variables for high customizability and zero hardcoding.
  */
 
 type CapabilityValue = number | boolean;
 
 export const CAPABILITIES: Record<Tier, Record<CapabilityKey, CapabilityValue>> = {
   free: {
-    MAX_VEHICLES: 1,
-    FUEL_LOGS_MONTHLY: 2,
-    AI_MECHANIC_MONTHLY: 1,
-    AI_SCAN_MONTHLY: 1,
-    SERVICE_LOGS_MONTHLY: 3, // Changed from 4 Total to 3 Monthly
+    MAX_VEHICLES: ENV.MAX_VEHICLES_FREE,
+    FUEL_LOGS_MONTHLY: ENV.MAX_FUEL_FREE,
+    AI_MECHANIC_MONTHLY: ENV.MAX_AI_SCAN_FREE,
+    AI_SCAN_MONTHLY: ENV.MAX_AI_SCAN_FREE,
+    SERVICE_LOGS_MONTHLY: ENV.MAX_LOGS_FREE,
     EXPORT_PDF: false,
     EXPORT_EXCEL: false,
     OWNERSHIP_REPORT: false,
-    RENEWABLE_LICENSE: false, // Free tier cannot be renewed
+    RENEWABLE_LICENSE: ENV.RENEWABLE_FREE,
   },
   standard: {
-    MAX_VEHICLES: 3,
-    FUEL_LOGS_MONTHLY: 7,
-    AI_MECHANIC_MONTHLY: 4,
-    AI_SCAN_MONTHLY: 4,
-    SERVICE_LOGS_MONTHLY: 8, // Changed to 8 Monthly
+    MAX_VEHICLES: ENV.MAX_VEHICLES_STANDARD,
+    FUEL_LOGS_MONTHLY: ENV.MAX_FUEL_STANDARD,
+    AI_MECHANIC_MONTHLY: ENV.MAX_AI_SCAN_STANDARD,
+    AI_SCAN_MONTHLY: ENV.MAX_AI_SCAN_STANDARD,
+    SERVICE_LOGS_MONTHLY: ENV.MAX_LOGS_STANDARD,
     EXPORT_PDF: true,
     EXPORT_EXCEL: true,
     OWNERSHIP_REPORT: false,
-    RENEWABLE_LICENSE: true, // Standard can be renewed
+    RENEWABLE_LICENSE: ENV.RENEWABLE_STANDARD,
   },
   premium: {
-    MAX_VEHICLES: 10,
+    MAX_VEHICLES: ENV.MAX_VEHICLES_PREMIUM,
     FUEL_LOGS_MONTHLY: 999,
     AI_MECHANIC_MONTHLY: 8,
     AI_SCAN_MONTHLY: 999,
-    SERVICE_LOGS_MONTHLY: 999, // Changed from 12 Total to Unlimited
+    SERVICE_LOGS_MONTHLY: 999,
     EXPORT_PDF: true,
     EXPORT_EXCEL: true,
     OWNERSHIP_REPORT: true,
-    RENEWABLE_LICENSE: true, // Premium can be renewed
+    RENEWABLE_LICENSE: ENV.RENEWABLE_PREMIUM,
   }
 };
 
