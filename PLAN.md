@@ -1,3 +1,4 @@
+
 # AutoPal NG - Production Roadmap
 
 ## Phase 1: Modular Scaffolding [COMPLETED]
@@ -10,11 +11,11 @@
 - [x] Enabled Row-Level Security (RLS).
 - [x] Establish child table relationships and cascading deletes.
 
-## Phase 3: Security Hardening (The Governor) [NEW]
+## Phase 3: Security Hardening (The Governor) [COMPLETED]
 - [x] Implementation of "Triple-Lock" Security Architecture.
 - [x] PostgreSQL Quota Governor triggers.
 - [x] Pilot Identity Lock (Immutable Tiers).
-- [x] "Visibly Deactivated" UI patterns via TierGuard.
+- [x] "Nuclear Option" Account Decommissioning logic.
 
 ## Phase 4: AI Orchestration
 - [ ] Gemini 3 Flash/Pro integration for JIT diagnostics.
