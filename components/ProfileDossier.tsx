@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
@@ -84,7 +83,7 @@ const NeuralProvisioningOverlay: React.FC<{
       }
     }, 600);
 
-    const fallbackTimer = setTimeout(() => setShowFallback(true), 6000);
+    const fallbackTimer = setTimeout(() => setShowFallback(true), 8000);
 
     return () => {
       clearInterval(interval);
@@ -107,7 +106,7 @@ const NeuralProvisioningOverlay: React.FC<{
         setDiagResult({ 
           msg: "CRITICAL: Function Not Found (404)", 
           isError: true,
-          help: "You haven't pushed the code yet! Run 'supabase functions deploy paystack-webhook' in your terminal."
+          help: "Cloud module missing. Deploy with 'supabase functions deploy paystack-webhook'."
         });
         return;
       }
@@ -129,7 +128,7 @@ const NeuralProvisioningOverlay: React.FC<{
           msg: isBoilerplate ? "CRITICAL: Default Code Detected" : "CRITICAL: Engine response is not JSON.", 
           raw: text.substring(0, 100),
           isError: true,
-          help: isBoilerplate ? "The cloud is running Supabase's default code, not our Autopal code. Re-deploy your index.ts file." : undefined
+          help: isBoilerplate ? "The cloud is running default code. Please push the actual Autopal index.ts." : undefined
         });
       }
     } catch (e: any) {
@@ -139,7 +138,7 @@ const NeuralProvisioningOverlay: React.FC<{
         setDiagResult({ 
           msg: "OFFLINE: Network block or 404.", 
           isError: true,
-          help: "The browser can't see the URL. Make sure you deployed the function to the same project as your database."
+          help: "The browser can't reach the URL. Ensure the function is deployed in the correct project."
         });
       }
     }
@@ -175,7 +174,7 @@ const NeuralProvisioningOverlay: React.FC<{
                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Handshake Delayed</span>
               </div>
               <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest leading-relaxed">
-                We are waiting for the cloud to confirm your payment reference.
+                Waiting for the real-time broadcast from the cloud.
               </p>
             </div>
 
@@ -205,7 +204,7 @@ const NeuralProvisioningOverlay: React.FC<{
                 className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                {isSyncing ? "Checking Database..." : "Check Database Record"}
+                {isSyncing ? "Verifying Record..." : "Fallback: Manual Sync"}
               </button>
 
               <div className="grid grid-cols-2 gap-3">
@@ -213,22 +212,15 @@ const NeuralProvisioningOverlay: React.FC<{
                   onClick={testConnection}
                   className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
                 >
-                  <Bug size={10} /> Inspect Cloud
+                  <Bug size={10} /> Cloud Probe
                 </button>
                 <a 
                   href={webhookUrl}
                   target="_blank"
                   className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
                 >
-                  <Globe size={10} /> Manual Probe
+                  <Globe size={10} /> Browser Test
                 </a>
-              </div>
-              
-              <div className="mt-4 p-5 border border-white/10 rounded-2xl bg-white/5">
-                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-3">CLI Command (Copy/Paste to Terminal)</p>
-                <code className="block p-3 bg-black/60 text-[8px] text-emerald-400 rounded border border-white/5 font-mono break-all leading-relaxed select-all">
-                  supabase functions deploy paystack-webhook --no-verify-jwt --project-ref {projectId}
-                </code>
               </div>
             </div>
           </div>
@@ -255,13 +247,15 @@ const ProfileDossier: React.FC = () => {
     }
   }, [user]);
 
+  // AUTOMATIC REAL-TIME TRANSITION
+  // This effect closes the overlay the instant the user.tier changes via the App.tsx Realtime listener
   useEffect(() => {
     if (isWaitingForServer && user?.tier && provisioningTier === user.tier) {
       setIsWaitingForServer(false);
       setTimeout(() => {
         setProvisioningTier(null);
-        setStatusMsg({ type: 'success', text: `Environment recalibrated to ${provisioningTier?.toUpperCase()} Protocol.` });
-      }, 1500);
+        setStatusMsg({ type: 'success', text: `System successfully recalibrated to ${provisioningTier?.toUpperCase()} Protocol via Neural Sync.` });
+      }, 1000);
     }
   }, [user?.tier, isWaitingForServer, provisioningTier]);
 
@@ -297,17 +291,17 @@ const ProfileDossier: React.FC = () => {
         });
 
         if (profile.tier === provisioningTier) {
-          setStatusMsg({ type: 'success', text: "Activation Successful! System state synchronized." });
+          setStatusMsg({ type: 'success', text: "Verification Successful! System state manual override complete." });
           setIsWaitingForServer(false);
         } else if (payment?.status === 'pending') {
           setStatusMsg({ 
             type: 'error', 
-            text: "Status is still 'pending'. If you paid, the Webhook code might not be pushed to Supabase yet." 
+            text: "Sync Result: 'pending'. The cloud is still waiting for the Paystack success signal." 
           });
         }
       }
     } catch (e: any) {
-      setStatusMsg({ type: 'error', text: "Sync Failed: Database unreachable." });
+      setStatusMsg({ type: 'error', text: "Sync Failed: Cloud unreachable." });
     } finally {
       setIsManualSyncing(false);
     }
@@ -338,7 +332,7 @@ const ProfileDossier: React.FC = () => {
             setLastRef(ref);
             setLastStatus('pending');
             setIsWaitingForServer(true);
-            setStatusMsg({ type: 'success', text: 'Payment Recorded. Awaiting Handshake...' });
+            setStatusMsg({ type: 'success', text: 'Payment Recorded. System awaiting Real-time signal...' });
           }
         } catch (err: any) {
           setStatusMsg({ type: 'error', text: `Security Fault: ${err.message}` });

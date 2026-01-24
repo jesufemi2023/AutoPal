@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -95,7 +94,7 @@ const App: React.FC = () => {
                   displayName: updated.display_name,
                   phone: updated.phone
                 } as any);
-                console.log("System Calibration: Tier Synchronized via Realtime.");
+                console.log("System Calibration: Real-time update received from Cloud.");
               })
               .subscribe();
           }
