@@ -129,8 +129,9 @@ const ProfileDossier: React.FC = () => {
         setProvisioningTier(tier);
         try {
           if (supabase) {
-            // Log Payment
-            await supabase.from('payments').insert([{
+            // GOLDEN THREAD: Only insert to payments. 
+            // The database trigger "tr_activate_tier_on_payment" handles the Users table update.
+            const { error: paymentError } = await supabase.from('payments').insert([{
               user_id: user.id,
               tier: tier,
               amount: price,
@@ -138,25 +139,18 @@ const ProfileDossier: React.FC = () => {
               status: 'success'
             }]);
 
-            // Activate Tier
-            const { error } = await supabase
-              .from('Users')
-              .update({ 
-                tier: tier,
-                license_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-              })
-              .eq('id', user.id);
-            
-            if (error) throw error;
-            
+            if (paymentError) throw paymentError;
+
+            // Sync Local Store state manually to reflect the trigger's backend change
             setUser({ 
               ...user, 
               tier: tier, 
               licenseExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() 
             });
           }
-        } catch (err) {
-          console.error("Verification Error", err);
+        } catch (err: any) {
+          console.error("Ledger Injection Failure:", err);
+          setStatusMsg({ type: 'error', text: `System Fault: ${err.message}` });
         }
       },
       onCancel: () => {
@@ -315,7 +309,6 @@ const ProfileDossier: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {PLANS.map((plan) => {
                 const isActive = user?.tier === plan.id;
-                const isBlockedFreeRenewal = isActive && plan.id === 'free';
 
                 return (
                   <div 
