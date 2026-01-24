@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
@@ -231,7 +232,7 @@ const NeuralProvisioningOverlay: React.FC<{
 };
 
 const ProfileDossier: React.FC = () => {
-  const { user, setUser } = useAutoPalStore();
+  const { user, setUser, setCurrentView } = useAutoPalStore();
   const [activeTab, setActiveTab] = useState<'identity' | 'license'>('identity');
   const [provisioningTier, setProvisioningTier] = useState<Tier | null>(null);
   const [lastRef, setLastRef] = useState<string | undefined>();
@@ -247,17 +248,28 @@ const ProfileDossier: React.FC = () => {
     }
   }, [user]);
 
-  // AUTOMATIC REAL-TIME TRANSITION
-  // This effect closes the overlay the instant the user.tier changes via the App.tsx Realtime listener
+  // AUTOMATIC REAL-TIME TRANSITION & REDIRECT
+  // This effect closes the overlay and redirects to Garage the instant the user.tier changes via the App.tsx Realtime listener
   useEffect(() => {
     if (isWaitingForServer && user?.tier && provisioningTier === user.tier) {
+      // 1. Mark server wait as complete
       setIsWaitingForServer(false);
+      
+      // 2. Clear provisioning tier and show success
       setTimeout(() => {
         setProvisioningTier(null);
-        setStatusMsg({ type: 'success', text: `System successfully recalibrated to ${provisioningTier?.toUpperCase()} Protocol via Neural Sync.` });
-      }, 1000);
+        setStatusMsg({ 
+          type: 'success', 
+          text: `Activation Successful. Redirecting to Command Center...` 
+        });
+        
+        // 3. AUTOMATIC REDIRECT TO DASHBOARD
+        setTimeout(() => {
+          setCurrentView('garage');
+        }, 1500);
+      }, 500);
     }
-  }, [user?.tier, isWaitingForServer, provisioningTier]);
+  }, [user?.tier, isWaitingForServer, provisioningTier, setCurrentView]);
 
   const forceProfileSync = async () => {
     if (!supabase || !user) return;
