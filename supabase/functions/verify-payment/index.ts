@@ -21,9 +21,15 @@ serve(async (req) => {
 
   try {
     const { reference } = await req.json()
+    console.log(`Neural Input: Verifying reference [${reference}]`);
     
     if (!reference) {
       return new Response(JSON.stringify({ error: 'Missing reference' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    }
+
+    if (!PAYSTACK_SECRET) {
+      console.error("CRITICAL: PAYSTACK_SECRET_KEY is not set in Supabase Secrets.");
+      return new Response(JSON.stringify({ error: 'Cloud Configuration Error: Missing Secret Key' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // 1. Verify with Paystack
@@ -35,15 +41,18 @@ serve(async (req) => {
     })
     
     const paystackData = await verifyRes.json()
+    console.log(`Paystack Response for [${reference}]:`, paystackData.data?.status || 'No status');
 
-    if (paystackData.data.status !== 'success') {
-      return new Response(JSON.stringify({ status: paystackData.data.status }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    const status = paystackData.data?.status || 'unknown';
+
+    if (status !== 'success') {
+      return new Response(JSON.stringify({ status: status }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
 
     // 2. Update Database via Service Role
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     
-    // Check if already processed to avoid redundant trigger executions
+    // Check if already processed
     const { data: existing } = await supabase
       .from('payments')
       .select('status')
@@ -51,12 +60,16 @@ serve(async (req) => {
       .maybeSingle()
 
     if (existing?.status !== 'success') {
+      console.log(`Success confirmed. Provisioning tier for ref [${reference}]...`);
       const { error: updateError } = await supabase
         .from('payments')
         .update({ status: 'success' })
         .eq('reference', reference)
 
-      if (updateError) throw updateError
+      if (updateError) {
+        console.error("Database provisioning error:", updateError);
+        throw updateError;
+      }
     }
 
     return new Response(JSON.stringify({ status: 'success' }), { 
@@ -65,6 +78,7 @@ serve(async (req) => {
     })
 
   } catch (err) {
+    console.error("Verification Engine Fault:", err.message);
     return new Response(JSON.stringify({ error: err.message }), { 
       status: 500, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
