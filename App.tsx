@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
 import AuthScreen from './components/AuthScreen.tsx';
@@ -37,35 +37,12 @@ const App: React.FC = () => {
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
-  // Sync session and fetch full user profile + REALTIME LISTENER
-  useEffect(() => {
+  useEffect(() => { 
     validateEnv();
     loadLocalData();
-  }, [loadLocalData]);
+  }, []);
 
-  /**
-   * Robust Profile Synchronizer:
-   * Re-fetches the latest profile to ensure no state drift.
-   */
-  const syncLatestProfile = useCallback(async (userId: string) => {
-    if (!supabase) return;
-    const { data: profile } = await supabase.from('Users').select('*').eq('id', userId).maybeSingle();
-    if (profile) {
-      setUser({
-        id: userId,
-        email: profile.email || '',
-        displayName: profile.display_name || '',
-        phone: profile.phone || '',
-        tier: profile.tier || 'free',
-        role: profile.role || 'user',
-        onboarded: profile.onboarded || false,
-        createdAt: profile.created_at || '',
-        isRenewable: profile.is_renewable || false,
-        licenseExpiresAt: profile.license_expires_at
-      });
-    }
-  }, [setUser]);
-
+  // Sync session and fetch full user profile + REALTIME LISTENER
   useEffect(() => {
     let authSubscription: { unsubscribe: () => void } | null = null;
     let userSubscription: any = null;
@@ -80,32 +57,54 @@ const App: React.FC = () => {
         setSession(currentSession);
         
         if (currentSession?.user) {
-          await syncLatestProfile(currentSession.user.id);
+          const { data: profile } = await supabase
+            .from('Users')
+            .select('*')
+            .eq('id', currentSession.user.id)
+            .maybeSingle();
+          
+          if (profile) {
+            setUser({
+              id: currentSession.user.id,
+              email: currentSession.user.email || '',
+              displayName: profile.display_name || '',
+              phone: profile.phone || '',
+              tier: profile.tier || 'free',
+              role: profile.role || 'user',
+              onboarded: profile.onboarded || false,
+              createdAt: profile.created_at || '',
+              isRenewable: profile.is_renewable || false,
+              licenseExpiresAt: profile.license_expires_at
+            });
 
-          // REALTIME: Subscribe to User Profile Changes (Tier Upgrades)
-          userSubscription = supabase
-            .channel(`user-profile-${currentSession.user.id}`)
-            .on('postgres_changes', { 
-              event: 'UPDATE', 
-              schema: 'public', 
-              table: 'Users', 
-              filter: `id=eq.${currentSession.user.id}` 
-            }, () => {
-              // Functional update: Always fetch the freshest data from cloud
-              // to avoid stale React closure problems.
-              syncLatestProfile(currentSession.user.id);
-              console.log("System Calibration: Triggering refresh via Realtime Signal.");
-            })
-            .subscribe();
+            // REALTIME: Subscribe to User Profile Changes (Tier Upgrades)
+            userSubscription = supabase
+              .channel(`user-profile-${profile.id}`)
+              .on('postgres_changes', { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'Users', 
+                filter: `id=eq.${profile.id}` 
+              }, (payload) => {
+                const updated = payload.new;
+                setUser({
+                  ...user,
+                  tier: updated.tier,
+                  licenseExpiresAt: updated.license_expires_at,
+                  role: updated.role,
+                  displayName: updated.display_name,
+                  phone: updated.phone
+                } as any);
+                console.log("System Calibration: Tier Synchronized via Realtime.");
+              })
+              .subscribe();
+          }
         }
 
         setInitialized(true);
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           setSession(session);
-          if (event === 'SIGNED_IN' && session?.user) {
-            await syncLatestProfile(session.user.id);
-          }
           if (!session) reset();
         });
         authSubscription = subscription;
@@ -120,7 +119,7 @@ const App: React.FC = () => {
       if (authSubscription) authSubscription.unsubscribe();
       if (userSubscription) supabase?.removeChannel(userSubscription);
     };
-  }, [setSession, setInitialized, reset, syncLatestProfile]);
+  }, [setSession, setInitialized, reset, setUser]);
 
   useEffect(() => {
     if (session && user && vehicles.length === 0) {
@@ -133,7 +132,7 @@ const App: React.FC = () => {
         }
       }).catch(console.error);
     }
-  }, [session, user?.id, vehicles.length, currentView, setVehicles, setCurrentView]);
+  }, [session?.user?.id, user?.id]);
 
   const handleSignOut = async () => {
     setIsMobileMenuOpen(false);

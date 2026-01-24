@@ -1,30 +1,23 @@
 
-// Fixed: Removed problematic lib reference and added Deno declaration to satisfy compiler in environments without Deno types
-declare const Deno: any;
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts"
 
-/**
- * Paystack Webhook Handler for AutoPal NG
- * Securely processes successful payment signals and provisions user tiers.
- */
+// Ambient declaration for Deno runtime
+declare const Deno: any;
 
-Deno.serve(async (req) => {
-  const requestId = crypto.randomUUID().split('-')[0];
-  console.log(`[${requestId}] Webhook Request Received: ${req.method}`);
+const PAYSTACK_SECRET = Deno.env.get('PAYSTACK_SECRET_KEY') || ''
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
-  // 1. Health Check & Diagnostic (GET)
+serve(async (req) => {
+  // 1. Health Check (GET) - Allows user to verify URL in browser
   if (req.method === 'GET') {
     return new Response(
       JSON.stringify({ 
         status: 'Operational', 
-        message: 'AutoPal NG Webhook Listener is active.',
-        diagnostics: {
-          paystack_secret_set: !!Deno.env.get('PAYSTACK_SECRET_KEY'),
-          supabase_role_set: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
-          supabase_url_set: !!Deno.env.get('SUPABASE_URL'),
-          timestamp: new Date().toISOString()
-        }
+        message: 'AutoPal NG Webhook Listener is active and awaiting POST signals.',
+        timestamp: new Date().toISOString()
       }), 
       { status: 200, headers: { "Content-Type": "application/json" } }
     )
@@ -41,34 +34,27 @@ Deno.serve(async (req) => {
     })
   }
 
-  // 3. Process POST (Webhook Signal)
+  // 3. Process POST (The actual Webhook)
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 })
   }
 
   try {
     const signature = req.headers.get('x-paystack-signature')
-    if (!signature) {
-      console.error(`[${requestId}] Missing Paystack Signature Header.`);
-      return new Response(JSON.stringify({ error: 'Missing Signature' }), { status: 401 })
-    }
-
     const rawBody = await req.text()
+
     if (!rawBody) {
-      console.error(`[${requestId}] Empty Payload Received.`);
-      return new Response(JSON.stringify({ error: 'Empty Body' }), { status: 400 })
+      console.error("Payload Fault: Received POST request with empty body.")
+      return new Response(JSON.stringify({ error: 'Empty body' }), { status: 400 })
     }
 
-    const PAYSTACK_SECRET = Deno.env.get('PAYSTACK_SECRET_KEY')
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-
-    if (!PAYSTACK_SECRET || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_URL) {
-      console.error(`[${requestId}] Configuration Fault: Missing Environment Variables.`);
-      return new Response(JSON.stringify({ error: 'Server Configuration Incomplete' }), { status: 500 })
+    // Cryptographic Verification
+    // We only verify if a signature is provided. If not, it's likely a malformed test.
+    if (!signature) {
+       console.error("Security Fault: Missing Paystack Signature Header.")
+       return new Response(JSON.stringify({ error: 'Missing Signature' }), { status: 401 })
     }
 
-    // Cryptographic Signature Verification
     const hmac = await crypto.subtle.importKey(
       "raw", new TextEncoder().encode(PAYSTACK_SECRET),
       { name: "HMAC", hash: "SHA-512" }, false, ["sign"]
@@ -77,71 +63,42 @@ Deno.serve(async (req) => {
     const expectedSignature = Array.from(new Uint8Array(signed)).map(b => b.toString(16).padStart(2, '0')).join('')
 
     if (signature !== expectedSignature) {
-      console.error(`[${requestId}] Security Violation: Signature mismatch.`);
-      return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 401 })
+      console.error("Security Fault: Invalid Signature Detected. Verify PAYSTACK_SECRET_KEY matches Dashboard.")
+      return new Response(JSON.stringify({ error: 'Invalid Signature' }), { status: 401 })
     }
 
     const event = JSON.parse(rawBody)
-    console.log(`[${requestId}] Processing Event: ${event.event} | Ref: ${event.data?.reference}`);
+    console.log(`Signal Received: ${event.event}`)
     
+    // Only process successful charges
     if (event.event === 'charge.success') {
-      const { reference, amount, metadata, customer } = event.data
-      const requestedTier = metadata?.custom_fields?.find((f: any) => f.variable_name === 'requested_tier')?.value || 'standard'
-      const userId = metadata?.custom_fields?.find((f: any) => f.variable_name === 'user_id')?.value
+      const reference = event.data.reference
+      const requestedTier = event.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'requested_tier')?.value || 'standard'
+
+      console.log(`Processing Provisioning for Ref: ${reference} (Tier: ${requestedTier})`)
 
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-      // Resolve User ID if not provided in metadata (Fallback to Email)
-      let resolvedUserId = userId
-      if (!resolvedUserId) {
-        console.log(`[${requestId}] User ID missing in metadata, attempting email resolution...`);
-        const { data: userRecord, error: userError } = await supabase
-          .from('Users')
-          .select('id')
-          .eq('email', customer.email)
-          .maybeSingle()
-        
-        if (userError) {
-          console.error(`[${requestId}] Database error during user resolution:`, userError.message);
-          throw userError;
-        }
-        resolvedUserId = userRecord?.id
-      }
-
-      if (!resolvedUserId) {
-        console.error(`[${requestId}] Provisioning Aborted: No pilot record found for ${customer.email}`);
-        return new Response(JSON.stringify({ status: 'Ignored: No User Record Found' }), { status: 200 })
-      }
-
-      console.log(`[${requestId}] Executing Provisioning: ${requestedTier} for Pilot ${resolvedUserId}`);
-
-      // UPSERT record - Database trigger tr_activate_tier_on_payment handles the rest
-      const { error: dbError } = await supabase
+      // Update the payment record
+      const { data: payment, error: payError } = await supabase
         .from('payments')
-        .upsert({
-          user_id: resolvedUserId,
-          tier: requestedTier,
-          amount: amount / 100, // Paystack Kobo to NGN
-          reference: reference,
-          status: 'success'
-        }, { onConflict: 'reference' })
+        .update({ status: 'success' })
+        .eq('reference', reference)
+        .select()
+        .single()
 
-      if (dbError) {
-        console.error(`[${requestId}] Database Upsert Failure:`, dbError.message);
-        throw dbError;
+      if (payError) {
+        console.error("Database Handshake Failure:", payError.message)
+        // We return 200 anyway so Paystack doesn't keep retrying if it's just a data mismatch
+        return new Response(JSON.stringify({ status: 'error', message: payError.message }), { status: 200 })
       }
-      
-      console.log(`[${requestId}] Success: Environment Synchronized for Ref: ${reference}`);
-    } else {
-      console.log(`[${requestId}] Event Ignored: ${event.event}`);
+
+      console.log(`System Calibrated: User ${payment.user_id} upgraded to ${requestedTier}`)
     }
 
-    return new Response(JSON.stringify({ status: 'Handled', requestId }), { status: 200 })
-  } catch (err: any) {
-    console.error(`[${requestId}] Neural Execution Fault:`, err.message);
-    return new Response(
-      JSON.stringify({ error: 'Internal Server Error', requestId, detail: err.message }), 
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    )
+    return new Response(JSON.stringify({ status: 'processed' }), { status: 200 })
+  } catch (err) {
+    console.error("Neural Execution Fault:", err.message)
+    return new Response(JSON.stringify({ error: err.message }), { status: 500 })
   }
 })

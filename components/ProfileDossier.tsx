@@ -4,8 +4,9 @@ import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
 import { Tier, CapabilityKey } from '../shared/types.ts';
 import { useUsageQuota } from '../hooks/useUsageQuota.ts';
+import { getTierCapability } from '../services/capabilityService.ts';
 import { initiateUpgrade } from '../subscriptions/paymentService.ts';
-import { Shield, Zap, Database, CheckCircle2, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, Search, AlertCircle, Loader2 } from 'lucide-react';
+import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
@@ -75,13 +76,13 @@ const NeuralProvisioningOverlay: React.FC<{
       }
     }, 600);
 
-    const fallbackTimer = setTimeout(() => setShowFallback(true), 5000);
+    const fallbackTimer = setTimeout(() => setShowFallback(true), 8000);
 
     return () => {
       clearInterval(interval);
       clearTimeout(fallbackTimer);
     };
-  }, [tier]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-[10000] bg-slate-950 flex items-center justify-center p-6 animate-in fade-in duration-500">
@@ -96,40 +97,35 @@ const NeuralProvisioningOverlay: React.FC<{
           </div>
         </div>
         
-        <div className="space-y-3 font-mono text-[11px] mb-8 min-h-[140px]">
+        <div className="space-y-3 font-mono text-[11px] mb-8">
           {logs.map((log, i) => (
             <div key={i} className={`${i === logs.length - 1 ? 'text-blue-400 font-bold' : 'text-slate-500'} animate-in slide-in-from-left-2`}>
               {log}
             </div>
           ))}
-          {!isSyncing && !showFallback && <div className="w-2 h-4 bg-blue-500 animate-pulse inline-block mt-2"></div>}
-          {isSyncing && (
-             <div className="text-emerald-400 font-bold animate-pulse mt-4">
-                &gt; PROBING DATABASE VAULT FOR SETTLEMENT SIGNALS...
-             </div>
-          )}
+          {!showFallback && <div className="w-2 h-4 bg-blue-500 animate-pulse inline-block mt-2"></div>}
         </div>
 
         {showFallback && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="bg-blue-500/10 border border-blue-500/20 p-6 rounded-2xl mb-6">
               <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest leading-relaxed">
-                The cloud handshake is taking longer than expected. If your bank has debited you, the signal is likely on its way.
+                Network broadcast stream is delayed. Your payment record exists. Click verify to force a manual environment check.
               </p>
             </div>
             <button 
               disabled={isSyncing}
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onManualVerify(); }}
+              onClick={onManualVerify}
               className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
             >
               {isSyncing ? (
                 <>
-                  <Loader2 size={14} className="animate-spin" />
-                  Attempting Sync...
+                  <RefreshCw size={14} className="animate-spin" />
+                  Requesting Sync...
                 </>
               ) : (
                 <>
-                  <Search size={14} />
+                  <Sparkles size={14} />
                   Verify Activation Now
                 </>
               )}
@@ -156,107 +152,43 @@ const ProfileDossier: React.FC = () => {
     }
   }, [user]);
 
-  /** 
-   * AUTO-RECOVERY: Restore UI state if user refreshes during provisioning
-   */
+  // SUCCESS TRIGGER: When user.tier matches the tier we're waiting for
   useEffect(() => {
-    const checkRecovery = async () => {
-      if (!supabase || !user || user.tier !== 'free') return;
-      
-      const { data: recentPayments } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (recentPayments && (recentPayments.status === 'pending' || recentPayments.status === 'success')) {
-        setProvisioningTier(recentPayments.tier as Tier);
-        setIsWaitingForServer(true);
-      }
-    };
-    checkRecovery();
-  }, [user?.id, user?.tier]);
-
-  /**
-   * SUCCESS WATCHER: Closes overlay when store updates via App.tsx realtime subscription
-   */
-  useEffect(() => {
-    if (isWaitingForServer && user?.tier && user.tier !== 'free') {
+    if (isWaitingForServer && user?.tier && provisioningTier === user.tier) {
       setIsWaitingForServer(false);
-      const targetTier = user.tier;
-      setProvisioningTier(null);
-      setStatusMsg({ type: 'success', text: `System Recalibrated: ${targetTier.toUpperCase()} Protocol Active.` });
+      setTimeout(() => {
+        setProvisioningTier(null);
+        setStatusMsg({ type: 'success', text: `Environment recalibrated to ${provisioningTier?.toUpperCase()} Protocol.` });
+      }, 1500);
     }
-  }, [user?.tier, isWaitingForServer]);
+  }, [user?.tier, isWaitingForServer, provisioningTier]);
 
-  /**
-   * DEEP MANUAL VERIFICATION
-   * This is the fix for the "unresponsive" button.
-   */
   const forceProfileSync = async () => {
     if (!supabase || !user) return;
-    
     setIsManualSyncing(true);
     setStatusMsg(null);
-    console.log("Manual Sync Initiated...");
     
     try {
-      // 1. Fetch latest profile truth from cloud
-      const { data: profile, error: profError } = await supabase
-        .from('Users')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
+      const { data: profile, error } = await supabase.from('Users').select('*').eq('id', user.id).maybeSingle();
       
-      if (profError) throw profError;
+      if (error) throw error;
       
-      // 2. Fetch the latest payment attempt for this user
-      const { data: payRecord, error: payError } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (payError) throw payError;
-
-      // 3. Logic Branching based on found data
-      if (profile && profile.tier !== 'free') {
-        // CASE A: User is already upgraded in the DB
+      if (profile) {
         setUser({
           ...user,
           tier: profile.tier,
           licenseExpiresAt: profile.license_expires_at,
-          role: profile.role,
-          displayName: profile.display_name,
-          phone: profile.phone
+          role: profile.role
         });
-        setIsWaitingForServer(false);
-        setProvisioningTier(null);
-        setStatusMsg({ type: 'success', text: "Activation Confirmed! Cloud state synchronized." });
-      } 
-      else if (payRecord) {
-        if (payRecord.status === 'success') {
-          // CASE B: Payment is success but Trigger hasn't flipped User yet
-          setStatusMsg({ type: 'error', text: "Payment confirmed, but system trigger is latent. Retrying in 10s..." });
-          setTimeout(forceProfileSync, 10000);
+
+        if (profile.tier === provisioningTier) {
+          setStatusMsg({ type: 'success', text: "Activation Successful! System state synchronized." });
         } else {
-          // CASE C: Record exists but is still PENDING (Webhook hasn't fired or failed)
-          setStatusMsg({ type: 'error', text: `Reference ${payRecord.reference} is still PENDING. Paystack signal hasn't reached our cloud yet.` });
+          setStatusMsg({ type: 'error', text: "Confirmation still pending from Paystack. Please wait 60 seconds." });
         }
-      } 
-      else {
-        // CASE D: No record at all
-        setStatusMsg({ type: 'error', text: "No payment attempt found in the vault. Please try activating again." });
-        setIsWaitingForServer(false);
-        setProvisioningTier(null);
       }
     } catch (e: any) {
-      console.error("Manual Sync Fault:", e);
-      setStatusMsg({ type: 'error', text: "Network Fault: Connection to Cloud Master Nodes interrupted." });
+      setStatusMsg({ type: 'error', text: "Sync Failed: Cloud node unreachable." });
     } finally {
       setIsManualSyncing(false);
     }
@@ -267,32 +199,33 @@ const ProfileDossier: React.FC = () => {
     setStatusMsg(null);
 
     initiateUpgrade({
-      userId: user.id,
       email: user.email,
       amount: price,
       tier: tier,
       onSuccess: async (ref) => {
         try {
           if (supabase) {
-            await supabase.from('payments').upsert([{
+            const { error: insertError } = await supabase.from('payments').insert([{
               user_id: user.id,
               tier: tier,
               amount: price,
               reference: ref,
               status: 'pending'
-            }], { onConflict: 'reference' });
+            }]);
+
+            if (insertError) throw insertError;
 
             setProvisioningTier(tier);
             setIsWaitingForServer(true);
-            setStatusMsg({ type: 'success', text: 'Signal captured. System is calibrating...' });
+            setStatusMsg({ type: 'success', text: 'Payment Received. Calibrating system...' });
           }
         } catch (err: any) {
-          console.error("Billing Persistence Fault:", err);
-          setStatusMsg({ type: 'error', text: `Data Vault Error: ${err.message}` });
+          console.error("Billing Security Fault:", err);
+          setStatusMsg({ type: 'error', text: `Security Fault: ${err.message}` });
         }
       },
       onCancel: () => {
-        setStatusMsg({ type: 'error', text: 'Activation Sequence Aborted.' });
+        setStatusMsg({ type: 'error', text: 'Protocol Activation Aborted.' });
       }
     });
   };
@@ -303,7 +236,7 @@ const ProfileDossier: React.FC = () => {
       label: 'Pilot Basic', 
       price: 0,
       priceLabel: '₦0',
-      tagline: 'Discovery Environment',
+      tagline: 'Standard Environment',
       features: ['1 Active Vehicle Twin', '2 Monthly Fuel Logs', '0 AI Diagnostic Scans', 'Regional Market Data', 'Non-renewable after 30 days']
     },
     { 
@@ -328,7 +261,7 @@ const ProfileDossier: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-12 animate-slide-up px-4 pb-32">
-      {provisioningTier && isWaitingForServer && (
+      {provisioningTier && (isWaitingForServer || provisioningTier === user?.tier) && (
         <NeuralProvisioningOverlay 
           tier={provisioningTier} 
           isSyncing={isManualSyncing}
@@ -365,9 +298,8 @@ const ProfileDossier: React.FC = () => {
       </header>
 
       {statusMsg && (
-        <div className={`p-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border animate-in slide-in-from-top-4 flex items-center gap-3 ${statusMsg.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
-          {statusMsg.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-          {statusMsg.text}
+        <div className={`p-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border animate-in slide-in-from-top-4 ${statusMsg.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
+          {statusMsg.type === 'success' ? '✓' : '⚠️'} {statusMsg.text}
         </div>
       )}
 
@@ -459,7 +391,7 @@ const ProfileDossier: React.FC = () => {
                     <button 
                       onClick={() => plan.id !== 'free' && handleUpgrade(plan.id as any, plan.price)}
                       disabled={isActive && !isExpired}
-                      className={`mt-12 w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all flex items-center justify-center gap-3 ${isActive && !isExpired ? 'bg-emerald-50 text-emerald-600 border-2 border-emerald-200 cursor-default' : plan.id === 'free' ? 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-2xl active:scale-[0.98]'}`}
+                      className={`mt-12 w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all flex items-center justify-center gap-3 ${isActive && !isExpired ? 'bg-emerald-50 text-emerald-600 border-2 border-emerald-200 cursor-default' : plan.id === 'free' ? 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-2xl active:scale-0.98]'}`}
                     >
                       {isActive && isExpired ? 'Renew Protocol' : isActive ? 'Current Protocol' : plan.id === 'free' ? 'Initial Protocol' : `Activate ${plan.label}`}
                     </button>
