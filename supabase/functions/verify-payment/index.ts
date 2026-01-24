@@ -12,17 +12,12 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req: Request) => {
-  // 1. CRITICAL: Handle Preflight IMMEDIATELY
-  // This must be the very first thing the function does.
+  // 1. Handle Preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { 
-      status: 200, 
-      headers: corsHeaders 
-    })
+    return new Response('ok', { status: 200, headers: corsHeaders })
   }
 
   try {
-    // 2. Extract Configuration
     const PAYSTACK_SECRET = Deno.env.get('PAYSTACK_SECRET_KEY')
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
@@ -31,30 +26,35 @@ Deno.serve(async (req: Request) => {
       throw new Error("Server configuration variables are missing.")
     }
 
-    // 3. Extract Reference (Query string or Body)
+    // 2. Extract Reference with Fallbacks
     const url = new URL(req.url)
     let reference = url.searchParams.get('reference')
+    
+    console.log(`Processing: ${req.method} request to ${url.pathname}`);
 
-    if (!reference && req.method === 'POST') {
+    if (!reference && (req.method === 'POST' || req.method === 'PUT')) {
       try {
-        const body = await req.json()
-        reference = body.reference
+        const clonedReq = req.clone(); // Clone to prevent stream locking
+        const body = await clonedReq.json();
+        reference = body.reference || body.trxref;
+        console.log(`Found reference in body: ${reference}`);
       } catch (e) {
-        // Fallback for non-JSON or empty bodies
+        console.warn("Could not parse JSON body, proceeding with query search.");
       }
     }
 
-    if (!reference || reference === 'undefined' || reference === 'null') {
-      console.error("Verification Request Fault: No reference found.");
+    // Final validation of reference
+    if (!reference || reference === 'undefined' || reference === 'null' || reference === '') {
+      console.error("Security Fault: No valid transaction reference detected in Request.");
       return new Response(
-        JSON.stringify({ error: 'Transaction reference is required.' }), 
+        JSON.stringify({ error: 'Transaction reference is missing from the payload.' }), 
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
     console.log(`Syncing: Verifying Paystack transaction [${reference}]...`);
 
-    // 4. Contact Paystack API
+    // 3. Contact Paystack API
     const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
       headers: {
         Authorization: `Bearer ${PAYSTACK_SECRET}`,
@@ -74,17 +74,16 @@ Deno.serve(async (req: Request) => {
     const status = paystackData.data?.status || 'unknown'
 
     if (status !== 'success') {
-      console.log(`Paystack reported status: ${status}`);
+      console.log(`Paystack reported non-success status: ${status}`);
       return new Response(
-        JSON.stringify({ status }), 
+        JSON.stringify({ status, reference }), 
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // 5. Securely Update Database (Service Role bypasses RLS)
+    // 4. Securely Update Database (Service Role bypasses RLS)
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     
-    // Check current status to avoid redundant triggers
     const { data: existing } = await supabase
       .from('payments')
       .select('status')
@@ -92,7 +91,7 @@ Deno.serve(async (req: Request) => {
       .maybeSingle()
 
     if (existing?.status !== 'success') {
-      console.log(`Finalizing: Transaction ${reference} authorized. Updating records...`);
+      console.log(`Finalizing: Transaction ${reference} authorized. Syncing identity records...`);
       const { error: updateError } = await supabase
         .from('payments')
         .update({ status: 'success' })
@@ -102,12 +101,12 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ status: 'success' }), 
+      JSON.stringify({ status: 'success', reference }), 
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (err: any) {
-    console.error("Runtime Exception:", err.message);
+    console.error("Edge Runtime Crash:", err.message);
     return new Response(
       JSON.stringify({ error: err.message || 'Internal Server Error' }), 
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -41,7 +41,7 @@ export const initiateUpgrade = (options: PaymentOptions) => {
       ]
     },
     callback: function(response: any) {
-      // Robust reference extraction
+      // Robust reference extraction from Paystack payload
       const ref = response.reference || response.trxref || response.ref;
       console.log(`Payment authorized. Local Ref: ${ref}`);
       
@@ -62,7 +62,8 @@ export const initiateUpgrade = (options: PaymentOptions) => {
 };
 
 /**
- * Verifies transaction via secure Edge Function
+ * Verifies transaction via secure Edge Function.
+ * Uses redundant delivery (Query + Body) for maximum reliability.
  */
 export const verifyTransaction = async (reference: string): Promise<{ status: string }> => {
   if (!supabase) throw new Error("Cloud link unavailable");
@@ -70,9 +71,10 @@ export const verifyTransaction = async (reference: string): Promise<{ status: st
   
   console.log(`Syncing with Cloud: Verifying [${reference}]...`);
 
-  // INVOKE: The client automatically adds standard headers (apikey, auth).
-  // We pass the reference in the body for modern POST compliance.
-  const { data, error } = await supabase.functions.invoke(`verify-payment`, {
+  // We append the reference to the URL AND pass it in the body.
+  // This bypasses issues where some environments might strip POST bodies or fail to parse JSON.
+  const { data, error } = await supabase.functions.invoke(`verify-payment?reference=${encodeURIComponent(reference)}`, {
+    method: 'POST',
     body: { reference }
   });
 
