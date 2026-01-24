@@ -41,8 +41,16 @@ export const initiateUpgrade = (options: PaymentOptions) => {
       ]
     },
     callback: function(response: any) {
-      console.log(`Payment authorized. Reference: ${response.reference}`);
-      onSuccess(response.reference);
+      // Robust reference extraction
+      const ref = response.reference || response.trxref || response.ref;
+      console.log(`Payment authorized. Local Ref: ${ref}`);
+      
+      if (ref) {
+        onSuccess(ref);
+      } else {
+        console.error("Critical: Paystack returned success but no reference was found.", response);
+        alert("Payment was successful but the system could not identify the transaction reference. Please contact support.");
+      }
     },
     onClose: function() {
       console.log("Payment window closed by user.");
@@ -58,11 +66,17 @@ export const initiateUpgrade = (options: PaymentOptions) => {
  */
 export const verifyTransaction = async (reference: string): Promise<{ status: string }> => {
   if (!supabase) throw new Error("Cloud link unavailable");
+  if (!reference) throw new Error("Reference verification requires a valid token.");
   
+  console.log(`Syncing with Cloud: Verifying [${reference}]...`);
+
   const { data, error } = await supabase.functions.invoke('verify-payment', {
     body: { reference }
   });
 
-  if (error) throw error;
+  if (error) {
+    console.error("Cloud Handshake Error:", error);
+    throw error;
+  }
   return data;
 };

@@ -11,49 +11,51 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
 }
 
 Deno.serve(async (req) => {
-  // 1. Bulletproof Preflight Handler
+  // 1. Preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { 
-      status: 200,
-      headers: corsHeaders 
-    })
+    return new Response('ok', { status: 200, headers: corsHeaders })
   }
 
   try {
-    // 2. Body Parsing with validation
-    let body;
-    try {
-      body = await req.json();
-    } catch (e) {
-      return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
+    let reference = '';
+
+    // 2. Multimodal Extraction (Body or Query Params)
+    if (req.method === 'POST') {
+      try {
+        const body = await req.json();
+        reference = body.reference;
+      } catch (e) {
+        // Fallback: If body parsing fails, check if the raw body is just the reference string
+        const raw = await req.text();
+        if (raw && raw.startsWith('AP-')) reference = raw;
+      }
     }
 
-    const { reference } = body;
-    console.log(`Neural Input: Verifying reference [${reference}]`);
-    
+    // Secondary fallback: Query Params
     if (!reference) {
-      return new Response(JSON.stringify({ error: 'Missing reference' }), { 
+      const url = new URL(req.url);
+      reference = url.searchParams.get('reference') || '';
+    }
+
+    console.log(`Cloud Logic: Verifying Reference [${reference}]`);
+    
+    if (!reference || reference === 'undefined' || reference === 'null') {
+      return new Response(JSON.stringify({ error: 'Missing or invalid reference identifier' }), { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
 
     if (!PAYSTACK_SECRET) {
-      console.error("CRITICAL: PAYSTACK_SECRET_KEY missing from environment.");
-      return new Response(JSON.stringify({ error: 'Cloud Config Error: Missing Secret Key' }), { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
+      console.error("CRITICAL: PAYSTACK_SECRET_KEY missing.");
+      return new Response(JSON.stringify({ error: 'Cloud Configuration Error' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    // 3. Verify with Paystack Private API
+    // 3. Official Verification
     const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
       headers: {
         Authorization: `Bearer ${PAYSTACK_SECRET}`,
@@ -62,9 +64,8 @@ Deno.serve(async (req) => {
     })
     
     const paystackData = await verifyRes.json()
-    console.log(`Paystack status for [${reference}]:`, paystackData.data?.status || 'No data');
-
     const status = paystackData.data?.status || 'unknown';
+    console.log(`Paystack verification for [${reference}]: ${status}`);
 
     if (status !== 'success') {
       return new Response(JSON.stringify({ status: status }), { 
@@ -73,7 +74,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    // 4. Secure Database Escalation
+    // 4. Secure Escalation
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     
     const { data: existing } = await supabase
@@ -83,14 +84,14 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     if (existing?.status !== 'success') {
-      console.log(`Settlement Confirmed. Upgrading protocol for ref [${reference}]...`);
+      console.log(`Verified. Upgrading identity for [${reference}]...`);
       const { error: updateError } = await supabase
         .from('payments')
         .update({ status: 'success' })
         .eq('reference', reference)
 
       if (updateError) {
-        console.error("Database provisioning failure:", updateError);
+        console.error("DB Trigger Error:", updateError);
         throw updateError;
       }
     }
@@ -101,7 +102,7 @@ Deno.serve(async (req) => {
     })
 
   } catch (err) {
-    console.error("Verification Engine Fault:", err.message);
+    console.error("System Fault:", err.message);
     return new Response(JSON.stringify({ error: err.message }), { 
       status: 500, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
