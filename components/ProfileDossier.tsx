@@ -6,7 +6,7 @@ import { Tier, CapabilityKey } from '../shared/types.ts';
 import { useUsageQuota } from '../hooks/useUsageQuota.ts';
 import { getTierCapability } from '../services/capabilityService.ts';
 import { initiateUpgrade } from '../subscriptions/paymentService.ts';
-import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, ExternalLink } from 'lucide-react';
+import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, ExternalLink, Activity } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
@@ -57,6 +57,7 @@ const NeuralProvisioningOverlay: React.FC<{
 }> = ({ tier, isSyncing, onManualVerify, lastPaymentStatus, paymentRef }) => {
   const [logs, setLogs] = useState<string[]>([]);
   const [showFallback, setShowFallback] = useState(false);
+  const [diagResult, setDiagResult] = useState<string | null>(null);
   
   const sequence = [
     "> INITIALIZING NEURAL HANDSHAKE...",
@@ -85,6 +86,20 @@ const NeuralProvisioningOverlay: React.FC<{
       clearTimeout(fallbackTimer);
     };
   }, []);
+
+  const testConnection = async () => {
+    try {
+      const resp = await fetch('https://dojvsourwlvvolvmppxx.supabase.co/functions/v1/paystack-webhook');
+      const data = await resp.json();
+      if (data.status === 'Operational') {
+        setDiagResult("System Online: Webhook is deployed correctly.");
+      } else {
+        setDiagResult("Deployment Fault: Webhook is still returning boilerplate.");
+      }
+    } catch (e) {
+      setDiagResult("Network Fault: Could not reach Edge Function.");
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[10000] bg-slate-950 flex items-center justify-center p-6 animate-in fade-in duration-500">
@@ -122,6 +137,12 @@ const NeuralProvisioningOverlay: React.FC<{
                 <p className="text-[9px] text-slate-500 font-mono mt-2 select-all">Ref: {paymentRef}</p>
               )}
             </div>
+
+            {diagResult && (
+              <div className="mb-4 p-4 rounded-xl bg-blue-600/10 border border-blue-500/30 text-blue-400 text-[9px] font-black uppercase tracking-widest text-center">
+                {diagResult}
+              </div>
+            )}
             
             <div className="grid grid-cols-1 gap-3">
               <button 
@@ -129,41 +150,40 @@ const NeuralProvisioningOverlay: React.FC<{
                 onClick={onManualVerify}
                 className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
-                {isSyncing ? (
-                  <>
-                    <RefreshCw size={14} className="animate-spin" />
-                    Checking Protocol Status...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={14} />
-                    Verify Activation Now
-                  </>
-                )}
+                {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {isSyncing ? "Checking Protocol Status..." : "Verify Activation Now"}
               </button>
+
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <button 
+                  onClick={testConnection}
+                  className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                >
+                  <Activity size={10} /> Test Handshake
+                </button>
+                <a 
+                  href="https://dashboard.paystack.com" 
+                  target="_blank" 
+                  className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                >
+                  Paystack Panel <ExternalLink size={10} />
+                </a>
+              </div>
               
-              <div className="mt-4 p-4 border border-white/5 rounded-xl bg-white/5">
-                <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-3">Critical Diagnostic Check</p>
+              <div className="mt-6 p-4 border border-white/5 rounded-xl bg-white/5">
+                <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-3">Critical Diagnostics</p>
                 <ul className="space-y-3">
-                  <li className="text-[8px] text-rose-400 font-bold uppercase tracking-wider flex gap-2">
-                    <span className="text-rose-500">1. Deployment Check:</span> Your log says "Hello from Functions". This means you haven't deployed the code. Run 'supabase functions deploy paystack-webhook'.
+                  <li className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex gap-2">
+                    <span className="text-blue-500">1.</span> Run 'supabase functions deploy paystack-webhook'
                   </li>
                   <li className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex gap-2">
-                    <span className="text-blue-500">2.</span> Check Paystack Settings: Verify Webhook URL is set to your Supabase Functions endpoint.
+                    <span className="text-blue-500">2.</span> Ensure PAYSTACK_SECRET_KEY is set via 'supabase secrets set'
                   </li>
                   <li className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex gap-2">
-                    <span className="text-blue-500">3.</span> Secrets: Ensure PAYSTACK_SECRET_KEY is set in Supabase Settings &gt; Edge Functions.
+                    <span className="text-blue-500">3.</span> Check Paystack Webhook URL matches Supabase URL
                   </li>
                 </ul>
               </div>
-
-              <a 
-                href="https://dashboard.paystack.com" 
-                target="_blank" 
-                className="w-full bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] transition-all flex items-center justify-center gap-2 hover:bg-white/10 mt-2"
-              >
-                Check Paystack Dashboard <ExternalLink size={10} />
-              </a>
             </div>
           </div>
         )}
@@ -189,7 +209,6 @@ const ProfileDossier: React.FC = () => {
     }
   }, [user]);
 
-  // SUCCESS TRIGGER: When user.tier matches the tier we're waiting for
   useEffect(() => {
     if (isWaitingForServer && user?.tier && provisioningTier === user.tier) {
       setIsWaitingForServer(false);
@@ -206,7 +225,6 @@ const ProfileDossier: React.FC = () => {
     setStatusMsg(null);
     
     try {
-      // 1. Fetch latest record from Payments table to see if it's still 'pending'
       const { data: payment } = await supabase
         .from('payments')
         .select('status, reference')
@@ -218,13 +236,11 @@ const ProfileDossier: React.FC = () => {
       setLastStatus(payment?.status);
       setLastRef(payment?.reference);
 
-      // 2. Refresh the User profile
       const { data: profile, error } = await supabase.from('Users').select('*').eq('id', user.id).maybeSingle();
       
       if (error) throw error;
       
       if (profile) {
-        // Sync local store
         setUser({
           ...user,
           tier: profile.tier,
@@ -238,13 +254,12 @@ const ProfileDossier: React.FC = () => {
           setStatusMsg({ type: 'success', text: "Activation Successful! System state synchronized." });
           setIsWaitingForServer(false);
         } else if (payment?.status === 'pending') {
-          // SPECIFIC DIAGNOSTIC: Payment exists but webhook hasn't hit success
           setStatusMsg({ 
             type: 'error', 
-            text: "Handshake Pending: Paystack has not notified our server yet. This usually means the Edge Function is not deployed or secrets are missing." 
+            text: "Handshake Pending: Paystack signal not yet received by Edge Function." 
           });
         } else {
-          setStatusMsg({ type: 'error', text: "Confirmation still pending from cloud provider. Please wait 60 seconds." });
+          setStatusMsg({ type: 'error', text: "Confirmation still pending. Please verify your Paystack Webhook settings." });
         }
       }
     } catch (e: any) {
@@ -282,7 +297,6 @@ const ProfileDossier: React.FC = () => {
             setStatusMsg({ type: 'success', text: 'Payment Recorded. Awaiting Neural Handshake...' });
           }
         } catch (err: any) {
-          console.error("Billing Security Fault:", err);
           setStatusMsg({ type: 'error', text: `Security Fault: ${err.message}` });
         }
       },

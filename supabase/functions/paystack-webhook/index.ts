@@ -11,23 +11,33 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
 serve(async (req) => {
-  // CRITICAL: Diagnostic log to verify deployment success
-  console.log("--- AUTOPAL WEBHOOK ENGINE: SIGNAL DETECTED ---");
+  const method = req.method;
+  console.log(`[AUTOPAL_DEBUG] Incoming Request: ${method}`);
 
-  // 1. Health Check (GET) - Allows user to verify URL in browser
-  if (req.method === 'GET') {
+  // 1. PUBLIC HEALTH CHECK (GET)
+  // Visit this URL in your browser to confirm deployment:
+  // https://dojvsourwlvvolvmppxx.supabase.co/functions/v1/paystack-webhook
+  if (method === 'GET') {
+    const configCheck = {
+      paystack_secret: !!PAYSTACK_SECRET,
+      supabase_url: !!SUPABASE_URL,
+      service_role: !!SUPABASE_SERVICE_ROLE_KEY
+    };
+    
     return new Response(
       JSON.stringify({ 
         status: 'Operational', 
-        message: 'AutoPal NG Webhook Listener is active and awaiting POST signals.',
-        timestamp: new Date().toISOString()
+        version: '4.0.5-PROD',
+        message: 'AutoPal NG Webhook Logic is DEPLOYED and ACTIVE.',
+        environment_sync: configCheck,
+        instructions: 'Send a POST request with x-paystack-signature to activate tiers.'
       }), 
       { status: 200, headers: { "Content-Type": "application/json" } }
     )
   }
 
-  // 2. CORS handling (OPTIONS)
-  if (req.method === 'OPTIONS') {
+  // 2. CORS Handling
+  if (method === 'OPTIONS') {
     return new Response('ok', { 
       headers: { 
         'Access-Control-Allow-Origin': '*',
@@ -37,8 +47,7 @@ serve(async (req) => {
     })
   }
 
-  // 3. Process POST (The actual Webhook)
-  if (req.method !== 'POST') {
+  if (method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 })
   }
 
@@ -46,17 +55,12 @@ serve(async (req) => {
     const signature = req.headers.get('x-paystack-signature')
     const rawBody = await req.text()
 
-    if (!rawBody) {
-      console.error("Payload Fault: Received POST request with empty body.")
-      return new Response(JSON.stringify({ error: 'Empty body' }), { status: 400 })
-    }
-
-    // Cryptographic Verification
     if (!signature) {
-       console.error("Security Fault: Missing Paystack Signature Header.")
-       return new Response(JSON.stringify({ error: 'Missing Signature' }), { status: 401 })
+      console.error("[SECURITY_FAULT] No signature provided by Paystack.");
+      return new Response('Unauthorized', { status: 401 })
     }
 
+    // Verify HMAC Signature
     const hmac = await crypto.subtle.importKey(
       "raw", new TextEncoder().encode(PAYSTACK_SECRET),
       { name: "HMAC", hash: "SHA-512" }, false, ["sign"]
@@ -65,19 +69,20 @@ serve(async (req) => {
     const expectedSignature = Array.from(new Uint8Array(signed)).map(b => b.toString(16).padStart(2, '0')).join('')
 
     if (signature !== expectedSignature) {
-      console.error("Security Fault: Invalid Signature. Check PAYSTACK_SECRET_KEY in Supabase Vault.")
-      return new Response(JSON.stringify({ error: 'Invalid Signature' }), { status: 401 })
+      console.error("[SECURITY_FAULT] Signature mismatch. Ensure PAYSTACK_SECRET_KEY matches your dashboard.");
+      return new Response('Invalid Signature', { status: 401 })
     }
 
     const event = JSON.parse(rawBody)
-    console.log(`Verified Signal: ${event.event} for Ref: ${event.data.reference}`)
+    console.log(`[SIGNAL_VERIFIED] Event: ${event.event} | Ref: ${event.data.reference}`);
     
     if (event.event === 'charge.success') {
       const reference = event.data.reference
-      const requestedTier = event.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'requested_tier')?.value || 'standard'
+      const metadataTier = event.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'requested_tier')?.value
 
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+      // Update payment record to success
       const { data: payment, error: payError } = await supabase
         .from('payments')
         .update({ status: 'success' })
@@ -86,16 +91,16 @@ serve(async (req) => {
         .single()
 
       if (payError) {
-        console.error("Database Handshake Failure:", payError.message)
-        return new Response(JSON.stringify({ status: 'error', message: payError.message }), { status: 200 })
+        console.error(`[DATABASE_FAULT] Failed to update payment ${reference}: ${payError.message}`);
+        return new Response('DB Error', { status: 200 }) // Return 200 so Paystack doesn't keep retrying errors
       }
 
-      console.log(`SUCCESS: User ${payment.user_id} promoted to ${requestedTier}`)
+      console.log(`[PROVISIONING_COMPLETE] User ${payment.user_id} upgraded to ${metadataTier || 'standard'}`);
     }
 
     return new Response(JSON.stringify({ status: 'processed' }), { status: 200 })
   } catch (err) {
-    console.error("Neural Execution Fault:", err.message)
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 })
+    console.error(`[NEURAL_FAULT] ${err.message}`);
+    return new Response('Server Error', { status: 500 })
   }
 })
