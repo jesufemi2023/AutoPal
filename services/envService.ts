@@ -1,14 +1,15 @@
+
 import { getEnv } from '../shared/utils.ts';
 
 /**
  * AutoPal Environment Registry
  * This is the single source of truth for all infrastructure and feature flags.
- * It uses the utility getEnv to pull from process.env or window shims.
  */
 export const ENV = {
   // Infrastructure
   SUPABASE_URL: getEnv('SUPABASE_URL') || '',
   SUPABASE_ANON_KEY: getEnv('SUPABASE_ANON_KEY') || '',
+  PAYSTACK_PUBLIC_KEY: getEnv('PAYSTACK_PUBLIC_KEY') || '',
   
   // AI Keys
   MOCK_AI: getEnv('MOCK_AI') === 'true',
@@ -30,9 +31,10 @@ export const ENV = {
   MAX_FUEL_FREE: parseInt(getEnv('MAX_FUEL_FREE') || '2'),
   MAX_FUEL_STANDARD: parseInt(getEnv('MAX_FUEL_STANDARD') || '7'),
   
-  // AI Scan Caps (Monthly)
-  MAX_AI_SCAN_FREE: parseInt(getEnv('MAX_AI_SCAN_FREE') || '1'),
-  MAX_AI_SCAN_STANDARD: parseInt(getEnv('MAX_AI_SCAN_STANDARD') || '4'),
+  // AI Scan Caps (Monthly) - Updated to requested 0/2/4 limits
+  MAX_AI_SCAN_FREE: parseInt(getEnv('MAX_AI_SCAN_FREE') || '0'),
+  MAX_AI_SCAN_STANDARD: parseInt(getEnv('MAX_AI_SCAN_STANDARD') || '2'),
+  MAX_AI_SCAN_PREMIUM: 4,
 
   // Renewal Configuration
   RENEWABLE_FREE: getEnv('RENEWABLE_FREE') === 'true',
@@ -45,11 +47,11 @@ export const ENV = {
 };
 
 export const validateEnv = (): { isValid: boolean; missing: string[] } => {
-  const critical = ['SUPABASE_URL', 'SUPABASE_ANON_KEY'];
+  const critical = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'PAYSTACK_PUBLIC_KEY'];
   const missing = critical.filter(key => !(ENV as any)[key]);
   
   if (missing.length > 0) {
-    console.error(`[AutoPal NG] CRITICAL CONFIG MISSING: ${missing.join(', ')}`);
+    console.warn(`[AutoPal NG] CONFIG ADVISORY: ${missing.join(', ')} is missing.`);
   }
   
   return {

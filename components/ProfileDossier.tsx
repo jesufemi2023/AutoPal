@@ -1,10 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
 import { Tier, CapabilityKey } from '../shared/types.ts';
 import { useUsageQuota } from '../hooks/useUsageQuota.ts';
 import { getTierCapability } from '../services/capabilityService.ts';
-import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban } from 'lucide-react';
+import { initiateUpgrade } from '../subscriptions/paymentService.ts';
+import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, CreditCard } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
@@ -58,6 +60,7 @@ const NeuralProvisioningOverlay: React.FC<{ tier: Tier; onComplete: () => void }
     "> RECALIBRATING DATABASE GOVERNOR...",
     "> EXPANDING ASSET CAPACITY SLOTS...",
     "> UNFILTERING NEURAL DATA STREAMS...",
+    "> RECORDING FINANCIAL TELEMETRY...",
     `> ${tier.toUpperCase()} ENVIRONMENT ACTIVATED.`
   ];
 
@@ -113,67 +116,79 @@ const ProfileDossier: React.FC = () => {
     }
   }, [user]);
 
-  const handleTierActivation = async (newTier: Tier) => {
+  const handleUpgrade = (tier: 'standard' | 'premium', price: number) => {
     if (!user) return;
     
-    // Check non-renewable condition for free tier
-    const isCurrentlyFree = user.tier === 'free';
-    const isRenewingFree = isCurrentlyFree && newTier === 'free';
-    const canRenew = getTierCapability(user.tier, 'RENEWABLE_LICENSE') as boolean;
+    setStatusMsg(null);
 
-    if (isRenewingFree && !canRenew) {
-      setStatusMsg({ type: 'error', text: "The Pilot Basic protocol is a one-time activation. Upgrade to Standard/Premium to continue." });
-      return;
-    }
+    initiateUpgrade({
+      email: user.email,
+      amount: price,
+      tier: tier,
+      onSuccess: async (ref) => {
+        setProvisioningTier(tier);
+        try {
+          if (supabase) {
+            // Log Payment
+            await supabase.from('payments').insert([{
+              user_id: user.id,
+              tier: tier,
+              amount: price,
+              reference: ref,
+              status: 'success'
+            }]);
 
-    setProvisioningTier(newTier);
-
-    try {
-      if (supabase) {
-        const { error } = await supabase
-          .from('Users')
-          .update({ 
-            tier: newTier,
-            license_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-          })
-          .eq('id', user.id);
-        
-        if (error) throw error;
-        
-        // Update local state
-        setUser({ 
-          ...user, 
-          tier: newTier, 
-          licenseExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() 
-        });
+            // Activate Tier
+            const { error } = await supabase
+              .from('Users')
+              .update({ 
+                tier: tier,
+                license_expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+              })
+              .eq('id', user.id);
+            
+            if (error) throw error;
+            
+            setUser({ 
+              ...user, 
+              tier: tier, 
+              licenseExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() 
+            });
+          }
+        } catch (err) {
+          console.error("Verification Error", err);
+        }
+      },
+      onCancel: () => {
+        setStatusMsg({ type: 'error', text: 'Protocol Activation Aborted.' });
       }
-    } catch (err: any) {
-      setProvisioningTier(null);
-      setStatusMsg({ type: 'error', text: "Protocol Authorization Failed. Please check connectivity." });
-    }
+    });
   };
 
   const PLANS = [
     { 
       id: 'free' as Tier, 
       label: 'Pilot Basic', 
-      price: '₦0',
+      price: 0,
+      priceLabel: '₦0',
       tagline: 'Standard Environment',
-      features: ['1 Active Vehicle Twin', '2 Monthly Fuel Logs', '1 AI Diagnostic Scan', 'Regional Market Data', 'Non-renewable after 30 days']
+      features: ['1 Active Vehicle Twin', '2 Monthly Fuel Logs', '0 AI Diagnostic Scans (Locked)', 'Regional Market Data', 'Non-renewable after 30 days']
     },
     { 
       id: 'standard' as Tier, 
       label: 'Enthusiast', 
-      price: '₦2,500/mo',
+      price: 2500,
+      priceLabel: '₦2,500/mo',
       tagline: 'High-Performance Protocol',
-      features: ['3 Active Vehicle Twins', '7 Monthly Fuel Logs', '8 Monthly Service Logs', 'Professional Exports', 'Fully Renewable']
+      features: ['3 Active Vehicle Twins', '7 Monthly Fuel Logs', '2 Monthly AI Scans', 'Professional Exports', 'Fully Renewable']
     },
     { 
       id: 'premium' as Tier, 
       label: 'Fleet Commander', 
-      price: '₦7,500/mo',
+      price: 7500,
+      priceLabel: '₦7,500/mo',
       tagline: 'Unlimited Intelligence',
-      features: ['10 Active Vehicle Twins', 'Unlimited Logic streams', 'Deep AI Audits', 'Global Reporting', 'Fully Renewable']
+      features: ['10 Active Vehicle Twins', 'Unlimited Logic streams', '4 Monthly AI Scans', 'Global Reporting', 'Priority Processing']
     }
   ];
 
@@ -293,15 +308,6 @@ const ProfileDossier: React.FC = () => {
                    <CapacityMeter label="Service History" capability="SERVICE_LOGS_MONTHLY" icon={<TerminalIcon size={14} />} color="text-indigo-500" />
                 </div>
               </div>
-              
-              <div className="bg-rose-50 border-2 border-rose-100 rounded-[2rem] p-8 space-y-4">
-                <div className="flex items-center gap-4 text-rose-600">
-                  <AlertTriangle size={24} />
-                  <h4 className="text-sm font-black uppercase tracking-widest leading-none">Danger Zone</h4>
-                </div>
-                <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest leading-relaxed">Account decommissioning is permanent.</p>
-                <button onClick={() => alert("Account deletion is restricted to ensure testing continuity.")} className="w-full bg-rose-600 text-white py-4 rounded-xl font-black uppercase tracking-widest text-[9px] shadow-lg shadow-rose-600/20">Nuclear Purge</button>
-              </div>
             </div>
           </>
         ) : (
@@ -309,8 +315,7 @@ const ProfileDossier: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {PLANS.map((plan) => {
                 const isActive = user?.tier === plan.id;
-                const isRenewable = getTierCapability(plan.id, 'RENEWABLE_LICENSE') as boolean;
-                const isBlockedFreeRenewal = isActive && plan.id === 'free' && !isRenewable;
+                const isBlockedFreeRenewal = isActive && plan.id === 'free';
 
                 return (
                   <div 
@@ -327,7 +332,7 @@ const ProfileDossier: React.FC = () => {
                       <div className="space-y-2">
                         <h4 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">{plan.label}</h4>
                         <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{plan.tagline}</p>
-                        <div className="text-4xl font-black text-slate-900 tracking-tighter pt-4">{plan.price}</div>
+                        <div className="text-4xl font-black text-slate-900 tracking-tighter pt-4">{plan.priceLabel}</div>
                       </div>
 
                       <div className="h-px bg-slate-100 w-full"></div>
@@ -343,21 +348,21 @@ const ProfileDossier: React.FC = () => {
                     </div>
 
                     <button 
-                      onClick={() => handleTierActivation(plan.id)}
-                      disabled={isActive && !isExpired && isBlockedFreeRenewal}
+                      onClick={() => plan.id !== 'free' && handleUpgrade(plan.id as any, plan.price)}
+                      disabled={isActive && !isExpired}
                       className={`mt-12 w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all flex items-center justify-center gap-3 ${
-                        isBlockedFreeRenewal 
-                          ? 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-not-allowed grayscale' 
-                          : (isActive && !isExpired) 
-                            ? 'bg-emerald-50 text-emerald-600 border-2 border-emerald-200 cursor-default' 
+                        (isActive && !isExpired) 
+                          ? 'bg-emerald-50 text-emerald-600 border-2 border-emerald-200 cursor-default' 
+                          : plan.id === 'free'
+                            ? 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-not-allowed'
                             : 'bg-slate-900 text-white hover:bg-blue-600 shadow-2xl active:scale-[0.98]'
                       }`}
                     >
-                      {isActive && isExpired ? 'Renew Protocol' : isActive ? (isBlockedFreeRenewal ? 'One-Time Limit Reached' : 'Current Protocol') : `Activate ${plan.label}`}
+                      {isActive && isExpired ? 'Renew Protocol' : isActive ? 'Current Protocol' : plan.id === 'free' ? 'Initial Protocol' : `Activate ${plan.label}`}
                     </button>
-                    {isBlockedFreeRenewal && (
+                    {plan.id === 'free' && isActive && (
                       <p className="text-center text-[7px] font-bold text-rose-400 uppercase tracking-widest mt-4 animate-pulse">
-                        Free tier non-renewable. Upgrade to continue history.
+                        Basic tier non-renewable. Upgrade to extend history.
                       </p>
                     )}
                   </div>
@@ -365,13 +370,20 @@ const ProfileDossier: React.FC = () => {
               })}
             </div>
             
-            <div className="bg-slate-950 p-12 rounded-[3rem] text-center space-y-6 relative overflow-hidden group">
-               <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-               <h4 className="text-2xl font-black text-white uppercase tracking-tighter relative z-10">Professional Fleet Licensing</h4>
-               <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed max-w-xl mx-auto relative z-10">
-                 Need to manage more than 10 vehicles? Contact our enterprise logistics wing for dedicated server instance provisioning and custom capability maps.
+            <div className="bg-white border border-slate-100 p-12 rounded-[3rem] text-center space-y-6 relative overflow-hidden group shadow-sm">
+               <div className="flex items-center justify-center gap-4 mb-4">
+                  <CreditCard size={32} className="text-blue-600" />
+                  <h4 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Secured by Paystack</h4>
+               </div>
+               <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed max-w-xl mx-auto">
+                 All transactions are handled through a secure encrypted gateway. Your banking details are never stored on our servers.
                </p>
-               <button className="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em] hover:underline pt-4 relative z-10">Request Enterprise Access →</button>
+               <div className="flex justify-center gap-6 opacity-40">
+                  <div className="bg-slate-100 px-4 py-2 rounded-lg text-[8px] font-black uppercase">Mastercard</div>
+                  <div className="bg-slate-100 px-4 py-2 rounded-lg text-[8px] font-black uppercase">Visa</div>
+                  <div className="bg-slate-100 px-4 py-2 rounded-lg text-[8px] font-black uppercase">Verve</div>
+                  <div className="bg-slate-100 px-4 py-2 rounded-lg text-[8px] font-black uppercase">Bank Transfer</div>
+               </div>
             </div>
           </div>
         )}

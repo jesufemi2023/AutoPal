@@ -5,7 +5,6 @@ import { ENV } from './envService.ts';
 /**
  * AutoPal NG Capability Registry
  * Centralized mapping of features to their tiered constraints.
- * REFACTORED: Driven by ENV variables for high customizability and zero hardcoding.
  */
 
 type CapabilityValue = number | boolean;
@@ -15,7 +14,7 @@ export const CAPABILITIES: Record<Tier, Record<CapabilityKey, CapabilityValue>> 
     MAX_VEHICLES: ENV.MAX_VEHICLES_FREE,
     FUEL_LOGS_MONTHLY: ENV.MAX_FUEL_FREE,
     AI_MECHANIC_MONTHLY: 0, // Visibly deactivated
-    AI_SCAN_MONTHLY: 0, // Visibly deactivated (Neural Link)
+    AI_SCAN_MONTHLY: 0, // Visibly deactivated
     SERVICE_LOGS_MONTHLY: ENV.MAX_LOGS_FREE,
     EXPORT_PDF: false,
     EXPORT_EXCEL: false,
@@ -26,7 +25,7 @@ export const CAPABILITIES: Record<Tier, Record<CapabilityKey, CapabilityValue>> 
     MAX_VEHICLES: ENV.MAX_VEHICLES_STANDARD,
     FUEL_LOGS_MONTHLY: ENV.MAX_FUEL_STANDARD,
     AI_MECHANIC_MONTHLY: 2, // Maximum of two
-    AI_SCAN_MONTHLY: 2, // Matches mechanic logic for Standard
+    AI_SCAN_MONTHLY: 2, // Maximum of two
     SERVICE_LOGS_MONTHLY: ENV.MAX_LOGS_STANDARD,
     EXPORT_PDF: true,
     EXPORT_EXCEL: true,
@@ -37,7 +36,7 @@ export const CAPABILITIES: Record<Tier, Record<CapabilityKey, CapabilityValue>> 
     MAX_VEHICLES: ENV.MAX_VEHICLES_PREMIUM,
     FUEL_LOGS_MONTHLY: 999,
     AI_MECHANIC_MONTHLY: 4, // Maximum of four
-    AI_SCAN_MONTHLY: 4, // Maximum of four (Neural Link)
+    AI_SCAN_MONTHLY: 4, // Maximum of four
     SERVICE_LOGS_MONTHLY: 999,
     EXPORT_PDF: true,
     EXPORT_EXCEL: true,
