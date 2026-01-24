@@ -1,3 +1,4 @@
+
 export type Tier = 'free' | 'standard' | 'premium';
 export type UserRole = 'user' | 'admin';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback' | 'other';
@@ -30,6 +31,7 @@ export interface UserProfile {
   email: string;
   displayName?: string;
   phone?: string;
+  avatarUrl?: string;
   tier: Tier;
   role: UserRole;
   onboarded: boolean;

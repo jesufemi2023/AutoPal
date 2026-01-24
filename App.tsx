@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -18,7 +19,7 @@ import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
 import { TierGuard } from './components/TierGuard.tsx';
-import { Car, Menu, X } from 'lucide-react';
+import { Car, Menu, X, User } from 'lucide-react';
 
 const App: React.FC = () => {
   const { 
@@ -60,6 +61,7 @@ const App: React.FC = () => {
         email: email,
         displayName: profile.display_name || '',
         phone: profile.phone || '',
+        avatarUrl: profile.avatar_url || '',
         tier: profile.tier || 'free',
         role: profile.role || 'user',
         onboarded: profile.onboarded || false,
@@ -103,8 +105,6 @@ const App: React.FC = () => {
                 filter: `id=eq.${profile.id}` 
               }, (payload) => {
                 const updated = payload.new;
-                // Fixed: Removed functional update which is not supported by the store's setUser action.
-                // Instead, using useAutoPalStore.getState().user to ensure we merge with the most recent user context.
                 const currentUser = useAutoPalStore.getState().user;
                 if (currentUser) {
                   setUser({
@@ -113,7 +113,8 @@ const App: React.FC = () => {
                     licenseExpiresAt: updated.license_expires_at,
                     role: updated.role,
                     displayName: updated.display_name,
-                    phone: updated.phone
+                    phone: updated.phone,
+                    avatarUrl: updated.avatar_url
                   });
                 }
                 console.log("System Calibration: Real-time update received from Cloud.");
@@ -244,6 +245,33 @@ const App: React.FC = () => {
 
   const NavigationMenu = () => (
     <div className="space-y-6">
+      {/* User Profile Summary in Sidebar */}
+      {user && (
+        <div 
+          onClick={() => setCurrentView('profile')}
+          className="mx-2 p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center gap-3 cursor-pointer group hover:bg-blue-50 hover:border-blue-100 transition-all mb-4"
+        >
+          <div className="w-10 h-10 rounded-xl overflow-hidden bg-slate-200 border-2 border-white shadow-sm shrink-0 flex items-center justify-center">
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt={user.displayName} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center bg-slate-900 text-white font-black text-xs">
+                {user.displayName?.[0] || user.email[0].toUpperCase()}
+              </div>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight truncate group-hover:text-blue-600 transition-colors">
+              {user.displayName || 'No Name Set'}
+            </p>
+            <p className="text-[8px] font-bold text-slate-400 truncate tracking-tight">{user.email}</p>
+          </div>
+          <div className={`px-1.5 py-0.5 rounded text-[6px] font-black uppercase tracking-widest ${user.tier === 'premium' ? 'bg-slate-900 text-blue-400' : user.tier === 'standard' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+            {user.tier}
+          </div>
+        </div>
+      )}
+
       <div>
         <div className="flex items-center justify-between px-5 mb-4">
           <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.4em]">Navigation</p>
@@ -261,7 +289,7 @@ const App: React.FC = () => {
         <TierGuard capability="OWNERSHIP_REPORT">
            <NavItem view="report" label="Ownership Report" icon="📄" />
         </TierGuard>
-        <NavItem view="profile" label="Pilot Profile" icon="👤" />
+        <NavItem view="profile" label="Account Profile" icon="👤" />
         {user?.role === 'admin' && <NavItem view="admin" label="Admin Command" icon="⚡" />}
         
         <button 
@@ -332,7 +360,6 @@ const App: React.FC = () => {
 
       <div className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[-300px] opacity-0 pointer-events-none translate-x-[-50px]'}`}>
         <div className="mb-10 px-2">
-          {/* Fixed malformed JSX on line 395 by adding the missing opening bracket for the h4 tag */}
           <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Fleet Ops</h4>
           <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
         </div>

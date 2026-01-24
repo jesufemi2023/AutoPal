@@ -61,12 +61,11 @@ const NeuralProvisioningOverlay: React.FC<{
   useEffect(() => {
     let currentIdx = 0;
     const sequence = [
-      "> INITIALIZING NEURAL HANDSHAKE...",
-      "> AUTHENTICATING SETTLEMENT...",
-      `> SECURING ${tier.toUpperCase()} PROTOCOL...`,
-      "> SYNCHRONIZING CLOUD MASTER NODES...",
-      "> RECALIBRATING DATABASE GOVERNOR...",
-      "> AWAITING FINAL BROADCAST..."
+      "> SECURING CONNECTION...",
+      "> AUTHENTICATING PAYMENT...",
+      `> ACTIVATING ${tier.toUpperCase()} PLAN...`,
+      "> SYNCING CLOUD PROFILE...",
+      "> FINALIZING SETUP..."
     ];
 
     const interval = setInterval(() => {
@@ -94,8 +93,8 @@ const NeuralProvisioningOverlay: React.FC<{
             <TerminalIcon size={24} />
           </div>
           <div>
-            <h3 className="text-white font-black uppercase tracking-tighter text-xl">Provisioning Engine</h3>
-            <p className="text-blue-500 text-[8px] font-black uppercase tracking-[0.4em]">Activation Protocol: {tier}</p>
+            <h3 className="text-white font-black uppercase tracking-tighter text-xl">Activation Center</h3>
+            <p className="text-blue-500 text-[8px] font-black uppercase tracking-[0.4em]">Upgrading to: {tier}</p>
           </div>
         </div>
         
@@ -110,7 +109,7 @@ const NeuralProvisioningOverlay: React.FC<{
 
         {remoteStatus && (
           <div className={`p-4 rounded-xl text-[9px] font-black uppercase tracking-widest text-center mb-6 border animate-pulse ${remoteStatus === 'success' ? 'bg-emerald-600/10 border-emerald-500/30 text-emerald-400' : 'bg-blue-600/10 border-blue-500/30 text-blue-400'}`}>
-            Remote Status: {remoteStatus}
+            Status: {remoteStatus === 'success' ? 'Upgrade Successful' : 'Processing...'}
           </div>
         )}
 
@@ -118,7 +117,7 @@ const NeuralProvisioningOverlay: React.FC<{
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
             <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-2xl text-center">
               <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest leading-relaxed">
-                Cloud verification is taking longer than expected. If your payment was successful, please verify via the manual trigger.
+                Verification is taking longer than expected. If your payment was successful, please use the button below to retry.
               </p>
             </div>
             
@@ -128,7 +127,7 @@ const NeuralProvisioningOverlay: React.FC<{
               className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
             >
               {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              {isSyncing ? "Connecting..." : "Trigger Manual Re-sync"}
+              {isSyncing ? "Verifying..." : "Verify Plan Update"}
             </button>
             
             {statusMsg && <p className="text-[8px] text-slate-500 text-center font-mono uppercase tracking-widest">{statusMsg}</p>}
@@ -168,7 +167,7 @@ const ProfileDossier: React.FC = () => {
       setRemoteStatus('success');
       setStatusMsg({ 
         type: 'success', 
-        text: `Neural link active. Redirecting to Dashboard...` 
+        text: `Upgrade complete. Your new plan is now active.` 
       });
       
       setTimeout(() => {
@@ -222,16 +221,17 @@ const ProfileDossier: React.FC = () => {
           licenseExpiresAt: profile.license_expires_at,
           role: profile.role,
           displayName: profile.display_name,
-          phone: profile.phone
+          phone: profile.phone,
+          avatarUrl: profile.avatar_url
         });
 
         if (profile.tier === provisioningTier && !autoRedirect) {
-          setStatusMsg({ type: 'success', text: "Handshake successful. System state updated." });
+          setStatusMsg({ type: 'success', text: "Profile updated successfully." });
           setIsWaitingForServer(false);
         }
       }
     } catch (e: any) {
-      if (!autoRedirect) setStatusMsg({ type: 'error', text: "Handshake failed. Cloud link down." });
+      if (!autoRedirect) setStatusMsg({ type: 'error', text: "Update failed. Please check your connection." });
     } finally {
       if (!autoRedirect) setIsManualSyncing(false);
     }
@@ -260,9 +260,9 @@ const ProfileDossier: React.FC = () => {
       });
 
       setIsEditing(false);
-      setStatusMsg({ type: 'success', text: "Identity updated. Cloud nodes synchronized." });
+      setStatusMsg({ type: 'success', text: "Account profile updated." });
     } catch (err: any) {
-      setStatusMsg({ type: 'error', text: `Sync Fault: ${err.message}` });
+      setStatusMsg({ type: 'error', text: `Failed to save changes: ${err.message}` });
     } finally {
       setIsSavingProfile(false);
     }
@@ -299,7 +299,7 @@ const ProfileDossier: React.FC = () => {
                if (!isIgnorable) {
                  throw insertError;
                }
-               console.log("Telemetry: Synchronous record creation blocked by active Webhook state. Proceeding to verification.");
+               console.log("Synchronous record creation blocked. Proceeding to verification.");
             }
 
             setProvisioningTier(tier);
@@ -309,11 +309,11 @@ const ProfileDossier: React.FC = () => {
             verifyTransaction(ref).catch(() => {});
           }
         } catch (err: any) {
-          setStatusMsg({ type: 'error', text: `Handshake Error: ${err.message}` });
+          setStatusMsg({ type: 'error', text: `Activation Error: ${err.message}` });
         }
       },
       onCancel: () => {
-        setStatusMsg({ type: 'error', text: 'Protocol activation aborted.' });
+        setStatusMsg({ type: 'error', text: 'Upgrade cancelled.' });
       }
     });
   };
@@ -321,27 +321,27 @@ const ProfileDossier: React.FC = () => {
   const PLANS = [
     { 
       id: 'free' as Tier, 
-      label: 'Pilot Basic', 
+      label: 'Free Plan', 
       price: 0,
       priceLabel: '₦0',
-      tagline: 'Standard Environment',
-      features: ['1 Active Vehicle Twin', '2 Monthly Fuel Logs', '0 AI Diagnostic Scans', 'Regional Market Data', 'Non-renewable after 30 days']
+      tagline: 'Basic vehicle tracking',
+      features: ['1 Active Vehicle', '2 Monthly Fuel Logs', 'No AI Diagnostic Scans', 'Limited Market Data', 'Non-renewable after 30 days']
     },
     { 
       id: 'standard' as Tier, 
-      label: 'Enthusiast', 
+      label: 'Standard Plan', 
       price: 2500,
       priceLabel: '₦2,500/mo',
-      tagline: 'High-Performance Protocol',
-      features: ['3 Active Vehicle Twins', '7 Monthly Fuel Logs', '2 Monthly AI Scans', 'Professional Exports', 'Fully Renewable']
+      tagline: 'Enhanced maintenance tracking',
+      features: ['3 Active Vehicles', '7 Monthly Fuel Logs', '2 Monthly AI Scans', 'Professional Exports', 'Fully Renewable Monthly']
     },
     { 
       id: 'premium' as Tier, 
-      label: 'Fleet Commander', 
+      label: 'Premium Plan', 
       price: 7500,
       priceLabel: '₦7,500/mo',
-      tagline: 'Unlimited Intelligence',
-      features: ['10 Active Vehicle Twins', 'Unlimited Logic streams', '4 Monthly AI Scans', 'Global Reporting', 'Priority Processing']
+      tagline: 'Full fleet intelligence',
+      features: ['10 Active Vehicles', 'Unlimited Fuel logs', '4 Monthly AI Scans', 'Detailed Garage Reports', 'Priority Support']
     }
   ];
 
@@ -354,7 +354,7 @@ const ProfileDossier: React.FC = () => {
           tier={provisioningTier} 
           isSyncing={isManualSyncing}
           onManualVerify={() => forceProfileSync(false)}
-          statusMsg={lastRef ? `Reference: ${lastRef}` : undefined}
+          statusMsg={lastRef ? `Transaction ID: ${lastRef}` : undefined}
           remoteStatus={remoteStatus}
         />
       )}
@@ -363,11 +363,11 @@ const ProfileDossier: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center gap-3">
              <div className={`w-2 h-2 rounded-full ${isExpired ? 'bg-rose-500' : 'bg-blue-600 animate-pulse'}`}></div>
-             <p className="text-slate-400 text-[9px] font-black uppercase tracking-[0.4em]">Pilot Command & Licensing</p>
+             <p className="text-slate-400 text-[9px] font-black uppercase tracking-[0.4em]">Account Settings & Plan</p>
           </div>
           <h1 className="text-5xl sm:text-7xl font-black text-slate-900 tracking-tighter uppercase leading-none">
-            {activeTab === 'identity' ? 'Identity' : 'Activation'} <br/>
-            <span className="text-blue-600">{activeTab === 'identity' ? 'Telemetry' : 'Protocol'}</span>
+            {activeTab === 'identity' ? 'My Profile' : 'Current'} <br/>
+            <span className="text-blue-600">{activeTab === 'identity' ? 'Information' : 'Plan'}</span>
           </h1>
         </div>
 
@@ -376,13 +376,13 @@ const ProfileDossier: React.FC = () => {
             onClick={() => setActiveTab('identity')}
             className={`px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'identity' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:text-slate-900'}`}
           >
-            Telemetry
+            My Details
           </button>
           <button 
             onClick={() => setActiveTab('license')}
             className={`px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'license' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:text-slate-900'}`}
           >
-            License Manager
+            Subscription Plan
           </button>
         </div>
       </header>
@@ -407,18 +407,22 @@ const ProfileDossier: React.FC = () => {
                 
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-10 mb-12 relative z-10">
                   <div className="flex flex-col sm:flex-row items-center gap-10">
-                    <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-[2.5rem] bg-slate-900 flex items-center justify-center text-white text-4xl sm:text-5xl font-black shadow-2xl border-4 border-slate-800 rotate-3 group-hover:rotate-0 transition-transform">
-                      {user?.displayName?.[0] || user?.email?.[0]?.toUpperCase() || 'P'}
+                    <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-[2.5rem] bg-slate-900 flex items-center justify-center text-white text-4xl sm:text-5xl font-black shadow-2xl border-4 border-slate-800 rotate-3 group-hover:rotate-0 transition-transform overflow-hidden">
+                      {user?.avatarUrl ? (
+                        <img src={user.avatarUrl} alt={user.displayName} className="w-full h-full object-cover" />
+                      ) : (
+                        user?.displayName?.[0] || user?.email?.[0]?.toUpperCase() || 'P'
+                      )}
                     </div>
                     <div className="text-center sm:text-left space-y-2">
                         <div className={`inline-block px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-[0.2em] mb-2 ${user?.tier === 'premium' ? 'bg-slate-900 text-blue-400' : user?.tier === 'standard' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                          {user?.tier?.toUpperCase()} PROTOCOL
+                          {user?.tier?.toUpperCase()} PLAN
                         </div>
-                        <h3 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none">{user?.displayName || 'Unnamed Pilot'}</h3>
+                        <h3 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none">{user?.displayName || 'Set your name'}</h3>
                         <p className="text-slate-400 font-mono text-sm tracking-tight">{user?.email}</p>
                         {user?.licenseExpiresAt && (
                           <p className={`text-[9px] font-black uppercase tracking-widest pt-2 flex items-center gap-2 ${isExpired ? 'text-rose-500' : 'text-slate-400'}`}>
-                            <Clock size={10} /> Valid Until: {formatDate(user.licenseExpiresAt)}
+                            <Clock size={10} /> Plan Expires: {formatDate(user.licenseExpiresAt)}
                           </p>
                         )}
                     </div>
@@ -429,7 +433,7 @@ const ProfileDossier: React.FC = () => {
                       onClick={() => setIsEditing(true)}
                       className="bg-slate-50 border border-slate-100 text-slate-400 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-blue-50 hover:text-blue-600 transition-all"
                     >
-                      <Edit3 size={12} /> Unlock Profile
+                      <Edit3 size={12} /> Edit Profile
                     </button>
                   )}
                 </div>
@@ -437,18 +441,18 @@ const ProfileDossier: React.FC = () => {
                 <div className="space-y-8 relative z-10">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Pilot Name</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Display Name</label>
                       <input 
                         type="text" 
                         disabled={!isEditing} 
                         className={`w-full border-2 rounded-2xl px-6 py-5 font-bold text-sm outline-none transition-all ${isEditing ? 'bg-white border-blue-500 shadow-inner' : 'bg-slate-50 border-slate-100'}`} 
                         value={formData.displayName} 
                         onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-                        placeholder="Enter full name"
+                        placeholder="Your full name"
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Comms Hub (Phone)</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Phone Number</label>
                       <input 
                         type="tel" 
                         disabled={!isEditing} 
@@ -468,7 +472,7 @@ const ProfileDossier: React.FC = () => {
                         className="flex-grow bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-2xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 active:scale-95"
                       >
                         {isSavingProfile ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-                        Commit Changes
+                        Save Profile
                       </button>
                       <button 
                         onClick={() => {
@@ -477,11 +481,11 @@ const ProfileDossier: React.FC = () => {
                         }}
                         className="px-10 py-5 text-slate-400 font-black uppercase tracking-widest text-[10px] hover:text-rose-500 transition-colors"
                       >
-                        Aborted protocol
+                        Cancel Changes
                       </button>
                     </div>
                   ) : (
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] text-center">Identity is locked while mission is active.</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] text-center">Update your contact information above.</p>
                   )}
                 </div>
               </section>
@@ -491,16 +495,16 @@ const ProfileDossier: React.FC = () => {
               <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white space-y-8 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[60px] rounded-full"></div>
                 <div className="space-y-1 relative z-10">
-                   <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]">Resource Monitors</h4>
-                   <p className="text-[9px] text-blue-500 font-bold uppercase tracking-widest">Active Quota Feedback</p>
+                   <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]">Usage Summary</h4>
+                   <p className="text-[9px] text-blue-500 font-bold uppercase tracking-widest">Monthly feature status</p>
                 </div>
                 
                 <div className="space-y-4 relative z-10">
-                   <CapacityMeter label="Fleet Capacity" capability="MAX_VEHICLES" icon={<Shield size={14} />} color="text-blue-500" />
-                   <CapacityMeter label="Neural Link (AI)" capability="AI_SCAN_MONTHLY" icon={<Zap size={14} />} color="text-amber-500" />
-                   <CapacityMeter label="AI Mechanic" capability="AI_MECHANIC_MONTHLY" icon={<Cpu size={14} />} color="text-rose-500" />
-                   <CapacityMeter label="Fuel Intelligence" capability="FUEL_LOGS_MONTHLY" icon={<Database size={14} />} color="text-emerald-500" />
-                   <CapacityMeter label="Service History" capability="SERVICE_LOGS_MONTHLY" icon={<TerminalIcon size={14} />} color="text-indigo-500" />
+                   <CapacityMeter label="Garage Capacity" capability="MAX_VEHICLES" icon={<Shield size={14} />} color="text-blue-500" />
+                   <CapacityMeter label="AI Value Scans" capability="AI_SCAN_MONTHLY" icon={<Zap size={14} />} color="text-amber-500" />
+                   <CapacityMeter label="AI Diagnostics" capability="AI_MECHANIC_MONTHLY" icon={<Cpu size={14} />} color="text-rose-500" />
+                   <CapacityMeter label="Fuel History logs" capability="FUEL_LOGS_MONTHLY" icon={<Database size={14} />} color="text-emerald-500" />
+                   <CapacityMeter label="Service Records" capability="SERVICE_LOGS_MONTHLY" icon={<TerminalIcon size={14} />} color="text-indigo-500" />
                 </div>
               </div>
             </div>
@@ -514,7 +518,7 @@ const ProfileDossier: React.FC = () => {
                   <div key={plan.id} className={`bg-white rounded-[2.5rem] p-10 border-4 transition-all relative overflow-hidden flex flex-col group ${isActive ? 'border-blue-600 shadow-3xl scale-[1.03] z-10' : 'border-slate-100 hover:border-slate-200'}`}>
                     {isActive && (
                       <div className={`absolute top-0 right-0 ${isExpired ? 'bg-rose-600' : 'bg-blue-600'} text-white px-6 py-2 rounded-bl-3xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2`}>
-                        {isExpired ? <Ban size={10} /> : <Sparkles size={10} />} {isExpired ? 'Expired' : 'Active'}
+                        {isExpired ? <Ban size={10} /> : <Sparkles size={10} />} {isExpired ? 'Expired' : 'Active Plan'}
                       </div>
                     )}
                     <div className="space-y-8 flex-grow">
@@ -538,7 +542,7 @@ const ProfileDossier: React.FC = () => {
                       disabled={isActive && !isExpired}
                       className={`mt-12 w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all flex items-center justify-center gap-3 ${isActive && !isExpired ? 'bg-emerald-50 text-emerald-600 border-2 border-emerald-200 cursor-default' : plan.id === 'free' ? 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-2xl active:scale-0.98]'}`}
                     >
-                      {isActive && isExpired ? 'Renew Protocol' : isActive ? 'Current Protocol' : plan.id === 'free' ? 'Initial Protocol' : `Activate ${plan.label}`}
+                      {isActive && isExpired ? 'Renew Plan' : isActive ? 'Current Plan' : plan.id === 'free' ? 'Initial Plan' : `Upgrade to ${plan.label}`}
                     </button>
                   </div>
                 );

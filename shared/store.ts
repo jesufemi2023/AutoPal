@@ -156,6 +156,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       email: supabaseUser.email || '',
       displayName: meta.display_name || meta.full_name || '',
       phone: meta.phone || '',
+      avatarUrl: meta.avatar_url || '',
       tier: meta.tier || 'free',
       role: meta.role || 'user',
       onboarded: meta.onboarded || false,
