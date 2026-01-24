@@ -6,7 +6,7 @@ import { Tier, CapabilityKey } from '../shared/types.ts';
 import { useUsageQuota } from '../hooks/useUsageQuota.ts';
 import { initiateUpgrade, verifyTransaction } from '../subscriptions/paymentService.ts';
 import { ENV } from '../services/envService.ts';
-import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, Bug, Cpu, Globe } from 'lucide-react';
+import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, Bug, Cpu, Globe, Edit3, Save, X as CloseIcon } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
@@ -148,6 +148,8 @@ const ProfileDossier: React.FC = () => {
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isWaitingForServer, setIsWaitingForServer] = useState(false);
   const [isManualSyncing, setIsManualSyncing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [formData, setFormData] = useState({ displayName: '', phone: '' });
 
   useEffect(() => {
@@ -235,6 +237,37 @@ const ProfileDossier: React.FC = () => {
     }
   };
 
+  const handleCommitIdentity = async () => {
+    if (!supabase || !user) return;
+    setIsSavingProfile(true);
+    setStatusMsg(null);
+
+    try {
+      const { error } = await supabase
+        .from('Users')
+        .update({
+          display_name: formData.displayName,
+          phone: formData.phone
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      setUser({
+        ...user,
+        displayName: formData.displayName,
+        phone: formData.phone
+      });
+
+      setIsEditing(false);
+      setStatusMsg({ type: 'success', text: "Identity updated. Cloud nodes synchronized." });
+    } catch (err: any) {
+      setStatusMsg({ type: 'error', text: `Sync Fault: ${err.message}` });
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   const handleUpgrade = (tier: 'standard' | 'premium', price: number) => {
     if (!user) return;
     setStatusMsg(null);
@@ -248,13 +281,6 @@ const ProfileDossier: React.FC = () => {
       onSuccess: async (ref) => {
         try {
           if (supabase) {
-            /**
-             * RACE CONDITION HANDLING:
-             * We attempt to insert a 'pending' record. 
-             * If it fails because of RLS (Policy Violation) or Unique Constraint (23505),
-             * it almost certainly means the Edge Function/Webhook has already 
-             * finalized the record as 'success'.
-             */
             const { error: insertError } = await supabase.from('payments').insert([{
               user_id: user.id,
               tier: tier,
@@ -270,26 +296,19 @@ const ProfileDossier: React.FC = () => {
                  errorText.includes('row-level security') || 
                  errorText.includes('policy');
 
-               // If it's NOT a standard race condition, we treat it as a real error
                if (!isIgnorable) {
                  throw insertError;
                }
-               
-               // Otherwise, log it for debugging but proceed
                console.log("Telemetry: Synchronous record creation blocked by active Webhook state. Proceeding to verification.");
             }
 
-            // Enter the Provisioning State (Waiting UI)
             setProvisioningTier(tier);
             setLastRef(ref);
             setRemoteStatus('pending');
             setIsWaitingForServer(true);
-            
-            // Trigger an immediate manual verification check
             verifyTransaction(ref).catch(() => {});
           }
         } catch (err: any) {
-          // Real errors (Connection, Invalid Data, etc) land here
           setStatusMsg({ type: 'error', text: `Handshake Error: ${err.message}` });
         }
       },
@@ -385,36 +404,85 @@ const ProfileDossier: React.FC = () => {
             <div className="lg:col-span-7 space-y-8">
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-8 sm:p-12 shadow-sm relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-10 opacity-[0.02] text-9xl pointer-events-none select-none group-hover:scale-110 transition-transform duration-1000">ID</div>
-                <div className="flex flex-col sm:flex-row items-center gap-10 mb-12 relative z-10">
-                   <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-[2.5rem] bg-slate-900 flex items-center justify-center text-white text-4xl sm:text-5xl font-black shadow-2xl border-4 border-slate-800 rotate-3 group-hover:rotate-0 transition-transform">
-                     {user?.displayName?.[0] || user?.email?.[0]?.toUpperCase() || 'P'}
-                   </div>
-                   <div className="text-center sm:text-left space-y-2">
-                      <div className={`inline-block px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-[0.2em] mb-2 ${user?.tier === 'premium' ? 'bg-slate-900 text-blue-400' : user?.tier === 'standard' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                        {user?.tier?.toUpperCase()} PROTOCOL
-                      </div>
-                      <h3 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none">{user?.displayName || 'Unnamed Pilot'}</h3>
-                      <p className="text-slate-400 font-mono text-sm tracking-tight">{user?.email}</p>
-                      {user?.licenseExpiresAt && (
-                        <p className={`text-[9px] font-black uppercase tracking-widest pt-2 flex items-center gap-2 ${isExpired ? 'text-rose-500' : 'text-slate-400'}`}>
-                          <Clock size={10} /> Valid Until: {formatDate(user.licenseExpiresAt)}
-                        </p>
-                      )}
-                   </div>
+                
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-10 mb-12 relative z-10">
+                  <div className="flex flex-col sm:flex-row items-center gap-10">
+                    <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-[2.5rem] bg-slate-900 flex items-center justify-center text-white text-4xl sm:text-5xl font-black shadow-2xl border-4 border-slate-800 rotate-3 group-hover:rotate-0 transition-transform">
+                      {user?.displayName?.[0] || user?.email?.[0]?.toUpperCase() || 'P'}
+                    </div>
+                    <div className="text-center sm:text-left space-y-2">
+                        <div className={`inline-block px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-[0.2em] mb-2 ${user?.tier === 'premium' ? 'bg-slate-900 text-blue-400' : user?.tier === 'standard' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                          {user?.tier?.toUpperCase()} PROTOCOL
+                        </div>
+                        <h3 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none">{user?.displayName || 'Unnamed Pilot'}</h3>
+                        <p className="text-slate-400 font-mono text-sm tracking-tight">{user?.email}</p>
+                        {user?.licenseExpiresAt && (
+                          <p className={`text-[9px] font-black uppercase tracking-widest pt-2 flex items-center gap-2 ${isExpired ? 'text-rose-500' : 'text-slate-400'}`}>
+                            <Clock size={10} /> Valid Until: {formatDate(user.licenseExpiresAt)}
+                          </p>
+                        )}
+                    </div>
+                  </div>
+                  
+                  {!isEditing && (
+                    <button 
+                      onClick={() => setIsEditing(true)}
+                      className="bg-slate-50 border border-slate-100 text-slate-400 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-blue-50 hover:text-blue-600 transition-all"
+                    >
+                      <Edit3 size={12} /> Unlock Profile
+                    </button>
+                  )}
                 </div>
 
                 <div className="space-y-8 relative z-10">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Pilot Name</label>
-                      <input type="text" readOnly className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-5 font-bold text-sm outline-none" value={formData.displayName} />
+                      <input 
+                        type="text" 
+                        disabled={!isEditing} 
+                        className={`w-full border-2 rounded-2xl px-6 py-5 font-bold text-sm outline-none transition-all ${isEditing ? 'bg-white border-blue-500 shadow-inner' : 'bg-slate-50 border-slate-100'}`} 
+                        value={formData.displayName} 
+                        onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                        placeholder="Enter full name"
+                      />
                     </div>
                     <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Comms Hub</label>
-                      <input type="tel" readOnly className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-5 font-mono font-bold text-sm outline-none" value={formData.phone} />
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Comms Hub (Phone)</label>
+                      <input 
+                        type="tel" 
+                        disabled={!isEditing} 
+                        className={`w-full border-2 rounded-2xl px-6 py-5 font-mono font-bold text-sm outline-none transition-all ${isEditing ? 'bg-white border-blue-500 shadow-inner' : 'bg-slate-50 border-slate-100'}`} 
+                        value={formData.phone} 
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        placeholder="+234..."
+                      />
                     </div>
                   </div>
-                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] text-center">Identity is locked while mission is active.</p>
+
+                  {isEditing ? (
+                    <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                      <button 
+                        onClick={handleCommitIdentity}
+                        disabled={isSavingProfile}
+                        className="flex-grow bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-2xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 active:scale-95"
+                      >
+                        {isSavingProfile ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+                        Commit Changes
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setIsEditing(false);
+                          setFormData({ displayName: user?.displayName || '', phone: user?.phone || '' });
+                        }}
+                        className="px-10 py-5 text-slate-400 font-black uppercase tracking-widest text-[10px] hover:text-rose-500 transition-colors"
+                      >
+                        Aborted protocol
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] text-center">Identity is locked while mission is active.</p>
+                  )}
                 </div>
               </section>
             </div>
