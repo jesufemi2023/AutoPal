@@ -1,18 +1,26 @@
 
--- 1. SECURE PAYMENTS TABLE
--- Ensure users can only read their own payments and insert PENDING ones.
--- Browser-side UPDATES are strictly forbidden by omission of policy.
+-- 1. SECURE PAYMENTS TABLE RE-HARDENING
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "Users can insert pending payments" ON payments;
-CREATE POLICY "Users can insert pending payments" ON payments 
+-- Allow users to see their own history
+DROP POLICY IF EXISTS "Users view own payments" ON payments;
+CREATE POLICY "Users view own payments" ON payments 
+FOR SELECT TO authenticated 
+USING (auth.uid() = user_id);
+
+-- Allow users to insert their initial PENDING record
+DROP POLICY IF EXISTS "Users insert own pending payments" ON payments;
+CREATE POLICY "Users insert own pending payments" ON payments 
 FOR INSERT TO authenticated 
 WITH CHECK (auth.uid() = user_id AND status = 'pending');
 
-DROP POLICY IF EXISTS "Users can view own payment history" ON payments;
-CREATE POLICY "Users can view own payment history" ON payments 
-FOR SELECT TO authenticated 
-USING (auth.uid() = user_id);
+-- CRITICAL: Allow users to UPDATE their own records if they are PENDING.
+-- This prevents "403 Forbidden" errors during frontend upserts if a record exists.
+DROP POLICY IF EXISTS "Users update own pending payments" ON payments;
+CREATE POLICY "Users update own pending payments" ON payments
+FOR UPDATE TO authenticated
+USING (auth.uid() = user_id AND status = 'pending')
+WITH CHECK (auth.uid() = user_id AND status = 'pending');
 
 -- 2. THE PRODUCTION TIER LOCK
 -- Re-enabling the block for 'authenticated' users. 
@@ -29,7 +37,7 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- BLOCK: Any attempt to change Tier or Role from the Browser
+  -- BLOCK: Any attempt to change Tier or Role from the Browser Client
   IF (OLD.tier IS DISTINCT FROM NEW.tier OR OLD.role IS DISTINCT FROM NEW.role) THEN
     RAISE EXCEPTION 'SECURITY VIOLATION: Manual Tier Manipulation Blocked.';
   END IF;
@@ -38,6 +46,22 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 3. REALTIME ENABLEMENT
--- Enable the Users table for Realtime broadcasting so the UI wakes up on payment.
-ALTER PUBLICATION supabase_realtime ADD TABLE "Users";
+-- 3. REALTIME RE-ENABLEMENT
+-- Ensure the Users table is in the realtime publication
+-- Note: Supabase might require quotes if mixed case
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'Users'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE "Users";
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'payments'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE payments;
+  END IF;
+END $$;

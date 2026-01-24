@@ -1,5 +1,6 @@
 
-/// <reference lib="deno.ns" />
+// Fixed: Removed problematic lib reference and added Deno declaration to satisfy compiler in environments without Deno types
+declare const Deno: any;
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts"
 
@@ -8,8 +9,10 @@ import { crypto } from "https://deno.land/std@0.168.0/crypto/mod.ts"
  * Securely processes successful payment signals and provisions user tiers.
  */
 
-// Added standard Deno reference above to fix "Cannot find name 'Deno'" errors
 Deno.serve(async (req) => {
+  const requestId = crypto.randomUUID().split('-')[0];
+  console.log(`[${requestId}] Webhook Request Received: ${req.method}`);
+
   // 1. Health Check & Diagnostic (GET)
   if (req.method === 'GET') {
     return new Response(
@@ -19,7 +22,8 @@ Deno.serve(async (req) => {
         diagnostics: {
           paystack_secret_set: !!Deno.env.get('PAYSTACK_SECRET_KEY'),
           supabase_role_set: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'),
-          region: Deno.env.get('SB_REGION') || 'unknown'
+          supabase_url_set: !!Deno.env.get('SUPABASE_URL'),
+          timestamp: new Date().toISOString()
         }
       }), 
       { status: 200, headers: { "Content-Type": "application/json" } }
@@ -44,10 +48,15 @@ Deno.serve(async (req) => {
 
   try {
     const signature = req.headers.get('x-paystack-signature')
-    const rawBody = await req.text()
+    if (!signature) {
+      console.error(`[${requestId}] Missing Paystack Signature Header.`);
+      return new Response(JSON.stringify({ error: 'Missing Signature' }), { status: 401 })
+    }
 
+    const rawBody = await req.text()
     if (!rawBody) {
-      return new Response(JSON.stringify({ error: 'Payload missing' }), { status: 400 })
+      console.error(`[${requestId}] Empty Payload Received.`);
+      return new Response(JSON.stringify({ error: 'Empty Body' }), { status: 400 })
     }
 
     const PAYSTACK_SECRET = Deno.env.get('PAYSTACK_SECRET_KEY')
@@ -55,7 +64,7 @@ Deno.serve(async (req) => {
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
     if (!PAYSTACK_SECRET || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_URL) {
-      console.error("Critical Fault: Missing Edge Function Secrets.")
+      console.error(`[${requestId}] Configuration Fault: Missing Environment Variables.`);
       return new Response(JSON.stringify({ error: 'Server Configuration Incomplete' }), { status: 500 })
     }
 
@@ -68,12 +77,12 @@ Deno.serve(async (req) => {
     const expectedSignature = Array.from(new Uint8Array(signed)).map(b => b.toString(16).padStart(2, '0')).join('')
 
     if (signature !== expectedSignature) {
-      console.error("Security Violation: Invalid Signature.")
+      console.error(`[${requestId}] Security Violation: Signature mismatch.`);
       return new Response(JSON.stringify({ error: 'Forbidden' }), { status: 401 })
     }
 
     const event = JSON.parse(rawBody)
-    console.log(`Signal Received: ${event.event}`)
+    console.log(`[${requestId}] Processing Event: ${event.event} | Ref: ${event.data?.reference}`);
     
     if (event.event === 'charge.success') {
       const { reference, amount, metadata, customer } = event.data
@@ -82,39 +91,57 @@ Deno.serve(async (req) => {
 
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-      // Resolve User ID if not provided in metadata
+      // Resolve User ID if not provided in metadata (Fallback to Email)
       let resolvedUserId = userId
       if (!resolvedUserId) {
-        const { data: userRecord } = await supabase.from('Users').select('id').eq('email', customer.email).maybeSingle()
+        console.log(`[${requestId}] User ID missing in metadata, attempting email resolution...`);
+        const { data: userRecord, error: userError } = await supabase
+          .from('Users')
+          .select('id')
+          .eq('email', customer.email)
+          .maybeSingle()
+        
+        if (userError) {
+          console.error(`[${requestId}] Database error during user resolution:`, userError.message);
+          throw userError;
+        }
         resolvedUserId = userRecord?.id
       }
 
       if (!resolvedUserId) {
-        console.error(`Provisioning Aborted: No pilot found for ${customer.email}`)
-        return new Response(JSON.stringify({ status: 'Ignored: No User' }), { status: 200 })
+        console.error(`[${requestId}] Provisioning Aborted: No pilot record found for ${customer.email}`);
+        return new Response(JSON.stringify({ status: 'Ignored: No User Record Found' }), { status: 200 })
       }
 
-      console.log(`Activating Protocol: ${requestedTier} for Pilot ${resolvedUserId}`)
+      console.log(`[${requestId}] Executing Provisioning: ${requestedTier} for Pilot ${resolvedUserId}`);
 
-      // UPSERT logic prevents race conditions between Webhook and Browser
+      // UPSERT record - Database trigger tr_activate_tier_on_payment handles the rest
       const { error: dbError } = await supabase
         .from('payments')
         .upsert({
           user_id: resolvedUserId,
           tier: requestedTier,
-          amount: amount / 100, // Convert Kobo to NGN
+          amount: amount / 100, // Paystack Kobo to NGN
           reference: reference,
           status: 'success'
         }, { onConflict: 'reference' })
 
-      if (dbError) throw dbError
+      if (dbError) {
+        console.error(`[${requestId}] Database Upsert Failure:`, dbError.message);
+        throw dbError;
+      }
       
-      console.log(`System Provisioned Successfully. Ref: ${reference}`)
+      console.log(`[${requestId}] Success: Environment Synchronized for Ref: ${reference}`);
+    } else {
+      console.log(`[${requestId}] Event Ignored: ${event.event}`);
     }
 
-    return new Response(JSON.stringify({ status: 'Handled' }), { status: 200 })
+    return new Response(JSON.stringify({ status: 'Handled', requestId }), { status: 200 })
   } catch (err: any) {
-    console.error("Neural Execution Fault:", err.message)
-    return new Response(JSON.stringify({ error: 'Internal Server Error', detail: err.message }), { status: 500 })
+    console.error(`[${requestId}] Neural Execution Fault:`, err.message);
+    return new Response(
+      JSON.stringify({ error: 'Internal Server Error', requestId, detail: err.message }), 
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    )
   }
 })

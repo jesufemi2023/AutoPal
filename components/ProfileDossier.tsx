@@ -4,9 +4,8 @@ import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
 import { Tier, CapabilityKey } from '../shared/types.ts';
 import { useUsageQuota } from '../hooks/useUsageQuota.ts';
-import { getTierCapability } from '../services/capabilityService.ts';
 import { initiateUpgrade } from '../subscriptions/paymentService.ts';
-import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw } from 'lucide-react';
+import { Shield, Zap, Database, CheckCircle2, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, Search, AlertCircle } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
@@ -82,7 +81,7 @@ const NeuralProvisioningOverlay: React.FC<{
       clearInterval(interval);
       clearTimeout(fallbackTimer);
     };
-  }, []);
+  }, [tier]);
 
   return (
     <div className="fixed inset-0 z-[10000] bg-slate-950 flex items-center justify-center p-6 animate-in fade-in duration-500">
@@ -97,35 +96,40 @@ const NeuralProvisioningOverlay: React.FC<{
           </div>
         </div>
         
-        <div className="space-y-3 font-mono text-[11px] mb-8">
+        <div className="space-y-3 font-mono text-[11px] mb-8 min-h-[140px]">
           {logs.map((log, i) => (
             <div key={i} className={`${i === logs.length - 1 ? 'text-blue-400 font-bold' : 'text-slate-500'} animate-in slide-in-from-left-2`}>
               {log}
             </div>
           ))}
-          {!showFallback && <div className="w-2 h-4 bg-blue-500 animate-pulse inline-block mt-2"></div>}
+          {!isSyncing && !showFallback && <div className="w-2 h-4 bg-blue-500 animate-pulse inline-block mt-2"></div>}
+          {isSyncing && (
+             <div className="text-emerald-400 font-bold animate-pulse mt-4">
+                > PROBING DATABASE VAULT FOR SETTLEMENT SIGNALS...
+             </div>
+          )}
         </div>
 
         {showFallback && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="bg-blue-500/10 border border-blue-500/20 p-6 rounded-2xl mb-6">
               <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest leading-relaxed">
-                Network broadcast stream is delayed. Your payment record exists. Click verify to force a manual environment check.
+                Network broadcast stream is latent. If your payment was successful, click the manual verification trigger below.
               </p>
             </div>
             <button 
               disabled={isSyncing}
-              onClick={onManualVerify}
+              onClick={(e) => { e.preventDefault(); onManualVerify(); }}
               className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
             >
               {isSyncing ? (
                 <>
                   <RefreshCw size={14} className="animate-spin" />
-                  Requesting Sync...
+                  Synchronizing...
                 </>
               ) : (
                 <>
-                  <Sparkles size={14} />
+                  <Search size={14} />
                   Verify Activation Now
                 </>
               )}
@@ -152,43 +156,95 @@ const ProfileDossier: React.FC = () => {
     }
   }, [user]);
 
-  // SUCCESS TRIGGER: When user.tier matches the tier we're waiting for
+  /** 
+   * AUTO-RECOVERY: If user is on 'free' tier, check for recent pending/success payments
+   * to restore the waiting overlay if they refreshed the page.
+   */
+  useEffect(() => {
+    const checkRecovery = async () => {
+      if (!supabase || !user || user.tier !== 'free') return;
+      
+      const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const { data: recentPayments } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('created_at', fiveMinsAgo)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (recentPayments && recentPayments.length > 0) {
+        const pay = recentPayments[0];
+        if (pay.status === 'pending' || pay.status === 'success') {
+          console.log("System Calibration: Restoring provisioning state from database.");
+          setProvisioningTier(pay.tier as Tier);
+          setIsWaitingForServer(true);
+        }
+      }
+    };
+    checkRecovery();
+  }, [user?.id, user?.tier]);
+
+  // AUTO-HIDE: Hide overlay when user state actually updates via Realtime in App.tsx
   useEffect(() => {
     if (isWaitingForServer && user?.tier && provisioningTier === user.tier) {
+      console.log("System Calibration: Target tier reached. Closing overlay.");
       setIsWaitingForServer(false);
-      setTimeout(() => {
-        setProvisioningTier(null);
-        setStatusMsg({ type: 'success', text: `Environment recalibrated to ${provisioningTier?.toUpperCase()} Protocol.` });
-      }, 1500);
+      const targetTier = provisioningTier;
+      setProvisioningTier(null);
+      setStatusMsg({ type: 'success', text: `Environment successfully recalibrated to ${targetTier.toUpperCase()} Protocol.` });
     }
   }, [user?.tier, isWaitingForServer, provisioningTier]);
 
+  /**
+   * Deep Manual Verification
+   */
   const forceProfileSync = async () => {
     if (!supabase || !user) return;
     setIsManualSyncing(true);
     setStatusMsg(null);
     
     try {
+      // 1. Fetch latest profile
       const { data: profile, error } = await supabase.from('Users').select('*').eq('id', user.id).maybeSingle();
-      
       if (error) throw error;
       
+      // 2. Fetch latest payment for context
+      const { data: payRecord } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
       if (profile) {
+        // Sync local store
         setUser({
           ...user,
           tier: profile.tier,
           licenseExpiresAt: profile.license_expires_at,
-          role: profile.role
+          role: profile.role,
+          displayName: profile.display_name,
+          phone: profile.phone
         });
 
-        if (profile.tier === provisioningTier) {
-          setStatusMsg({ type: 'success', text: "Activation Successful! System state synchronized." });
+        if (profile.tier !== 'free') {
+           // Success!
+           setIsWaitingForServer(false);
+           setProvisioningTier(null);
+           setStatusMsg({ type: 'success', text: "Activation Confirmed! Cloud state synchronized." });
+        } else if (payRecord?.status === 'success') {
+           // Payment is success but user tier hasn't flipped - trigger delay
+           setStatusMsg({ type: 'error', text: "Payment confirmed, but profile trigger is latent. Retrying in 10s..." });
+           setTimeout(forceProfileSync, 10000);
         } else {
-          setStatusMsg({ type: 'error', text: "Confirmation still pending from Paystack. Please wait 60 seconds." });
+           setStatusMsg({ type: 'error', text: "No successful payment detected in ledger. If you just paid, please wait 60 seconds." });
         }
       }
     } catch (e: any) {
-      setStatusMsg({ type: 'error', text: "Sync Failed: Cloud node unreachable." });
+      console.error("Manual Sync Fault:", e);
+      setStatusMsg({ type: 'error', text: "Protocol Interrupted: Cloud node unreachable." });
     } finally {
       setIsManualSyncing(false);
     }
@@ -206,8 +262,9 @@ const ProfileDossier: React.FC = () => {
       onSuccess: async (ref) => {
         try {
           if (supabase) {
-            // Frontend upsert: handles the case where webhook hasn't fired yet
-            const { error: insertError } = await supabase.from('payments').upsert([{
+            // Frontend upsert: sets the intent. 
+            // The Edge function will later flip this to 'success'.
+            const { error: upsertError } = await supabase.from('payments').upsert([{
               user_id: user.id,
               tier: tier,
               amount: price,
@@ -215,19 +272,22 @@ const ProfileDossier: React.FC = () => {
               status: 'pending'
             }], { onConflict: 'reference' });
 
-            if (insertError) throw insertError;
+            if (upsertError) {
+               console.error("Payment Record Collision:", upsertError.message);
+               // We continue anyway since Paystack succeeded
+            }
 
             setProvisioningTier(tier);
             setIsWaitingForServer(true);
-            setStatusMsg({ type: 'success', text: 'Payment Received. Calibrating system...' });
+            setStatusMsg({ type: 'success', text: 'Signal captured. System is calibrating...' });
           }
         } catch (err: any) {
-          console.error("Billing Security Fault:", err);
-          setStatusMsg({ type: 'error', text: `Security Fault: ${err.message}` });
+          console.error("Billing Persistence Fault:", err);
+          setStatusMsg({ type: 'error', text: `Data Vault Error: ${err.message}` });
         }
       },
       onCancel: () => {
-        setStatusMsg({ type: 'error', text: 'Protocol Activation Aborted.' });
+        setStatusMsg({ type: 'error', text: 'Activation Sequence Aborted.' });
       }
     });
   };
@@ -238,7 +298,7 @@ const ProfileDossier: React.FC = () => {
       label: 'Pilot Basic', 
       price: 0,
       priceLabel: '₦0',
-      tagline: 'Standard Environment',
+      tagline: 'Discovery Environment',
       features: ['1 Active Vehicle Twin', '2 Monthly Fuel Logs', '0 AI Diagnostic Scans', 'Regional Market Data', 'Non-renewable after 30 days']
     },
     { 
@@ -263,7 +323,7 @@ const ProfileDossier: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-12 animate-slide-up px-4 pb-32">
-      {provisioningTier && (isWaitingForServer || provisioningTier === user?.tier) && (
+      {provisioningTier && isWaitingForServer && (
         <NeuralProvisioningOverlay 
           tier={provisioningTier} 
           isSyncing={isManualSyncing}
@@ -300,8 +360,9 @@ const ProfileDossier: React.FC = () => {
       </header>
 
       {statusMsg && (
-        <div className={`p-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border animate-in slide-in-from-top-4 ${statusMsg.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
-          {statusMsg.type === 'success' ? '✓' : '⚠️'} {statusMsg.text}
+        <div className={`p-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border animate-in slide-in-from-top-4 flex items-center gap-3 ${statusMsg.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
+          {statusMsg.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+          {statusMsg.text}
         </div>
       )}
 
