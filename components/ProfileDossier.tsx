@@ -143,16 +143,16 @@ const NeuralProvisioningOverlay: React.FC<{
               </button>
               
               <div className="mt-4 p-4 border border-white/5 rounded-xl bg-white/5">
-                <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-3">Troubleshooting Node</p>
-                <ul className="space-y-2">
-                  <li className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex gap-2">
-                    <span className="text-blue-500">1.</span> Verify Webhook URL in Paystack Settings
+                <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-3">Critical Diagnostic Check</p>
+                <ul className="space-y-3">
+                  <li className="text-[8px] text-rose-400 font-bold uppercase tracking-wider flex gap-2">
+                    <span className="text-rose-500">1. Deployment Check:</span> Your log says "Hello from Functions". This means you haven't deployed the code. Run 'supabase functions deploy paystack-webhook'.
                   </li>
                   <li className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex gap-2">
-                    <span className="text-blue-500">2.</span> Check Supabase Edge Function logs for 401/500 errors
+                    <span className="text-blue-500">2.</span> Check Paystack Settings: Verify Webhook URL is set to your Supabase Functions endpoint.
                   </li>
                   <li className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex gap-2">
-                    <span className="text-blue-500">3.</span> If testing on Localhost, use ngrok for webhooks
+                    <span className="text-blue-500">3.</span> Secrets: Ensure PAYSTACK_SECRET_KEY is set in Supabase Settings > Edge Functions.
                   </li>
                 </ul>
               </div>
@@ -241,7 +241,7 @@ const ProfileDossier: React.FC = () => {
           // SPECIFIC DIAGNOSTIC: Payment exists but webhook hasn't hit success
           setStatusMsg({ 
             type: 'error', 
-            text: "Handshake Pending: Paystack has not notified our server yet. Ensure your Webhook URL is set in Paystack Settings." 
+            text: "Handshake Pending: Paystack has not notified our server yet. This usually means the Edge Function is not deployed or secrets are missing." 
           });
         } else {
           setStatusMsg({ type: 'error', text: "Confirmation still pending from cloud provider. Please wait 60 seconds." });

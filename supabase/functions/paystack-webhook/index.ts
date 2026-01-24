@@ -11,6 +11,9 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
 serve(async (req) => {
+  // CRITICAL: Diagnostic log to verify deployment success
+  console.log("--- AUTOPAL WEBHOOK ENGINE: SIGNAL DETECTED ---");
+
   // 1. Health Check (GET) - Allows user to verify URL in browser
   if (req.method === 'GET') {
     return new Response(
@@ -49,7 +52,6 @@ serve(async (req) => {
     }
 
     // Cryptographic Verification
-    // We only verify if a signature is provided. If not, it's likely a malformed test.
     if (!signature) {
        console.error("Security Fault: Missing Paystack Signature Header.")
        return new Response(JSON.stringify({ error: 'Missing Signature' }), { status: 401 })
@@ -63,23 +65,19 @@ serve(async (req) => {
     const expectedSignature = Array.from(new Uint8Array(signed)).map(b => b.toString(16).padStart(2, '0')).join('')
 
     if (signature !== expectedSignature) {
-      console.error("Security Fault: Invalid Signature Detected. Verify PAYSTACK_SECRET_KEY matches Dashboard.")
+      console.error("Security Fault: Invalid Signature. Check PAYSTACK_SECRET_KEY in Supabase Vault.")
       return new Response(JSON.stringify({ error: 'Invalid Signature' }), { status: 401 })
     }
 
     const event = JSON.parse(rawBody)
-    console.log(`Signal Received: ${event.event}`)
+    console.log(`Verified Signal: ${event.event} for Ref: ${event.data.reference}`)
     
-    // Only process successful charges
     if (event.event === 'charge.success') {
       const reference = event.data.reference
       const requestedTier = event.data.metadata?.custom_fields?.find((f: any) => f.variable_name === 'requested_tier')?.value || 'standard'
 
-      console.log(`Processing Provisioning for Ref: ${reference} (Tier: ${requestedTier})`)
-
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-      // Update the payment record
       const { data: payment, error: payError } = await supabase
         .from('payments')
         .update({ status: 'success' })
@@ -89,11 +87,10 @@ serve(async (req) => {
 
       if (payError) {
         console.error("Database Handshake Failure:", payError.message)
-        // We return 200 anyway so Paystack doesn't keep retrying if it's just a data mismatch
         return new Response(JSON.stringify({ status: 'error', message: payError.message }), { status: 200 })
       }
 
-      console.log(`System Calibrated: User ${payment.user_id} upgraded to ${requestedTier}`)
+      console.log(`SUCCESS: User ${payment.user_id} promoted to ${requestedTier}`)
     }
 
     return new Response(JSON.stringify({ status: 'processed' }), { status: 200 })
