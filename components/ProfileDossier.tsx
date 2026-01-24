@@ -241,6 +241,7 @@ const ProfileDossier: React.FC = () => {
     setRemoteStatus(undefined);
 
     initiateUpgrade({
+      userId: user.id,
       email: user.email,
       amount: price,
       tier: tier,

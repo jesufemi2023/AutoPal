@@ -50,34 +50,27 @@ Deno.serve(async (req: Request) => {
       throw new Error("Cloud environment variables are not initialized.")
     }
 
-    // 1. Extract Reference from URL
+    // 1. Extract Reference
     let reference = url.searchParams.get('reference') || url.searchParams.get('trxref');
-    
-    // 2. Extract Reference from Body (Standard or Nested Webhook)
     if (!reference && req.method !== 'GET') {
       const rawBody = await req.text().catch(() => "");
       if (rawBody) {
         try {
           const json = JSON.parse(rawBody);
           reference = findReferenceInObject(json);
-          console.log(`[${traceId}] Found reference via deep-search: ${reference}`);
         } catch (e) {
           if (rawBody.startsWith('AP-')) reference = rawBody.trim();
         }
       }
     }
 
-    if (!reference || reference === 'undefined' || reference === 'null') {
-      console.error(`[${traceId}] Identification Fault: Payload was unreadable or missing AP- token.`);
-      return new Response(
-        JSON.stringify({ error: 'Missing transaction reference.' }), 
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (!reference) {
+      return new Response(JSON.stringify({ error: 'Missing reference' }), { status: 400, headers: corsHeaders });
     }
 
-    console.log(`[${traceId}] Verifying: ${reference}`);
+    console.log(`[${traceId}] Initiating Handshake with Paystack for: ${reference}`);
 
-    // 3. Verify with Paystack
+    // 2. Verify with Paystack
     const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
       headers: {
         Authorization: `Bearer ${PAYSTACK_SECRET}`,
@@ -86,41 +79,53 @@ Deno.serve(async (req: Request) => {
     })
     
     if (!verifyRes.ok) {
-      const errorDetail = await verifyRes.text();
-      console.error(`[${traceId}] Gateway Rejected Request: ${verifyRes.status}`);
-      return new Response(
-        JSON.stringify({ error: 'Gateway verification failed.', details: errorDetail }), 
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      const errTxt = await verifyRes.text();
+      console.error(`[${traceId}] Paystack API Rejected Handshake: ${verifyRes.status}`, errTxt);
+      return new Response(JSON.stringify({ error: 'Paystack rejected request' }), { status: 502, headers: corsHeaders });
     }
 
-    const paystackData = await verifyRes.json()
-    const status = paystackData.data?.status || 'unknown'
+    const paystackData = await verifyRes.json();
+    const gatewayStatus = paystackData.data?.status;
+    const metadata = paystackData.data?.metadata || {};
+    
+    console.log(`[${traceId}] Paystack Internal Status: ${gatewayStatus}`);
 
-    if (status !== 'success') {
-      return new Response(
-        JSON.stringify({ status, reference }), 
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (gatewayStatus !== 'success') {
+      return new Response(JSON.stringify({ status: gatewayStatus, reference }), { status: 200, headers: corsHeaders });
     }
 
-    // 4. Update Database
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-    const { data: existing } = await supabase
+    // 3. Database Activation via UPSERT (Race-Condition-Proof)
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // Extract vital attributes for idempotent record creation
+    const userId = metadata.user_id;
+    const tier = metadata.requested_tier || reference.split('-')[1]?.toLowerCase();
+    const amount = paystackData.data?.amount / 100; // NGN
+
+    if (!userId) {
+      console.error(`[${traceId}] Critical Fault: No user_id found in Paystack metadata.`);
+      return new Response(JSON.stringify({ error: 'Security metadata missing' }), { status: 400, headers: corsHeaders });
+    }
+
+    console.log(`[${traceId}] Provisioning ${tier.toUpperCase()} for User ${userId}...`);
+
+    const { data: result, error: upsertError } = await supabase
       .from('payments')
-      .select('status')
-      .eq('reference', reference)
-      .maybeSingle()
+      .upsert({
+        user_id: userId,
+        tier: tier,
+        amount: amount,
+        reference: reference,
+        status: 'success'
+      }, { onConflict: 'reference' })
+      .select();
 
-    if (existing?.status !== 'success') {
-      console.log(`[${traceId}] Authorized. Finalizing database state...`);
-      const { error: updateError } = await supabase
-        .from('payments')
-        .update({ status: 'success' })
-        .eq('reference', reference)
-
-      if (updateError) throw updateError
+    if (upsertError) {
+      console.error(`[${traceId}] Database Upsert Failure:`, upsertError);
+      throw upsertError;
     }
+
+    console.log(`[${traceId}] Activation Complete. Sequence Terminated.`);
 
     return new Response(
       JSON.stringify({ status: 'success', reference }), 
@@ -128,7 +133,7 @@ Deno.serve(async (req: Request) => {
     )
 
   } catch (err: any) {
-    console.error(`[${traceId}] Fatal Crash:`, err.message);
+    console.error(`[${traceId}] Fatal System Fault:`, err.message);
     return new Response(
       JSON.stringify({ error: 'Internal Server Fault' }), 
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
