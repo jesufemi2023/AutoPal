@@ -4,6 +4,7 @@ import { ENV } from '../services/envService.ts';
 declare const PaystackPop: any;
 
 interface PaymentOptions {
+  userId: string;
   email: string;
   amount: number;
   tier: 'standard' | 'premium';
@@ -16,7 +17,7 @@ interface PaymentOptions {
  * Orchestrates Paystack checkout and tier synchronization.
  */
 export const initiateUpgrade = (options: PaymentOptions) => {
-  const { email, amount, tier, onSuccess, onCancel } = options;
+  const { userId, email, amount, tier, onSuccess, onCancel } = options;
   
   if (!ENV.PAYSTACK_PUBLIC_KEY || ENV.PAYSTACK_PUBLIC_KEY === 'pk_test_placeholder') {
     console.error("Payment Gateway Failure: Missing Public Key.");
@@ -36,11 +37,16 @@ export const initiateUpgrade = (options: PaymentOptions) => {
           display_name: "Requested Protocol",
           variable_name: "requested_tier",
           value: tier
+        },
+        {
+          display_name: "Pilot ID",
+          variable_name: "user_id",
+          value: userId
         }
       ]
     },
     callback: function(response: any) {
-      console.log(`Payment successful. Reference: ${response.reference}`);
+      console.log(`Payment signal captured. Reference: ${response.reference}`);
       onSuccess(response.reference);
     },
     onClose: function() {

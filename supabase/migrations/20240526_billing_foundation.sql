@@ -1,6 +1,5 @@
 
--- SECTION 1: HARDENED LEDGER
--- We add a constraint to ensure 'success' status cannot be set by default
+-- 1. SECURE PAYMENTS TABLE
 CREATE TABLE IF NOT EXISTS payments (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -13,10 +12,6 @@ CREATE TABLE IF NOT EXISTS payments (
 
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 
--- CRITICAL SECURITY CHANGE: 
--- Users can only INSERT payments with status 'pending'.
--- They CANNOT insert 'success' manually. 
--- Only a "System Override" or a future Webhook can mark it as success.
 DO $$ 
 BEGIN
   DROP POLICY IF EXISTS "Users view own payments" ON payments;
@@ -25,38 +20,16 @@ BEGIN
   DROP POLICY IF EXISTS "Users insert own pending payments" ON payments;
   CREATE POLICY "Users insert own pending payments" ON payments 
   FOR INSERT TO authenticated 
-  WITH CHECK (
-    auth.uid() = user_id AND 
-    status = 'pending'  -- This prevents "Manual Success" injection
-  );
+  WITH CHECK (auth.uid() = user_id AND status = 'pending');
 END $$;
 
--- SECTION 2: THE IDENTITY LOCK (Paranoid Mode)
-CREATE OR REPLACE FUNCTION public.fn_lock_user_tier()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- BYPASS ONLY for the internal superuser
-  IF current_user = 'postgres' THEN
-    RETURN NEW;
-  END IF;
-
-  -- BLOCK all Tier/Role changes from the browser
-  IF (OLD.tier IS DISTINCT FROM NEW.tier OR OLD.role IS DISTINCT FROM NEW.role) THEN
-    RAISE EXCEPTION 'SECURITY VIOLATION: Manual Tier Manipulation Detected. Incident logged.';
-  END IF;
-
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- SECTION 3: THE ACTIVATOR (The only way to get Success)
--- In a real production app, this would be triggered by a Paystack Webhook (Edge Function)
--- For the MVP, we create a secure function that validates the reference.
+-- 2. THE ACTIVATOR (Handles Provisioning)
 CREATE OR REPLACE FUNCTION public.fn_activate_tier_on_payment()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- Security Check: Ensure this isn't a fake transition
-  IF NEW.status = 'success' AND OLD.status = 'pending' THEN
+  -- Logic: If status becomes success, update the User Tier.
+  -- This works for both direct INSERT (webhook arrives first) or UPDATE (frontend arrives first).
+  IF NEW.status = 'success' AND (TG_OP = 'INSERT' OR OLD.status = 'pending') THEN
     UPDATE public."Users"
     SET 
       tier = NEW.tier,
@@ -67,11 +40,27 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- RE-ATTACH
+-- RE-ATTACH (Supports both operations)
 DROP TRIGGER IF EXISTS tr_activate_tier_on_payment ON payments;
 CREATE TRIGGER tr_activate_tier_on_payment
-AFTER UPDATE ON payments -- Changed to AFTER UPDATE for better security flow
+AFTER INSERT OR UPDATE ON payments
 FOR EACH ROW EXECUTE FUNCTION public.fn_activate_tier_on_payment();
+
+-- 3. THE IDENTITY LOCK
+CREATE OR REPLACE FUNCTION public.fn_lock_user_tier()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF current_user = 'postgres' OR current_setting('role') = 'service_role' THEN
+    RETURN NEW;
+  END IF;
+
+  IF (OLD.tier IS DISTINCT FROM NEW.tier OR OLD.role IS DISTINCT FROM NEW.role) THEN
+    RAISE EXCEPTION 'SECURITY VIOLATION: Manual Tier Manipulation Blocked.';
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS tr_lock_user_tier ON "Users";
 CREATE TRIGGER tr_lock_user_tier BEFORE UPDATE ON "Users" FOR EACH ROW EXECUTE FUNCTION fn_lock_user_tier();

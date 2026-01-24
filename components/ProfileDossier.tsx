@@ -199,19 +199,21 @@ const ProfileDossier: React.FC = () => {
     setStatusMsg(null);
 
     initiateUpgrade({
+      userId: user.id,
       email: user.email,
       amount: price,
       tier: tier,
       onSuccess: async (ref) => {
         try {
           if (supabase) {
-            const { error: insertError } = await supabase.from('payments').insert([{
+            // Frontend upsert: handles the case where webhook hasn't fired yet
+            const { error: insertError } = await supabase.from('payments').upsert([{
               user_id: user.id,
               tier: tier,
               amount: price,
               reference: ref,
               status: 'pending'
-            }]);
+            }], { onConflict: 'reference' });
 
             if (insertError) throw insertError;
 
@@ -391,7 +393,7 @@ const ProfileDossier: React.FC = () => {
                     <button 
                       onClick={() => plan.id !== 'free' && handleUpgrade(plan.id as any, plan.price)}
                       disabled={isActive && !isExpired}
-                      className={`mt-12 w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all flex items-center justify-center gap-3 ${isActive && !isExpired ? 'bg-emerald-50 text-emerald-600 border-2 border-emerald-200 cursor-default' : plan.id === 'free' ? 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-2xl active:scale-0.98]'}`}
+                      className={`mt-12 w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all flex items-center justify-center gap-3 ${isActive && !isExpired ? 'bg-emerald-50 text-emerald-600 border-2 border-emerald-200 cursor-default' : plan.id === 'free' ? 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-2xl active:scale-[0.98]'}`}
                     >
                       {isActive && isExpired ? 'Renew Protocol' : isActive ? 'Current Protocol' : plan.id === 'free' ? 'Initial Protocol' : `Activate ${plan.label}`}
                     </button>
