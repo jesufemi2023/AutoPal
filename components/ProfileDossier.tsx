@@ -52,15 +52,10 @@ const NeuralProvisioningOverlay: React.FC<{
   tier: Tier; 
   isSyncing: boolean;
   onManualVerify: () => void;
-  lastPaymentStatus?: string;
-  paymentRef?: string;
-}> = ({ tier, isSyncing, onManualVerify, lastPaymentStatus, paymentRef }) => {
+  statusMsg?: string;
+}> = ({ tier, isSyncing, onManualVerify, statusMsg }) => {
   const [logs, setLogs] = useState<string[]>([]);
   const [showFallback, setShowFallback] = useState(false);
-  const [diagResult, setDiagResult] = useState<{msg: string, isError?: boolean, help?: string} | null>(null);
-  
-  const projectUrl = ENV.SUPABASE_URL || '';
-  const verifyUrl = `${projectUrl}/functions/v1/verify-payment`;
 
   useEffect(() => {
     let currentIdx = 0;
@@ -90,20 +85,6 @@ const NeuralProvisioningOverlay: React.FC<{
     };
   }, [tier]);
 
-  const testConnection = async () => {
-    setDiagResult({ msg: "Probing Verification Endpoint..." });
-    try {
-      const resp = await fetch(verifyUrl, { method: 'OPTIONS' });
-      if (resp.ok) {
-        setDiagResult({ msg: "LINK ACTIVE: Ready for verification." });
-      } else {
-        setDiagResult({ msg: "LINK OFFLINE: Cloud function not reachable.", isError: true });
-      }
-    } catch (e) {
-      setDiagResult({ msg: "OFFLINE: Check your internet connection.", isError: true });
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-[10000] bg-slate-950 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-500 overflow-y-auto">
       <div className="max-w-xl w-full bg-slate-900 border border-blue-500/20 rounded-[2.5rem] p-8 sm:p-10 shadow-[0_0_100px_rgba(37,99,235,0.2)] my-auto">
@@ -123,42 +104,31 @@ const NeuralProvisioningOverlay: React.FC<{
               {log}
             </div>
           ))}
-          {!showFallback && <div className="w-2 h-4 bg-blue-500 animate-pulse inline-block mt-2"></div>}
+          <div className="w-2 h-4 bg-blue-500 animate-pulse inline-block mt-2"></div>
         </div>
+
+        {statusMsg && (
+          <div className="p-4 bg-blue-600/10 border border-blue-500/30 rounded-xl text-blue-400 text-[9px] font-black uppercase tracking-widest text-center mb-6 animate-pulse">
+            {statusMsg}
+          </div>
+        )}
 
         {showFallback && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
             <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-2xl text-center">
               <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest leading-relaxed">
-                Settlement verification is taking longer than expected. 
+                Verification is pending. The cloud is awaiting final confirmation from the payment gateway.
               </p>
             </div>
-
-            {diagResult && (
-              <div className={`p-4 rounded-xl text-[9px] font-black uppercase tracking-widest text-center border ${diagResult.isError ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
-                {diagResult.msg}
-              </div>
-            )}
             
-            <div className="grid grid-cols-1 gap-3">
-              <button 
-                disabled={isSyncing}
-                onClick={onManualVerify}
-                className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-              >
-                {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                {isSyncing ? "Verifying..." : "Attempt Manual Verification"}
-              </button>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button onClick={testConnection} className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2">
-                  <Bug size={10} /> Probe Link
-                </button>
-                <a href="mailto:support@autopal.ng" className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2">
-                  <Globe size={10} /> Help Desk
-                </a>
-              </div>
-            </div>
+            <button 
+              disabled={isSyncing}
+              onClick={onManualVerify}
+              className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+            >
+              {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              {isSyncing ? "Verifying..." : "Attempt Manual Sync"}
+            </button>
           </div>
         )}
       </div>
@@ -183,70 +153,83 @@ const ProfileDossier: React.FC = () => {
   }, [user]);
 
   /**
-   * AUTOMATIC REDIRECT LOGIC
-   * Fires when the user tier in the store matches our expected upgrade tier.
+   * AUTOMATIC REDIRECT WATCHER
+   * Triggers the instant the user's tier matches the requested one.
    */
   useEffect(() => {
     if (isWaitingForServer && user?.tier && provisioningTier === user.tier) {
       setIsWaitingForServer(false);
+      setProvisioningTier(null);
+      setStatusMsg({ 
+        type: 'success', 
+        text: `Neural Protocol Activated. Redirecting to Garage Hub...` 
+      });
       
-      // Premium experience delay for transition
+      // Zero-latency feel transition
       setTimeout(() => {
-        setProvisioningTier(null);
-        setStatusMsg({ 
-          type: 'success', 
-          text: `Neural link active. Redirecting to Command Center...` 
-        });
-        
-        // Final jump to Garage
-        setTimeout(() => {
-          setCurrentView('garage');
-        }, 1200);
-      }, 500);
+        setCurrentView('garage');
+      }, 1500);
     }
   }, [user?.tier, isWaitingForServer, provisioningTier, setCurrentView]);
 
   /**
-   * AUTOMATIC POLLING VERIFICATION
-   * Periodically check the backend until success or timeout
+   * AGGRESSIVE VERIFICATION POLLING
+   * Runs every 3 seconds while waiting for the cloud to confirm payment.
    */
   useEffect(() => {
     let pollInterval: number;
     
     if (isWaitingForServer && lastRef) {
-      // Start polling every 5 seconds
       pollInterval = window.setInterval(async () => {
         try {
           const result = await verifyTransaction(lastRef);
           if (result.status === 'success') {
-            // Success is handled by the tier watcher above
+            console.log("Secure Verification: Success. Awaiting Realtime Sync...");
+            // Force a profile refresh to catch the change immediately
+            await forceProfileSync(true);
             clearInterval(pollInterval);
           }
         } catch (e) {
-          console.warn("Poll attempt failed, retrying...");
+          console.warn("Poll heartbeat failed. System will retry...");
         }
-      }, 5000);
+      }, 3000);
     }
 
     return () => clearInterval(pollInterval);
   }, [isWaitingForServer, lastRef]);
 
-  const forceManualVerify = async () => {
-    if (!lastRef) return;
-    setIsManualSyncing(true);
-    setStatusMsg(null);
+  const forceProfileSync = async (autoRedirect = false) => {
+    if (!supabase || !user) return;
+    if (!autoRedirect) setIsManualSyncing(true);
     
     try {
-      const result = await verifyTransaction(lastRef);
-      if (result.status === 'success') {
-        setStatusMsg({ type: 'success', text: "Verification Successful! System state synced." });
-      } else {
-        setStatusMsg({ type: 'error', text: `Transaction Status: ${result.status.toUpperCase()}. Awaiting Paystack clearance.` });
+      const { data: profile, error } = await supabase
+        .from('Users')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      if (profile) {
+        setUser({
+          ...user,
+          tier: profile.tier,
+          licenseExpiresAt: profile.license_expires_at,
+          role: profile.role,
+          displayName: profile.display_name,
+          phone: profile.phone
+        });
+
+        if (profile.tier === provisioningTier && !autoRedirect) {
+          setStatusMsg({ type: 'success', text: "Verification successful. Environment recalibrated." });
+          setIsWaitingForServer(false);
+        }
       }
     } catch (e: any) {
-      setStatusMsg({ type: 'error', text: "Sync Failed: Handshake interrupted." });
+      if (!autoRedirect) setStatusMsg({ type: 'error', text: "Sync failed. Cloud unreachable." });
     } finally {
-      setIsManualSyncing(false);
+      if (!autoRedirect) setIsManualSyncing(false);
     }
   };
 
@@ -261,7 +244,7 @@ const ProfileDossier: React.FC = () => {
       onSuccess: async (ref) => {
         try {
           if (supabase) {
-            // Step 1: Record the pending payment
+            // Log entry into payments table (status: pending)
             const { error: insertError } = await supabase.from('payments').insert([{
               user_id: user.id,
               tier: tier,
@@ -272,21 +255,20 @@ const ProfileDossier: React.FC = () => {
 
             if (insertError) throw insertError;
 
-            // Step 2: Trigger UI provisioning mode
+            // Trigger secure UI provisioning mode
             setProvisioningTier(tier);
             setLastRef(ref);
             setIsWaitingForServer(true);
-            setStatusMsg({ type: 'success', text: 'Authorization received. Confirming with Paystack...' });
             
-            // Step 3: Run immediate verification check
+            // Immediate first check
             verifyTransaction(ref).catch(() => {});
           }
         } catch (err: any) {
-          setStatusMsg({ type: 'error', text: `Security Fault: ${err.message}` });
+          setStatusMsg({ type: 'error', text: `Security Handshake Error: ${err.message}` });
         }
       },
       onCancel: () => {
-        setStatusMsg({ type: 'error', text: 'Protocol Activation Aborted.' });
+        setStatusMsg({ type: 'error', text: 'Protocol activation aborted by pilot.' });
       }
     });
   };
@@ -326,8 +308,8 @@ const ProfileDossier: React.FC = () => {
         <NeuralProvisioningOverlay 
           tier={provisioningTier} 
           isSyncing={isManualSyncing}
-          onManualVerify={forceManualVerify}
-          paymentRef={lastRef}
+          onManualVerify={() => forceProfileSync(false)}
+          statusMsg={lastRef ? `Monitoring Reference: ${lastRef}` : undefined}
         />
       )}
 
