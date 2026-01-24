@@ -47,13 +47,12 @@ const CapacityMeter: React.FC<{
 
 /**
  * NeuralProvisioningOverlay
- * Enhanced with Fallback for Realtime Exhaustion
  */
 const NeuralProvisioningOverlay: React.FC<{ 
   tier: Tier; 
-  onComplete: () => void;
+  isSyncing: boolean;
   onManualVerify: () => void;
-}> = ({ tier, onComplete, onManualVerify }) => {
+}> = ({ tier, isSyncing, onManualVerify }) => {
   const [logs, setLogs] = useState<string[]>([]);
   const [showFallback, setShowFallback] = useState(false);
   
@@ -77,8 +76,7 @@ const NeuralProvisioningOverlay: React.FC<{
       }
     }, 600);
 
-    // If Realtime fails, show fallback after 12 seconds
-    const fallbackTimer = setTimeout(() => setShowFallback(true), 12000);
+    const fallbackTimer = setTimeout(() => setShowFallback(true), 8000);
 
     return () => {
       clearInterval(interval);
@@ -112,15 +110,25 @@ const NeuralProvisioningOverlay: React.FC<{
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="bg-blue-500/10 border border-blue-500/20 p-6 rounded-2xl mb-6">
               <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest leading-relaxed">
-                Broadcast stream delayed. Your payment is secure. Click below to verify activation manually.
+                Network broadcast stream is delayed. Your payment record exists. Click verify to force a manual environment check.
               </p>
             </div>
             <button 
+              disabled={isSyncing}
               onClick={onManualVerify}
-              className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3"
+              className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
             >
-              <RefreshCw size={14} className="animate-spin-slow" />
-              Verify Activation
+              {isSyncing ? (
+                <>
+                  <RefreshCw size={14} className="animate-spin" />
+                  Requesting Sync...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={14} />
+                  Verify Activation Now
+                </>
+              )}
             </button>
           </div>
         )}
@@ -135,6 +143,7 @@ const ProfileDossier: React.FC = () => {
   const [provisioningTier, setProvisioningTier] = useState<Tier | null>(null);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isWaitingForServer, setIsWaitingForServer] = useState(false);
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
   const [formData, setFormData] = useState({ displayName: '', phone: '' });
 
   useEffect(() => {
@@ -147,7 +156,6 @@ const ProfileDossier: React.FC = () => {
   useEffect(() => {
     if (isWaitingForServer && user?.tier && provisioningTier === user.tier) {
       setIsWaitingForServer(false);
-      // Wait a moment for UX, then clear provisioning overlay
       setTimeout(() => {
         setProvisioningTier(null);
         setStatusMsg({ type: 'success', text: `Environment recalibrated to ${provisioningTier?.toUpperCase()} Protocol.` });
@@ -157,14 +165,32 @@ const ProfileDossier: React.FC = () => {
 
   const forceProfileSync = async () => {
     if (!supabase || !user) return;
-    const { data: profile } = await supabase.from('Users').select('*').eq('id', user.id).maybeSingle();
-    if (profile) {
-      setUser({
-        ...user,
-        tier: profile.tier,
-        licenseExpiresAt: profile.license_expires_at,
-        role: profile.role
-      });
+    setIsManualSyncing(true);
+    setStatusMsg(null);
+    
+    try {
+      const { data: profile, error } = await supabase.from('Users').select('*').eq('id', user.id).maybeSingle();
+      
+      if (error) throw error;
+      
+      if (profile) {
+        setUser({
+          ...user,
+          tier: profile.tier,
+          licenseExpiresAt: profile.license_expires_at,
+          role: profile.role
+        });
+
+        if (profile.tier === provisioningTier) {
+          setStatusMsg({ type: 'success', text: "Activation Successful! System state synchronized." });
+        } else {
+          setStatusMsg({ type: 'error', text: "Confirmation still pending from Paystack. Please wait 60 seconds." });
+        }
+      }
+    } catch (e: any) {
+      setStatusMsg({ type: 'error', text: "Sync Failed: Cloud node unreachable." });
+    } finally {
+      setIsManualSyncing(false);
     }
   };
 
@@ -179,7 +205,6 @@ const ProfileDossier: React.FC = () => {
       onSuccess: async (ref) => {
         try {
           if (supabase) {
-            // Record intent (Browser-side)
             const { error: insertError } = await supabase.from('payments').insert([{
               user_id: user.id,
               tier: tier,
@@ -239,11 +264,8 @@ const ProfileDossier: React.FC = () => {
       {provisioningTier && (isWaitingForServer || provisioningTier === user?.tier) && (
         <NeuralProvisioningOverlay 
           tier={provisioningTier} 
+          isSyncing={isManualSyncing}
           onManualVerify={forceProfileSync}
-          onComplete={() => {
-            setProvisioningTier(null);
-            setStatusMsg({ type: 'success', text: `Environment recalibrated to ${provisioningTier.toUpperCase()} Protocol.` });
-          }} 
         />
       )}
 
