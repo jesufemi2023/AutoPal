@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
@@ -61,7 +60,6 @@ const NeuralProvisioningOverlay: React.FC<{
   const [diagResult, setDiagResult] = useState<{msg: string, raw?: string, deployId?: string, isError?: boolean, help?: string} | null>(null);
   
   const projectUrl = ENV.SUPABASE_URL || '';
-  const projectId = projectUrl.split('//')[1]?.split('.')[0] || 'your-project-id';
   const webhookUrl = `${projectUrl}/functions/v1/paystack-webhook`;
 
   useEffect(() => {
@@ -189,12 +187,6 @@ const NeuralProvisioningOverlay: React.FC<{
                     {diagResult.help}
                   </p>
                 )}
-                {diagResult.deployId && (
-                  <div className="p-3 bg-blue-600/10 rounded-lg font-mono text-[8px] text-blue-400 flex items-center justify-between border border-blue-500/20">
-                    <span>DEPLOYED: {diagResult.deployId}</span>
-                    <Cpu size={10} className="animate-spin-slow" />
-                  </div>
-                )}
               </div>
             )}
             
@@ -248,47 +240,69 @@ const ProfileDossier: React.FC = () => {
     }
   }, [user]);
 
-  // AUTOMATIC REAL-TIME TRANSITION & REDIRECT
-  // This effect closes the overlay and redirects to Garage the instant the user.tier changes via the App.tsx Realtime listener
+  /**
+   * SURGICAL REAL-TIME PAYMENT WATCHER
+   * Specifically watches the 'payments' table for the current reference.
+   * This acts as the fastest trigger for redirection.
+   */
+  useEffect(() => {
+    if (!lastRef || !isWaitingForServer || !supabase) return;
+
+    const paymentChannel = supabase
+      .channel(`payment-sync-${lastRef}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'payments',
+        filter: `reference=eq.${lastRef}`
+      }, (payload) => {
+        if (payload.new.status === 'success') {
+          console.log("Neural Trigger: Payment record confirmed success.");
+          // Instantly trigger a refresh of the user profile to catch the tier change
+          forceProfileSync(true); 
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(paymentChannel);
+    };
+  }, [lastRef, isWaitingForServer]);
+
+  /**
+   * AUTOMATIC TRANSITION & REDIRECT
+   */
   useEffect(() => {
     if (isWaitingForServer && user?.tier && provisioningTier === user.tier) {
-      // 1. Mark server wait as complete
       setIsWaitingForServer(false);
       
-      // 2. Clear provisioning tier and show success
+      // Visual feedback before jumping views
       setTimeout(() => {
         setProvisioningTier(null);
         setStatusMsg({ 
           type: 'success', 
-          text: `Activation Successful. Redirecting to Command Center...` 
+          text: `Neural link calibrated. Redirecting to Dashboard...` 
         });
         
-        // 3. AUTOMATIC REDIRECT TO DASHBOARD
+        // Final jump to Garage
         setTimeout(() => {
           setCurrentView('garage');
-        }, 1500);
+        }, 1200);
       }, 500);
     }
   }, [user?.tier, isWaitingForServer, provisioningTier, setCurrentView]);
 
-  const forceProfileSync = async () => {
+  const forceProfileSync = async (autoRedirect = false) => {
     if (!supabase || !user) return;
-    setIsManualSyncing(true);
+    if (!autoRedirect) setIsManualSyncing(true);
     setStatusMsg(null);
     
     try {
-      const { data: payment } = await supabase
-        .from('payments')
-        .select('status, reference')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
+      const { data: profile, error } = await supabase
+        .from('Users')
+        .select('*')
+        .eq('id', user.id)
         .maybeSingle();
-
-      setLastStatus(payment?.status);
-      setLastRef(payment?.reference);
-
-      const { data: profile, error } = await supabase.from('Users').select('*').eq('id', user.id).maybeSingle();
       
       if (error) throw error;
       
@@ -303,19 +317,31 @@ const ProfileDossier: React.FC = () => {
         });
 
         if (profile.tier === provisioningTier) {
-          setStatusMsg({ type: 'success', text: "Verification Successful! System state manual override complete." });
-          setIsWaitingForServer(false);
-        } else if (payment?.status === 'pending') {
-          setStatusMsg({ 
-            type: 'error', 
-            text: "Sync Result: 'pending'. The cloud is still waiting for the Paystack success signal." 
-          });
+          if (!autoRedirect) {
+            setStatusMsg({ type: 'success', text: "Manual Verification Successful! Environment re-synced." });
+            setIsWaitingForServer(false);
+          }
+        } else {
+          // If profile hasn't updated yet, check the payment status directly for UI feedback
+          const { data: payment } = await supabase
+            .from('payments')
+            .select('status')
+            .eq('reference', lastRef)
+            .maybeSingle();
+            
+          setLastStatus(payment?.status);
+          if (payment?.status === 'pending' && !autoRedirect) {
+            setStatusMsg({ 
+              type: 'error', 
+              text: "Payment record is still 'pending' in the cloud. Please wait a moment." 
+            });
+          }
         }
       }
     } catch (e: any) {
-      setStatusMsg({ type: 'error', text: "Sync Failed: Cloud unreachable." });
+      if (!autoRedirect) setStatusMsg({ type: 'error', text: "Sync Failed: Database connection interrupted." });
     } finally {
-      setIsManualSyncing(false);
+      if (!autoRedirect) setIsManualSyncing(false);
     }
   };
 
@@ -344,14 +370,14 @@ const ProfileDossier: React.FC = () => {
             setLastRef(ref);
             setLastStatus('pending');
             setIsWaitingForServer(true);
-            setStatusMsg({ type: 'success', text: 'Payment Recorded. System awaiting Real-time signal...' });
+            setStatusMsg({ type: 'success', text: 'Transaction Registered. System waiting for settlement...' });
           }
         } catch (err: any) {
-          setStatusMsg({ type: 'error', text: `Security Fault: ${err.message}` });
+          setStatusMsg({ type: 'error', text: `Ledger Error: ${err.message}` });
         }
       },
       onCancel: () => {
-        setStatusMsg({ type: 'error', text: 'Protocol Activation Aborted.' });
+        setStatusMsg({ type: 'error', text: 'Activation Protocol Interrupted.' });
       }
     });
   };
@@ -391,7 +417,7 @@ const ProfileDossier: React.FC = () => {
         <NeuralProvisioningOverlay 
           tier={provisioningTier} 
           isSyncing={isManualSyncing}
-          onManualVerify={forceProfileSync}
+          onManualVerify={() => forceProfileSync(false)}
           lastPaymentStatus={lastStatus}
           paymentRef={lastRef}
         />
