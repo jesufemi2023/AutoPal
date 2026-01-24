@@ -248,9 +248,13 @@ const ProfileDossier: React.FC = () => {
       onSuccess: async (ref) => {
         try {
           if (supabase) {
-            // STRATEGY: Use .insert() but ignore "Duplicate Key" errors.
-            // This handles the case where the Webhook (Edge Function) already 
-            // created the record with status='success'.
+            /**
+             * RACE CONDITION HANDLING:
+             * We attempt to insert a 'pending' record. 
+             * If it fails because of RLS (Policy Violation) or Unique Constraint (23505),
+             * it almost certainly means the Edge Function/Webhook has already 
+             * finalized the record as 'success'.
+             */
             const { error: insertError } = await supabase.from('payments').insert([{
               user_id: user.id,
               tier: tier,
@@ -259,23 +263,33 @@ const ProfileDossier: React.FC = () => {
               status: 'pending'
             }]);
 
-            // Code 23505 = Unique Violation (Record already exists)
-            // Code P0001 = RLS Violation (Webhook already set status to 'success', and user can't update it)
-            const isIgnorableError = insertError?.code === '23505' || insertError?.message?.includes('violates row-level security');
-            
-            if (insertError && !isIgnorableError) {
-               throw insertError;
+            if (insertError) {
+               const errorText = insertError.message.toLowerCase();
+               const isIgnorable = 
+                 insertError.code === '23505' || 
+                 errorText.includes('row-level security') || 
+                 errorText.includes('policy');
+
+               // If it's NOT a standard race condition, we treat it as a real error
+               if (!isIgnorable) {
+                 throw insertError;
+               }
+               
+               // Otherwise, log it for debugging but proceed
+               console.log("Telemetry: Synchronous record creation blocked by active Webhook state. Proceeding to verification.");
             }
 
+            // Enter the Provisioning State (Waiting UI)
             setProvisioningTier(tier);
             setLastRef(ref);
             setRemoteStatus('pending');
             setIsWaitingForServer(true);
             
-            // Fire immediate check
+            // Trigger an immediate manual verification check
             verifyTransaction(ref).catch(() => {});
           }
         } catch (err: any) {
+          // Real errors (Connection, Invalid Data, etc) land here
           setStatusMsg({ type: 'error', text: `Handshake Error: ${err.message}` });
         }
       },
@@ -355,7 +369,7 @@ const ProfileDossier: React.FC = () => {
       </header>
 
       {statusMsg && (
-        <div className={`p-6 rounded-[2rem] text-[10px] font-black uppercase tracking-widest border-2 animate-in slide-in-from-top-4 ${statusMsg.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
+        <div className={`p-6 rounded-[2rem] text-[10px] font-black uppercase tracking-widest border-2 animate-in slide-in-from-top-4 ${statusMsg.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose border-rose-100 text-rose-600'}`}>
           <div className="flex items-start gap-4">
             <span className="text-lg">{statusMsg.type === 'success' ? '✓' : '⚠️'}</span>
             <div className="space-y-1">
