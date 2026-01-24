@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
 import { Tier, CapabilityKey } from '../shared/types.ts';
 import { useUsageQuota } from '../hooks/useUsageQuota.ts';
-import { getTierCapability } from '../services/capabilityService.ts';
-import { initiateUpgrade } from '../subscriptions/paymentService.ts';
+import { initiateUpgrade, verifyTransaction } from '../subscriptions/paymentService.ts';
 import { ENV } from '../services/envService.ts';
-import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, ExternalLink, Activity, Bug, Clipboard, Cpu, Globe } from 'lucide-react';
+import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, Bug, Cpu, Globe } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
@@ -57,10 +57,10 @@ const NeuralProvisioningOverlay: React.FC<{
 }> = ({ tier, isSyncing, onManualVerify, lastPaymentStatus, paymentRef }) => {
   const [logs, setLogs] = useState<string[]>([]);
   const [showFallback, setShowFallback] = useState(false);
-  const [diagResult, setDiagResult] = useState<{msg: string, raw?: string, deployId?: string, isError?: boolean, help?: string} | null>(null);
+  const [diagResult, setDiagResult] = useState<{msg: string, isError?: boolean, help?: string} | null>(null);
   
   const projectUrl = ENV.SUPABASE_URL || '';
-  const webhookUrl = `${projectUrl}/functions/v1/paystack-webhook`;
+  const verifyUrl = `${projectUrl}/functions/v1/verify-payment`;
 
   useEffect(() => {
     let currentIdx = 0;
@@ -91,55 +91,16 @@ const NeuralProvisioningOverlay: React.FC<{
   }, [tier]);
 
   const testConnection = async () => {
-    setDiagResult({ msg: "Probing Neural Endpoint..." });
+    setDiagResult({ msg: "Probing Verification Endpoint..." });
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      const resp = await fetch(webhookUrl, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      
-      const text = await resp.text();
-      
-      if (resp.status === 404) {
-        setDiagResult({ 
-          msg: "CRITICAL: Function Not Found (404)", 
-          isError: true,
-          help: "Cloud module missing. Deploy with 'supabase functions deploy paystack-webhook'."
-        });
-        return;
-      }
-
-      try {
-        const data = JSON.parse(text);
-        if (data.status === 'Operational') {
-          setDiagResult({ 
-            msg: "LINK ACTIVE: Webhook responded correctly.", 
-            raw: text,
-            deployId: data.deploy_id 
-          });
-        } else {
-          setDiagResult({ msg: "LINK WARNING: Unexpected response format.", raw: text, isError: true });
-        }
-      } catch (e) {
-        const isBoilerplate = text.includes("Hello from Functions");
-        setDiagResult({ 
-          msg: isBoilerplate ? "CRITICAL: Default Code Detected" : "CRITICAL: Engine response is not JSON.", 
-          raw: text.substring(0, 100),
-          isError: true,
-          help: isBoilerplate ? "The cloud is running default code. Please push the actual Autopal index.ts." : undefined
-        });
-      }
-    } catch (e: any) {
-      if (e.name === 'AbortError') {
-        setDiagResult({ msg: "TIMEOUT: Cloud node is taking too long.", isError: true, help: "Is your Supabase project 'Paused' in their dashboard?" });
+      const resp = await fetch(verifyUrl, { method: 'OPTIONS' });
+      if (resp.ok) {
+        setDiagResult({ msg: "LINK ACTIVE: Ready for verification." });
       } else {
-        setDiagResult({ 
-          msg: "OFFLINE: Network block or 404.", 
-          isError: true,
-          help: "The browser can't reach the URL. Ensure the function is deployed in the correct project."
-        });
+        setDiagResult({ msg: "LINK OFFLINE: Cloud function not reachable.", isError: true });
       }
+    } catch (e) {
+      setDiagResult({ msg: "OFFLINE: Check your internet connection.", isError: true });
     }
   };
 
@@ -151,8 +112,8 @@ const NeuralProvisioningOverlay: React.FC<{
             <TerminalIcon size={24} />
           </div>
           <div>
-            <h3 className="text-white font-black uppercase tracking-tighter text-xl">System Provisioning</h3>
-            <p className="text-blue-500 text-[8px] font-black uppercase tracking-[0.4em]">Environment Shift in Progress</p>
+            <h3 className="text-white font-black uppercase tracking-tighter text-xl">Provisioning Engine</h3>
+            <p className="text-blue-500 text-[8px] font-black uppercase tracking-[0.4em]">Activating Protocol: {tier}</p>
           </div>
         </div>
         
@@ -167,26 +128,15 @@ const NeuralProvisioningOverlay: React.FC<{
 
         {showFallback && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
-            <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-2xl">
-              <div className="flex items-center gap-3 mb-2">
-                <AlertTriangle size={14} className="text-amber-500" />
-                <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Handshake Delayed</span>
-              </div>
+            <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-2xl text-center">
               <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest leading-relaxed">
-                Waiting for the real-time broadcast from the cloud.
+                Settlement verification is taking longer than expected. 
               </p>
             </div>
 
             {diagResult && (
-              <div className="space-y-2">
-                <div className={`p-4 rounded-xl text-[9px] font-black uppercase tracking-widest text-center border ${diagResult.isError ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
-                  {diagResult.msg}
-                </div>
-                {diagResult.help && (
-                  <p className="text-[8px] text-rose-300 font-bold uppercase text-center tracking-widest animate-pulse px-4 leading-relaxed">
-                    {diagResult.help}
-                  </p>
-                )}
+              <div className={`p-4 rounded-xl text-[9px] font-black uppercase tracking-widest text-center border ${diagResult.isError ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
+                {diagResult.msg}
               </div>
             )}
             
@@ -197,22 +147,15 @@ const NeuralProvisioningOverlay: React.FC<{
                 className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                {isSyncing ? "Verifying Record..." : "Fallback: Manual Sync"}
+                {isSyncing ? "Verifying..." : "Attempt Manual Verification"}
               </button>
 
               <div className="grid grid-cols-2 gap-3">
-                <button 
-                  onClick={testConnection}
-                  className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-                >
-                  <Bug size={10} /> Cloud Probe
+                <button onClick={testConnection} className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+                  <Bug size={10} /> Probe Link
                 </button>
-                <a 
-                  href={webhookUrl}
-                  target="_blank"
-                  className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-                >
-                  <Globe size={10} /> Browser Test
+                <a href="mailto:support@autopal.ng" className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2">
+                  <Globe size={10} /> Help Desk
                 </a>
               </div>
             </div>
@@ -228,7 +171,6 @@ const ProfileDossier: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'identity' | 'license'>('identity');
   const [provisioningTier, setProvisioningTier] = useState<Tier | null>(null);
   const [lastRef, setLastRef] = useState<string | undefined>();
-  const [lastStatus, setLastStatus] = useState<string | undefined>();
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isWaitingForServer, setIsWaitingForServer] = useState(false);
   const [isManualSyncing, setIsManualSyncing] = useState(false);
@@ -241,47 +183,19 @@ const ProfileDossier: React.FC = () => {
   }, [user]);
 
   /**
-   * SURGICAL REAL-TIME PAYMENT WATCHER
-   * Specifically watches the 'payments' table for the current reference.
-   * This acts as the fastest trigger for redirection.
-   */
-  useEffect(() => {
-    if (!lastRef || !isWaitingForServer || !supabase) return;
-
-    const paymentChannel = supabase
-      .channel(`payment-sync-${lastRef}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'payments',
-        filter: `reference=eq.${lastRef}`
-      }, (payload) => {
-        if (payload.new.status === 'success') {
-          console.log("Neural Trigger: Payment record confirmed success.");
-          // Instantly trigger a refresh of the user profile to catch the tier change
-          forceProfileSync(true); 
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(paymentChannel);
-    };
-  }, [lastRef, isWaitingForServer]);
-
-  /**
-   * AUTOMATIC TRANSITION & REDIRECT
+   * AUTOMATIC REDIRECT LOGIC
+   * Fires when the user tier in the store matches our expected upgrade tier.
    */
   useEffect(() => {
     if (isWaitingForServer && user?.tier && provisioningTier === user.tier) {
       setIsWaitingForServer(false);
       
-      // Visual feedback before jumping views
+      // Premium experience delay for transition
       setTimeout(() => {
         setProvisioningTier(null);
         setStatusMsg({ 
           type: 'success', 
-          text: `Neural link calibrated. Redirecting to Dashboard...` 
+          text: `Neural link active. Redirecting to Command Center...` 
         });
         
         // Final jump to Garage
@@ -292,56 +206,47 @@ const ProfileDossier: React.FC = () => {
     }
   }, [user?.tier, isWaitingForServer, provisioningTier, setCurrentView]);
 
-  const forceProfileSync = async (autoRedirect = false) => {
-    if (!supabase || !user) return;
-    if (!autoRedirect) setIsManualSyncing(true);
+  /**
+   * AUTOMATIC POLLING VERIFICATION
+   * Periodically check the backend until success or timeout
+   */
+  useEffect(() => {
+    let pollInterval: number;
+    
+    if (isWaitingForServer && lastRef) {
+      // Start polling every 5 seconds
+      pollInterval = window.setInterval(async () => {
+        try {
+          const result = await verifyTransaction(lastRef);
+          if (result.status === 'success') {
+            // Success is handled by the tier watcher above
+            clearInterval(pollInterval);
+          }
+        } catch (e) {
+          console.warn("Poll attempt failed, retrying...");
+        }
+      }, 5000);
+    }
+
+    return () => clearInterval(pollInterval);
+  }, [isWaitingForServer, lastRef]);
+
+  const forceManualVerify = async () => {
+    if (!lastRef) return;
+    setIsManualSyncing(true);
     setStatusMsg(null);
     
     try {
-      const { data: profile, error } = await supabase
-        .from('Users')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-      
-      if (error) throw error;
-      
-      if (profile) {
-        setUser({
-          ...user,
-          tier: profile.tier,
-          licenseExpiresAt: profile.license_expires_at,
-          role: profile.role,
-          displayName: profile.display_name,
-          phone: profile.phone
-        });
-
-        if (profile.tier === provisioningTier) {
-          if (!autoRedirect) {
-            setStatusMsg({ type: 'success', text: "Manual Verification Successful! Environment re-synced." });
-            setIsWaitingForServer(false);
-          }
-        } else {
-          // If profile hasn't updated yet, check the payment status directly for UI feedback
-          const { data: payment } = await supabase
-            .from('payments')
-            .select('status')
-            .eq('reference', lastRef)
-            .maybeSingle();
-            
-          setLastStatus(payment?.status);
-          if (payment?.status === 'pending' && !autoRedirect) {
-            setStatusMsg({ 
-              type: 'error', 
-              text: "Payment record is still 'pending' in the cloud. Please wait a moment." 
-            });
-          }
-        }
+      const result = await verifyTransaction(lastRef);
+      if (result.status === 'success') {
+        setStatusMsg({ type: 'success', text: "Verification Successful! System state synced." });
+      } else {
+        setStatusMsg({ type: 'error', text: `Transaction Status: ${result.status.toUpperCase()}. Awaiting Paystack clearance.` });
       }
     } catch (e: any) {
-      if (!autoRedirect) setStatusMsg({ type: 'error', text: "Sync Failed: Database connection interrupted." });
+      setStatusMsg({ type: 'error', text: "Sync Failed: Handshake interrupted." });
     } finally {
-      if (!autoRedirect) setIsManualSyncing(false);
+      setIsManualSyncing(false);
     }
   };
 
@@ -356,6 +261,7 @@ const ProfileDossier: React.FC = () => {
       onSuccess: async (ref) => {
         try {
           if (supabase) {
+            // Step 1: Record the pending payment
             const { error: insertError } = await supabase.from('payments').insert([{
               user_id: user.id,
               tier: tier,
@@ -366,18 +272,21 @@ const ProfileDossier: React.FC = () => {
 
             if (insertError) throw insertError;
 
+            // Step 2: Trigger UI provisioning mode
             setProvisioningTier(tier);
             setLastRef(ref);
-            setLastStatus('pending');
             setIsWaitingForServer(true);
-            setStatusMsg({ type: 'success', text: 'Transaction Registered. System waiting for settlement...' });
+            setStatusMsg({ type: 'success', text: 'Authorization received. Confirming with Paystack...' });
+            
+            // Step 3: Run immediate verification check
+            verifyTransaction(ref).catch(() => {});
           }
         } catch (err: any) {
-          setStatusMsg({ type: 'error', text: `Ledger Error: ${err.message}` });
+          setStatusMsg({ type: 'error', text: `Security Fault: ${err.message}` });
         }
       },
       onCancel: () => {
-        setStatusMsg({ type: 'error', text: 'Activation Protocol Interrupted.' });
+        setStatusMsg({ type: 'error', text: 'Protocol Activation Aborted.' });
       }
     });
   };
@@ -413,12 +322,11 @@ const ProfileDossier: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-12 animate-slide-up px-4 pb-32">
-      {provisioningTier && (isWaitingForServer || provisioningTier === user?.tier) && (
+      {provisioningTier && isWaitingForServer && (
         <NeuralProvisioningOverlay 
           tier={provisioningTier} 
           isSyncing={isManualSyncing}
-          onManualVerify={() => forceProfileSync(false)}
-          lastPaymentStatus={lastStatus}
+          onManualVerify={forceManualVerify}
           paymentRef={lastRef}
         />
       )}
@@ -457,7 +365,6 @@ const ProfileDossier: React.FC = () => {
             <span className="text-lg">{statusMsg.type === 'success' ? '✓' : '⚠️'}</span>
             <div className="space-y-1">
               <p className="leading-relaxed">{statusMsg.text}</p>
-              {statusMsg.type === 'error' && lastRef && <p className="text-[8px] opacity-60 font-mono">Reference: {lastRef}</p>}
             </div>
           </div>
         </div>

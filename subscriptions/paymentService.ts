@@ -1,5 +1,6 @@
 
 import { ENV } from '../services/envService.ts';
+import { supabase } from '../auth/supabaseClient.ts';
 
 declare const PaystackPop: any;
 
@@ -40,7 +41,7 @@ export const initiateUpgrade = (options: PaymentOptions) => {
       ]
     },
     callback: function(response: any) {
-      console.log(`Payment successful. Reference: ${response.reference}`);
+      console.log(`Payment authorized. Reference: ${response.reference}`);
       onSuccess(response.reference);
     },
     onClose: function() {
@@ -50,4 +51,18 @@ export const initiateUpgrade = (options: PaymentOptions) => {
   });
 
   handler.openIframe();
+};
+
+/**
+ * Verifies transaction via secure Edge Function
+ */
+export const verifyTransaction = async (reference: string): Promise<{ status: string }> => {
+  if (!supabase) throw new Error("Cloud link unavailable");
+  
+  const { data, error } = await supabase.functions.invoke('verify-payment', {
+    body: { reference }
+  });
+
+  if (error) throw error;
+  return data;
 };
