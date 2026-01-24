@@ -126,11 +126,9 @@ const ProfileDossier: React.FC = () => {
       amount: price,
       tier: tier,
       onSuccess: async (ref) => {
-        setProvisioningTier(tier);
         try {
           if (supabase) {
-            // GOLDEN THREAD: Only insert to payments. 
-            // The database trigger "tr_activate_tier_on_payment" handles the Users table update.
+            // GOLDEN THREAD: Insert to payments ledger
             const { error: paymentError } = await supabase.from('payments').insert([{
               user_id: user.id,
               tier: tier,
@@ -141,6 +139,9 @@ const ProfileDossier: React.FC = () => {
 
             if (paymentError) throw paymentError;
 
+            // Trigger immersive UI flow
+            setProvisioningTier(tier);
+
             // Sync Local Store state manually to reflect the trigger's backend change
             setUser({ 
               ...user, 
@@ -150,7 +151,8 @@ const ProfileDossier: React.FC = () => {
           }
         } catch (err: any) {
           console.error("Ledger Injection Failure:", err);
-          setStatusMsg({ type: 'error', text: `System Fault: ${err.message}` });
+          const errorDetail = err.details || err.message || "Unknown error";
+          setStatusMsg({ type: 'error', text: `Ledger Injection Fault: ${errorDetail}` });
         }
       },
       onCancel: () => {
