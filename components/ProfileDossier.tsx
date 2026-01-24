@@ -105,7 +105,7 @@ const NeuralProvisioningOverlay: React.FC<{
           {!isSyncing && !showFallback && <div className="w-2 h-4 bg-blue-500 animate-pulse inline-block mt-2"></div>}
           {isSyncing && (
              <div className="text-emerald-400 font-bold animate-pulse mt-4">
-                > PROBING DATABASE VAULT FOR SETTLEMENT SIGNALS...
+                &gt; PROBING DATABASE VAULT FOR SETTLEMENT SIGNALS...
              </div>
           )}
         </div>
