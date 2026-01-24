@@ -152,7 +152,7 @@ const NeuralProvisioningOverlay: React.FC<{
                     <span className="text-blue-500">2.</span> Check Paystack Settings: Verify Webhook URL is set to your Supabase Functions endpoint.
                   </li>
                   <li className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex gap-2">
-                    <span className="text-blue-500">3.</span> Secrets: Ensure PAYSTACK_SECRET_KEY is set in Supabase Settings > Edge Functions.
+                    <span className="text-blue-500">3.</span> Secrets: Ensure PAYSTACK_SECRET_KEY is set in Supabase Settings &gt; Edge Functions.
                   </li>
                 </ul>
               </div>
