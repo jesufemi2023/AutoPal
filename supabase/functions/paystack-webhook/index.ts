@@ -9,38 +9,32 @@ const PAYSTACK_SECRET = Deno.env.get('PAYSTACK_SECRET_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
-// Build timestamp to verify deployment - if you see this in your browser, the custom code is active.
-const DEPLOY_ID = "AUTOPAL-STABLE-V5";
+const DEPLOY_ID = "AUTOPAL-STABLE-V6";
 
 serve(async (req) => {
   const method = req.method;
-  const url = new URL(req.url);
 
-  // 1. HEALTH CHECK (What you see when you visit the URL in a browser)
-  if (method === 'GET') {
+  // 1. HEALTH CHECK & CORS Preflight
+  if (method === 'GET' || method === 'OPTIONS') {
     return new Response(
       JSON.stringify({ 
         status: 'Operational', 
         deploy_id: DEPLOY_ID,
-        message: "Webhook listening for Paystack events.",
-        ready: !!(PAYSTACK_SECRET && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
+        message: "Neural Link Ready.",
+        secrets_configured: !!(PAYSTACK_SECRET && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY)
       }), 
-      { status: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } }
+      { 
+        status: 200, 
+        headers: { 
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, x-paystack-signature"
+        } 
+      }
     )
   }
 
-  // 2. CORS Handling
-  if (method === 'OPTIONS') {
-    return new Response('ok', { 
-      headers: { 
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, x-paystack-signature'
-      } 
-    })
-  }
-
-  // 3. SECURE MESSAGE PROCESSING (The "Doorbell" logic)
   if (method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 })
   }
@@ -53,7 +47,7 @@ serve(async (req) => {
       return new Response('Unauthorized', { status: 401 })
     }
 
-    // Verify HMAC Signature (Ensures the message actually came from Paystack)
+    // Verify HMAC Signature
     const hmac = await crypto.subtle.importKey(
       "raw", new TextEncoder().encode(PAYSTACK_SECRET),
       { name: "HMAC", hash: "SHA-512" }, false, ["sign"]
@@ -62,13 +56,11 @@ serve(async (req) => {
     const expectedSignature = Array.from(new Uint8Array(signed)).map(b => b.toString(16).padStart(2, '0')).join('')
 
     if (signature !== expectedSignature) {
-      console.error("[SECURITY] Signature mismatch.");
       return new Response('Invalid Signature', { status: 401 })
     }
 
     const event = JSON.parse(rawBody)
     
-    // If payment was successful, find the user and upgrade their tier
     if (event.event === 'charge.success') {
       const reference = event.data.reference
       const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
@@ -81,16 +73,12 @@ serve(async (req) => {
         .single()
 
       if (payError) {
-        console.error("[DATABASE ERROR]", payError);
-        return new Response('DB Error', { status: 200 })
+        return new Response('DB Update Failure', { status: 200 })
       }
-      
-      console.log(`[UPGRADE] Account activated for reference: ${reference}`);
     }
 
     return new Response(JSON.stringify({ status: 'processed' }), { status: 200 })
   } catch (err) {
-    console.error("[SERVER ERROR]", err);
-    return new Response('Server Error', { status: 500 })
+    return new Response('Internal Engine Error', { status: 500 })
   }
 })

@@ -7,7 +7,7 @@ import { useUsageQuota } from '../hooks/useUsageQuota.ts';
 import { getTierCapability } from '../services/capabilityService.ts';
 import { initiateUpgrade } from '../subscriptions/paymentService.ts';
 import { ENV } from '../services/envService.ts';
-import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, ExternalLink, Activity, Bug, Clipboard, Cpu } from 'lucide-react';
+import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, ExternalLink, Activity, Bug, Clipboard, Cpu, Globe } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
@@ -58,7 +58,7 @@ const NeuralProvisioningOverlay: React.FC<{
 }> = ({ tier, isSyncing, onManualVerify, lastPaymentStatus, paymentRef }) => {
   const [logs, setLogs] = useState<string[]>([]);
   const [showFallback, setShowFallback] = useState(false);
-  const [diagResult, setDiagResult] = useState<{msg: string, raw?: string, deployId?: string} | null>(null);
+  const [diagResult, setDiagResult] = useState<{msg: string, raw?: string, deployId?: string, isError?: boolean, help?: string} | null>(null);
   
   const projectUrl = ENV.SUPABASE_URL || '';
   const projectId = projectUrl.split('//')[1]?.split('.')[0] || 'your-project-id';
@@ -95,38 +95,53 @@ const NeuralProvisioningOverlay: React.FC<{
   const testConnection = async () => {
     setDiagResult({ msg: "Probing Neural Endpoint..." });
     try {
-      const resp = await fetch(webhookUrl);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const resp = await fetch(webhookUrl, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
       const text = await resp.text();
       
+      if (resp.status === 404) {
+        setDiagResult({ 
+          msg: "CRITICAL: Function Not Found (404)", 
+          isError: true,
+          help: "You haven't pushed the code yet! Run 'supabase functions deploy paystack-webhook' in your terminal."
+        });
+        return;
+      }
+
       try {
         const data = JSON.parse(text);
         if (data.status === 'Operational') {
           setDiagResult({ 
-            msg: "SUCCESS: Webhook logic is ACTIVE.", 
+            msg: "LINK ACTIVE: Webhook responded correctly.", 
             raw: text,
             deployId: data.deploy_id 
           });
         } else {
-          setDiagResult({ msg: "WARN: Response is JSON but logic missing.", raw: text });
+          setDiagResult({ msg: "LINK WARNING: Unexpected response format.", raw: text, isError: true });
         }
       } catch (e) {
+        const isBoilerplate = text.includes("Hello from Functions");
         setDiagResult({ 
-          msg: "CRITICAL: Still seeing boilerplate code.", 
-          raw: text.includes("Hello") ? "BOILERPLATE DETECTED" : text.substring(0, 100) 
+          msg: isBoilerplate ? "CRITICAL: Default Code Detected" : "CRITICAL: Engine response is not JSON.", 
+          raw: text.substring(0, 100),
+          isError: true,
+          help: isBoilerplate ? "The cloud is running Supabase's default code, not our Autopal code. Re-deploy your index.ts file." : undefined
         });
       }
     } catch (e: any) {
-      setDiagResult({ msg: "OFFLINE: Could not reach endpoint.", raw: e.message });
-    }
-  };
-
-  const forceBypass = async () => {
-    if (!confirm("This will manually activate your account via a debug bypass. Continue?")) return;
-    try {
-      await fetch(`${webhookUrl}?debug_bypass=true`);
-      onManualVerify();
-    } catch (e) {
-      alert("Bypass failed: Webhook unreachable.");
+      if (e.name === 'AbortError') {
+        setDiagResult({ msg: "TIMEOUT: Cloud node is taking too long.", isError: true, help: "Is your Supabase project 'Paused' in their dashboard?" });
+      } else {
+        setDiagResult({ 
+          msg: "OFFLINE: Network block or 404.", 
+          isError: true,
+          help: "The browser can't see the URL. Make sure you deployed the function to the same project as your database."
+        });
+      }
     }
   };
 
@@ -160,18 +175,23 @@ const NeuralProvisioningOverlay: React.FC<{
                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Handshake Delayed</span>
               </div>
               <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest leading-relaxed">
-                Cloud response: <span className="text-amber-400">{lastPaymentStatus || 'pending'}</span>. If this persists, your deployment is blocked.
+                We are waiting for the cloud to confirm your payment reference.
               </p>
             </div>
 
             {diagResult && (
               <div className="space-y-2">
-                <div className={`p-4 rounded-xl text-[9px] font-black uppercase tracking-widest text-center border ${diagResult.deployId ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>
+                <div className={`p-4 rounded-xl text-[9px] font-black uppercase tracking-widest text-center border ${diagResult.isError ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
                   {diagResult.msg}
                 </div>
+                {diagResult.help && (
+                  <p className="text-[8px] text-rose-300 font-bold uppercase text-center tracking-widest animate-pulse px-4 leading-relaxed">
+                    {diagResult.help}
+                  </p>
+                )}
                 {diagResult.deployId && (
                   <div className="p-3 bg-blue-600/10 rounded-lg font-mono text-[8px] text-blue-400 flex items-center justify-between border border-blue-500/20">
-                    <span>DEPLOY ID: {diagResult.deployId}</span>
+                    <span>DEPLOYED: {diagResult.deployId}</span>
                     <Cpu size={10} className="animate-spin-slow" />
                   </div>
                 )}
@@ -185,7 +205,7 @@ const NeuralProvisioningOverlay: React.FC<{
                 className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                {isSyncing ? "Verifying State..." : "Check Database Status"}
+                {isSyncing ? "Checking Database..." : "Check Database Record"}
               </button>
 
               <div className="grid grid-cols-2 gap-3">
@@ -195,19 +215,17 @@ const NeuralProvisioningOverlay: React.FC<{
                 >
                   <Bug size={10} /> Inspect Cloud
                 </button>
-                <button 
-                  onClick={forceBypass}
-                  className="bg-rose-500/10 text-rose-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-rose-500/10 hover:bg-rose-500/20 transition-all flex items-center justify-center gap-2"
+                <a 
+                  href={webhookUrl}
+                  target="_blank"
+                  className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
                 >
-                  <Zap size={10} /> Force Bypass
-                </button>
+                  <Globe size={10} /> Manual Probe
+                </a>
               </div>
               
               <div className="mt-4 p-5 border border-white/10 rounded-2xl bg-white/5">
-                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-3">CLI Instruction</p>
-                <p className="text-[7px] text-slate-500 font-bold leading-relaxed mb-3">
-                  Your code has a syntax error at the end (the text you typed about linked project). Clean the file and run:
-                </p>
+                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-3">CLI Command (Copy/Paste to Terminal)</p>
                 <code className="block p-3 bg-black/60 text-[8px] text-emerald-400 rounded border border-white/5 font-mono break-all leading-relaxed select-all">
                   supabase functions deploy paystack-webhook --no-verify-jwt --project-ref {projectId}
                 </code>
@@ -284,12 +302,12 @@ const ProfileDossier: React.FC = () => {
         } else if (payment?.status === 'pending') {
           setStatusMsg({ 
             type: 'error', 
-            text: "Handshake Pending: Database record is still 'pending'. Try 'Force Bypass' if your CLI is stuck." 
+            text: "Status is still 'pending'. If you paid, the Webhook code might not be pushed to Supabase yet." 
           });
         }
       }
     } catch (e: any) {
-      setStatusMsg({ type: 'error', text: "Sync Failed: Cloud node unreachable." });
+      setStatusMsg({ type: 'error', text: "Sync Failed: Database unreachable." });
     } finally {
       setIsManualSyncing(false);
     }
