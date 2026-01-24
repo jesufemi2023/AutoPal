@@ -17,11 +17,9 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { status: 200, headers: corsHeaders })
   }
 
-  // Debugging: Log high-level request info
   const url = new URL(req.url)
-  console.log(`[DEBUG] Incoming Request: ${req.method} ${url.href}`);
-  console.log(`[DEBUG] Content-Type: ${req.headers.get('content-type')}`);
-
+  let rawBody = "";
+  
   try {
     const PAYSTACK_SECRET = Deno.env.get('PAYSTACK_SECRET_KEY')
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
@@ -31,45 +29,60 @@ Deno.serve(async (req: Request) => {
       throw new Error("Server configuration variables are missing.")
     }
 
-    // 2. Comprehensive Reference Extraction
-    let reference = url.searchParams.get('reference') || url.searchParams.get('trxref');
+    // Capture Body for inspection
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      rawBody = await req.text().catch(() => "");
+    }
+
+    // 2. LOG EVERYTHING (Exhaustive Debugging)
+    console.log(`[DEBUG] ID: ${crypto.randomUUID()}`);
+    console.log(`[DEBUG] Request: ${req.method} ${url.pathname}${url.search}`);
+    console.log(`[DEBUG] Content-Type: ${req.headers.get('content-type')}`);
+    console.log(`[DEBUG] Raw Body Content: ${rawBody || "[EMPTY]"}`);
+
+    // 3. AGGRESSIVE REFERENCE EXTRACTION
+    // Priority 1: URL Parameters
+    let reference = url.searchParams.get('reference') || url.searchParams.get('trxref') || url.searchParams.get('ref');
     
-    // If not in URL, check Body
-    if (!reference && (req.method === 'POST' || req.method === 'PUT')) {
-      const rawBody = await req.text();
-      console.log(`[DEBUG] Raw Body: ${rawBody}`);
-      
-      if (rawBody) {
-        try {
-          const body = JSON.parse(rawBody);
-          reference = body.reference || body.trxref || (typeof body === 'string' ? body : null);
-        } catch (e) {
-          console.warn("[DEBUG] Body is not JSON, might be raw string or empty.");
-          // If JSON parse fails, check if the raw body itself looks like a reference (AP-...)
-          if (rawBody.startsWith('AP-')) {
-            reference = rawBody;
-          }
+    // Priority 2: Body Parsing
+    if (!reference && rawBody) {
+      try {
+        const json = JSON.parse(rawBody);
+        // Look for standard keys
+        reference = json.reference || json.trxref || json.ref;
+        
+        // Deep search: If keys don't match, look for any value that looks like an AP reference
+        if (!reference && typeof json === 'object') {
+          const found = Object.values(json).find(v => typeof v === 'string' && v.startsWith('AP-'));
+          if (found) reference = found as string;
+        }
+      } catch (e) {
+        // Fallback: If not JSON, check if the raw body itself IS the reference
+        if (rawBody.startsWith('AP-')) {
+          reference = rawBody;
         }
       }
     }
 
-    console.log(`[DEBUG] Final Resolved Reference: ${reference}`);
+    // Final scrub
+    if (reference) reference = reference.trim();
 
-    // Final validation of reference
+    // Final Validation
     if (!reference || reference === 'undefined' || reference === 'null' || reference === '') {
-      console.error("Security Fault: No valid transaction reference detected in Request Data.");
+      console.error("[SECURITY] Identification Failure: No transaction reference found in URL or Body.");
       return new Response(
         JSON.stringify({ 
-          error: 'Transaction reference is missing from the payload.',
-          debug: { url: url.href, method: req.method }
+          error: 'Transaction reference missing.',
+          received_body: rawBody.substring(0, 100),
+          method: req.method
         }), 
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log(`Syncing: Verifying Paystack transaction [${reference}]...`);
+    console.log(`[SYNC] Commencing verification for: ${reference}`);
 
-    // 3. Contact Paystack API
+    // 4. Contact Paystack API
     const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
       headers: {
         Authorization: `Bearer ${PAYSTACK_SECRET}`,
@@ -78,10 +91,10 @@ Deno.serve(async (req: Request) => {
     })
     
     if (!verifyRes.ok) {
-      const errorText = await verifyRes.text();
-      console.error(`Paystack API unreachable: Status ${verifyRes.status} - ${errorText}`);
+      const errTxt = await verifyRes.text();
+      console.error(`[GATEWAY] Paystack API Error: ${verifyRes.status} - ${errTxt}`);
       return new Response(
-        JSON.stringify({ error: 'Payment gateway connection failed.', details: errorText }), 
+        JSON.stringify({ error: 'Gateway verification failed.', details: errTxt }), 
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -90,14 +103,14 @@ Deno.serve(async (req: Request) => {
     const status = paystackData.data?.status || 'unknown'
 
     if (status !== 'success') {
-      console.log(`Paystack reported non-success status: ${status}`);
+      console.log(`[GATEWAY] Transaction marked as: ${status}`);
       return new Response(
         JSON.stringify({ status, reference }), 
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // 4. Securely Update Database (Service Role bypasses RLS)
+    // 5. Database State Management
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     
     const { data: existing } = await supabase
@@ -107,13 +120,15 @@ Deno.serve(async (req: Request) => {
       .maybeSingle()
 
     if (existing?.status !== 'success') {
-      console.log(`Finalizing: Transaction ${reference} authorized. Syncing identity records...`);
+      console.log(`[DATABASE] Authorized: ${reference}. Updating User Tier...`);
       const { error: updateError } = await supabase
         .from('payments')
         .update({ status: 'success' })
         .eq('reference', reference)
 
       if (updateError) throw updateError
+    } else {
+      console.log(`[DATABASE] Reference ${reference} already processed.`);
     }
 
     return new Response(
@@ -122,9 +137,9 @@ Deno.serve(async (req: Request) => {
     )
 
   } catch (err: any) {
-    console.error("Edge Runtime Crash:", err.message);
+    console.error("[RUNTIME] Crash:", err.message);
     return new Response(
-      JSON.stringify({ error: err.message || 'Internal Server Error' }), 
+      JSON.stringify({ error: err.message || 'Server Fault' }), 
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

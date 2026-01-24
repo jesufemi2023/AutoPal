@@ -63,26 +63,26 @@ export const initiateUpgrade = (options: PaymentOptions) => {
 
 /**
  * Verifies transaction via secure Edge Function.
- * Standardized to POST with JSON body for maximum stability.
+ * Passing object to invoke() to ensure standard JSON serialization.
  */
 export const verifyTransaction = async (reference: string): Promise<{ status: string }> => {
   if (!supabase) throw new Error("Cloud link unavailable");
   if (!reference) throw new Error("Reference verification requires a valid token.");
   
-  // Defensive: Ensure we aren't passing an object
+  // Defensive: Ensure we are passing the clean string
   const cleanReference = typeof reference === 'string' ? reference : (reference as any).reference;
   
-  console.log(`Syncing with Cloud: Verifying [${cleanReference}]...`);
+  console.log(`[BILLING] Contacting Cloud Node to verify [${cleanReference}]...`);
 
-  // INVOKE: We send ONLY in the body now to avoid URL length or encoding issues
-  // The first argument is JUST the function name.
+  // INVOKE: Pass the object directly. Supabase client will handle stringification 
+  // and set Content-Type: application/json correctly.
   const { data, error } = await supabase.functions.invoke(`verify-payment`, {
     method: 'POST',
-    body: JSON.stringify({ reference: cleanReference })
+    body: { reference: cleanReference }
   });
 
   if (error) {
-    console.error("Cloud Handshake Error:", error);
+    console.error("[BILLING] Handshake Failure:", error);
     throw error;
   }
   return data;
