@@ -6,7 +6,8 @@ import { Tier, CapabilityKey } from '../shared/types.ts';
 import { useUsageQuota } from '../hooks/useUsageQuota.ts';
 import { getTierCapability } from '../services/capabilityService.ts';
 import { initiateUpgrade } from '../subscriptions/paymentService.ts';
-import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, ExternalLink, Activity, Bug } from 'lucide-react';
+import { ENV } from '../services/envService.ts';
+import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, ExternalLink, Activity, Bug, Clipboard, Cpu } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
@@ -57,19 +58,23 @@ const NeuralProvisioningOverlay: React.FC<{
 }> = ({ tier, isSyncing, onManualVerify, lastPaymentStatus, paymentRef }) => {
   const [logs, setLogs] = useState<string[]>([]);
   const [showFallback, setShowFallback] = useState(false);
-  const [diagResult, setDiagResult] = useState<{msg: string, raw?: string} | null>(null);
+  const [diagResult, setDiagResult] = useState<{msg: string, raw?: string, deployId?: string} | null>(null);
   
-  const sequence = [
-    "> INITIALIZING NEURAL HANDSHAKE...",
-    "> AUTHENTICATING SETTLEMENT...",
-    `> SECURING ${tier.toUpperCase()} PROTOCOL...`,
-    "> SYNCHRONIZING CLOUD MASTER NODES...",
-    "> RECALIBRATING DATABASE GOVERNOR...",
-    "> AWAITING FINAL BROADCAST..."
-  ];
+  const projectUrl = ENV.SUPABASE_URL || '';
+  const projectId = projectUrl.split('//')[1]?.split('.')[0] || 'your-project-id';
+  const webhookUrl = `${projectUrl}/functions/v1/paystack-webhook`;
 
   useEffect(() => {
     let currentIdx = 0;
+    const sequence = [
+      "> INITIALIZING NEURAL HANDSHAKE...",
+      "> AUTHENTICATING SETTLEMENT...",
+      `> SECURING ${tier.toUpperCase()} PROTOCOL...`,
+      "> SYNCHRONIZING CLOUD MASTER NODES...",
+      "> RECALIBRATING DATABASE GOVERNOR...",
+      "> AWAITING FINAL BROADCAST..."
+    ];
+
     const interval = setInterval(() => {
       if (currentIdx < sequence.length) {
         setLogs(prev => [...prev, sequence[currentIdx]]);
@@ -85,36 +90,49 @@ const NeuralProvisioningOverlay: React.FC<{
       clearInterval(interval);
       clearTimeout(fallbackTimer);
     };
-  }, []);
+  }, [tier]);
 
   const testConnection = async () => {
-    setDiagResult({ msg: "Probing Cloud Endpoint..." });
+    setDiagResult({ msg: "Probing Neural Endpoint..." });
     try {
-      const resp = await fetch('https://dojvsourwlvvolvmppxx.supabase.co/functions/v1/paystack-webhook');
+      const resp = await fetch(webhookUrl);
       const text = await resp.text();
       
       try {
         const data = JSON.parse(text);
         if (data.status === 'Operational') {
-          setDiagResult({ msg: "Status: 200 OK. Deployment verified.", raw: text });
+          setDiagResult({ 
+            msg: "SUCCESS: Webhook logic is ACTIVE.", 
+            raw: text,
+            deployId: data.deploy_id 
+          });
         } else {
-          setDiagResult({ msg: "Status: Unknown JSON structure.", raw: text });
+          setDiagResult({ msg: "WARN: Response is JSON but logic missing.", raw: text });
         }
       } catch (e) {
-        // Not JSON - likely the "Hello from Functions" text
         setDiagResult({ 
-          msg: "CRITICAL: Cloud is still serving boilerplate code.", 
-          raw: text.substring(0, 100) 
+          msg: "CRITICAL: Still seeing boilerplate code.", 
+          raw: text.includes("Hello") ? "BOILERPLATE DETECTED" : text.substring(0, 100) 
         });
       }
     } catch (e: any) {
-      setDiagResult({ msg: "Network Fault: Could not reach endpoint.", raw: e.message });
+      setDiagResult({ msg: "OFFLINE: Could not reach endpoint.", raw: e.message });
+    }
+  };
+
+  const forceBypass = async () => {
+    if (!confirm("This will manually activate your account via a debug bypass. Continue?")) return;
+    try {
+      await fetch(`${webhookUrl}?debug_bypass=true`);
+      onManualVerify();
+    } catch (e) {
+      alert("Bypass failed: Webhook unreachable.");
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] bg-slate-950 flex items-center justify-center p-6 animate-in fade-in duration-500">
-      <div className="max-w-xl w-full bg-slate-900 border border-blue-500/20 rounded-[2.5rem] p-10 shadow-[0_0_100px_rgba(37,99,235,0.2)]">
+    <div className="fixed inset-0 z-[10000] bg-slate-950 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-500 overflow-y-auto">
+      <div className="max-w-xl w-full bg-slate-900 border border-blue-500/20 rounded-[2.5rem] p-8 sm:p-10 shadow-[0_0_100px_rgba(37,99,235,0.2)] my-auto">
         <div className="flex items-center gap-4 mb-8 border-b border-white/5 pb-6">
           <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white animate-pulse">
             <TerminalIcon size={24} />
@@ -135,28 +153,26 @@ const NeuralProvisioningOverlay: React.FC<{
         </div>
 
         {showFallback && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-2xl mb-6">
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
+            <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-2xl">
               <div className="flex items-center gap-3 mb-2">
                 <AlertTriangle size={14} className="text-amber-500" />
-                <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Network Handshake Delayed</span>
+                <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Handshake Delayed</span>
               </div>
               <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest leading-relaxed">
-                The settlement signal from Paystack hasn't reached our server yet. Status: <span className="text-amber-400">{lastPaymentStatus || 'pending'}</span>
+                Cloud response: <span className="text-amber-400">{lastPaymentStatus || 'pending'}</span>. If this persists, your deployment is blocked.
               </p>
-              {paymentRef && (
-                <p className="text-[9px] text-slate-500 font-mono mt-2 select-all">Ref: {paymentRef}</p>
-              )}
             </div>
 
             {diagResult && (
-              <div className="mb-6 space-y-2">
-                <div className="p-4 rounded-xl bg-blue-600/10 border border-blue-500/30 text-blue-400 text-[9px] font-black uppercase tracking-widest text-center">
+              <div className="space-y-2">
+                <div className={`p-4 rounded-xl text-[9px] font-black uppercase tracking-widest text-center border ${diagResult.deployId ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-rose-500/10 border-rose-500/30 text-rose-400'}`}>
                   {diagResult.msg}
                 </div>
-                {diagResult.raw && (
-                  <div className="p-3 bg-black/40 rounded-lg font-mono text-[8px] text-slate-500 break-all overflow-hidden border border-white/5">
-                    RAW RESPONSE: {diagResult.raw}
+                {diagResult.deployId && (
+                  <div className="p-3 bg-blue-600/10 rounded-lg font-mono text-[8px] text-blue-400 flex items-center justify-between border border-blue-500/20">
+                    <span>DEPLOY ID: {diagResult.deployId}</span>
+                    <Cpu size={10} className="animate-spin-slow" />
                   </div>
                 )}
               </div>
@@ -169,44 +185,32 @@ const NeuralProvisioningOverlay: React.FC<{
                 className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
               >
                 {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                {isSyncing ? "Checking Protocol Status..." : "Verify Activation Now"}
+                {isSyncing ? "Verifying State..." : "Check Database Status"}
               </button>
 
-              <div className="grid grid-cols-2 gap-3 mt-2">
+              <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={testConnection}
                   className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
                 >
-                  <Bug size={10} /> Deep Trace
+                  <Bug size={10} /> Inspect Cloud
                 </button>
-                <a 
-                  href="https://dashboard.paystack.com" 
-                  target="_blank" 
-                  className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+                <button 
+                  onClick={forceBypass}
+                  className="bg-rose-500/10 text-rose-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-rose-500/10 hover:bg-rose-500/20 transition-all flex items-center justify-center gap-2"
                 >
-                  Paystack Dashboard <ExternalLink size={10} />
-                </a>
+                  <Zap size={10} /> Force Bypass
+                </button>
               </div>
               
-              <div className="mt-8 p-5 border border-white/10 rounded-2xl bg-white/5 space-y-4">
-                <div className="flex items-center gap-2">
-                   <Activity size={12} className="text-blue-500" />
-                   <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Manual Deployment Guide</p>
-                </div>
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <p className="text-[7px] text-slate-500 font-black uppercase">1. Link Project</p>
-                    <code className="block p-2 bg-black/50 text-[8px] text-blue-400 rounded border border-white/5">supabase link --project-ref dojvsourwlvvolvmppxx</code>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[7px] text-slate-500 font-black uppercase">2. Force Deploy</p>
-                    <code className="block p-2 bg-black/50 text-[8px] text-emerald-400 rounded border border-white/5">supabase functions deploy paystack-webhook --no-verify-jwt</code>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[7px] text-slate-500 font-black uppercase">3. Set Live Secrets</p>
-                    <code className="block p-2 bg-black/50 text-[8px] text-amber-400 rounded border border-white/5">supabase secrets set PAYSTACK_SECRET_KEY=...</code>
-                  </div>
-                </div>
+              <div className="mt-4 p-5 border border-white/10 rounded-2xl bg-white/5">
+                <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest mb-3">CLI Instruction</p>
+                <p className="text-[7px] text-slate-500 font-bold leading-relaxed mb-3">
+                  Your code has a syntax error at the end (the text you typed about linked project). Clean the file and run:
+                </p>
+                <code className="block p-3 bg-black/60 text-[8px] text-emerald-400 rounded border border-white/5 font-mono break-all leading-relaxed select-all">
+                  supabase functions deploy paystack-webhook --no-verify-jwt --project-ref {projectId}
+                </code>
               </div>
             </div>
           </div>
@@ -280,10 +284,8 @@ const ProfileDossier: React.FC = () => {
         } else if (payment?.status === 'pending') {
           setStatusMsg({ 
             type: 'error', 
-            text: "Handshake Pending: Paystack signal not yet received by Edge Function." 
+            text: "Handshake Pending: Database record is still 'pending'. Try 'Force Bypass' if your CLI is stuck." 
           });
-        } else {
-          setStatusMsg({ type: 'error', text: "Confirmation still pending. Please verify your Paystack Webhook settings." });
         }
       }
     } catch (e: any) {
@@ -318,7 +320,7 @@ const ProfileDossier: React.FC = () => {
             setLastRef(ref);
             setLastStatus('pending');
             setIsWaitingForServer(true);
-            setStatusMsg({ type: 'success', text: 'Payment Recorded. Awaiting Neural Handshake...' });
+            setStatusMsg({ type: 'success', text: 'Payment Recorded. Awaiting Handshake...' });
           }
         } catch (err: any) {
           setStatusMsg({ type: 'error', text: `Security Fault: ${err.message}` });
