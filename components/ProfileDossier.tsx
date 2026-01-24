@@ -2,11 +2,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
+import { deleteAccountPermanently } from '../auth/authService.ts';
 import { Tier, CapabilityKey } from '../shared/types.ts';
 import { useUsageQuota } from '../hooks/useUsageQuota.ts';
 import { initiateUpgrade, verifyTransaction } from '../subscriptions/paymentService.ts';
 import { ENV } from '../services/envService.ts';
-import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, Bug, Cpu, Globe, Edit3, Save, X as CloseIcon } from 'lucide-react';
+import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, Bug, Cpu, Globe, Edit3, Save, X as CloseIcon, Trash2 } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
@@ -139,7 +140,7 @@ const NeuralProvisioningOverlay: React.FC<{
 };
 
 const ProfileDossier: React.FC = () => {
-  const { user, setUser, setCurrentView } = useAutoPalStore();
+  const { user, setUser, setCurrentView, reset } = useAutoPalStore();
   const [activeTab, setActiveTab] = useState<'identity' | 'license'>('identity');
   const [provisioningTier, setProvisioningTier] = useState<Tier | null>(null);
   const [lastRef, setLastRef] = useState<string | undefined>();
@@ -149,6 +150,7 @@ const ProfileDossier: React.FC = () => {
   const [isManualSyncing, setIsManualSyncing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [formData, setFormData] = useState({ displayName: '', phone: '' });
 
   useEffect(() => {
@@ -265,6 +267,30 @@ const ProfileDossier: React.FC = () => {
       setStatusMsg({ type: 'error', text: `Failed to save changes: ${err.message}` });
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const handleNuclearDelete = async () => {
+    if (!user) return;
+    const confirmation = window.confirm(
+      "NUCLEAR OPTION: This will permanently delete your account and all linked vehicle data from our servers and your device. This action is irreversible. Proceed?"
+    );
+    
+    if (!confirmation) return;
+
+    setIsDeletingAccount(true);
+    try {
+      // 1. Trigger Cloud Purge (Cascades through DB)
+      await deleteAccountPermanently(user.id);
+      
+      // 2. Clear local state and IndexedDB
+      await reset();
+      
+      // 3. Redirect home
+      setCurrentView('landing');
+    } catch (err: any) {
+      alert(`System fault during decommissioning: ${err.message}`);
+      setIsDeletingAccount(false);
     }
   };
 
@@ -401,7 +427,7 @@ const ProfileDossier: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         {activeTab === 'identity' ? (
           <>
-            <div className="lg:col-span-7 space-y-8">
+            <div className="lg:col-span-7 space-y-10">
               <section className="bg-white rounded-[2.5rem] border border-slate-100 p-8 sm:p-12 shadow-sm relative overflow-hidden group">
                 <div className="absolute top-0 right-0 p-10 opacity-[0.02] text-9xl pointer-events-none select-none group-hover:scale-110 transition-transform duration-1000">ID</div>
                 
@@ -433,6 +459,8 @@ const ProfileDossier: React.FC = () => {
                       onClick={() => setIsEditing(true)}
                       className="bg-slate-50 border border-slate-100 text-slate-400 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-blue-50 hover:text-blue-600 transition-all"
                     >
+                      {/* DO add comment above each fix. */}
+                      {/* FIX: Fixed invalid syntax size(12) to correct JSX prop format size={12} */}
                       <Edit3 size={12} /> Edit Profile
                     </button>
                   )}
@@ -487,6 +515,30 @@ const ProfileDossier: React.FC = () => {
                   ) : (
                     <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] text-center">Update your contact information above.</p>
                   )}
+                </div>
+              </section>
+
+              {/* Danger Zone: Account Decommissioning */}
+              <section className="bg-rose-50/30 rounded-[2.5rem] border border-rose-100 p-8 sm:p-12 shadow-sm group">
+                <div className="flex flex-col lg:flex-row items-center justify-between gap-10">
+                  <div className="space-y-3 text-center lg:text-left">
+                    <div className="flex items-center justify-center lg:justify-start gap-3">
+                       <AlertTriangle size={18} className="text-rose-500" />
+                       <h3 className="text-xl font-black text-rose-600 uppercase tracking-tighter">Danger Zone</h3>
+                    </div>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed max-w-sm">
+                      Irreversibly decommission your Pilot identity. This will purge all cloud assets, local telemetry, and auth metadata instantly.
+                    </p>
+                  </div>
+                  
+                  <button 
+                    onClick={handleNuclearDelete}
+                    disabled={isDeletingAccount}
+                    className="bg-rose-600 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-rose-700 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+                  >
+                    {isDeletingAccount ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                    {isDeletingAccount ? "Purging Neural Link..." : "Permanently Delete Account"}
+                  </button>
                 </div>
               </section>
             </div>
