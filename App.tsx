@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
 import AuthScreen from './components/AuthScreen.tsx';
@@ -41,6 +41,37 @@ const App: React.FC = () => {
     loadLocalData();
   }, []);
 
+  /**
+   * Authoritative Profile Sync
+   * Fetches the real database record to overwrite JWT metadata (the source of truth).
+   */
+  const syncLatestProfile = useCallback(async (userId: string, email: string) => {
+    if (!supabase) return;
+    
+    const { data: profile, error } = await supabase
+      .from('Users')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (!error && profile) {
+      setUser({
+        id: userId,
+        email: email,
+        displayName: profile.display_name || '',
+        phone: profile.phone || '',
+        tier: profile.tier || 'free',
+        role: profile.role || 'user',
+        onboarded: profile.onboarded || false,
+        createdAt: profile.created_at || '',
+        isRenewable: profile.is_renewable || false,
+        licenseExpiresAt: profile.license_expires_at
+      });
+      return profile;
+    }
+    return null;
+  }, [setUser]);
+
   // Sync session and fetch full user profile + REALTIME LISTENER
   useEffect(() => {
     let authSubscription: { unsubscribe: () => void } | null = null;
@@ -51,32 +82,18 @@ const App: React.FC = () => {
         setInitialized(true);
         return;
       }
+
       try {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
-        setSession(currentSession);
         
         if (currentSession?.user) {
-          const { data: profile } = await supabase
-            .from('Users')
-            .select('*')
-            .eq('id', currentSession.user.id)
-            .maybeSingle();
-          
-          if (profile) {
-            setUser({
-              id: currentSession.user.id,
-              email: currentSession.user.email || '',
-              displayName: profile.display_name || '',
-              phone: profile.phone || '',
-              tier: profile.tier || 'free',
-              role: profile.role || 'user',
-              onboarded: profile.onboarded || false,
-              createdAt: profile.created_at || '',
-              isRenewable: profile.is_renewable || false,
-              licenseExpiresAt: profile.license_expires_at
-            });
+          // 1. Initial metadata set (Placeholder)
+          setSession(currentSession);
+          // 2. Authoritative Database Fetch (Truth)
+          const profile = await syncLatestProfile(currentSession.user.id, currentSession.user.email || '');
 
-            // REALTIME: Subscribe to User Profile Changes (Tier Upgrades)
+          if (profile) {
+            // 3. REALTIME: Subscribe to User Profile Changes (Tier Upgrades)
             userSubscription = supabase
               .channel(`user-profile-${profile.id}`)
               .on('postgres_changes', { 
@@ -86,14 +103,19 @@ const App: React.FC = () => {
                 filter: `id=eq.${profile.id}` 
               }, (payload) => {
                 const updated = payload.new;
-                setUser({
-                  ...user,
-                  tier: updated.tier,
-                  licenseExpiresAt: updated.license_expires_at,
-                  role: updated.role,
-                  displayName: updated.display_name,
-                  phone: updated.phone
-                } as any);
+                // Fixed: Removed functional update which is not supported by the store's setUser action.
+                // Instead, using useAutoPalStore.getState().user to ensure we merge with the most recent user context.
+                const currentUser = useAutoPalStore.getState().user;
+                if (currentUser) {
+                  setUser({
+                    ...currentUser,
+                    tier: updated.tier,
+                    licenseExpiresAt: updated.license_expires_at,
+                    role: updated.role,
+                    displayName: updated.display_name,
+                    phone: updated.phone
+                  });
+                }
                 console.log("System Calibration: Real-time update received from Cloud.");
               })
               .subscribe();
@@ -102,12 +124,19 @@ const App: React.FC = () => {
 
         setInitialized(true);
         
+        // Listen for Auth events (Refresh, Signin, Signout)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          setSession(session);
-          if (!session) reset();
+          if (session) {
+            setSession(session);
+            await syncLatestProfile(session.user.id, session.user.email || '');
+          } else {
+            setSession(null);
+            reset();
+          }
         });
         authSubscription = subscription;
       } catch (err) {
+        console.error("Auth init fault:", err);
         setInitialized(true);
       }
     };
@@ -118,7 +147,7 @@ const App: React.FC = () => {
       if (authSubscription) authSubscription.unsubscribe();
       if (userSubscription) supabase?.removeChannel(userSubscription);
     };
-  }, [setSession, setInitialized, reset, setUser]);
+  }, [setSession, setInitialized, reset, setUser, syncLatestProfile]);
 
   useEffect(() => {
     if (session && user && vehicles.length === 0) {
@@ -303,7 +332,7 @@ const App: React.FC = () => {
 
       <div className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[-300px] opacity-0 pointer-events-none translate-x-[-50px]'}`}>
         <div className="mb-10 px-2">
-          <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Fleet Ops</h4>
+          h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Fleet Ops</h4>
           <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
         </div>
         <div className="space-y-1">

@@ -139,8 +139,18 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       if (get().session !== null) set({ session: null, user: null });
       return;
     }
+    
     const { user: supabaseUser } = session;
     const meta = supabaseUser.user_metadata || {};
+    
+    // If we already have a user in the store, we don't want to revert to stale metadata
+    // unless the IDs don't match (meaning a user switch).
+    const currentUser = get().user;
+    if (currentUser && currentUser.id === supabaseUser.id) {
+      set({ session });
+      return;
+    }
+
     const newUserObj: UserProfile = {
       id: supabaseUser.id,
       email: supabaseUser.email || '',
@@ -150,7 +160,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       role: meta.role || 'user',
       onboarded: meta.onboarded || false,
       createdAt: supabaseUser.created_at || new Date().toISOString(),
-      // Fix: Added missing isRenewable property to satisfy UserProfile interface requirement.
       isRenewable: meta.is_renewable || false,
     };
     set({ session, user: newUserObj });
