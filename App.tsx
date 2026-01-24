@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -41,9 +42,10 @@ const App: React.FC = () => {
     loadLocalData();
   }, []);
 
-  // Sync session and fetch full user profile
+  // Sync session and fetch full user profile + REALTIME LISTENER
   useEffect(() => {
     let authSubscription: { unsubscribe: () => void } | null = null;
+    let userSubscription: any = null;
 
     const initAuth = async () => {
       if (!isSupabaseConfigured || !supabase) {
@@ -62,7 +64,6 @@ const App: React.FC = () => {
             .maybeSingle();
           
           if (profile) {
-            // Fix: Added missing isRenewable property to satisfy UserProfile interface requirement.
             setUser({
               id: currentSession.user.id,
               email: currentSession.user.email || '',
@@ -72,8 +73,31 @@ const App: React.FC = () => {
               role: profile.role || 'user',
               onboarded: profile.onboarded || false,
               createdAt: profile.created_at || '',
-              isRenewable: profile.is_renewable || false
+              isRenewable: profile.is_renewable || false,
+              licenseExpiresAt: profile.license_expires_at
             });
+
+            // REALTIME: Subscribe to User Profile Changes (Tier Upgrades)
+            userSubscription = supabase
+              .channel(`user-profile-${profile.id}`)
+              .on('postgres_changes', { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'Users', 
+                filter: `id=eq.${profile.id}` 
+              }, (payload) => {
+                const updated = payload.new;
+                setUser({
+                  ...user,
+                  tier: updated.tier,
+                  licenseExpiresAt: updated.license_expires_at,
+                  role: updated.role,
+                  displayName: updated.display_name,
+                  phone: updated.phone
+                } as any);
+                console.log("System Calibration: Tier Synchronized via Realtime.");
+              })
+              .subscribe();
           }
         }
 
@@ -81,25 +105,7 @@ const App: React.FC = () => {
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           setSession(session);
-          if (!session) {
-            reset();
-          } else {
-            const { data: profile } = await supabase.from('Users').select('*').eq('id', session.user.id).maybeSingle();
-            if (profile) {
-              // Fix: Added missing isRenewable property to satisfy UserProfile interface requirement.
-              setUser({
-                id: session.user.id,
-                email: session.user.email || '',
-                displayName: profile.display_name || '',
-                phone: profile.phone || '',
-                tier: profile.tier || 'free',
-                role: profile.role || 'user',
-                onboarded: profile.onboarded || false,
-                createdAt: profile.created_at || '',
-                isRenewable: profile.is_renewable || false
-              });
-            }
-          }
+          if (!session) reset();
         });
         authSubscription = subscription;
       } catch (err) {
@@ -111,6 +117,7 @@ const App: React.FC = () => {
 
     return () => {
       if (authSubscription) authSubscription.unsubscribe();
+      if (userSubscription) supabase?.removeChannel(userSubscription);
     };
   }, [setSession, setInitialized, reset, setUser]);
 
@@ -261,7 +268,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
-      {/* Mobile Top Header */}
       <header className="lg:hidden h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 z-[100] w-full">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
           <div className="w-8 h-8 bg-gradient-to-br from-slate-800 to-slate-950 rounded-lg flex items-center justify-center text-white shadow-md">
@@ -274,15 +280,10 @@ const App: React.FC = () => {
         </button>
       </header>
 
-      {/* Mobile Menu Backdrop */}
       {isMobileMenuOpen && (
-        <div 
-          className="lg:hidden fixed inset-0 z-[110] bg-slate-950/20 backdrop-blur-sm transition-opacity"
-          onClick={() => setIsMobileMenuOpen(false)}
-        />
+        <div className="lg:hidden fixed inset-0 z-[110] bg-slate-950/20 backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
-      {/* Main Sidebar Navigation */}
       <aside className={`fixed lg:sticky top-0 left-0 z-[120] h-screen w-[300px] bg-white border-r border-slate-100 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-8 pb-6 shrink-0 bg-white">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setCurrentView('landing'); setIsMobileMenuOpen(false); }}>
@@ -301,10 +302,7 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      {/* Slide-out Control Panel (Secondary Menu) */}
-      <div 
-        className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[-300px] opacity-0 pointer-events-none translate-x-[-50px]'}`}
-      >
+      <div className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[-300px] opacity-0 pointer-events-none translate-x-[-50px]'}`}>
         <div className="mb-10 px-2">
           <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Fleet Ops</h4>
           <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
@@ -323,7 +321,6 @@ const App: React.FC = () => {
         <button onClick={closeManagement} className="absolute bottom-10 left-6 right-6 p-4 text-slate-400 text-[8px] font-black uppercase tracking-widest hover:text-slate-900 transition-colors border-t border-slate-50 pt-8">Close Panel</button>
       </div>
 
-      {/* Main Layout Area */}
       <div className="flex-grow flex flex-col min-h-screen w-full overflow-x-hidden">
         <main className={`p-4 sm:p-6 lg:p-10 xl:p-12 max-w-full lg:max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow flex flex-col items-center ${currentView === 'landing' ? '!p-0 !max-w-none' : ''}`}>
           <div className={`animate-slide-up w-full max-w-full ${currentView === 'landing' ? '!max-w-none' : ''}`}>
@@ -342,12 +339,7 @@ const App: React.FC = () => {
                   <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[9px]">Neural Mechanical Link</p>
                 </header>
                 <DiagnosticsPanel 
-                  vehicle={activeVehicle} 
-                  symptom={symptom} 
-                  setSymptom={setSymptom} 
-                  diagImage={diagImage} 
-                  setDiagImage={setDiagImage} 
-                  isAskingAI={isAskingAI} 
+                  vehicle={activeVehicle} symptom={symptom} setSymptom={setSymptom} diagImage={diagImage} setDiagImage={setDiagImage} isAskingAI={isAskingAI} 
                   onAnalyze={async () => {
                     if (!activeVehicle) return;
                     setIsAskingAI(true);
@@ -355,9 +347,7 @@ const App: React.FC = () => {
                       const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
                       setAiAdvice(advice);
                     } catch (e) { alert("Neural Fail"); } finally { setIsAskingAI(false); }
-                  }} 
-                  aiAdvice={aiAdvice}
-                  compact={false}
+                  }} aiAdvice={aiAdvice} compact={false}
                 />
               </div>
             )}
@@ -365,7 +355,6 @@ const App: React.FC = () => {
         </main>
       </div>
 
-      {/* Mobile Tab Bar */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/95 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
         <button onClick={() => { setCurrentView('garage'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">🏠</span><span className="text-[7px] font-black uppercase tracking-widest">Garage</span></button>
         <button onClick={() => { setCurrentView('diagnostic'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">✧</span><span className="text-[7px] font-black uppercase tracking-widest">Repair</span></button>

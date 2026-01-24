@@ -6,12 +6,11 @@ import { Tier, CapabilityKey } from '../shared/types.ts';
 import { useUsageQuota } from '../hooks/useUsageQuota.ts';
 import { getTierCapability } from '../services/capabilityService.ts';
 import { initiateUpgrade } from '../subscriptions/paymentService.ts';
-import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, CreditCard } from 'lucide-react';
+import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
  * CapacityMeter
- * High-fidelity usage tracking for the Identity view.
  */
 const CapacityMeter: React.FC<{ 
   label: string; 
@@ -48,20 +47,23 @@ const CapacityMeter: React.FC<{
 
 /**
  * NeuralProvisioningOverlay
- * Triggers an immersive environment shift sequence.
+ * Enhanced with Fallback for Realtime Exhaustion
  */
-const NeuralProvisioningOverlay: React.FC<{ tier: Tier; onComplete: () => void }> = ({ tier, onComplete }) => {
+const NeuralProvisioningOverlay: React.FC<{ 
+  tier: Tier; 
+  onComplete: () => void;
+  onManualVerify: () => void;
+}> = ({ tier, onComplete, onManualVerify }) => {
   const [logs, setLogs] = useState<string[]>([]);
+  const [showFallback, setShowFallback] = useState(false);
+  
   const sequence = [
     "> INITIALIZING NEURAL HANDSHAKE...",
-    "> AUTHENTICATING PILOT SIGNATURE...",
-    `> REQUESTING ${tier.toUpperCase()} PROTOCOL ACCESS...`,
+    "> AUTHENTICATING SETTLEMENT...",
+    `> SECURING ${tier.toUpperCase()} PROTOCOL...`,
     "> SYNCHRONIZING CLOUD MASTER NODES...",
     "> RECALIBRATING DATABASE GOVERNOR...",
-    "> EXPANDING ASSET CAPACITY SLOTS...",
-    "> UNFILTERING NEURAL DATA STREAMS...",
-    "> RECORDING FINANCIAL TELEMETRY...",
-    `> ${tier.toUpperCase()} ENVIRONMENT ACTIVATED.`
+    "> AWAITING FINAL BROADCAST..."
   ];
 
   useEffect(() => {
@@ -72,10 +74,16 @@ const NeuralProvisioningOverlay: React.FC<{ tier: Tier; onComplete: () => void }
         currentIdx++;
       } else {
         clearInterval(interval);
-        setTimeout(onComplete, 800);
       }
-    }, 300);
-    return () => clearInterval(interval);
+    }, 600);
+
+    // If Realtime fails, show fallback after 12 seconds
+    const fallbackTimer = setTimeout(() => setShowFallback(true), 12000);
+
+    return () => {
+      clearInterval(interval);
+      clearTimeout(fallbackTimer);
+    };
   }, []);
 
   return (
@@ -90,14 +98,32 @@ const NeuralProvisioningOverlay: React.FC<{ tier: Tier; onComplete: () => void }
             <p className="text-blue-500 text-[8px] font-black uppercase tracking-[0.4em]">Environment Shift in Progress</p>
           </div>
         </div>
-        <div className="space-y-3 font-mono text-[10px] sm:text-[11px]">
+        
+        <div className="space-y-3 font-mono text-[11px] mb-8">
           {logs.map((log, i) => (
             <div key={i} className={`${i === logs.length - 1 ? 'text-blue-400 font-bold' : 'text-slate-500'} animate-in slide-in-from-left-2`}>
               {log}
             </div>
           ))}
-          <div className="w-2 h-4 bg-blue-500 animate-pulse inline-block mt-2"></div>
+          {!showFallback && <div className="w-2 h-4 bg-blue-500 animate-pulse inline-block mt-2"></div>}
         </div>
+
+        {showFallback && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="bg-blue-500/10 border border-blue-500/20 p-6 rounded-2xl mb-6">
+              <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest leading-relaxed">
+                Broadcast stream delayed. Your payment is secure. Click below to verify activation manually.
+              </p>
+            </div>
+            <button 
+              onClick={onManualVerify}
+              className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3"
+            >
+              <RefreshCw size={14} className="animate-spin-slow" />
+              Verify Activation
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -108,6 +134,7 @@ const ProfileDossier: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'identity' | 'license'>('identity');
   const [provisioningTier, setProvisioningTier] = useState<Tier | null>(null);
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [isWaitingForServer, setIsWaitingForServer] = useState(false);
   const [formData, setFormData] = useState({ displayName: '', phone: '' });
 
   useEffect(() => {
@@ -116,9 +143,33 @@ const ProfileDossier: React.FC = () => {
     }
   }, [user]);
 
+  // SUCCESS TRIGGER: When user.tier matches the tier we're waiting for
+  useEffect(() => {
+    if (isWaitingForServer && user?.tier && provisioningTier === user.tier) {
+      setIsWaitingForServer(false);
+      // Wait a moment for UX, then clear provisioning overlay
+      setTimeout(() => {
+        setProvisioningTier(null);
+        setStatusMsg({ type: 'success', text: `Environment recalibrated to ${provisioningTier?.toUpperCase()} Protocol.` });
+      }, 1500);
+    }
+  }, [user?.tier, isWaitingForServer, provisioningTier]);
+
+  const forceProfileSync = async () => {
+    if (!supabase || !user) return;
+    const { data: profile } = await supabase.from('Users').select('*').eq('id', user.id).maybeSingle();
+    if (profile) {
+      setUser({
+        ...user,
+        tier: profile.tier,
+        licenseExpiresAt: profile.license_expires_at,
+        role: profile.role
+      });
+    }
+  };
+
   const handleUpgrade = (tier: 'standard' | 'premium', price: number) => {
     if (!user) return;
-    
     setStatusMsg(null);
 
     initiateUpgrade({
@@ -128,31 +179,24 @@ const ProfileDossier: React.FC = () => {
       onSuccess: async (ref) => {
         try {
           if (supabase) {
-            // GOLDEN THREAD: Insert to payments ledger
-            const { error: paymentError } = await supabase.from('payments').insert([{
+            // Record intent (Browser-side)
+            const { error: insertError } = await supabase.from('payments').insert([{
               user_id: user.id,
               tier: tier,
               amount: price,
               reference: ref,
-              status: 'success'
+              status: 'pending'
             }]);
 
-            if (paymentError) throw paymentError;
+            if (insertError) throw insertError;
 
-            // Trigger immersive UI flow
             setProvisioningTier(tier);
-
-            // Sync Local Store state manually to reflect the trigger's backend change
-            setUser({ 
-              ...user, 
-              tier: tier, 
-              licenseExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() 
-            });
+            setIsWaitingForServer(true);
+            setStatusMsg({ type: 'success', text: 'Payment Received. Calibrating system...' });
           }
         } catch (err: any) {
-          console.error("Ledger Injection Failure:", err);
-          const errorDetail = err.details || err.message || "Unknown error";
-          setStatusMsg({ type: 'error', text: `Ledger Injection Fault: ${errorDetail}` });
+          console.error("Billing Security Fault:", err);
+          setStatusMsg({ type: 'error', text: `Security Fault: ${err.message}` });
         }
       },
       onCancel: () => {
@@ -168,7 +212,7 @@ const ProfileDossier: React.FC = () => {
       price: 0,
       priceLabel: '₦0',
       tagline: 'Standard Environment',
-      features: ['1 Active Vehicle Twin', '2 Monthly Fuel Logs', '0 AI Diagnostic Scans (Locked)', 'Regional Market Data', 'Non-renewable after 30 days']
+      features: ['1 Active Vehicle Twin', '2 Monthly Fuel Logs', '0 AI Diagnostic Scans', 'Regional Market Data', 'Non-renewable after 30 days']
     },
     { 
       id: 'standard' as Tier, 
@@ -192,9 +236,10 @@ const ProfileDossier: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto space-y-12 animate-slide-up px-4 pb-32">
-      {provisioningTier && (
+      {provisioningTier && (isWaitingForServer || provisioningTier === user?.tier) && (
         <NeuralProvisioningOverlay 
           tier={provisioningTier} 
+          onManualVerify={forceProfileSync}
           onComplete={() => {
             setProvisioningTier(null);
             setStatusMsg({ type: 'success', text: `Environment recalibrated to ${provisioningTier.toUpperCase()} Protocol.` });
@@ -236,19 +281,6 @@ const ProfileDossier: React.FC = () => {
         </div>
       )}
 
-      {isExpired && activeTab === 'identity' && (
-        <div className="bg-rose-50 border-2 border-rose-100 p-8 rounded-[2.5rem] flex flex-col sm:flex-row items-center justify-between gap-6 shadow-sm">
-           <div className="flex items-center gap-6">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center"><Clock size={24} /></div>
-              <div>
-                <h4 className="text-lg font-black uppercase text-rose-900 leading-tight">License Expired</h4>
-                <p className="text-[10px] font-bold text-rose-500 uppercase tracking-widest">Environment locked in Read-Only mode</p>
-              </div>
-           </div>
-           <button onClick={() => setActiveTab('license')} className="bg-rose-600 text-white px-8 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-xl shadow-rose-600/20 active:scale-95 transition-all">Renew Protocol Now</button>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
         {activeTab === 'identity' ? (
           <>
@@ -284,7 +316,7 @@ const ProfileDossier: React.FC = () => {
                       <input type="tel" readOnly className="w-full bg-slate-50 border-2 border-slate-100 rounded-2xl px-6 py-5 font-mono font-bold text-sm outline-none" value={formData.phone} />
                     </div>
                   </div>
-                  <button onClick={() => setStatusMsg({ type: 'error', text: 'Identity editing is locked during this test phase.' })} className="w-full bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-xl active:scale-95 transition-all">Modify Security Profile</button>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] text-center">Identity is locked while mission is active.</p>
                 </div>
               </section>
             </div>
@@ -311,27 +343,20 @@ const ProfileDossier: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {PLANS.map((plan) => {
                 const isActive = user?.tier === plan.id;
-
                 return (
-                  <div 
-                    key={plan.id}
-                    className={`bg-white rounded-[2.5rem] p-10 border-4 transition-all relative overflow-hidden flex flex-col group ${isActive ? 'border-blue-600 shadow-3xl scale-[1.03] z-10' : 'border-slate-100 hover:border-slate-200'}`}
-                  >
+                  <div key={plan.id} className={`bg-white rounded-[2.5rem] p-10 border-4 transition-all relative overflow-hidden flex flex-col group ${isActive ? 'border-blue-600 shadow-3xl scale-[1.03] z-10' : 'border-slate-100 hover:border-slate-200'}`}>
                     {isActive && (
                       <div className={`absolute top-0 right-0 ${isExpired ? 'bg-rose-600' : 'bg-blue-600'} text-white px-6 py-2 rounded-bl-3xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2`}>
                         {isExpired ? <Ban size={10} /> : <Sparkles size={10} />} {isExpired ? 'Expired' : 'Active'}
                       </div>
                     )}
-                    
                     <div className="space-y-8 flex-grow">
                       <div className="space-y-2">
                         <h4 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">{plan.label}</h4>
                         <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{plan.tagline}</p>
                         <div className="text-4xl font-black text-slate-900 tracking-tighter pt-4">{plan.priceLabel}</div>
                       </div>
-
                       <div className="h-px bg-slate-100 w-full"></div>
-
                       <ul className="space-y-5">
                         {plan.features.map((feat, i) => (
                           <li key={i} className="flex items-start gap-3 text-[11px] font-bold text-slate-600 leading-relaxed">
@@ -341,44 +366,16 @@ const ProfileDossier: React.FC = () => {
                         ))}
                       </ul>
                     </div>
-
                     <button 
                       onClick={() => plan.id !== 'free' && handleUpgrade(plan.id as any, plan.price)}
                       disabled={isActive && !isExpired}
-                      className={`mt-12 w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all flex items-center justify-center gap-3 ${
-                        (isActive && !isExpired) 
-                          ? 'bg-emerald-50 text-emerald-600 border-2 border-emerald-200 cursor-default' 
-                          : plan.id === 'free'
-                            ? 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-not-allowed'
-                            : 'bg-slate-900 text-white hover:bg-blue-600 shadow-2xl active:scale-[0.98]'
-                      }`}
+                      className={`mt-12 w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all flex items-center justify-center gap-3 ${isActive && !isExpired ? 'bg-emerald-50 text-emerald-600 border-2 border-emerald-200 cursor-default' : plan.id === 'free' ? 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-2xl active:scale-0.98]'}`}
                     >
                       {isActive && isExpired ? 'Renew Protocol' : isActive ? 'Current Protocol' : plan.id === 'free' ? 'Initial Protocol' : `Activate ${plan.label}`}
                     </button>
-                    {plan.id === 'free' && isActive && (
-                      <p className="text-center text-[7px] font-bold text-rose-400 uppercase tracking-widest mt-4 animate-pulse">
-                        Basic tier non-renewable. Upgrade to extend history.
-                      </p>
-                    )}
                   </div>
                 );
               })}
-            </div>
-            
-            <div className="bg-white border border-slate-100 p-12 rounded-[3rem] text-center space-y-6 relative overflow-hidden group shadow-sm">
-               <div className="flex items-center justify-center gap-4 mb-4">
-                  <CreditCard size={32} className="text-blue-600" />
-                  <h4 className="text-2xl font-black text-slate-900 uppercase tracking-tighter">Secured by Paystack</h4>
-               </div>
-               <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed max-w-xl mx-auto">
-                 All transactions are handled through a secure encrypted gateway. Your banking details are never stored on our servers.
-               </p>
-               <div className="flex justify-center gap-6 opacity-40">
-                  <div className="bg-slate-100 px-4 py-2 rounded-lg text-[8px] font-black uppercase">Mastercard</div>
-                  <div className="bg-slate-100 px-4 py-2 rounded-lg text-[8px] font-black uppercase">Visa</div>
-                  <div className="bg-slate-100 px-4 py-2 rounded-lg text-[8px] font-black uppercase">Verve</div>
-                  <div className="bg-slate-100 px-4 py-2 rounded-lg text-[8px] font-black uppercase">Bank Transfer</div>
-               </div>
             </div>
           </div>
         )}
