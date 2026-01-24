@@ -248,15 +248,17 @@ const ProfileDossier: React.FC = () => {
       onSuccess: async (ref) => {
         try {
           if (supabase) {
-            const { error: insertError } = await supabase.from('payments').insert([{
+            // FIX: Use .upsert() instead of .insert() to handle race conditions where the 
+            // Webhook might have already created the record.
+            const { error: upsertError } = await supabase.from('payments').upsert([{
               user_id: user.id,
               tier: tier,
               amount: price,
               reference: ref,
               status: 'pending'
-            }]);
+            }], { onConflict: 'reference' });
 
-            if (insertError) throw insertError;
+            if (upsertError) throw upsertError;
 
             setProvisioningTier(tier);
             setLastRef(ref);
