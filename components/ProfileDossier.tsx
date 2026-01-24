@@ -430,6 +430,7 @@ const ProfileDossier: React.FC = () => {
                 <div className="space-y-4 relative z-10">
                    <CapacityMeter label="Fleet Capacity" capability="MAX_VEHICLES" icon={<Shield size={14} />} color="text-blue-500" />
                    <CapacityMeter label="Neural Link (AI)" capability="AI_SCAN_MONTHLY" icon={<Zap size={14} />} color="text-amber-500" />
+                   <CapacityMeter label="AI Mechanic" capability="AI_MECHANIC_MONTHLY" icon={<Cpu size={14} />} color="text-rose-500" />
                    <CapacityMeter label="Fuel Intelligence" capability="FUEL_LOGS_MONTHLY" icon={<Database size={14} />} color="text-emerald-500" />
                    <CapacityMeter label="Service History" capability="SERVICE_LOGS_MONTHLY" icon={<TerminalIcon size={14} />} color="text-indigo-500" />
                 </div>

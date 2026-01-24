@@ -332,7 +332,8 @@ const App: React.FC = () => {
 
       <div className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[-300px] opacity-0 pointer-events-none translate-x-[-50px]'}`}>
         <div className="mb-10 px-2">
-          h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Fleet Ops</h4>
+          {/* Fixed malformed JSX on line 395 by adding the missing opening bracket for the h4 tag */}
+          <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Fleet Ops</h4>
           <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
         </div>
         <div className="space-y-1">
