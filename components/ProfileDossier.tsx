@@ -116,7 +116,7 @@ const NeuralProvisioningOverlay: React.FC<{
                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Network Handshake Delayed</span>
               </div>
               <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest leading-relaxed">
-                The settlement signal from Paystack hasn't reached our server yet. Status: <span className="text-amber-400">{lastPaymentStatus || 'Checking...'}</span>
+                The settlement signal from Paystack hasn't reached our server yet. Status: <span className="text-amber-400">{lastPaymentStatus || 'pending'}</span>
               </p>
               {paymentRef && (
                 <p className="text-[9px] text-slate-500 font-mono mt-2 select-all">Ref: {paymentRef}</p>
@@ -142,10 +142,25 @@ const NeuralProvisioningOverlay: React.FC<{
                 )}
               </button>
               
+              <div className="mt-4 p-4 border border-white/5 rounded-xl bg-white/5">
+                <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-3">Troubleshooting Node</p>
+                <ul className="space-y-2">
+                  <li className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex gap-2">
+                    <span className="text-blue-500">1.</span> Verify Webhook URL in Paystack Settings
+                  </li>
+                  <li className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex gap-2">
+                    <span className="text-blue-500">2.</span> Check Supabase Edge Function logs for 401/500 errors
+                  </li>
+                  <li className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex gap-2">
+                    <span className="text-blue-500">3.</span> If testing on Localhost, use ngrok for webhooks
+                  </li>
+                </ul>
+              </div>
+
               <a 
                 href="https://dashboard.paystack.com" 
                 target="_blank" 
-                className="w-full bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] transition-all flex items-center justify-center gap-2 hover:bg-white/10"
+                className="w-full bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] transition-all flex items-center justify-center gap-2 hover:bg-white/10 mt-2"
               >
                 Check Paystack Dashboard <ExternalLink size={10} />
               </a>
@@ -191,7 +206,7 @@ const ProfileDossier: React.FC = () => {
     setStatusMsg(null);
     
     try {
-      // 1. Check the Payment table status first to diagnose the "pending" issue
+      // 1. Fetch latest record from Payments table to see if it's still 'pending'
       const { data: payment } = await supabase
         .from('payments')
         .select('status, reference')
@@ -209,6 +224,7 @@ const ProfileDossier: React.FC = () => {
       if (error) throw error;
       
       if (profile) {
+        // Sync local store
         setUser({
           ...user,
           tier: profile.tier,
@@ -222,9 +238,10 @@ const ProfileDossier: React.FC = () => {
           setStatusMsg({ type: 'success', text: "Activation Successful! System state synchronized." });
           setIsWaitingForServer(false);
         } else if (payment?.status === 'pending') {
+          // SPECIFIC DIAGNOSTIC: Payment exists but webhook hasn't hit success
           setStatusMsg({ 
             type: 'error', 
-            text: "Handshake Pending: Paystack has not notified our server of the success. Ensure your Webhook URL is set in Paystack Settings." 
+            text: "Handshake Pending: Paystack has not notified our server yet. Ensure your Webhook URL is set in Paystack Settings." 
           });
         } else {
           setStatusMsg({ type: 'error', text: "Confirmation still pending from cloud provider. Please wait 60 seconds." });
