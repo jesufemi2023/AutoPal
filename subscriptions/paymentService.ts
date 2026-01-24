@@ -70,7 +70,8 @@ export const verifyTransaction = async (reference: string): Promise<{ status: st
   
   console.log(`Syncing with Cloud: Verifying [${reference}]...`);
 
-  const { data, error } = await supabase.functions.invoke('verify-payment', {
+  // We pass reference in both body and query params for maximum compatibility with all network environments
+  const { data, error } = await supabase.functions.invoke(`verify-payment?reference=${reference}`, {
     body: { reference }
   });
 
