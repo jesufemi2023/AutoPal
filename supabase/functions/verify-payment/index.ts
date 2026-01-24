@@ -17,6 +17,11 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { status: 200, headers: corsHeaders })
   }
 
+  // Debugging: Log high-level request info
+  const url = new URL(req.url)
+  console.log(`[DEBUG] Incoming Request: ${req.method} ${url.href}`);
+  console.log(`[DEBUG] Content-Type: ${req.headers.get('content-type')}`);
+
   try {
     const PAYSTACK_SECRET = Deno.env.get('PAYSTACK_SECRET_KEY')
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
@@ -26,28 +31,38 @@ Deno.serve(async (req: Request) => {
       throw new Error("Server configuration variables are missing.")
     }
 
-    // 2. Extract Reference with Fallbacks
-    const url = new URL(req.url)
-    let reference = url.searchParams.get('reference')
+    // 2. Comprehensive Reference Extraction
+    let reference = url.searchParams.get('reference') || url.searchParams.get('trxref');
     
-    console.log(`Processing: ${req.method} request to ${url.pathname}`);
-
+    // If not in URL, check Body
     if (!reference && (req.method === 'POST' || req.method === 'PUT')) {
-      try {
-        const clonedReq = req.clone(); // Clone to prevent stream locking
-        const body = await clonedReq.json();
-        reference = body.reference || body.trxref;
-        console.log(`Found reference in body: ${reference}`);
-      } catch (e) {
-        console.warn("Could not parse JSON body, proceeding with query search.");
+      const rawBody = await req.text();
+      console.log(`[DEBUG] Raw Body: ${rawBody}`);
+      
+      if (rawBody) {
+        try {
+          const body = JSON.parse(rawBody);
+          reference = body.reference || body.trxref || (typeof body === 'string' ? body : null);
+        } catch (e) {
+          console.warn("[DEBUG] Body is not JSON, might be raw string or empty.");
+          // If JSON parse fails, check if the raw body itself looks like a reference (AP-...)
+          if (rawBody.startsWith('AP-')) {
+            reference = rawBody;
+          }
+        }
       }
     }
 
+    console.log(`[DEBUG] Final Resolved Reference: ${reference}`);
+
     // Final validation of reference
     if (!reference || reference === 'undefined' || reference === 'null' || reference === '') {
-      console.error("Security Fault: No valid transaction reference detected in Request.");
+      console.error("Security Fault: No valid transaction reference detected in Request Data.");
       return new Response(
-        JSON.stringify({ error: 'Transaction reference is missing from the payload.' }), 
+        JSON.stringify({ 
+          error: 'Transaction reference is missing from the payload.',
+          debug: { url: url.href, method: req.method }
+        }), 
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -63,9 +78,10 @@ Deno.serve(async (req: Request) => {
     })
     
     if (!verifyRes.ok) {
-      console.error(`Paystack API unreachable: Status ${verifyRes.status}`);
+      const errorText = await verifyRes.text();
+      console.error(`Paystack API unreachable: Status ${verifyRes.status} - ${errorText}`);
       return new Response(
-        JSON.stringify({ error: 'Payment gateway connection failed.' }), 
+        JSON.stringify({ error: 'Payment gateway connection failed.', details: errorText }), 
         { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
