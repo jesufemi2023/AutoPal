@@ -5,7 +5,7 @@ import { supabase } from '../auth/supabaseClient.ts';
 import { Tier, CapabilityKey } from '../shared/types.ts';
 import { useUsageQuota } from '../hooks/useUsageQuota.ts';
 import { initiateUpgrade } from '../subscriptions/paymentService.ts';
-import { Shield, Zap, Database, CheckCircle2, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, Search, AlertCircle } from 'lucide-react';
+import { Shield, Zap, Database, CheckCircle2, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, Search, AlertCircle, Loader2 } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
@@ -75,7 +75,7 @@ const NeuralProvisioningOverlay: React.FC<{
       }
     }, 600);
 
-    const fallbackTimer = setTimeout(() => setShowFallback(true), 8000);
+    const fallbackTimer = setTimeout(() => setShowFallback(true), 5000);
 
     return () => {
       clearInterval(interval);
@@ -114,18 +114,18 @@ const NeuralProvisioningOverlay: React.FC<{
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
             <div className="bg-blue-500/10 border border-blue-500/20 p-6 rounded-2xl mb-6">
               <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest leading-relaxed">
-                Network broadcast stream is latent. If your payment was successful, click the manual verification trigger below.
+                The cloud handshake is taking longer than expected. If your bank has debited you, the signal is likely on its way.
               </p>
             </div>
             <button 
               disabled={isSyncing}
-              onClick={(e) => { e.preventDefault(); onManualVerify(); }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onManualVerify(); }}
               className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
             >
               {isSyncing ? (
                 <>
-                  <RefreshCw size={14} className="animate-spin" />
-                  Synchronizing...
+                  <Loader2 size={14} className="animate-spin" />
+                  Attempting Sync...
                 </>
               ) : (
                 <>
@@ -157,60 +157,13 @@ const ProfileDossier: React.FC = () => {
   }, [user]);
 
   /** 
-   * AUTO-RECOVERY: If user is on 'free' tier, check for recent pending/success payments
-   * to restore the waiting overlay if they refreshed the page.
+   * AUTO-RECOVERY: Restore UI state if user refreshes during provisioning
    */
   useEffect(() => {
     const checkRecovery = async () => {
       if (!supabase || !user || user.tier !== 'free') return;
       
-      const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       const { data: recentPayments } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('created_at', fiveMinsAgo)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (recentPayments && recentPayments.length > 0) {
-        const pay = recentPayments[0];
-        if (pay.status === 'pending' || pay.status === 'success') {
-          console.log("System Calibration: Restoring provisioning state from database.");
-          setProvisioningTier(pay.tier as Tier);
-          setIsWaitingForServer(true);
-        }
-      }
-    };
-    checkRecovery();
-  }, [user?.id, user?.tier]);
-
-  // AUTO-HIDE: Hide overlay when user state actually updates via Realtime in App.tsx
-  useEffect(() => {
-    if (isWaitingForServer && user?.tier && provisioningTier === user.tier) {
-      console.log("System Calibration: Target tier reached. Closing overlay.");
-      setIsWaitingForServer(false);
-      const targetTier = provisioningTier;
-      setProvisioningTier(null);
-      setStatusMsg({ type: 'success', text: `Environment successfully recalibrated to ${targetTier.toUpperCase()} Protocol.` });
-    }
-  }, [user?.tier, isWaitingForServer, provisioningTier]);
-
-  /**
-   * Deep Manual Verification
-   */
-  const forceProfileSync = async () => {
-    if (!supabase || !user) return;
-    setIsManualSyncing(true);
-    setStatusMsg(null);
-    
-    try {
-      // 1. Fetch latest profile
-      const { data: profile, error } = await supabase.from('Users').select('*').eq('id', user.id).maybeSingle();
-      if (error) throw error;
-      
-      // 2. Fetch latest payment for context
-      const { data: payRecord } = await supabase
         .from('payments')
         .select('*')
         .eq('user_id', user.id)
@@ -218,8 +171,61 @@ const ProfileDossier: React.FC = () => {
         .limit(1)
         .maybeSingle();
 
-      if (profile) {
-        // Sync local store
+      if (recentPayments && (recentPayments.status === 'pending' || recentPayments.status === 'success')) {
+        setProvisioningTier(recentPayments.tier as Tier);
+        setIsWaitingForServer(true);
+      }
+    };
+    checkRecovery();
+  }, [user?.id, user?.tier]);
+
+  /**
+   * SUCCESS WATCHER: Closes overlay when store updates via App.tsx realtime subscription
+   */
+  useEffect(() => {
+    if (isWaitingForServer && user?.tier && user.tier !== 'free') {
+      setIsWaitingForServer(false);
+      const targetTier = user.tier;
+      setProvisioningTier(null);
+      setStatusMsg({ type: 'success', text: `System Recalibrated: ${targetTier.toUpperCase()} Protocol Active.` });
+    }
+  }, [user?.tier, isWaitingForServer]);
+
+  /**
+   * DEEP MANUAL VERIFICATION
+   * This is the fix for the "unresponsive" button.
+   */
+  const forceProfileSync = async () => {
+    if (!supabase || !user) return;
+    
+    setIsManualSyncing(true);
+    setStatusMsg(null);
+    console.log("Manual Sync Initiated...");
+    
+    try {
+      // 1. Fetch latest profile truth from cloud
+      const { data: profile, error: profError } = await supabase
+        .from('Users')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (profError) throw profError;
+      
+      // 2. Fetch the latest payment attempt for this user
+      const { data: payRecord, error: payError } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (payError) throw payError;
+
+      // 3. Logic Branching based on found data
+      if (profile && profile.tier !== 'free') {
+        // CASE A: User is already upgraded in the DB
         setUser({
           ...user,
           tier: profile.tier,
@@ -228,23 +234,29 @@ const ProfileDossier: React.FC = () => {
           displayName: profile.display_name,
           phone: profile.phone
         });
-
-        if (profile.tier !== 'free') {
-           // Success!
-           setIsWaitingForServer(false);
-           setProvisioningTier(null);
-           setStatusMsg({ type: 'success', text: "Activation Confirmed! Cloud state synchronized." });
-        } else if (payRecord?.status === 'success') {
-           // Payment is success but user tier hasn't flipped - trigger delay
-           setStatusMsg({ type: 'error', text: "Payment confirmed, but profile trigger is latent. Retrying in 10s..." });
-           setTimeout(forceProfileSync, 10000);
+        setIsWaitingForServer(false);
+        setProvisioningTier(null);
+        setStatusMsg({ type: 'success', text: "Activation Confirmed! Cloud state synchronized." });
+      } 
+      else if (payRecord) {
+        if (payRecord.status === 'success') {
+          // CASE B: Payment is success but Trigger hasn't flipped User yet
+          setStatusMsg({ type: 'error', text: "Payment confirmed, but system trigger is latent. Retrying in 10s..." });
+          setTimeout(forceProfileSync, 10000);
         } else {
-           setStatusMsg({ type: 'error', text: "No successful payment detected in ledger. If you just paid, please wait 60 seconds." });
+          // CASE C: Record exists but is still PENDING (Webhook hasn't fired or failed)
+          setStatusMsg({ type: 'error', text: `Reference ${payRecord.reference} is still PENDING. Paystack signal hasn't reached our cloud yet.` });
         }
+      } 
+      else {
+        // CASE D: No record at all
+        setStatusMsg({ type: 'error', text: "No payment attempt found in the vault. Please try activating again." });
+        setIsWaitingForServer(false);
+        setProvisioningTier(null);
       }
     } catch (e: any) {
       console.error("Manual Sync Fault:", e);
-      setStatusMsg({ type: 'error', text: "Protocol Interrupted: Cloud node unreachable." });
+      setStatusMsg({ type: 'error', text: "Network Fault: Connection to Cloud Master Nodes interrupted." });
     } finally {
       setIsManualSyncing(false);
     }
@@ -262,20 +274,13 @@ const ProfileDossier: React.FC = () => {
       onSuccess: async (ref) => {
         try {
           if (supabase) {
-            // Frontend upsert: sets the intent. 
-            // The Edge function will later flip this to 'success'.
-            const { error: upsertError } = await supabase.from('payments').upsert([{
+            await supabase.from('payments').upsert([{
               user_id: user.id,
               tier: tier,
               amount: price,
               reference: ref,
               status: 'pending'
             }], { onConflict: 'reference' });
-
-            if (upsertError) {
-               console.error("Payment Record Collision:", upsertError.message);
-               // We continue anyway since Paystack succeeded
-            }
 
             setProvisioningTier(tier);
             setIsWaitingForServer(true);
