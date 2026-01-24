@@ -42,7 +42,8 @@ export const initiateUpgrade = (options: PaymentOptions) => {
     },
     callback: function(response: any) {
       // Robust reference extraction from Paystack payload
-      const ref = response.reference || response.trxref || response.ref;
+      // In webhooks/callbacks, reference can be top-level or in data
+      const ref = response.reference || response.trxref || (response.data && response.data.reference);
       console.log(`Payment authorized. Local Ref: ${ref}`);
       
       if (ref) {
@@ -63,19 +64,28 @@ export const initiateUpgrade = (options: PaymentOptions) => {
 
 /**
  * Verifies transaction via secure Edge Function.
- * Passing object to invoke() to ensure standard JSON serialization.
+ * Sanitizes input to ensure only a string reference is sent.
  */
-export const verifyTransaction = async (reference: string): Promise<{ status: string }> => {
+export const verifyTransaction = async (reference: any): Promise<{ status: string }> => {
   if (!supabase) throw new Error("Cloud link unavailable");
   if (!reference) throw new Error("Reference verification requires a valid token.");
   
-  // Defensive: Ensure we are passing the clean string
-  const cleanReference = typeof reference === 'string' ? reference : (reference as any).reference;
-  
-  console.log(`[BILLING] Contacting Cloud Node to verify [${cleanReference}]...`);
+  // If the user accidentally passed the whole response object, dig the string out
+  let cleanReference = "";
+  if (typeof reference === 'string') {
+    cleanReference = reference;
+  } else if (reference.reference) {
+    cleanReference = reference.reference;
+  } else if (reference.data && reference.data.reference) {
+    cleanReference = reference.data.reference;
+  }
 
-  // INVOKE: Pass the object directly. Supabase client will handle stringification 
-  // and set Content-Type: application/json correctly.
+  if (!cleanReference) {
+    throw new Error("Could not extract a valid transaction reference from payload.");
+  }
+  
+  console.log(`[BILLING] Verifying [${cleanReference}] with Cloud Node...`);
+
   const { data, error } = await supabase.functions.invoke(`verify-payment`, {
     method: 'POST',
     body: { reference: cleanReference }
