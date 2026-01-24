@@ -6,7 +6,7 @@ import { Tier, CapabilityKey } from '../shared/types.ts';
 import { useUsageQuota } from '../hooks/useUsageQuota.ts';
 import { getTierCapability } from '../services/capabilityService.ts';
 import { initiateUpgrade } from '../subscriptions/paymentService.ts';
-import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, ExternalLink, Activity } from 'lucide-react';
+import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, ExternalLink, Activity, Bug } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
@@ -57,7 +57,7 @@ const NeuralProvisioningOverlay: React.FC<{
 }> = ({ tier, isSyncing, onManualVerify, lastPaymentStatus, paymentRef }) => {
   const [logs, setLogs] = useState<string[]>([]);
   const [showFallback, setShowFallback] = useState(false);
-  const [diagResult, setDiagResult] = useState<string | null>(null);
+  const [diagResult, setDiagResult] = useState<{msg: string, raw?: string} | null>(null);
   
   const sequence = [
     "> INITIALIZING NEURAL HANDSHAKE...",
@@ -88,16 +88,27 @@ const NeuralProvisioningOverlay: React.FC<{
   }, []);
 
   const testConnection = async () => {
+    setDiagResult({ msg: "Probing Cloud Endpoint..." });
     try {
       const resp = await fetch('https://dojvsourwlvvolvmppxx.supabase.co/functions/v1/paystack-webhook');
-      const data = await resp.json();
-      if (data.status === 'Operational') {
-        setDiagResult("System Online: Webhook is deployed correctly.");
-      } else {
-        setDiagResult("Deployment Fault: Webhook is still returning boilerplate.");
+      const text = await resp.text();
+      
+      try {
+        const data = JSON.parse(text);
+        if (data.status === 'Operational') {
+          setDiagResult({ msg: "Status: 200 OK. Deployment verified.", raw: text });
+        } else {
+          setDiagResult({ msg: "Status: Unknown JSON structure.", raw: text });
+        }
+      } catch (e) {
+        // Not JSON - likely the "Hello from Functions" text
+        setDiagResult({ 
+          msg: "CRITICAL: Cloud is still serving boilerplate code.", 
+          raw: text.substring(0, 100) 
+        });
       }
-    } catch (e) {
-      setDiagResult("Network Fault: Could not reach Edge Function.");
+    } catch (e: any) {
+      setDiagResult({ msg: "Network Fault: Could not reach endpoint.", raw: e.message });
     }
   };
 
@@ -139,8 +150,15 @@ const NeuralProvisioningOverlay: React.FC<{
             </div>
 
             {diagResult && (
-              <div className="mb-4 p-4 rounded-xl bg-blue-600/10 border border-blue-500/30 text-blue-400 text-[9px] font-black uppercase tracking-widest text-center">
-                {diagResult}
+              <div className="mb-6 space-y-2">
+                <div className="p-4 rounded-xl bg-blue-600/10 border border-blue-500/30 text-blue-400 text-[9px] font-black uppercase tracking-widest text-center">
+                  {diagResult.msg}
+                </div>
+                {diagResult.raw && (
+                  <div className="p-3 bg-black/40 rounded-lg font-mono text-[8px] text-slate-500 break-all overflow-hidden border border-white/5">
+                    RAW RESPONSE: {diagResult.raw}
+                  </div>
+                )}
               </div>
             )}
             
@@ -159,30 +177,36 @@ const NeuralProvisioningOverlay: React.FC<{
                   onClick={testConnection}
                   className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
                 >
-                  <Activity size={10} /> Test Handshake
+                  <Bug size={10} /> Deep Trace
                 </button>
                 <a 
                   href="https://dashboard.paystack.com" 
                   target="_blank" 
                   className="bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] border border-white/5 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
                 >
-                  Paystack Panel <ExternalLink size={10} />
+                  Paystack Dashboard <ExternalLink size={10} />
                 </a>
               </div>
               
-              <div className="mt-6 p-4 border border-white/5 rounded-xl bg-white/5">
-                <p className="text-[8px] text-slate-500 font-black uppercase tracking-widest mb-3">Critical Diagnostics</p>
-                <ul className="space-y-3">
-                  <li className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex gap-2">
-                    <span className="text-blue-500">1.</span> Run 'supabase functions deploy paystack-webhook'
-                  </li>
-                  <li className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex gap-2">
-                    <span className="text-blue-500">2.</span> Ensure PAYSTACK_SECRET_KEY is set via 'supabase secrets set'
-                  </li>
-                  <li className="text-[8px] text-slate-400 font-bold uppercase tracking-wider flex gap-2">
-                    <span className="text-blue-500">3.</span> Check Paystack Webhook URL matches Supabase URL
-                  </li>
-                </ul>
+              <div className="mt-8 p-5 border border-white/10 rounded-2xl bg-white/5 space-y-4">
+                <div className="flex items-center gap-2">
+                   <Activity size={12} className="text-blue-500" />
+                   <p className="text-[9px] text-slate-400 font-black uppercase tracking-widest">Manual Deployment Guide</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <p className="text-[7px] text-slate-500 font-black uppercase">1. Link Project</p>
+                    <code className="block p-2 bg-black/50 text-[8px] text-blue-400 rounded border border-white/5">supabase link --project-ref dojvsourwlvvolvmppxx</code>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[7px] text-slate-500 font-black uppercase">2. Force Deploy</p>
+                    <code className="block p-2 bg-black/50 text-[8px] text-emerald-400 rounded border border-white/5">supabase functions deploy paystack-webhook --no-verify-jwt</code>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[7px] text-slate-500 font-black uppercase">3. Set Live Secrets</p>
+                    <code className="block p-2 bg-black/50 text-[8px] text-amber-400 rounded border border-white/5">supabase secrets set PAYSTACK_SECRET_KEY=...</code>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
