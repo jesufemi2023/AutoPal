@@ -6,7 +6,7 @@ import { Tier, CapabilityKey } from '../shared/types.ts';
 import { useUsageQuota } from '../hooks/useUsageQuota.ts';
 import { getTierCapability } from '../services/capabilityService.ts';
 import { initiateUpgrade } from '../subscriptions/paymentService.ts';
-import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw } from 'lucide-react';
+import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, ExternalLink } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
@@ -52,7 +52,9 @@ const NeuralProvisioningOverlay: React.FC<{
   tier: Tier; 
   isSyncing: boolean;
   onManualVerify: () => void;
-}> = ({ tier, isSyncing, onManualVerify }) => {
+  lastPaymentStatus?: string;
+  paymentRef?: string;
+}> = ({ tier, isSyncing, onManualVerify, lastPaymentStatus, paymentRef }) => {
   const [logs, setLogs] = useState<string[]>([]);
   const [showFallback, setShowFallback] = useState(false);
   
@@ -76,7 +78,7 @@ const NeuralProvisioningOverlay: React.FC<{
       }
     }, 600);
 
-    const fallbackTimer = setTimeout(() => setShowFallback(true), 8000);
+    const fallbackTimer = setTimeout(() => setShowFallback(true), 6000);
 
     return () => {
       clearInterval(interval);
@@ -108,28 +110,46 @@ const NeuralProvisioningOverlay: React.FC<{
 
         {showFallback && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <div className="bg-blue-500/10 border border-blue-500/20 p-6 rounded-2xl mb-6">
-              <p className="text-[10px] text-blue-300 font-bold uppercase tracking-widest leading-relaxed">
-                Network broadcast stream is delayed. Your payment record exists. Click verify to force a manual environment check.
+            <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-2xl mb-6">
+              <div className="flex items-center gap-3 mb-2">
+                <AlertTriangle size={14} className="text-amber-500" />
+                <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">Network Handshake Delayed</span>
+              </div>
+              <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest leading-relaxed">
+                The settlement signal from Paystack hasn't reached our server yet. Status: <span className="text-amber-400">{lastPaymentStatus || 'Checking...'}</span>
               </p>
-            </div>
-            <button 
-              disabled={isSyncing}
-              onClick={onManualVerify}
-              className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-            >
-              {isSyncing ? (
-                <>
-                  <RefreshCw size={14} className="animate-spin" />
-                  Requesting Sync...
-                </>
-              ) : (
-                <>
-                  <Sparkles size={14} />
-                  Verify Activation Now
-                </>
+              {paymentRef && (
+                <p className="text-[9px] text-slate-500 font-mono mt-2 select-all">Ref: {paymentRef}</p>
               )}
-            </button>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-3">
+              <button 
+                disabled={isSyncing}
+                onClick={onManualVerify}
+                className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                {isSyncing ? (
+                  <>
+                    <RefreshCw size={14} className="animate-spin" />
+                    Checking Protocol Status...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={14} />
+                    Verify Activation Now
+                  </>
+                )}
+              </button>
+              
+              <a 
+                href="https://dashboard.paystack.com" 
+                target="_blank" 
+                className="w-full bg-white/5 text-slate-400 py-3 rounded-xl font-black uppercase tracking-widest text-[8px] transition-all flex items-center justify-center gap-2 hover:bg-white/10"
+              >
+                Check Paystack Dashboard <ExternalLink size={10} />
+              </a>
+            </div>
           </div>
         )}
       </div>
@@ -141,6 +161,8 @@ const ProfileDossier: React.FC = () => {
   const { user, setUser } = useAutoPalStore();
   const [activeTab, setActiveTab] = useState<'identity' | 'license'>('identity');
   const [provisioningTier, setProvisioningTier] = useState<Tier | null>(null);
+  const [lastRef, setLastRef] = useState<string | undefined>();
+  const [lastStatus, setLastStatus] = useState<string | undefined>();
   const [statusMsg, setStatusMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [isWaitingForServer, setIsWaitingForServer] = useState(false);
   const [isManualSyncing, setIsManualSyncing] = useState(false);
@@ -169,6 +191,19 @@ const ProfileDossier: React.FC = () => {
     setStatusMsg(null);
     
     try {
+      // 1. Check the Payment table status first to diagnose the "pending" issue
+      const { data: payment } = await supabase
+        .from('payments')
+        .select('status, reference')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      setLastStatus(payment?.status);
+      setLastRef(payment?.reference);
+
+      // 2. Refresh the User profile
       const { data: profile, error } = await supabase.from('Users').select('*').eq('id', user.id).maybeSingle();
       
       if (error) throw error;
@@ -178,13 +213,21 @@ const ProfileDossier: React.FC = () => {
           ...user,
           tier: profile.tier,
           licenseExpiresAt: profile.license_expires_at,
-          role: profile.role
+          role: profile.role,
+          displayName: profile.display_name,
+          phone: profile.phone
         });
 
         if (profile.tier === provisioningTier) {
           setStatusMsg({ type: 'success', text: "Activation Successful! System state synchronized." });
+          setIsWaitingForServer(false);
+        } else if (payment?.status === 'pending') {
+          setStatusMsg({ 
+            type: 'error', 
+            text: "Handshake Pending: Paystack has not notified our server of the success. Ensure your Webhook URL is set in Paystack Settings." 
+          });
         } else {
-          setStatusMsg({ type: 'error', text: "Confirmation still pending from Paystack. Please wait 60 seconds." });
+          setStatusMsg({ type: 'error', text: "Confirmation still pending from cloud provider. Please wait 60 seconds." });
         }
       }
     } catch (e: any) {
@@ -216,8 +259,10 @@ const ProfileDossier: React.FC = () => {
             if (insertError) throw insertError;
 
             setProvisioningTier(tier);
+            setLastRef(ref);
+            setLastStatus('pending');
             setIsWaitingForServer(true);
-            setStatusMsg({ type: 'success', text: 'Payment Received. Calibrating system...' });
+            setStatusMsg({ type: 'success', text: 'Payment Recorded. Awaiting Neural Handshake...' });
           }
         } catch (err: any) {
           console.error("Billing Security Fault:", err);
@@ -266,6 +311,8 @@ const ProfileDossier: React.FC = () => {
           tier={provisioningTier} 
           isSyncing={isManualSyncing}
           onManualVerify={forceProfileSync}
+          lastPaymentStatus={lastStatus}
+          paymentRef={lastRef}
         />
       )}
 
@@ -298,8 +345,14 @@ const ProfileDossier: React.FC = () => {
       </header>
 
       {statusMsg && (
-        <div className={`p-5 rounded-2xl text-[10px] font-black uppercase tracking-widest border animate-in slide-in-from-top-4 ${statusMsg.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
-          {statusMsg.type === 'success' ? '✓' : '⚠️'} {statusMsg.text}
+        <div className={`p-6 rounded-[2rem] text-[10px] font-black uppercase tracking-widest border-2 animate-in slide-in-from-top-4 ${statusMsg.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose-50 border-rose-100 text-rose-600'}`}>
+          <div className="flex items-start gap-4">
+            <span className="text-lg">{statusMsg.type === 'success' ? '✓' : '⚠️'}</span>
+            <div className="space-y-1">
+              <p className="leading-relaxed">{statusMsg.text}</p>
+              {statusMsg.type === 'error' && lastRef && <p className="text-[8px] opacity-60 font-mono">Reference: {lastRef}</p>}
+            </div>
+          </div>
         </div>
       )}
 
