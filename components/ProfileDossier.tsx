@@ -248,17 +248,24 @@ const ProfileDossier: React.FC = () => {
       onSuccess: async (ref) => {
         try {
           if (supabase) {
-            // FIX: Use .upsert() instead of .insert() to handle race conditions where the 
-            // Webhook might have already created the record.
-            const { error: upsertError } = await supabase.from('payments').upsert([{
+            // STRATEGY: Use .insert() but ignore "Duplicate Key" errors.
+            // This handles the case where the Webhook (Edge Function) already 
+            // created the record with status='success'.
+            const { error: insertError } = await supabase.from('payments').insert([{
               user_id: user.id,
               tier: tier,
               amount: price,
               reference: ref,
               status: 'pending'
-            }], { onConflict: 'reference' });
+            }]);
 
-            if (upsertError) throw upsertError;
+            // Code 23505 = Unique Violation (Record already exists)
+            // Code P0001 = RLS Violation (Webhook already set status to 'success', and user can't update it)
+            const isIgnorableError = insertError?.code === '23505' || insertError?.message?.includes('violates row-level security');
+            
+            if (insertError && !isIgnorableError) {
+               throw insertError;
+            }
 
             setProvisioningTier(tier);
             setLastRef(ref);
