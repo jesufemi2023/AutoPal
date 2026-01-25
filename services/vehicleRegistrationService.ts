@@ -44,7 +44,7 @@ export const initializeVehicleAsset = async (
 };
 
 /** Phase 2: Generate proposed tasks (Template -> AI) */
-export const prepareProposedRoadmap = async (vehicle: Vehicle): Promise<{ tasks: Omit<MaintenanceTask, 'id'>[], isNewTemplate: boolean }> => {
+export const prepareProposedRoadmap = async (vehicle: Vehicle): Promise<{ tasks: Omit<MaintenanceTask, 'id'>[], isNewTemplate: boolean, rawRoadmap?: any }> => {
   try {
     let roadmap = await getCachedRoadmap(vehicle.make, vehicle.model, vehicle.year);
     let isNewTemplate = false;
@@ -59,14 +59,29 @@ export const prepareProposedRoadmap = async (vehicle: Vehicle): Promise<{ tasks:
       isNewTemplate = true;
     }
 
-    const tasks = roadmap.tasks.map(t => ({
-      ...t,
-      vehicleId: vehicle.id,
-      status: 'pending' as const,
-      isDirty: false
-    }));
+    const tasks = roadmap.tasks.map(t => {
+      // ARCHITECTURAL FIX: Odometer Normalization
+      // We ignore the absolute 'dueMileage' from the template (which belonged to the first user).
+      // We calculate a fresh 'dueMileage' relative to THIS vehicle's current odometer.
+      const interval = t.intervalKm || 5000;
+      const normalizedDueMileage = vehicle.mileage + interval;
 
-    return { tasks, isNewTemplate };
+      // Calculate a fresh 'dueDate' relative to today.
+      const intervalMonths = t.intervalMonths || 6;
+      const normalizedDueDate = new Date();
+      normalizedDueDate.setMonth(normalizedDueDate.getMonth() + intervalMonths);
+
+      return {
+        ...t,
+        vehicleId: vehicle.id,
+        dueMileage: normalizedDueMileage,
+        dueDate: normalizedDueDate.toISOString().split('T')[0],
+        status: 'pending' as const,
+        isDirty: false
+      };
+    });
+
+    return { tasks, isNewTemplate, rawRoadmap: roadmap };
   } catch (e) {
     console.error("Roadmap generation failed, falling back to empty list", e);
     return { tasks: [], isNewTemplate: false };
@@ -74,9 +89,17 @@ export const prepareProposedRoadmap = async (vehicle: Vehicle): Promise<{ tasks:
 };
 
 /** Phase 3: Commit the user-audited roadmap */
-export const commitFinalRoadmap = async (vehicle: Vehicle, tasks: Omit<MaintenanceTask, 'id'>[], isNewTemplate: boolean) => {
+export const commitFinalRoadmap = async (vehicle: Vehicle, tasks: Omit<MaintenanceTask, 'id'>[], isNewTemplate: boolean, rawRoadmap?: any) => {
+  // 1. Persist tasks to the local/cloud database
   await createMaintenanceTasksBatch(tasks);
   
-  // If this was a fresh AI generation, we cache it for the next user of this car model
-  // Note: We don't cache user's 'custom' manual additions to prevent cluttering the global template.
+  // 2. If this was a fresh AI generation, we cache it in the roadmap_templates table
+  // to serve the next pilot of this car model without hitting the Gemini API.
+  if (isNewTemplate && rawRoadmap) {
+    try {
+      await saveRoadmapTemplate(vehicle.make, vehicle.model, vehicle.year, rawRoadmap);
+    } catch (cacheErr) {
+      console.warn("Template Factory: Failed to store new model pattern.", cacheErr);
+    }
+  }
 };
