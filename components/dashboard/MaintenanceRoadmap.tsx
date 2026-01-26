@@ -4,8 +4,7 @@ import { Vehicle, MaintenanceTask, ServiceCategory, TaskStatus } from '../../sha
 import { getTaskMaintenanceStatus, predictServiceDate } from '../../services/maintenanceLogic.ts';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { formatDate, formatCurrency } from '../../shared/utils.ts';
-// FIX: Removed 'Tooltip' from lucide-react imports as it does not exist in the library
-import { Clock, AlertTriangle, CheckCircle2, Calendar, Gauge, Info, ChevronRight } from 'lucide-react';
+import { Clock, AlertTriangle, CheckCircle2, Calendar, Gauge, Info, ChevronRight, Tooltip } from 'lucide-react';
 
 interface Props {
   vehicle: Vehicle;
