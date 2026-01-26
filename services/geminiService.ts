@@ -9,6 +9,7 @@ import {
 
 /**
  * Proxy Bridge to Supabase Edge Function
+ * This prevents exposure of the API_KEY to the client-side bundle.
  */
 const invokeAIProxy = async (action: string, payload: any) => {
   if (!supabase) throw new Error("Cloud synchronization offline.");
@@ -17,15 +18,30 @@ const invokeAIProxy = async (action: string, payload: any) => {
     body: { action, payload }
   });
 
+  // Handle network or Edge Function execution errors
   if (error) {
-    console.error("AI Proxy Error:", error);
+    console.error("AI Proxy Network Fault:", error);
     if (error.message?.includes("429") || error.message?.includes("quota")) {
-      throw new Error("QUOTA_EXHAUSTED: System capacity reached. Retry in 60s.");
+      throw new Error("QUOTA_EXHAUSTED: Neural capacity reached. Retry in 60s.");
     }
-    throw new Error(error.message || "Neural Handshake Failed.");
+    throw new Error(error.message || "Neural Handshake Failed. Check your connection.");
   }
 
-  return JSON.parse(data.text || "{}");
+  // Handle errors returned inside the successful response body
+  if (data?.error) {
+    throw new Error(`Neural Logic Error: ${data.error}`);
+  }
+
+  if (!data?.text) {
+    throw new Error("Neural link returned empty data sequence.");
+  }
+
+  try {
+    return JSON.parse(data.text);
+  } catch (e) {
+    console.warn("Proxy returned non-JSON text, returning raw string:", data.text);
+    return data.text;
+  }
 };
 
 export const generateAIValuation = async (

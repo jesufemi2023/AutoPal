@@ -3,21 +3,21 @@ declare const Deno: any;
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { GoogleGenAI, Type } from "https://esm.sh/@google/genai@1.3.0"
-import process from "node:process"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 serve(async (req) => {
+  // Handle CORS Preflight - Critical to prevent net::ERR_FAILED
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
     // 1. JWT Authentication Guard
-    // Supabase Edge Functions provide the user's JWT in the Authorization header.
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized: Neural link requires active pilot session." }), { 
@@ -26,10 +26,16 @@ serve(async (req) => {
       });
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    // Use Deno-native environment retrieval
+    const apiKey = Deno.env.get('API_KEY');
+    if (!apiKey) {
+      throw new Error("Missing API_KEY in Supabase Secrets vault.");
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
     const { action, payload } = await req.json();
 
-    // 2. Sanitization Layer (Prompt Injection Prevention)
+    // 2. Security Sanitization
     const promptString = JSON.stringify(payload).toLowerCase();
     const dangerousPatterns = ["ignore all previous", "developer mode", "system prompt", "you are now a"];
     if (dangerousPatterns.some(p => promptString.includes(p))) {
@@ -48,7 +54,7 @@ serve(async (req) => {
       case 'VALUATION':
         modelName = 'gemini-3-pro-preview';
         systemInstruction = `You are the AutoPal NG Neural Audit Engine. Perform a 4-quadrant mechanical & financial audit. Response must be valid JSON.`;
-        contents = JSON.stringify(payload);
+        contents = [{ role: 'user', parts: [{ text: JSON.stringify(payload) }] }];
         config.responseSchema = {
           type: Type.OBJECT,
           properties: {
@@ -67,7 +73,7 @@ serve(async (req) => {
 
       case 'ROADMAP':
         systemInstruction = payload.systemInstruction;
-        contents = payload.userPrompt;
+        contents = [{ role: 'user', parts: [{ text: payload.userPrompt }] }];
         config.responseSchema = {
           type: Type.OBJECT,
           properties: {
@@ -79,17 +85,17 @@ serve(async (req) => {
 
       case 'VIN_DECODE':
         systemInstruction = `You are a specialized automotive identification expert. Return JSON: { make, model, year, bodyType }.`;
-        contents = `Chassis Number (VIN) to analyze: ${payload.vin}`;
+        contents = [{ role: 'user', parts: [{ text: `Decode: ${payload.vin}` }] }];
         break;
 
       case 'DIAGNOSTIC':
         modelName = 'gemini-3-pro-preview';
         systemInstruction = `You are a world-class diagnostic mechanic. Assess severity and provide safety advice with required parts.`;
-        const parts = [{ text: payload.prompt }];
+        const diagParts: any[] = [{ text: payload.prompt }];
         if (payload.imageBase64) {
-          parts.push({ inlineData: { mimeType: "image/jpeg", data: payload.imageBase64 } } as any);
+          diagParts.push({ inlineData: { mimeType: "image/jpeg", data: payload.imageBase64 } });
         }
-        contents = { parts };
+        contents = [{ role: 'user', parts: diagParts }];
         config.responseSchema = {
           type: Type.OBJECT,
           properties: {
@@ -102,7 +108,7 @@ serve(async (req) => {
         break;
    
       default:
-        throw new Error("Invalid action protocol.");
+        throw new Error("Invalid action protocol requested.");
     }
 
     const response = await ai.models.generateContent({
@@ -111,12 +117,17 @@ serve(async (req) => {
       config: { ...config, systemInstruction }
     });
 
+    if (!response.text) {
+      throw new Error("Neural Engine failed to generate response text.");
+    }
+
     return new Response(JSON.stringify({ text: response.text }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
 
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), {
+    console.error("Neural Proxy Fault:", err.message);
+    return new Response(JSON.stringify({ error: err.message || "Internal Brain Failure" }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
