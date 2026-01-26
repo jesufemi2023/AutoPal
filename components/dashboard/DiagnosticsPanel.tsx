@@ -4,6 +4,7 @@ import { AIResponse, Vehicle } from '../../shared/types.ts';
 import { TierGuard } from '../TierGuard.tsx';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { logFeatureUsage } from '../../services/usageService.ts';
+import { RefreshCw } from 'lucide-react';
 
 interface Props {
   vehicle: Vehicle;
@@ -32,10 +33,15 @@ export const DiagnosticsPanel: React.FC<Props> = ({
         await logFeatureUsage(user.id, 'ai_mechanic_monthly');
       }
     } catch (e: any) {
-      if (e.message.includes("QUOTA_EXHAUSTED")) {
-        setLocalError("Google API Quota reached. Please wait 60 seconds and try again.");
+      console.error("AI Diag Fault:", e);
+      const errorMsg = e.message || "A neural link error occurred.";
+      
+      if (errorMsg.includes("QUOTA_EXHAUSTED")) {
+        setLocalError("Monthly limit reached. Upgrade for more diagnostic capacity.");
+      } else if (errorMsg.includes("401")) {
+        setLocalError("Authentication failed. Please sign out and sign back in.");
       } else {
-        setLocalError(e.message || "A neural link error occurred.");
+        setLocalError(`Neural Link Error: ${errorMsg}`);
       }
     }
   };
@@ -70,8 +76,11 @@ export const DiagnosticsPanel: React.FC<Props> = ({
         )}
         
         {localError && (
-          <div className="mb-6 p-4 bg-rose-500/20 border border-rose-500/30 rounded-xl text-rose-400 text-[10px] font-black uppercase tracking-widest text-center animate-in slide-in-from-top-2">
-            ⚠️ {localError}
+          <div className="mb-6 p-4 bg-rose-500/20 border border-rose-500/30 rounded-xl text-rose-400 text-[10px] font-black uppercase tracking-widest text-center animate-in slide-in-from-top-2 flex flex-col items-center gap-2">
+            <span>⚠️ {localError}</span>
+            <button onClick={handleAnalyzeWithUsage} className="flex items-center gap-2 text-blue-400 hover:underline">
+               <RefreshCw size={10} /> Retry Request
+            </button>
           </div>
         )}
 

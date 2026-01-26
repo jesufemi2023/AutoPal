@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Vehicle, MaintenanceTask, ServiceLog, FuelLog } from '../../shared/types.ts';
 import { generateAIValuation } from '../../services/geminiService.ts';
@@ -6,7 +7,7 @@ import { useAutoPalStore } from '../../shared/store.ts';
 import { logFeatureUsage } from '../../services/usageService.ts';
 import { TierGuard } from '../TierGuard.tsx';
 import { useUsageQuota } from '../../hooks/useUsageQuota.ts';
-import { AlertCircle, Zap, ShieldCheck, BarChart3, ShoppingCart } from 'lucide-react';
+import { AlertCircle, Zap, ShieldCheck, BarChart3, ShoppingCart, RefreshCw } from 'lucide-react';
 
 const LOADING_STAGES = [
   "Synchronizing Vehicle Telemetry...",
@@ -28,12 +29,9 @@ export const ResaleValuationCard: React.FC<{
   const [loadingStage, setLoadingStage] = useState(0);
   const [localError, setLocalError] = useState<string | null>(null);
   
-  // Track Quota for the UI
   const quota = useUsageQuota('AI_SCAN_MONTHLY');
-
   const cachedReport = vehicle.latestAiAudit;
 
-  // Cycle through loading messages to improve UX perceived speed
   useEffect(() => {
     let interval: number;
     if (isAnalyzing) {
@@ -55,15 +53,12 @@ export const ResaleValuationCard: React.FC<{
     setLoadingStage(0);
 
     try {
-      // 1. Perform AI Analysis
       const report = await generateAIValuation(vehicle, tasks, serviceLogs, fuelLogs);
       
-      // 2. Log Usage (This hits the Database Governor)
       if (user?.id) {
         await logFeatureUsage(user.id, 'ai_scan_monthly');
       }
 
-      // 3. Persist and Update Store
       const updatedVehicle = await updateVehicle(vehicle.id, { 
         latestAiAudit: report,
         healthScore: report.auditedScores.vitality 
@@ -72,29 +67,27 @@ export const ResaleValuationCard: React.FC<{
       updateVehicleStore(updatedVehicle);
     } catch (e: any) {
       console.error("Audit Fault:", e);
-      if (e.message?.includes("QUOTA_EXHAUSTED")) {
-        setLocalError("Monthly scan limit fulfilled. Your data is safe; upgrade your license for further audits.");
+      // EXPOSING THE REAL ERROR: This helps the user know if it's an API Key issue vs a network issue
+      const errorMsg = e.message || "Unknown Neural Link Error";
+      
+      if (errorMsg.includes("QUOTA_EXHAUSTED")) {
+        setLocalError("Monthly scan limit fulfilled. Upgrade your license for further audits.");
+      } else if (errorMsg.includes("401") || errorMsg.includes("AUTH_REQUIRED")) {
+        setLocalError("Session Expired: Please sign out and sign back in to refresh your security token.");
       } else {
-        setLocalError("Neural Link Interrupted. The system state has been reset. Please try again.");
+        setLocalError(`System Block: ${errorMsg}`);
       }
     } finally {
-      // CRITICAL: Ensure loading is ALWAYS disabled
       setIsAnalyzing(false);
     }
   };
 
   const gradeColors = {
-    'A+': 'text-emerald-400',
-    'A': 'text-emerald-500',
-    'B': 'text-blue-400',
-    'C': 'text-amber-500',
-    'D': 'text-rose-500'
+    'A+': 'text-emerald-400', 'A': 'text-emerald-500', 'B': 'text-blue-400', 'C': 'text-amber-500', 'D': 'text-rose-500'
   };
 
   const severityColors = {
-    'normal': 'bg-blue-500',
-    'advisory': 'bg-amber-500',
-    'critical': 'bg-rose-500'
+    'normal': 'bg-blue-500', 'advisory': 'bg-amber-500', 'critical': 'bg-rose-500'
   };
 
   const isLegacyReport = !!(cachedReport && (
@@ -118,7 +111,7 @@ export const ResaleValuationCard: React.FC<{
             </div>
           </div>
           <div className="space-y-4">
-            <h4 className="text-2xl font-black tracking-tighter uppercase transition-all duration-500">AI Condition Audit</h4>
+            <h4 className="text-2xl font-black tracking-tighter uppercase">AI Condition Audit</h4>
             <div className="flex flex-col items-center gap-2">
               <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.4em] animate-bounce">
                 {LOADING_STAGES[loadingStage]}
@@ -135,43 +128,36 @@ export const ResaleValuationCard: React.FC<{
     return (
       <section className="bg-slate-950 rounded-[2.5rem] p-10 text-white relative overflow-hidden shadow-2xl group border border-white/5 w-full h-full flex flex-col min-h-[400px] items-center justify-center text-center">
         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-blue-600/5 blur-[120px] rounded-full"></div>
-        <div className="space-y-8 max-w-sm relative z-10">
+        <div className="space-y-8 max-w-md relative z-10">
           <div className={`w-20 h-20 rounded-[2rem] flex items-center justify-center text-3xl mx-auto border ${localError ? 'bg-rose-500/10 border-rose-500/20 text-rose-500' : 'bg-blue-600/10 border-blue-500/20 text-blue-400'}`}>
             {localError ? <AlertCircle size={32} /> : '✧'}
           </div>
           <div className="space-y-3">
             <h4 className={`text-2xl font-black tracking-tighter uppercase ${localError ? 'text-rose-400' : 'text-white'}`}>
-              {localError ? 'System Block' : (isLegacyReport ? 'Audit Refresh Required' : 'Condition Scan Inactive')}
+              {localError ? 'Diagnostic Error' : (isLegacyReport ? 'Audit Update Ready' : 'Condition Scan Inactive')}
             </h4>
-            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-              {localError || (isLegacyReport 
-                ? 'Your audit profile is legacy. Re-scan to unlock advanced financial and mechanical projections.' 
-                : 'Perform a deep mechanical audit to certify your car\'s market value and detect hidden inefficiency.')}
-            </p>
+            <div className="bg-slate-900/50 p-4 rounded-xl border border-white/5">
+              <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                {localError || (isLegacyReport 
+                  ? 'Your profile requires a system update to unlock advanced financial projections.' 
+                  : 'Perform a neural audit to certify market value.')}
+              </p>
+            </div>
           </div>
           
           <div className="space-y-4">
             <button 
               onClick={handleAiAnalysis} 
-              disabled={!!(localError && !isLegacyReport)}
-              className={`w-full py-10 rounded-[2.5rem] font-black uppercase tracking-[0.4em] text-[13px] shadow-2xl active:scale-95 transition-all mt-6 border-2 group flex flex-col items-center gap-3 ${localError && !isLegacyReport ? 'bg-slate-900 border-slate-800 text-slate-600 grayscale cursor-not-allowed' : 'bg-blue-600 text-white border-blue-400/30 hover:bg-blue-500 shadow-blue-600/20'}`}
+              className={`w-full py-8 rounded-[2rem] font-black uppercase tracking-[0.4em] text-[12px] shadow-2xl active:scale-95 transition-all mt-4 border-2 group flex flex-col items-center gap-3 ${localError?.includes("limit") ? 'bg-slate-900 border-slate-800 text-slate-600 grayscale cursor-not-allowed' : 'bg-blue-600 text-white border-blue-400/30 hover:bg-blue-500 shadow-blue-600/20'}`}
             >
               <div className="flex items-center justify-center gap-4">
-                <span className="text-2xl group-hover:scale-125 transition-transform">✧</span>
-                {isLegacyReport ? 'Run Full System Update' : 'Initialize Deep Scan'}
+                {localError ? <RefreshCw size={20} /> : <span className="text-2xl">✧</span>}
+                {localError ? 'Retry Neural Link' : (isLegacyReport ? 'Run System Update' : 'Initialize Scan')}
               </div>
-              {!localError && (
-                <span className="text-[8px] font-black opacity-60 tracking-widest">
-                  Capacity: {quota.limit - quota.current}/{quota.limit} Scans Remaining
-                </span>
-              )}
             </button>
-            {localError && (
-              <button 
-                onClick={() => setCurrentView('profile')}
-                className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:underline"
-              >
-                View Pilot Upgrade Options →
+            {localError?.includes("Session") && (
+              <button onClick={() => window.location.reload()} className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:underline">
+                Refresh Page To Clear State
               </button>
             )}
           </div>
@@ -182,12 +168,8 @@ export const ResaleValuationCard: React.FC<{
 
   return (
     <div className="w-full h-full space-y-6 flex flex-col animate-in fade-in duration-700">
-      {/* Top Value Card */}
-      <section 
-        className="bg-slate-950 rounded-[2.5rem] p-8 sm:p-10 text-white relative overflow-hidden shadow-2xl border border-white/10 shrink-0 group"
-        title="Current resale value based on regional market trends, history confidence, and condition."
-      >
-        <div className="absolute top-0 right-0 p-10 opacity-[0.03] font-black text-9xl pointer-events-none uppercase transition-transform group-hover:scale-110 duration-1000">{cachedReport.marketGrade}</div>
+      <section className="bg-slate-950 rounded-[2.5rem] p-8 sm:p-10 text-white relative overflow-hidden shadow-2xl border border-white/10 shrink-0 group">
+        <div className="absolute top-0 right-0 p-10 opacity-[0.03] font-black text-9xl pointer-events-none select-none uppercase transition-transform group-hover:scale-110 duration-1000">{cachedReport.marketGrade}</div>
         <div className="flex justify-between items-start relative z-10">
           <div className="space-y-6">
              <div className="flex items-center gap-3">
@@ -230,14 +212,8 @@ export const ResaleValuationCard: React.FC<{
         </div>
       </section>
 
-      {/* Deep Intelligence Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-grow">
-        
-        {/* CARD 1: FUEL ANALYSIS */}
-        <div 
-          className="bg-white rounded-[2rem] p-8 border border-slate-100 space-y-6 shadow-sm hover:shadow-md transition-shadow"
-          title="Comparison of real-world consumption against benchmarks."
-        >
+        <div className="bg-white rounded-[2rem] p-8 border border-slate-100 space-y-6 shadow-sm">
            <div className="flex justify-between items-center">
               <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">Fuel Usage Report</h4>
               <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase ${cachedReport.metabolicAudit?.efficiencyTrend === 'improving' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
@@ -262,11 +238,7 @@ export const ResaleValuationCard: React.FC<{
            </div>
         </div>
 
-        {/* CARD 2: AI CONDITION DIAGNOSTICS */}
-        <div 
-          className="bg-white rounded-[2rem] p-8 border border-slate-100 space-y-6 shadow-sm relative overflow-hidden hover:shadow-md transition-shadow"
-          title="Hidden mechanical issues detected by neural correlation."
-        >
+        <div className="bg-white rounded-[2rem] p-8 border border-slate-100 space-y-6 shadow-sm relative overflow-hidden">
            <div className="flex justify-between items-center">
               <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">Diagnostic Summary</h4>
               <div className="flex items-center gap-2">
@@ -286,11 +258,7 @@ export const ResaleValuationCard: React.FC<{
            </div>
         </div>
 
-        {/* CARD 3: RECOMMENDED PARTS */}
-        <div 
-          className="bg-slate-900 rounded-[2rem] p-8 text-white space-y-6 shadow-xl"
-          title="AI-identified parts to restore health."
-        >
+        <div className="bg-slate-900 rounded-[2rem] p-8 text-white space-y-6 shadow-xl">
            <div className="flex justify-between items-center">
               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">Critical Components</h4>
               <ShoppingCart size={14} className="text-slate-600" />
@@ -311,11 +279,7 @@ export const ResaleValuationCard: React.FC<{
            </div>
         </div>
 
-        {/* CARD 4: OWNERSHIP STRATEGY */}
-        <div 
-          className="bg-blue-600 rounded-[2rem] p-8 text-white space-y-6 shadow-xl shadow-blue-600/20"
-          title="Actionable steps to maximize value."
-        >
+        <div className="bg-blue-600 rounded-[2rem] p-8 text-white space-y-6 shadow-xl shadow-blue-600/20">
            <h4 className="text-[10px] font-black text-blue-100 uppercase tracking-[0.3em]">Owner Strategy</h4>
            <div className="space-y-4">
               {cachedReport.strategicInsights?.slice(0, 3).map((insight, i) => (
@@ -324,12 +288,11 @@ export const ResaleValuationCard: React.FC<{
                    <p className="text-[11px] font-bold leading-relaxed">{insight}</p>
                 </div>
               )) || (
-                <div className="py-6 text-center opacity-60 text-[9px] font-black uppercase">Building Strategy...</div>
+                <div className="py-6 text-center opacity-40 text-[9px] font-black uppercase">Building Strategy...</div>
               )}
            </div>
         </div>
 
-        {/* RE-SCAN BUTTON */}
         <div className="lg:col-span-2 pt-6">
            <button 
              onClick={handleAiAnalysis} 
