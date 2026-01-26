@@ -14,20 +14,34 @@ import {
 const invokeAIProxy = async (action: string, payload: any) => {
   if (!supabase) throw new Error("Cloud synchronization offline.");
   
+  // 1. Pre-flight Session Validation
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error("AUTH_REQUIRED: Please sign in to establish a secure neural link.");
+  }
+
+  // 2. Invoke Function (SDK automatically attaches Authorization: Bearer JWT)
   const { data, error } = await supabase.functions.invoke('gemini-proxy', {
     body: { action, payload }
   });
 
-  // Handle network or Edge Function execution errors
+  // 3. Handle Network or System Errors
   if (error) {
     console.error("AI Proxy Network Fault:", error);
+    
+    // Catch the 401 specifically to provide better UX
+    if (error.message?.includes("401") || (error as any).status === 401) {
+      throw new Error("SESSION_EXPIRED: Your security token is invalid. Please re-login.");
+    }
+    
     if (error.message?.includes("429") || error.message?.includes("quota")) {
       throw new Error("QUOTA_EXHAUSTED: Neural capacity reached. Retry in 60s.");
     }
+    
     throw new Error(error.message || "Neural Handshake Failed. Check your connection.");
   }
 
-  // Handle errors returned inside the successful response body
+  // 4. Handle Logic Errors from inside the function
   if (data?.error) {
     throw new Error(`Neural Logic Error: ${data.error}`);
   }
