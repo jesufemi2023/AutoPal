@@ -11,45 +11,43 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS Preflight - Critical to prevent net::ERR_FAILED
+  // 1. Handle CORS Preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    // 1. JWT Authentication Guard
+    const { action, payload } = await req.json();
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized: Neural link requires active pilot session." }), { 
+    
+    // DEBUG: Log the presence of the auth header to function console
+    console.log(`[Neural-Handshake] Action: ${action}, Authorized: ${!!authHeader}`);
+
+    // 2. Hybrid Security Policy
+    // Roadmaps and VIN Decoding are "Public Pass" actions to drive conversion.
+    // Diagnostics and Valuations require an active Pilot Session (JWT).
+    const isPublicAction = ['ROADMAP', 'VIN_DECODE'].includes(action);
+    
+    if (!authHeader && !isPublicAction) {
+      console.error("[Security-Fault] Blocked unauthorized attempt on restricted action:", action);
+      return new Response(JSON.stringify({ 
+        error: "Unauthorized: Neural link requires active pilot session for this action." 
+      }), { 
         status: 401, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
 
-    // Use Deno-native environment retrieval
     const apiKey = Deno.env.get('API_KEY');
-    if (!apiKey) {
-      throw new Error("Missing API_KEY in Supabase Secrets vault.");
-    }
+    if (!apiKey) throw new Error("Neural Engine configuration missing (API_KEY).");
 
     const ai = new GoogleGenAI({ apiKey });
-    const { action, payload } = await req.json();
-
-    // 2. Security Sanitization
-    const promptString = JSON.stringify(payload).toLowerCase();
-    const dangerousPatterns = ["ignore all previous", "developer mode", "system prompt", "you are now a"];
-    if (dangerousPatterns.some(p => promptString.includes(p))) {
-      return new Response(JSON.stringify({ error: "Security Policy Violation: Malicious command detected." }), { 
-        status: 403, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      });
-    }
-
     let modelName = 'gemini-3-flash-preview';
     let config: any = { responseMimeType: "application/json" };
     let contents: any;
     let systemInstruction = "";
 
+    // 3. Action Protocol Routing
     switch (action) {
       case 'VALUATION':
         modelName = 'gemini-3-pro-preview';
@@ -85,7 +83,7 @@ serve(async (req) => {
 
       case 'VIN_DECODE':
         systemInstruction = `You are a specialized automotive identification expert. Return JSON: { make, model, year, bodyType }.`;
-        contents = [{ role: 'user', parts: [{ text: `Decode: ${payload.vin}` }] }];
+        contents = [{ role: 'user', parts: [{ text: `Decode VIN: ${payload.vin}` }] }];
         break;
 
       case 'DIAGNOSTIC':
@@ -116,10 +114,6 @@ serve(async (req) => {
       contents,
       config: { ...config, systemInstruction }
     });
-
-    if (!response.text) {
-      throw new Error("Neural Engine failed to generate response text.");
-    }
 
     return new Response(JSON.stringify({ text: response.text }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

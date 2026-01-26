@@ -14,24 +14,26 @@ import {
 const invokeAIProxy = async (action: string, payload: any) => {
   if (!supabase) throw new Error("Cloud synchronization offline.");
   
-  // 1. Pre-flight Session Validation
+  // 1. Explicitly retrieve the active session token
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    throw new Error("AUTH_REQUIRED: Please sign in to establish a secure neural link.");
-  }
+  const token = session?.access_token;
 
-  // 2. Invoke Function (SDK automatically attaches Authorization: Bearer JWT)
+  // 2. Invoke Function with Hard-Bound Authorization Header
+  // This bypasses SDK auto-detection which can sometimes fail in certain environments.
   const { data, error } = await supabase.functions.invoke('gemini-proxy', {
-    body: { action, payload }
+    body: { action, payload },
+    headers: token ? {
+      Authorization: `Bearer ${token}`
+    } : {}
   });
 
   // 3. Handle Network or System Errors
   if (error) {
     console.error("AI Proxy Network Fault:", error);
     
-    // Catch the 401 specifically to provide better UX
+    // Explicitly handle the 401 from the function for better UX
     if (error.message?.includes("401") || (error as any).status === 401) {
-      throw new Error("SESSION_EXPIRED: Your security token is invalid. Please re-login.");
+      throw new Error("AUTH_REQUIRED: Your secure session has expired. Please sign out and sign back in to refresh your neural link.");
     }
     
     if (error.message?.includes("429") || error.message?.includes("quota")) {
@@ -41,7 +43,7 @@ const invokeAIProxy = async (action: string, payload: any) => {
     throw new Error(error.message || "Neural Handshake Failed. Check your connection.");
   }
 
-  // 4. Handle Logic Errors from inside the function
+  // 4. Handle logic errors inside response
   if (data?.error) {
     throw new Error(`Neural Logic Error: ${data.error}`);
   }
