@@ -24,22 +24,29 @@ serve(async (req) => {
     console.log(`[Neural-Handshake] Action: ${action}, Authorized: ${!!authHeader}`);
 
     // 2. Hybrid Security Policy
-    // Roadmaps and VIN Decoding are "Public Pass" actions to drive conversion.
-    // Diagnostics and Valuations require an active Pilot Session (JWT).
     const isPublicAction = ['ROADMAP', 'VIN_DECODE'].includes(action);
     
     if (!authHeader && !isPublicAction) {
       console.error("[Security-Fault] Blocked unauthorized attempt on restricted action:", action);
+      // Return 200 with error so the SDK doesn't mask it
       return new Response(JSON.stringify({ 
-        error: "Unauthorized: Neural link requires active pilot session for this action." 
+        error: "AUTHENTICATION_FAILED: Neural link requires an active pilot session. Please sign out and sign back in to refresh your token." 
       }), { 
-        status: 401, 
+        status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       });
     }
 
     const apiKey = Deno.env.get('API_KEY');
-    if (!apiKey) throw new Error("Neural Engine configuration missing (API_KEY).");
+    if (!apiKey) {
+      console.error("[Config-Fault] API_KEY missing in Supabase Secrets.");
+      return new Response(JSON.stringify({ 
+        error: "CONFIGURATION_ERROR: The Gemini API Key is missing in Supabase Secrets. Please run 'supabase secrets set API_KEY=xxx' in your terminal." 
+      }), { 
+        status: 200, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      });
+    }
 
     const ai = new GoogleGenAI({ apiKey });
     let modelName = 'gemini-3-flash-preview';
@@ -51,7 +58,7 @@ serve(async (req) => {
     switch (action) {
       case 'VALUATION':
         modelName = 'gemini-3-pro-preview';
-        systemInstruction = `You are the AutoPal NG Neural Audit Engine. Perform a 4-quadrant mechanical & financial audit. Response must be valid JSON.`;
+        systemInstruction = `You are the AutoPal NG Neural Audit Engine. Perform a 4-quadrant mechanical & financial audit based on provided vehicle history. Response must be valid JSON matching the requested schema.`;
         contents = [{ role: 'user', parts: [{ text: JSON.stringify(payload) }] }];
         config.responseSchema = {
           type: Type.OBJECT,
@@ -88,7 +95,7 @@ serve(async (req) => {
 
       case 'DIAGNOSTIC':
         modelName = 'gemini-3-pro-preview';
-        systemInstruction = `You are a world-class diagnostic mechanic. Assess severity and provide safety advice with required parts.`;
+        systemInstruction = `You are a world-class diagnostic mechanic. Assess severity and provide safety advice with required parts based on vehicle telemetry and user symptoms.`;
         const diagParts: any[] = [{ text: payload.prompt }];
         if (payload.imageBase64) {
           diagParts.push({ inlineData: { mimeType: "image/jpeg", data: payload.imageBase64 } });
@@ -115,14 +122,19 @@ serve(async (req) => {
       config: { ...config, systemInstruction }
     });
 
+    if (!response.text) {
+      throw new Error("Neural engine returned an empty sequence. This may be a safety filter block.");
+    }
+
     return new Response(JSON.stringify({ text: response.text }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
 
   } catch (err: any) {
     console.error("Neural Proxy Fault:", err.message);
-    return new Response(JSON.stringify({ error: err.message || "Internal Brain Failure" }), {
-      status: 500,
+    // Return a 200 with error property so the frontend can display the exact issue
+    return new Response(JSON.stringify({ error: `INTERNAL_BRAIN_FAILURE: ${err.message}` }), {
+      status: 200, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }

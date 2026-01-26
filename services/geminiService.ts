@@ -19,7 +19,6 @@ const invokeAIProxy = async (action: string, payload: any) => {
   const token = session?.access_token;
 
   // 2. Invoke Function with Hard-Bound Authorization Header
-  // This bypasses SDK auto-detection which can sometimes fail in certain environments.
   const { data, error } = await supabase.functions.invoke('gemini-proxy', {
     body: { action, payload },
     headers: token ? {
@@ -27,29 +26,30 @@ const invokeAIProxy = async (action: string, payload: any) => {
     } : {}
   });
 
-  // 3. Handle Network or System Errors
+  // 3. Handle Network or SDK Errors
   if (error) {
-    console.error("AI Proxy Network Fault:", error);
+    console.error("AI Proxy Network/SDK Fault:", error);
     
-    // Explicitly handle the 401 from the function for better UX
     if (error.message?.includes("401") || (error as any).status === 401) {
       throw new Error("AUTH_REQUIRED: Your secure session has expired. Please sign out and sign back in to refresh your neural link.");
     }
     
-    if (error.message?.includes("429") || error.message?.includes("quota")) {
-      throw new Error("QUOTA_EXHAUSTED: Neural capacity reached. Retry in 60s.");
+    // Provide a more descriptive error if we get the generic non-2xx message
+    if (error.message?.includes("non-2xx")) {
+      throw new Error("PROX_FAULT: The neural bridge returned an error. This usually indicates a missing API_KEY secret in Supabase or an internal function crash. Check your Supabase function logs for details.");
     }
     
     throw new Error(error.message || "Neural Handshake Failed. Check your connection.");
   }
 
-  // 4. Handle logic errors inside response
+  // 4. Handle logic errors wrapped inside a 200 response (Controlled Failures)
   if (data?.error) {
-    throw new Error(`Neural Logic Error: ${data.error}`);
+    console.warn("Neural Proxy Logic Alert:", data.error);
+    throw new Error(data.error);
   }
 
   if (!data?.text) {
-    throw new Error("Neural link returned empty data sequence.");
+    throw new Error("Neural link returned empty data sequence. Check if the model is responding.");
   }
 
   try {
