@@ -24,7 +24,7 @@ const App: React.FC = () => {
   const { 
     session, setSession, isInitialized, setInitialized, isSyncing, loadLocalData, hasDirtyData, triggerSync,
     user, setUser, currentView, setCurrentView, setVehicles, vehicles, activeVehicleId, setEditingVehicle,
-    transientVehicle, removeVehicleStore, reset
+    transientVehicle, removeVehicleStore, reset, setSuggestedParts
   } = useAutoPalStore();
 
   const [isAskingAI, setIsAskingAI] = useState(false);
@@ -393,7 +393,10 @@ const App: React.FC = () => {
                     try {
                       const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
                       setAiAdvice(advice);
-                    } catch (e) { alert("Neural Fail"); } finally { setIsAskingAI(false); }
+                      if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
+                    } catch (e) { 
+                      throw e; // Important for verified consumption re-entry
+                    } finally { setIsAskingAI(false); }
                   }} aiAdvice={aiAdvice} compact={false}
                 />
               </div>

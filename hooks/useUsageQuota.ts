@@ -6,7 +6,7 @@ import { getMonthlyUsageCount } from '../services/usageService.ts';
 
 /**
  * useUsageQuota Hook
- * Determination Engine: Uses lastBillingResetAt to define the usage window.
+ * Performance: Uses lastBillingResetAt to define the usage cycle.
  */
 export const useUsageQuota = (capability: CapabilityKey) => {
   const { user, vehicles, fuelLogs, serviceLogs, activeVehicleId } = useAutoPalStore();
@@ -29,7 +29,7 @@ export const useUsageQuota = (capability: CapabilityKey) => {
   }, [user?.id, capability, anchor]);
 
   const currentUsage = useMemo(() => {
-    // If no anchor exists (unlikely), fallback to 30 days
+    // If no anchor exists, fallback to 30 days
     const fallbackDate = new Date();
     fallbackDate.setDate(fallbackDate.getDate() - 30);
     const resetDate = anchor ? new Date(anchor) : fallbackDate;
@@ -40,7 +40,7 @@ export const useUsageQuota = (capability: CapabilityKey) => {
       
       case 'FUEL_LOGS_MONTHLY':
         if (!activeVehicleId) return 0;
-        // Cycle-based filtering: count logs created AFTER the last reset
+        // Cycle-based: Count only logs created AFTER the reset anchor
         return fuelLogs.filter(l => 
           l.vehicleId === activeVehicleId && 
           new Date(l.createdAt) >= resetDate
@@ -48,7 +48,7 @@ export const useUsageQuota = (capability: CapabilityKey) => {
       
       case 'SERVICE_LOGS_MONTHLY':
         if (!activeVehicleId) return 0;
-        // Cycle-based filtering: resets on upgrade/renewal
+        // Cycle-based: Resets on upgrade/renewal anchor
         return serviceLogs.filter(l => 
           l.vehicleId === activeVehicleId && 
           (l.createdAt ? new Date(l.createdAt) >= resetDate : true)

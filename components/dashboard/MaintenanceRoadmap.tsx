@@ -1,10 +1,11 @@
-
 import React, { useState, useMemo } from 'react';
 import { Vehicle, MaintenanceTask, ServiceCategory, TaskStatus } from '../../shared/types.ts';
 import { getTaskMaintenanceStatus, predictServiceDate } from '../../services/maintenanceLogic.ts';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { formatDate, formatCurrency } from '../../shared/utils.ts';
-import { Clock, AlertTriangle, CheckCircle2, Calendar, Gauge, Info, ChevronRight, Tooltip } from 'lucide-react';
+// DO add comment above each fix.
+// FIX: Removed non-existent 'Tooltip' and unused 'Gauge', 'ChevronRight' members from lucide-react import
+import { Clock, AlertTriangle, CheckCircle2, Calendar, Info } from 'lucide-react';
 
 interface Props {
   vehicle: Vehicle;

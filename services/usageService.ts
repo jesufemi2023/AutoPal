@@ -30,12 +30,12 @@ export const logFeatureUsage = async (userId: string, featureKey: string) => {
 
 /**
  * Cycle-Based Usage Fetching
- * Uses the provided anchor date (usually user.last_billing_reset_at)
+ * Uses the user's lastBillingResetAt to define the start of the current cycle.
  */
 export const getMonthlyUsageCount = async (userId: string, featureKey: string, resetAnchor?: string): Promise<number> => {
   if (!supabase) return 0;
 
-  // Fallback to 30 days if anchor is somehow missing
+  // Fallback to 30 days ago only if anchor is missing (should not happen for logged users)
   const defaultAnchor = new Date();
   defaultAnchor.setDate(defaultAnchor.getDate() - 30);
   const filterDate = resetAnchor || defaultAnchor.toISOString();

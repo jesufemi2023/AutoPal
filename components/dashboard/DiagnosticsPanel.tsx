@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { AIResponse, Vehicle } from '../../shared/types.ts';
 import { TierGuard } from '../TierGuard.tsx';
@@ -12,7 +11,7 @@ interface Props {
   diagImage: string | null;
   setDiagImage: (img: string | null) => void;
   isAskingAI: boolean;
-  onAnalyze: () => void;
+  onAnalyze: () => Promise<void>; // Updated to return promise for order control
   aiAdvice: AIResponse | null;
   compact?: boolean;
 }
@@ -27,15 +26,20 @@ export const DiagnosticsPanel: React.FC<Props> = ({
   const handleAnalyzeWithUsage = async () => {
     setLocalError(null);
     try {
-      onAnalyze();
+      // 1. PERFORM AI ANALYSIS FIRST
+      // If this throws (Safety block, Gemini error, etc), code jumps to catch.
+      await onAnalyze();
+      
+      // 2. LOG USAGE ONLY ON SUCCESS
+      // If the above line succeeded, the user has seen the result.
       if (user?.id) {
         await logFeatureUsage(user.id, 'ai_mechanic_monthly');
       }
     } catch (e: any) {
-      if (e.message.includes("QUOTA_EXHAUSTED")) {
-        setLocalError("Google API Quota reached. Please wait 60 seconds and try again.");
+      if (e.message?.includes("QUOTA_EXHAUSTED")) {
+        setLocalError("Access limit reached. Upgrade your license for unlimited diagnostics.");
       } else {
-        setLocalError(e.message || "A neural link error occurred.");
+        setLocalError(e.message || "A neural link error occurred. Please try again (no quota deducted).");
       }
     }
   };
