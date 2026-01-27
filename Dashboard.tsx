@@ -5,14 +5,12 @@ import {
 } from './services/vehicleService.ts';
 import { fetchFuelLogs } from './services/fuelService.ts';
 import { OdometerInput } from './components/OdometerInput.tsx';
-import { getAdvancedDiagnostic } from './services/geminiService.ts';
 
 import { VehicleOverview } from './components/dashboard/VehicleOverview.tsx';
 import { MaintenanceRoadmap } from './components/dashboard/MaintenanceRoadmap.tsx';
 import { VitalityDashboard } from './components/dashboard/VitalityDashboard.tsx';
 import { calculateVitalityScore } from './services/maintenanceLogic.ts';
 import { ResaleValuationCard } from './components/dashboard/ResaleValuationCard.tsx';
-import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { ShieldCheck, Zap, Activity } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -21,16 +19,12 @@ const Dashboard: React.FC = () => {
     activeVehicleId, setActiveVehicleId,
     setTasks, setServiceLogs, setFuelLogs, setCurrentView,
     updateMileage: updateStoreMileage,
-    loadLocalData, setVehicles, setSuggestedParts
+    loadLocalData, setVehicles
   } = useAutoPalStore();
 
   const [showOdometerModal, setShowOdometerModal] = useState(false);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isAskingAI, setIsAskingAI] = useState(false);
-  const [symptom, setSymptom] = useState('');
-  const [diagImage, setDiagImage] = useState<string | null>(null);
-  const [aiAdvice, setAiAdvice] = useState<any>(null);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -110,20 +104,6 @@ const Dashboard: React.FC = () => {
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth'
       });
-    }
-  };
-
-  const handleDiagnosticAnalyze = async () => {
-    if (!activeVehicle) return;
-    setIsAskingAI(true);
-    try {
-      const advice = await getAdvancedDiagnostic(activeVehicle, symptom, user?.tier === 'premium', diagImage || undefined);
-      setAiAdvice(advice);
-      if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
-    } catch (e) {
-      throw e; // Rethrow so DiagnosticsPanel can handle verified logging timing
-    } finally {
-      setIsAskingAI(false);
     }
   };
 
@@ -212,23 +192,8 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10">
-             <div className="lg:col-span-8">
-                <MaintenanceRoadmap vehicle={activeVehicle} tasks={vehicleTasks} isLoading={isLoadingDetails} onLog={() => setCurrentView('service')} />
-             </div>
-             <aside className="lg:col-span-4">
-                <DiagnosticsPanel 
-                  vehicle={activeVehicle} 
-                  symptom={symptom} 
-                  setSymptom={setSymptom} 
-                  diagImage={diagImage} 
-                  setDiagImage={setDiagImage} 
-                  isAskingAI={isAskingAI} 
-                  onAnalyze={handleDiagnosticAnalyze} 
-                  aiAdvice={aiAdvice} 
-                  compact={true} 
-                />
-             </aside>
+          <div className="w-full">
+            <MaintenanceRoadmap vehicle={activeVehicle} tasks={vehicleTasks} isLoading={isLoadingDetails} onLog={() => setCurrentView('service')} />
           </div>
         </div>
       ) : (
