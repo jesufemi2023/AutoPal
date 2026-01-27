@@ -6,7 +6,7 @@ import { Tier, CapabilityKey } from '../shared/types.ts';
 import { useUsageQuota } from '../hooks/useUsageQuota.ts';
 import { initiateUpgrade, verifyTransaction } from '../subscriptions/paymentService.ts';
 import { ENV } from '../services/envService.ts';
-import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, Bug, Cpu, Globe, Edit3, Save, X as CloseIcon, Trash2 } from 'lucide-react';
+import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, Bug, Cpu, Globe, Edit3, Save, X as CloseIcon, Trash2, Key } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
 /**
@@ -47,25 +47,29 @@ const CapacityMeter: React.FC<{
 
 /**
  * NeuralProvisioningOverlay
+ * Refined with step-by-step progress and manual reference input.
  */
 const NeuralProvisioningOverlay: React.FC<{ 
   tier: Tier; 
   isSyncing: boolean;
-  onManualVerify: () => void;
+  onManualVerify: (ref?: string) => void;
   statusMsg?: string;
   remoteStatus?: string;
-}> = ({ tier, isSyncing, onManualVerify, statusMsg, remoteStatus }) => {
+  onClose: () => void;
+}> = ({ tier, isSyncing, onManualVerify, statusMsg, remoteStatus, onClose }) => {
   const [logs, setLogs] = useState<string[]>([]);
   const [showFallback, setShowFallback] = useState(false);
+  const [manualRef, setManualRef] = useState('');
+  const [showManualInput, setShowManualInput] = useState(false);
 
   useEffect(() => {
     let currentIdx = 0;
     const sequence = [
-      "> SECURING CONNECTION...",
-      "> AUTHENTICATING PAYMENT...",
-      `> ACTIVATING ${tier.toUpperCase()} PLAN...`,
-      "> SYNCING CLOUD PROFILE...",
-      "> FINALIZING SETUP..."
+      "> SECURING NEURAL CONNECTION...",
+      "> AUTHENTICATING GATEWAY...",
+      `> ACTIVATING ${tier.toUpperCase()} LICENSE...`,
+      "> SYNCHRONIZING CLOUD PROFILE...",
+      "> FINALIZING PROVISIONING..."
     ];
 
     const interval = setInterval(() => {
@@ -77,7 +81,7 @@ const NeuralProvisioningOverlay: React.FC<{
       }
     }, 600);
 
-    const fallbackTimer = setTimeout(() => setShowFallback(true), 6000);
+    const fallbackTimer = setTimeout(() => setShowFallback(true), 5000);
 
     return () => {
       clearInterval(interval);
@@ -87,14 +91,18 @@ const NeuralProvisioningOverlay: React.FC<{
 
   return (
     <div className="fixed inset-0 z-[10000] bg-slate-950 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-500 overflow-y-auto">
-      <div className="max-w-xl w-full bg-slate-900 border border-blue-500/20 rounded-[2.5rem] p-8 sm:p-10 shadow-[0_0_100px_rgba(37,99,235,0.2)] my-auto">
+      <div className="max-w-xl w-full bg-slate-900 border border-blue-500/20 rounded-[2.5rem] p-8 sm:p-10 shadow-[0_0_100px_rgba(37,99,235,0.2)] my-auto relative">
+        <button onClick={onClose} className="absolute top-8 right-8 text-slate-500 hover:text-white transition-colors">
+          <CloseIcon size={20} />
+        </button>
+
         <div className="flex items-center gap-4 mb-8 border-b border-white/5 pb-6">
           <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center text-white animate-pulse">
             <TerminalIcon size={24} />
           </div>
           <div>
-            <h3 className="text-white font-black uppercase tracking-tighter text-xl">Activation Center</h3>
-            <p className="text-blue-500 text-[8px] font-black uppercase tracking-[0.4em]">Upgrading to: {tier}</p>
+            <h3 className="text-white font-black uppercase tracking-tighter text-xl">Command Center</h3>
+            <p className="text-blue-500 text-[8px] font-black uppercase tracking-[0.4em]">License Activation Flow</p>
           </div>
         </div>
         
@@ -109,7 +117,7 @@ const NeuralProvisioningOverlay: React.FC<{
 
         {remoteStatus && (
           <div className={`p-4 rounded-xl text-[9px] font-black uppercase tracking-widest text-center mb-6 border animate-pulse ${remoteStatus === 'success' ? 'bg-emerald-600/10 border-emerald-500/30 text-emerald-400' : 'bg-blue-600/10 border-blue-600/30 text-blue-400'}`}>
-            Status: {remoteStatus === 'success' ? 'Upgrade Successful' : 'Processing...'}
+            System Status: {remoteStatus === 'success' ? 'Provisioning Confirmed' : 'Handshake Pending...'}
           </div>
         )}
 
@@ -117,20 +125,52 @@ const NeuralProvisioningOverlay: React.FC<{
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
             <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-2xl text-center">
               <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest leading-relaxed">
-                Verification is taking longer than expected. If your payment was successful, please use the button below to retry.
+                Network latency detected. If your payment was deducted but the plan is inactive, please trigger a manual handshake.
               </p>
             </div>
             
             <button 
               disabled={isSyncing}
-              onClick={onManualVerify}
+              onClick={() => onManualVerify()}
               className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
             >
               {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              {isSyncing ? "Verifying..." : "Verify Plan Update"}
+              {isSyncing ? "Verifying with Gateway..." : "Verify Payment & Sync Plan"}
             </button>
             
-            {statusMsg && <p className="text-[8px] text-slate-500 text-center font-mono uppercase tracking-widest">{statusMsg}</p>}
+            <div className="text-center">
+              {!showManualInput ? (
+                <button 
+                  onClick={() => setShowManualInput(true)}
+                  className="text-[8px] text-slate-500 font-black uppercase tracking-widest hover:text-blue-400 transition-colors"
+                >
+                  Can't find transaction? Enter Reference Manually
+                </button>
+              ) : (
+                <div className="space-y-4 pt-4 border-t border-white/5">
+                   <input 
+                     type="text"
+                     placeholder="e.g. AP-STANDARD-12345..."
+                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white font-mono text-[10px] outline-none focus:border-blue-500"
+                     value={manualRef}
+                     onChange={(e) => setManualRef(e.target.value)}
+                   />
+                   <button 
+                     disabled={isSyncing || !manualRef}
+                     onClick={() => onManualVerify(manualRef)}
+                     className="w-full bg-white text-slate-900 py-3 rounded-xl font-black uppercase tracking-widest text-[9px] hover:bg-blue-50 transition-all disabled:opacity-30"
+                   >
+                     Apply Custom Reference
+                   </button>
+                </div>
+              )}
+            </div>
+            
+            {statusMsg && (
+              <p className="text-[8px] text-rose-500 text-center font-mono uppercase tracking-widest bg-rose-500/10 p-2 rounded-lg">
+                {statusMsg}
+              </p>
+            )}
           </div>
         )}
       </div>
@@ -168,43 +208,34 @@ const ProfileDossier: React.FC = () => {
       setRemoteStatus('success');
       setStatusMsg({ 
         type: 'success', 
-        text: `Upgrade complete. Your new plan is now active.` 
+        text: `Upgrade complete. Your ${user.tier.toUpperCase()} plan is now active.` 
       });
       
       setTimeout(() => {
         setCurrentView('garage');
-      }, 1500);
+      }, 2000);
     }
   }, [user?.tier, isWaitingForServer, provisioningTier, setCurrentView]);
 
   /**
-   * ROBUST VERIFICATION POLLING
+   * HEARTBEAT POLLING
+   * Silently checks the DB every few seconds when modal is open.
    */
   useEffect(() => {
     let pollInterval: number;
     
-    if (isWaitingForServer && lastRef) {
+    if (isWaitingForServer) {
       pollInterval = window.setInterval(async () => {
-        try {
-          const result = await verifyTransaction(lastRef);
-          setRemoteStatus(result.status);
-          if (result.status === 'success') {
-            console.log("Success confirmed. Re-syncing local identity...");
-            await forceProfileSync(true);
-            clearInterval(pollInterval);
-          }
-        } catch (e) {
-          console.warn("Heartbeat missed. Retrying handshake...");
-        }
-      }, 3500);
+        await forceProfileSync(true);
+      }, 4000);
     }
 
     return () => clearInterval(pollInterval);
-  }, [isWaitingForServer, lastRef]);
+  }, [isWaitingForServer]);
 
-  const forceProfileSync = async (autoRedirect = false) => {
+  const forceProfileSync = async (silent = false) => {
     if (!supabase || !user) return;
-    if (!autoRedirect) setIsManualSyncing(true);
+    if (!silent) setIsManualSyncing(true);
     
     try {
       const { data: profile, error } = await supabase
@@ -220,21 +251,52 @@ const ProfileDossier: React.FC = () => {
           ...user,
           tier: profile.tier,
           licenseExpiresAt: profile.license_expires_at,
+          lastBillingResetAt: profile.last_billing_reset_at || user.lastBillingResetAt,
           role: profile.role,
           displayName: profile.display_name,
           phone: profile.phone,
           avatarUrl: profile.avatar_url
         });
 
-        if (profile.tier === provisioningTier && !autoRedirect) {
-          setStatusMsg({ type: 'success', text: "Profile updated successfully." });
+        if (profile.tier === provisioningTier && !silent) {
+          setStatusMsg({ type: 'success', text: "Handshake complete. Profile updated." });
           setIsWaitingForServer(false);
         }
       }
     } catch (e: any) {
-      if (!autoRedirect) setStatusMsg({ type: 'error', text: "Update failed. Please check your connection." });
+      if (!silent) setStatusMsg({ type: 'error', text: "Cloud sync failed. Check connection." });
     } finally {
-      if (!autoRedirect) setIsManualSyncing(false);
+      if (!silent) setIsManualSyncing(false);
+    }
+  };
+
+  /**
+   * REFINED MANUAL VERIFICATION
+   * Triggers the server-side verification before syncing local profile.
+   */
+  const handleManualVerify = async (refOverride?: string) => {
+    const reference = refOverride || lastRef;
+    if (!reference) {
+      setStatusMsg({ type: 'error', text: "Critical: Transaction reference missing." });
+      return;
+    }
+
+    setIsManualSyncing(true);
+    try {
+      // 1. Force Server-Side Verification with Gateway
+      const result = await verifyTransaction(reference);
+      setRemoteStatus(result.status);
+
+      if (result.status === 'success') {
+        // 2. If Gateway confirms, pull latest user row
+        await forceProfileSync(true);
+      } else {
+        setStatusMsg({ type: 'error', text: `Gateway status: ${result.status.toUpperCase()}. Handshake failed.` });
+      }
+    } catch (e: any) {
+      setStatusMsg({ type: 'error', text: "Neural link timeout. Please try again in 5 seconds." });
+    } finally {
+      setIsManualSyncing(false);
     }
   };
 
@@ -272,23 +334,18 @@ const ProfileDossier: React.FC = () => {
   const handleNuclearDelete = async () => {
     if (!user) return;
     const confirmation = window.confirm(
-      "NUCLEAR OPTION: This will permanently delete your account and all linked vehicle data from our servers and your device. This action is irreversible. Proceed?"
+      "NUCLEAR OPTION: This will permanently delete your account and all linked vehicle data. This action is irreversible. Proceed?"
     );
     
     if (!confirmation) return;
 
     setIsDeletingAccount(true);
     try {
-      // 1. Trigger Cloud Purge (Cascades through DB)
       await deleteAccountPermanently(user.id);
-      
-      // 2. Clear local state and IndexedDB
       await reset();
-      
-      // 3. Redirect home
       setCurrentView('landing');
     } catch (err: any) {
-      alert(`System fault during decommissioning: ${err.message}`);
+      alert(`System fault: ${err.message}`);
       setIsDeletingAccount(false);
     }
   };
@@ -306,7 +363,8 @@ const ProfileDossier: React.FC = () => {
       onSuccess: async (ref) => {
         try {
           if (supabase) {
-            const { error: insertError } = await supabase.from('payments').insert([{
+            // Pre-emptive Ledger entry
+            await supabase.from('payments').insert([{
               user_id: user.id,
               tier: tier,
               amount: price,
@@ -314,31 +372,20 @@ const ProfileDossier: React.FC = () => {
               status: 'pending'
             }]);
 
-            if (insertError) {
-               const errorText = insertError.message.toLowerCase();
-               const isIgnorable = 
-                 insertError.code === '23505' || 
-                 errorText.includes('row-level security') || 
-                 errorText.includes('policy');
-
-               if (!isIgnorable) {
-                 throw insertError;
-               }
-               console.log("Synchronous record creation blocked. Proceeding to verification.");
-            }
-
             setProvisioningTier(tier);
             setLastRef(ref);
             setRemoteStatus('pending');
             setIsWaitingForServer(true);
+            
+            // Immediate async verification
             verifyTransaction(ref).catch(() => {});
           }
         } catch (err: any) {
-          setStatusMsg({ type: 'error', text: `Activation Error: ${err.message}` });
+          setStatusMsg({ type: 'error', text: `Gateway linkage error: ${err.message}` });
         }
       },
       onCancel: () => {
-        setStatusMsg({ type: 'error', text: 'Upgrade cancelled.' });
+        setStatusMsg({ type: 'error', text: 'Activation sequence cancelled.' });
       }
     });
   };
@@ -378,9 +425,10 @@ const ProfileDossier: React.FC = () => {
         <NeuralProvisioningOverlay 
           tier={provisioningTier} 
           isSyncing={isManualSyncing}
-          onManualVerify={() => forceProfileSync(false)}
-          statusMsg={lastRef ? `Transaction ID: ${lastRef}` : undefined}
+          onManualVerify={handleManualVerify}
+          statusMsg={statusMsg?.type === 'error' ? statusMsg.text : undefined}
           remoteStatus={remoteStatus}
+          onClose={() => setIsWaitingForServer(false)}
         />
       )}
 
@@ -412,7 +460,7 @@ const ProfileDossier: React.FC = () => {
         </div>
       </header>
 
-      {statusMsg && (
+      {statusMsg && !isWaitingForServer && (
         <div className={`p-6 rounded-[2rem] text-[10px] font-black uppercase tracking-widest border-2 animate-in slide-in-from-top-4 ${statusMsg.type === 'success' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-rose border-rose-100 text-rose-600'}`}>
           <div className="flex items-start gap-4">
             <span className="text-lg">{statusMsg.type === 'success' ? '✓' : '⚠️'}</span>
