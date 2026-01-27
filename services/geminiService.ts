@@ -1,10 +1,20 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { ENV } from "./envService.ts";
 import { PROMPTS } from "./promptService.ts";
 import { AIResponse, MaintenanceScheduleResponse, Priority, AIValuationReport, Vehicle, MaintenanceTask, ServiceLog, FuelLog } from "../shared/types.ts";
 
+/**
+ * Pre-Flight Verification
+ * Ensures we don't waste API attempts or user time if the link is dead.
+ */
+const ensureOnline = () => {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    throw new Error("OFFLINE_LINK_FAILURE: Neural link unreachable. Please check your network connection.");
+  }
+};
+
 const getAIClient = () => {
+  ensureOnline();
   if (!process.env.API_KEY) {
     throw new Error("Neural Sync Failure: Gemini API key not found in environment.");
   }
@@ -17,6 +27,10 @@ const getAIClient = () => {
 const handleAIError = (error: any): never => {
   console.error("AI Neural Failure:", error);
   
+  if (error.message?.includes("OFFLINE_LINK_FAILURE")) {
+    throw error;
+  }
+
   // Detect Quota/Rate Limit Errors (Status 429)
   if (error?.status === "RESOURCE_EXHAUSTED" || error?.message?.includes("429") || error?.message?.includes("quota")) {
     throw new Error("QUOTA_EXHAUSTED: The AI is currently at maximum capacity. Please wait 60 seconds before retrying.");

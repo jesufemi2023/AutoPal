@@ -50,20 +50,27 @@ export const ResaleValuationCard: React.FC<{
       return;
     }
 
-    setIsAnalyzing(true);
     setLocalError(null);
+    
+    // 1. PRE-FLIGHT CONNECTIVITY CHECK
+    if (!navigator.onLine) {
+      setLocalError("Device is offline. Cloud link required for Neural Audit (No quota deducted).");
+      return;
+    }
+
+    setIsAnalyzing(true);
     setLoadingStage(0);
 
     try {
-      // 1. Perform AI Analysis
+      // 2. Perform AI Analysis FIRST
       const report = await generateAIValuation(vehicle, tasks, serviceLogs, fuelLogs);
       
-      // 2. Log Usage (This hits the Database Governor)
+      // 3. Log Usage ONLY ON SUCCESS
       if (user?.id) {
         await logFeatureUsage(user.id, 'ai_scan_monthly');
       }
 
-      // 3. Persist and Update Store
+      // 4. Persist and Update Store
       const updatedVehicle = await updateVehicle(vehicle.id, { 
         latestAiAudit: report,
         healthScore: report.auditedScores.vitality 
@@ -74,11 +81,12 @@ export const ResaleValuationCard: React.FC<{
       console.error("Audit Fault:", e);
       if (e.message?.includes("QUOTA_EXHAUSTED")) {
         setLocalError("Monthly scan limit fulfilled. Your data is safe; upgrade your license for further audits.");
+      } else if (e.message?.includes("OFFLINE_LINK_FAILURE")) {
+        setLocalError("Connection lost mid-stream. Scan cancelled (No quota deducted).");
       } else {
-        setLocalError("Neural Link Interrupted. The system state has been reset. Please try again.");
+        setLocalError("Neural Link Interrupted. Verification failed (No quota deducted). Please retry.");
       }
     } finally {
-      // CRITICAL: Ensure loading is ALWAYS disabled
       setIsAnalyzing(false);
     }
   };
@@ -162,7 +170,7 @@ export const ResaleValuationCard: React.FC<{
               </div>
               {!localError && (
                 <span className="text-[8px] font-black opacity-60 tracking-widest">
-                  Capacity: {quota.limit - quota.current}/{quota.limit} Scans Remaining
+                  Capacity: {quota.limit - quota.current} Scans Available
                 </span>
               )}
             </button>

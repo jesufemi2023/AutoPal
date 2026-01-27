@@ -26,11 +26,16 @@ export const DiagnosticsPanel: React.FC<Props> = ({
   const handleAnalyzeWithUsage = async () => {
     setLocalError(null);
     try {
-      // 1. PERFORM AI ANALYSIS FIRST
+      // 1. PRE-FLIGHT VERIFICATION
+      if (!navigator.onLine) {
+        throw new Error("OFFLINE_LINK_FAILURE");
+      }
+
+      // 2. PERFORM AI ANALYSIS FIRST
       // If this throws (Safety block, Gemini error, etc), code jumps to catch.
       await onAnalyze();
       
-      // 2. LOG USAGE ONLY ON SUCCESS
+      // 3. LOG USAGE ONLY ON SUCCESS
       // If the above line succeeded, the user has seen the result.
       if (user?.id) {
         await logFeatureUsage(user.id, 'ai_mechanic_monthly');
@@ -38,8 +43,10 @@ export const DiagnosticsPanel: React.FC<Props> = ({
     } catch (e: any) {
       if (e.message?.includes("QUOTA_EXHAUSTED")) {
         setLocalError("Access limit reached. Upgrade your license for unlimited diagnostics.");
+      } else if (e.message?.includes("OFFLINE_LINK_FAILURE")) {
+        setLocalError("Satellite link lost. Connect to network to run AI diagnostics (No quota deducted).");
       } else {
-        setLocalError(e.message || "A neural link error occurred. Please try again (no quota deducted).");
+        setLocalError(e.message || "A neural link error occurred. Please try again (No quota deducted).");
       }
     }
   };

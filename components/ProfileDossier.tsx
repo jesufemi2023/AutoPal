@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
@@ -109,7 +108,7 @@ const NeuralProvisioningOverlay: React.FC<{
         </div>
 
         {remoteStatus && (
-          <div className={`p-4 rounded-xl text-[9px] font-black uppercase tracking-widest text-center mb-6 border animate-pulse ${remoteStatus === 'success' ? 'bg-emerald-600/10 border-emerald-500/30 text-emerald-400' : 'bg-blue-600/10 border-blue-500/30 text-blue-400'}`}>
+          <div className={`p-4 rounded-xl text-[9px] font-black uppercase tracking-widest text-center mb-6 border animate-pulse ${remoteStatus === 'success' ? 'bg-emerald-600/10 border-emerald-500/30 text-emerald-400' : 'bg-blue-600/10 border-blue-600/30 text-blue-400'}`}>
             Status: {remoteStatus === 'success' ? 'Upgrade Successful' : 'Processing...'}
           </div>
         )}
@@ -459,8 +458,6 @@ const ProfileDossier: React.FC = () => {
                       onClick={() => setIsEditing(true)}
                       className="bg-slate-50 border border-slate-100 text-slate-400 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-blue-50 hover:text-blue-600 transition-all"
                     >
-                      {/* DO add comment above each fix. */}
-                      {/* FIX: Fixed invalid syntax size(12) to correct JSX prop format size={12} */}
                       <Edit3 size={12} /> Edit Profile
                     </button>
                   )}
