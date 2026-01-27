@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -42,10 +41,6 @@ const App: React.FC = () => {
     loadLocalData();
   }, []);
 
-  /**
-   * Authoritative Profile Sync
-   * Fetches the real database record to overwrite JWT metadata (the source of truth).
-   */
   const syncLatestProfile = useCallback(async (userId: string, email: string) => {
     if (!supabase) return;
     
@@ -66,6 +61,7 @@ const App: React.FC = () => {
         role: profile.role || 'user',
         onboarded: profile.onboarded || false,
         createdAt: profile.created_at || '',
+        lastBillingResetAt: profile.last_billing_reset_at || profile.created_at || '',
         isRenewable: profile.is_renewable || false,
         licenseExpiresAt: profile.license_expires_at
       });
@@ -74,7 +70,6 @@ const App: React.FC = () => {
     return null;
   }, [setUser]);
 
-  // Sync session and fetch full user profile + REALTIME LISTENER
   useEffect(() => {
     let authSubscription: { unsubscribe: () => void } | null = null;
     let userSubscription: any = null;
@@ -89,13 +84,10 @@ const App: React.FC = () => {
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         
         if (currentSession?.user) {
-          // 1. Initial metadata set (Placeholder)
           setSession(currentSession);
-          // 2. Authoritative Database Fetch (Truth)
           const profile = await syncLatestProfile(currentSession.user.id, currentSession.user.email || '');
 
           if (profile) {
-            // 3. REALTIME: Subscribe to User Profile Changes (Tier Upgrades)
             userSubscription = supabase
               .channel(`user-profile-${profile.id}`)
               .on('postgres_changes', { 
@@ -111,6 +103,7 @@ const App: React.FC = () => {
                     ...currentUser,
                     tier: updated.tier,
                     licenseExpiresAt: updated.license_expires_at,
+                    lastBillingResetAt: updated.last_billing_reset_at || currentUser.lastBillingResetAt,
                     role: updated.role,
                     displayName: updated.display_name,
                     phone: updated.phone,
@@ -125,7 +118,6 @@ const App: React.FC = () => {
 
         setInitialized(true);
         
-        // Listen for Auth events (Refresh, Signin, Signout)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           if (session) {
             setSession(session);
@@ -245,7 +237,6 @@ const App: React.FC = () => {
 
   const NavigationMenu = () => (
     <div className="space-y-6">
-      {/* User Profile Summary in Sidebar */}
       {user && (
         <div 
           onClick={() => setCurrentView('profile')}

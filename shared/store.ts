@@ -1,4 +1,3 @@
-
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
 import { localDb } from '../services/localDb.ts';
@@ -143,8 +142,6 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     const { user: supabaseUser } = session;
     const meta = supabaseUser.user_metadata || {};
     
-    // If we already have a user in the store, we don't want to revert to stale metadata
-    // unless the IDs don't match (meaning a user switch).
     const currentUser = get().user;
     if (currentUser && currentUser.id === supabaseUser.id) {
       set({ session });
@@ -161,6 +158,7 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
       role: meta.role || 'user',
       onboarded: meta.onboarded || false,
       createdAt: supabaseUser.created_at || new Date().toISOString(),
+      lastBillingResetAt: meta.last_billing_reset_at || supabaseUser.created_at || new Date().toISOString(),
       isRenewable: meta.is_renewable || false,
     };
     set({ session, user: newUserObj });
@@ -288,13 +286,8 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   setMarketplaceFilter: (filter) => set({ marketplaceFilter: filter }),
 
   reset: async () => {
-    // 1. Deep Purge IndexedDB
     await localDb.clearDatabase();
-    
-    // 2. Clear LocalStorage identifiers
     localStorage.removeItem('autopal_guest_attempts');
-    
-    // 3. Clear application state
     set({ 
       user: null, 
       session: null, 

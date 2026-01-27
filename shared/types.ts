@@ -1,4 +1,3 @@
-
 export type Tier = 'free' | 'standard' | 'premium';
 export type UserRole = 'user' | 'admin';
 export type BodyType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'hatchback' | 'other';
@@ -37,6 +36,7 @@ export interface UserProfile {
   onboarded: boolean;
   createdAt: string;
   licenseExpiresAt?: string;
+  lastBillingResetAt: string; // The cycle anchor
   isRenewable: boolean;
 }
 
@@ -45,6 +45,10 @@ export interface UsageQuota {
   current: number;
   limit: number;
   isExhausted: boolean;
+}
+
+export interface UsageContext {
+  lastBillingResetAt: string;
 }
 
 export interface TransientVehicle {
