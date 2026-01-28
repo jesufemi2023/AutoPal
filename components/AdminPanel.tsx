@@ -1,5 +1,5 @@
 // DO add comment above each fix.
-// FIX: Updated queries to use explicit Foreign Key mappings for global oversight joins.
+// FIX: Updated queries to use explicit Foreign Key mappings for global oversight joins and added Home Page navigation controls.
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
@@ -17,13 +17,14 @@ import {
   Search,
   ChevronRight,
   TrendingUp,
-  Cpu
+  Cpu,
+  LayoutDashboard
 } from 'lucide-react';
 
 type AdminTab = 'telemetry' | 'financial' | 'fleet' | 'calibration';
 
 const AdminPanel: React.FC = () => {
-  const { user } = useAutoPalStore();
+  const { user, setCurrentView } = useAutoPalStore();
   const [activeTab, setActiveTab] = useState<AdminTab>('telemetry');
   const [isLoading, setIsLoading] = useState(false);
   
@@ -178,6 +179,14 @@ const AdminPanel: React.FC = () => {
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4">
+          {/* Awareness: Pilot Mode Switch */}
+          <button 
+            onClick={() => setCurrentView('garage')}
+            className="bg-slate-900 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-blue-600 transition-all flex items-center gap-3"
+          >
+            <LayoutDashboard size={16} /> Switch to My Garage
+          </button>
+
           <button 
             onClick={() => fetchData()}
             disabled={isLoading}
@@ -234,6 +243,12 @@ const AdminPanel: React.FC = () => {
                   <span className="text-slate-600">[{new Date().toLocaleTimeString()}]</span>
                   <span className="text-emerald-500">&gt; NEURAL LINK STATUS: SECURE</span>
                 </div>
+                {payments.slice(0, 3).map(p => (
+                  <div key={p.id} className="flex gap-4">
+                    <span className="text-slate-600">[{new Date(p.created_at).toLocaleTimeString()}]</span>
+                    <span className="text-amber-500">&gt; PAYMENT EVENT: {p.reference} ({p.status.toUpperCase()})</span>
+                  </div>
+                ))}
                 <div className="flex gap-4 animate-pulse">
                   <span className="text-slate-600">[{new Date().toLocaleTimeString()}]</span>
                   <span className="text-blue-500">&gt; LISTENING ON SECURE ENDPOINT...</span>
