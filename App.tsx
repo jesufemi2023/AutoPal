@@ -18,7 +18,7 @@ import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
 import { TierGuard } from './components/TierGuard.tsx';
-import { Car, Menu, X, User, RefreshCw, WifiOff, AlertTriangle } from 'lucide-react';
+import { Car, Menu, X, User } from 'lucide-react';
 
 const App: React.FC = () => {
   const { 
@@ -33,7 +33,6 @@ const App: React.FC = () => {
   const [aiAdvice, setAiAdvice] = useState<any>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isManagePanelOpen, setIsManagePanelOpen] = useState(false);
-  const [syncSeconds, setSyncSeconds] = useState(0);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
@@ -41,17 +40,6 @@ const App: React.FC = () => {
     validateEnv();
     loadLocalData();
   }, []);
-
-  // Awareness Logic: Monitor Sync Duration
-  useEffect(() => {
-    let interval: number;
-    if (isSyncing) {
-      interval = window.setInterval(() => setSyncSeconds(s => s + 1), 1000);
-    } else {
-      setSyncSeconds(0);
-    }
-    return () => clearInterval(interval);
-  }, [isSyncing]);
 
   const syncLatestProfile = useCallback(async (userId: string, email: string) => {
     if (!supabase) return;
@@ -160,9 +148,7 @@ const App: React.FC = () => {
         if (fetchedVehicles.length > 0) setVehicles(fetchedVehicles);
         const isTransitioning = currentView === 'landing' || currentView === 'garage';
         if (isTransitioning) {
-          // MODIFIED: Admins land on oversight by default
-          if (user.role === 'admin') setCurrentView('landing'); 
-          else if (fetchedVehicles.length === 0) setCurrentView('onboarding');
+          if (fetchedVehicles.length === 0) setCurrentView('onboarding');
           else setCurrentView('garage');
         }
       }).catch(console.error);
@@ -249,34 +235,6 @@ const App: React.FC = () => {
     </button>
   );
 
-  // Awareness Banner Component
-  const SyncAwarenessBanner = () => {
-    if (!hasDirtyData && !isSyncing) return null;
-    
-    return (
-      <div className={`fixed top-0 left-0 right-0 z-[2000] p-3 text-center transition-all duration-500 animate-in slide-in-from-top flex items-center justify-center gap-3 ${syncSeconds > 10 ? 'bg-rose-600 text-white' : isSyncing ? 'bg-blue-600 text-white' : 'bg-amber-500 text-white'}`}>
-        {syncSeconds > 10 ? (
-          <>
-            <WifiOff size={14} className="animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest">
-              Latency Warning: Cloud handshake taking time. Please check network and <button onClick={() => window.location.reload()} className="underline font-black ml-1">Refresh Terminal</button>
-            </span>
-          </>
-        ) : isSyncing ? (
-          <>
-            <RefreshCw size={14} className="animate-spin" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Vaulting Local Telemetry... Keep this window open.</span>
-          </>
-        ) : (
-          <>
-            <AlertTriangle size={14} className="animate-bounce" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Cloud Sync Required to Secure Recent Logs.</span>
-          </>
-        )}
-      </div>
-    );
-  };
-
   const NavigationMenu = () => (
     <div className="space-y-6">
       {user && (
@@ -310,9 +268,7 @@ const App: React.FC = () => {
           <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.4em]">Navigation</p>
           <SyncShield />
         </div>
-        {/* Navigation Divergence: Home Page Context */}
-        <NavItem view="landing" label={user?.role === 'admin' ? "Fleet Command" : "Welcome Page"} icon="🏠" />
-        <NavItem view="garage" label="Personal Garage" icon="🚗" />
+        <NavItem view="garage" label="Garage Overview" icon="🏠" />
         <NavItem view="diagnostic" label="AI Mechanic" icon="✧" isNeural />
         <NavItem view="service" label="Service History" icon="🛠️" />
         <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
@@ -325,6 +281,7 @@ const App: React.FC = () => {
            <NavItem view="report" label="Ownership Report" icon="📄" />
         </TierGuard>
         <NavItem view="profile" label="Account Profile" icon="👤" />
+        {user?.role === 'admin' && <NavItem view="admin" label="Admin Command" icon="⚡" />}
         
         <button 
           onClick={() => setIsManagePanelOpen(!isManagePanelOpen)} 
@@ -358,8 +315,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
-      <SyncAwarenessBanner />
-      
       <header className="lg:hidden h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 z-[100] w-full">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
           <div className="w-8 h-8 bg-gradient-to-br from-slate-800 to-slate-950 rounded-lg flex items-center justify-center text-white shadow-md">
@@ -416,12 +371,12 @@ const App: React.FC = () => {
       <div className="flex-grow flex flex-col min-h-screen w-full overflow-x-hidden">
         <main className={`p-4 sm:p-6 lg:p-10 xl:p-12 max-w-full lg:max-w-7xl mx-auto w-full pb-32 lg:pb-16 flex-grow flex flex-col items-center ${currentView === 'landing' ? '!p-0 !max-w-none' : ''}`}>
           <div className={`animate-slide-up w-full max-w-full ${currentView === 'landing' ? '!max-w-none' : ''}`}>
-            {/* Logic Divergence: Home Page renders Admin oversight for Admins */}
-            {currentView === 'landing' && user?.role === 'admin' ? <AdminPanel /> : currentView === 'landing' ? <LandingTerminal /> : null}
+            {currentView === 'landing' && <LandingTerminal />}
             {currentView === 'garage' && <Dashboard />}
             {currentView === 'service' && <ServiceIntelligenceCenter />}
             {currentView === 'fuel' && <FuelIntelligenceCenter />}
             {currentView === 'marketplace' && <Marketplace />}
+            {currentView === 'admin' && <AdminPanel />}
             {currentView === 'profile' && <ProfileDossier />}
             {currentView === 'report' && <GlobalReportingCenter />}
             {currentView === 'diagnostic' && activeVehicle && (
