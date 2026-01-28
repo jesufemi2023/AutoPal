@@ -1,5 +1,5 @@
 // DO add comment above each fix.
-// FIX: Added 'useMemo' to the React imports to resolve the "Cannot find name 'useMemo'" error on line 98.
+// FIX: Updated queries to use explicit Foreign Key mappings for global oversight joins.
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
@@ -44,11 +44,31 @@ const AdminPanel: React.FC = () => {
         const { data } = await supabase.from('system_calibration').select('*').order('created_at', { ascending: false });
         setFeedbacks(data || []);
       } else if (activeTab === 'financial') {
-        const { data } = await supabase.from('payments').select('*, Users:user_id(email)').order('created_at', { ascending: false }).limit(50);
+        // FIX: Explicitly naming the relationship to 'Users' via the 'user_id' foreign key
+        const { data, error } = await supabase
+          .from('payments')
+          .select(`
+            *,
+            Users:user_id (
+              email
+            )
+          `)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        
+        if (error) console.error("Financial oversight fault:", error);
         setPayments(data || []);
       } else if (activeTab === 'fleet') {
-        // Note: Using double quotes for "Users" because it's a capitalized Postgres identifier
-        const { data } = await supabase.from('Users').select('*, vehicles(count)').order('created_at', { ascending: false });
+        // FIX: Explicitly counting vehicles belonging to each user using the 'owner_id' link
+        const { data, error } = await supabase
+          .from('Users')
+          .select(`
+            *,
+            vehicles:vehicles(count)
+          `)
+          .order('created_at', { ascending: false });
+          
+        if (error) console.error("Fleet oversight fault:", error);
         setUserList(data || []);
       } else if (activeTab === 'telemetry') {
         const [uCount, vCount, pSum] = await Promise.all([
@@ -88,7 +108,7 @@ const AdminPanel: React.FC = () => {
       if (result.status === 'success') {
         setHandshakeStatus({ msg: `SUCCESS: Protocol ${manualRef} Activated.`, type: 'success' });
         setManualRef('');
-        fetchData(); // Refresh current tab to show new data
+        fetchData();
       } else {
         setHandshakeStatus({ msg: `FAILED: Gateway returned ${result.status}`, type: 'error' });
       }
@@ -214,12 +234,6 @@ const AdminPanel: React.FC = () => {
                   <span className="text-slate-600">[{new Date().toLocaleTimeString()}]</span>
                   <span className="text-emerald-500">&gt; NEURAL LINK STATUS: SECURE</span>
                 </div>
-                {payments.slice(0, 3).map(p => (
-                  <div key={p.id} className="flex gap-4">
-                    <span className="text-slate-600">[{new Date(p.created_at).toLocaleTimeString()}]</span>
-                    <span className="text-amber-500">&gt; PAYMENT EVENT: {p.reference} ({p.status.toUpperCase()})</span>
-                  </div>
-                ))}
                 <div className="flex gap-4 animate-pulse">
                   <span className="text-slate-600">[{new Date().toLocaleTimeString()}]</span>
                   <span className="text-blue-500">&gt; LISTENING ON SECURE ENDPOINT...</span>
@@ -357,7 +371,7 @@ const AdminPanel: React.FC = () => {
                         <td className="px-10 py-6">
                            <div className="flex items-center gap-4">
                               <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center font-black text-white text-xs shadow-md">
-                                 {u.display_name?.[0] || u.email[0].toUpperCase()}
+                                 {u.display_name?.[0] || u.email?.[0]?.toUpperCase() || '?'}
                               </div>
                               <div className="space-y-0.5">
                                  <div className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors">{u.display_name || 'Anonymous Pilot'}</div>
