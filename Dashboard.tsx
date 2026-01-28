@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAutoPalStore } from './shared/store.ts';
 import { 
@@ -59,9 +60,10 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const syncVehicles = async () => {
+      if (!user?.id) return;
       setIsSyncing(true);
       try {
-        const cloudVehicles = await fetchUserVehicles();
+        const cloudVehicles = await fetchUserVehicles(user.id);
         if (cloudVehicles.length > 0) {
           setVehicles(cloudVehicles);
         }
@@ -72,7 +74,7 @@ const Dashboard: React.FC = () => {
       }
     };
     syncVehicles();
-  }, [setVehicles]);
+  }, [setVehicles, user?.id]);
 
   useEffect(() => {
     if (vehicles.length > 0 && !activeVehicleId) {

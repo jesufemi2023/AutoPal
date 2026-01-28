@@ -10,14 +10,20 @@ const DB_TABLES = {
   RECORDS: 'service_logs'
 };
 
-export const fetchUserVehicles = async (): Promise<Vehicle[]> => {
-  const local = await localDb.getVehicles();
+export const fetchUserVehicles = async (userId: string): Promise<Vehicle[]> => {
+  if (!userId) return [];
+
+  // Check local first but filter by current user to prevent cross-leakage
+  const local = await localDb.getVehicles(userId);
   if (local.length > 0) return local;
 
   if (!supabase) return [];
+  
+  // Explicitly filtering by owner_id in addition to status
   const { data, error } = await supabase
     .from(DB_TABLES.VEHICLES)
     .select('*')
+    .eq('owner_id', userId)
     .eq('status', 'active') 
     .order('created_at', { ascending: false });
 

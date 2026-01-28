@@ -25,7 +25,10 @@ db.version(4).stores({
 export const localDb = {
   // Vehicles
   saveVehicle: (v: Vehicle) => db.vehicles.put(v),
-  getVehicles: () => db.vehicles.toArray(),
+  getVehicles: (ownerId?: string) => {
+    if (!ownerId) return db.vehicles.toArray();
+    return db.vehicles.where('ownerId').equals(ownerId).toArray();
+  },
   getVehicle: (id: string) => db.vehicles.get(id),
   deleteVehicle: (id: string) => db.vehicles.delete(id),
   

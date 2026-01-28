@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -143,8 +144,8 @@ const App: React.FC = () => {
   }, [setSession, setInitialized, reset, setUser, syncLatestProfile]);
 
   useEffect(() => {
-    if (session && user && vehicles.length === 0) {
-      fetchUserVehicles().then((fetchedVehicles) => {
+    if (session?.user?.id && user && vehicles.length === 0) {
+      fetchUserVehicles(session.user.id).then((fetchedVehicles) => {
         if (fetchedVehicles.length > 0) setVehicles(fetchedVehicles);
         const isTransitioning = currentView === 'landing' || currentView === 'garage';
         if (isTransitioning) {
