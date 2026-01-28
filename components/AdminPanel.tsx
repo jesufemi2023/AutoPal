@@ -185,23 +185,23 @@ const AdminPanel: React.FC = () => {
               <div className="p-8 bg-slate-950 font-mono text-[11px] text-blue-400/80 flex-grow space-y-4 overflow-y-auto max-h-[400px]">
                 <div className="flex gap-4">
                   <span className="text-slate-600">[{new Date().toLocaleTimeString()}]</span>
-                  <span>> INITIALIZING SYSTEM HANDSHAKE... SUCCESS</span>
+                  <span>&gt; INITIALIZING SYSTEM HANDSHAKE... SUCCESS</span>
                 </div>
                 <div className="flex gap-4">
                   <span className="text-slate-600">[{new Date().toLocaleTimeString()}]</span>
-                  <span>> POLLING GEMINI PRO API... STATUS: NOMINAL</span>
+                  <span>&gt; POLLING GEMINI PRO API... STATUS: NOMINAL</span>
                 </div>
                 <div className="flex gap-4">
                   <span className="text-slate-600">[{new Date().toLocaleTimeString()}]</span>
-                  <span className="text-emerald-500">> NEW PILOT REGISTERED: pilot_94@autopal.ng</span>
+                  <span className="text-emerald-500">&gt; NEW PILOT REGISTERED: pilot_94@autopal.ng</span>
                 </div>
                 <div className="flex gap-4">
                   <span className="text-slate-600">[{new Date().toLocaleTimeString()}]</span>
-                  <span className="text-amber-500">> QUOTA REACHED: UID_99482 (AI_SCAN_MONTHLY)</span>
+                  <span className="text-amber-500">&gt; QUOTA REACHED: UID_99482 (AI_SCAN_MONTHLY)</span>
                 </div>
                 <div className="flex gap-4 animate-pulse">
                   <span className="text-slate-600">[{new Date().toLocaleTimeString()}]</span>
-                  <span className="text-blue-500">> LISTENING ON PORT 443...</span>
+                  <span className="text-blue-500">&gt; LISTENING ON PORT 443...</span>
                 </div>
               </div>
             </div>
