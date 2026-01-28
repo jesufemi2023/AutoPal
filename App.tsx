@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
 import AuthScreen from './components/AuthScreen.tsx';
@@ -19,7 +19,7 @@ import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
 import { TierGuard } from './components/TierGuard.tsx';
-import { Car, Menu, X, User } from 'lucide-react';
+import { Car, Menu, X, User, AlertTriangle, RefreshCw, WifiOff } from 'lucide-react';
 
 const App: React.FC = () => {
   const { 
@@ -34,6 +34,10 @@ const App: React.FC = () => {
   const [aiAdvice, setAiAdvice] = useState<any>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isManagePanelOpen, setIsManagePanelOpen] = useState(false);
+  
+  // Sync UX State
+  const [isSyncSlow, setIsSyncSlow] = useState(false);
+  const syncTimerRef = useRef<number | null>(null);
 
   const activeVehicle = vehicles.find(v => v.id === activeVehicleId);
 
@@ -41,6 +45,22 @@ const App: React.FC = () => {
     validateEnv();
     loadLocalData();
   }, []);
+
+  // Monitor Sync Speed for UX Feedback
+  useEffect(() => {
+    if (isSyncing) {
+      setIsSyncSlow(false);
+      syncTimerRef.current = window.setTimeout(() => {
+        setIsSyncSlow(true);
+      }, 7000); // 7 seconds threshold for "slow"
+    } else {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      setIsSyncSlow(false);
+    }
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    };
+  }, [isSyncing]);
 
   const syncLatestProfile = useCallback(async (userId: string, email: string) => {
     if (!supabase) return;
@@ -157,6 +177,18 @@ const App: React.FC = () => {
   }, [session?.user?.id, user?.id]);
 
   const handleSignOut = async () => {
+    // SECURITY UX: Prevent logout if data is not synced
+    if (hasDirtyData) {
+      const confirmed = window.confirm("UNSAVED DATA DETECTED: You have local records that haven't been synced to the vault. Signing out now might result in data loss. \n\nSync your data first?");
+      if (confirmed) {
+        triggerSync();
+        return;
+      }
+      // If they cancel or say "No", we still ask one last time for confirmation to proceed anyway
+      const proceedAnyway = window.confirm("DANGER: Are you absolutely sure you want to exit without syncing? Local data may be purged.");
+      if (!proceedAnyway) return;
+    }
+
     setIsMobileMenuOpen(false);
     setIsManagePanelOpen(false);
     if (!supabase) {
@@ -218,22 +250,42 @@ const App: React.FC = () => {
   );
 
   const SyncShield = () => (
-    <button 
-      onClick={() => hasDirtyData && triggerSync()}
-      disabled={isSyncing}
-      className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[8px] font-black uppercase tracking-widest transition-all ${
-        isSyncing 
-          ? 'bg-blue-50 border-blue-100 text-blue-500' 
-          : hasDirtyData 
-            ? 'bg-amber-50 border-amber-100 text-amber-600 hover:bg-amber-100' 
-            : 'bg-emerald-50 border-emerald-100 text-emerald-600 opacity-60'
-      }`}
-    >
-      <div className={`w-1.5 h-1.5 rounded-full ${
-        isSyncing ? 'bg-blue-500 animate-pulse' : hasDirtyData ? 'bg-amber-500 animate-bounce' : 'bg-emerald-500'
-      }`}></div>
-      {isSyncing ? 'Vaulting...' : hasDirtyData ? 'Sync Needed' : 'Synced'}
-    </button>
+    <div className="flex flex-col items-end gap-1">
+      <button 
+        onClick={() => (hasDirtyData || isSyncSlow) && triggerSync()}
+        disabled={isSyncing && !isSyncSlow}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[8px] font-black uppercase tracking-widest transition-all shadow-sm ${
+          isSyncing 
+            ? 'bg-blue-600 border-blue-600 text-white animate-pulse' 
+            : hasDirtyData 
+              ? 'bg-amber-100 border-amber-300 text-amber-700 hover:bg-amber-200 animate-bounce' 
+              : 'bg-emerald-50 border-emerald-100 text-emerald-600 opacity-60'
+        }`}
+      >
+        <div className={`w-1.5 h-1.5 rounded-full ${
+          isSyncing ? 'bg-white' : hasDirtyData ? 'bg-amber-600' : 'bg-emerald-500'
+        }`}></div>
+        {isSyncing ? 'Vaulting...' : hasDirtyData ? 'Sync Required' : 'Synced'}
+      </button>
+      
+      {isSyncing && isSyncSlow && (
+        <div className="bg-slate-900 text-white p-3 rounded-xl shadow-2xl absolute top-12 right-4 z-[200] max-w-[200px] border border-white/10 animate-in fade-in slide-in-from-top-2">
+           <div className="flex items-center gap-2 text-amber-400 mb-1">
+             <WifiOff size={12} />
+             <span className="text-[8px] font-black uppercase tracking-widest">Slow Network</span>
+           </div>
+           <p className="text-[7px] font-bold text-slate-400 uppercase leading-relaxed">
+             Sync is taking longer than expected. Refresh browser if connection fails.
+           </p>
+           <button 
+             onClick={() => window.location.reload()}
+             className="mt-2 w-full bg-blue-600 text-white py-1.5 rounded-lg text-[7px] font-black uppercase tracking-widest"
+           >
+             Refresh Interface
+           </button>
+        </div>
+      )}
+    </div>
   );
 
   const NavigationMenu = () => (
@@ -265,7 +317,7 @@ const App: React.FC = () => {
       )}
 
       <div>
-        <div className="flex items-center justify-between px-5 mb-4">
+        <div className="flex items-center justify-between px-5 mb-4 relative">
           <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.4em]">Navigation</p>
           <SyncShield />
         </div>
@@ -345,8 +397,18 @@ const App: React.FC = () => {
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 pb-8 bg-white"><NavigationMenu /></nav>
-        <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white">
-           <button onClick={handleSignOut} className="w-full text-rose-500 hover:bg-rose-50 p-3 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center">🚪 Sign Out</button>
+        <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white space-y-4">
+           {hasDirtyData && (
+             <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 animate-pulse">
+                <p className="text-[8px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-2 mb-1">
+                  <AlertTriangle size={10} /> Sync Advised
+                </p>
+                <p className="text-[7px] font-bold text-amber-600 uppercase">Save changes before exiting session.</p>
+             </div>
+           )}
+           <button onClick={handleSignOut} className={`w-full flex items-center justify-center gap-3 p-4 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center shadow-sm ${hasDirtyData ? 'bg-rose-50 text-rose-500 border border-rose-100' : 'text-slate-400 hover:bg-slate-50'}`}>
+             🚪 Sign Out Session
+           </button>
         </div>
       </aside>
 
