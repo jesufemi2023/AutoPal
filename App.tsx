@@ -83,8 +83,7 @@ const App: React.FC = () => {
         onboarded: profile.onboarded || false,
         createdAt: profile.created_at || '',
         lastBillingResetAt: profile.last_billing_reset_at || profile.created_at || '',
-        // DO add comment above each fix.
-        // FIX: Replaced undefined 'meta' reference with 'profile' from database query results.
+        // FIX: Replaced undefined 'meta' reference with 'profile'
         isRenewable: profile.is_renewable || false,
         licenseExpiresAt: profile.license_expires_at
       });
@@ -169,8 +168,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (session?.user?.id && user) {
       fetchUserVehicles(session.user.id).then((fetchedVehicles) => {
-        // Fix: Unconditionally update the store with fetched vehicles.
-        // This ensures ghost/guest data is cleared when the cloud returns an empty set for a new user.
+        // Fix for ghost data: Unconditionally update store
         setVehicles(fetchedVehicles);
         
         const isAtEntrance = currentView === 'landing';
@@ -380,10 +378,11 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
       <header className="lg:hidden h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 z-[100] w-full">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
+          {/* LOGO UNIFORMITY: STANDARD SLATE COMMAND LOGO */}
           <div className="w-8 h-8 bg-gradient-to-br from-slate-800 to-slate-950 rounded-lg flex items-center justify-center text-white shadow-md">
             <Car size={18} strokeWidth={2.5} />
           </div>
-          <span className="font-black tracking-tighter text-slate-900 text-sm">AutoPal NG</span>
+          <span className="font-black tracking-tighter text-slate-900 text-sm uppercase">AutoPal NG</span>
         </div>
         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-slate-900 p-2 hover:bg-slate-50 rounded-lg transition-colors">
           {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -397,11 +396,12 @@ const App: React.FC = () => {
       <aside className={`fixed lg:sticky top-0 left-0 z-[120] h-screen w-[300px] bg-white border-r border-slate-100 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-8 pb-6 shrink-0 bg-white">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setCurrentView('landing'); setIsMobileMenuOpen(false); }}>
+            {/* LOGO UNIFORMITY: STANDARD SLATE COMMAND LOGO */}
             <div className="w-10 h-10 bg-gradient-to-br from-slate-800 to-slate-950 rounded-xl flex items-center justify-center text-white shadow-lg">
               <Car size={22} strokeWidth={2.5} />
             </div>
             <div>
-              <span className="block font-black tracking-tighter text-slate-900 text-base mb-1">AutoPal NG</span>
+              <span className="block font-black tracking-tighter text-slate-900 text-base mb-1 uppercase">AutoPal NG</span>
               <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">Master Fleet</span>
             </div>
           </div>
@@ -481,7 +481,11 @@ const App: React.FC = () => {
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/95 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
         <button onClick={() => { setCurrentView('garage'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">🏠</span><span className="text-[7px] font-black uppercase tracking-widest">Garage</span></button>
         <button onClick={() => { setCurrentView('diagnostic'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">✧</span><span className="text-[7px] font-black uppercase tracking-widest">Repair</span></button>
-        <button onClick={() => { setCurrentView('onboarding'); setIsMobileMenuOpen(false); }} className="flex flex-col items-center -translate-y-4 flex-none px-4"><div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl border-4 border-white"><Car size={24} strokeWidth={2.5} /></div></button>
+        <button onClick={() => { setCurrentView('onboarding'); setIsMobileMenuOpen(false); }} className="flex flex-col items-center -translate-y-4 flex-none px-4">
+          <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl border-4 border-white">
+            <Car size={24} strokeWidth={2.5} />
+          </div>
+        </button>
         <button onClick={() => { setCurrentView('fuel'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'fuel' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">⛽</span><span className="text-[7px] font-black uppercase tracking-widest">Fuel</span></button>
         <button onClick={() => { setCurrentView('report'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'report' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">📄</span><span className="text-[7px] font-black uppercase tracking-widest">Report</span></button>
       </nav>

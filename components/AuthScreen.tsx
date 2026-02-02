@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { signIn, signUp, signInWithGoogle, sendPasswordResetEmail, updatePassword, signOut } from '../auth/authService.ts';
 import { useAutoPalStore } from '../shared/store.ts';
@@ -69,15 +70,14 @@ const AuthScreen: React.FC = () => {
         </div>
 
         <div className="text-center mb-10">
-          {/* Enhanced Clickable Logo with clearer feedback */}
           <button 
             onClick={() => setCurrentView('landing')}
             className="group flex flex-col items-center mx-auto mb-8 outline-none rounded-3xl p-3 transition-all hover:bg-slate-50"
             title="Go back to Home Page"
           >
-            <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center text-white mb-3 shadow-xl group-hover:scale-110 group-hover:bg-blue-600 transition-all duration-500 relative">
+            {/* LOGO UNIFORMITY: STANDARD SLATE COMMAND LOGO */}
+            <div className="w-16 h-16 bg-gradient-to-br from-slate-800 to-slate-950 rounded-2xl flex items-center justify-center text-white mb-3 shadow-xl group-hover:scale-110 transition-all duration-500 relative">
                <Car size={32} strokeWidth={2.5} />
-               {/* Tooltip hint on hover */}
                <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none shadow-xl">
                  Go Home
                </div>
