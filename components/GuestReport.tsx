@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { generateMaintenanceSchedule } from '../services/geminiService.ts';
@@ -34,9 +35,9 @@ const GuestReport: React.FC = () => {
       <div className="fixed inset-0 bg-slate-950 z-[9999] flex items-center justify-center p-6 text-center animate-in fade-in duration-500">
         <div className="space-y-8">
            <div className="text-6xl">👋</div>
-           <h2 className="text-3xl font-black text-white uppercase tracking-tighter">Safe Travels</h2>
+           <h2 className="text-3xl font-black text-white uppercase tracking-tighter">See you soon</h2>
            <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] max-w-xs leading-relaxed">
-             Your unsaved plan has been removed. Come back anytime to start a new journey.
+             Your temporary report has been cleared. Come back anytime to start a new plan.
            </p>
         </div>
       </div>
@@ -51,20 +52,19 @@ const GuestReport: React.FC = () => {
           className="flex items-center gap-3 cursor-pointer group"
           onClick={() => setCurrentView('landing')}
         >
-          {/* LOGO UNIFORMITY: STANDARD SLATE COMMAND LOGO */}
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-950 flex items-center justify-center shadow-lg shadow-slate-900/30 group-hover:scale-110 transition-transform">
             <Car size={16} strokeWidth={2.5} />
           </div>
           <div className="space-y-0.5">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-400">One-Time Guest Pass</h4>
-            <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400">This report will vanish if you close this window.</p>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-400">One-Time Guest Access</h4>
+            <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400">Save this plan by creating an account before leaving.</p>
           </div>
         </div>
         <button 
           onClick={() => setCurrentView('garage')}
           className="bg-white text-slate-900 text-[9px] font-black px-8 py-2.5 rounded-lg uppercase tracking-widest shadow-xl hover:bg-blue-600 hover:text-white transition-all"
         >
-          Save My Plan Forever
+          Save This Plan
         </button>
       </div>
 
@@ -78,7 +78,7 @@ const GuestReport: React.FC = () => {
               {transientVehicle?.mileage.toLocaleString()} KM
             </span>
           </div>
-          <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px]">Your Personalized Maintenance Plan</p>
+          <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px]">Your Maintenance Summary</p>
         </header>
 
         {report ? (
@@ -86,7 +86,7 @@ const GuestReport: React.FC = () => {
             {/* Overview Section */}
             <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 border border-slate-100 shadow-sm relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-8 opacity-5 text-8xl pointer-events-none select-none group-hover:scale-110 transition-transform duration-700">📋</div>
-              <h3 className="text-2xl font-black text-slate-900 mb-6 uppercase tracking-tight relative z-10">What Your Car Needs</h3>
+              <h3 className="text-2xl font-black text-slate-900 mb-6 uppercase tracking-tight relative z-10">What your car needs</h3>
               <p className="text-slate-500 text-sm sm:text-base leading-relaxed font-medium relative z-10">{report.summary}</p>
             </div>
 
@@ -94,7 +94,7 @@ const GuestReport: React.FC = () => {
             <div className="space-y-6">
               <div className="flex justify-between items-center px-2">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Upcoming Maintenance</h3>
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{report.tasks.length} Points Detected</span>
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{report.tasks.length} Checkpoints</span>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -143,34 +143,34 @@ const GuestReport: React.FC = () => {
 
               <div className="space-y-4 relative z-10">
                 <h3 className="text-white text-3xl sm:text-5xl font-black uppercase tracking-tighter leading-none">
-                  Don't Let This <br/><span className="text-blue-500">Value Leak Away</span>
+                  Save Your Car's <br/><span className="text-blue-500">Future Value</span>
                 </h3>
                 <p className="text-slate-400 text-xs sm:text-sm font-bold uppercase tracking-widest max-w-sm mx-auto leading-relaxed">
-                  Join 1,200+ vehicle owners saving ₦150k/year by automating their maintenance schedules.
+                  Join 1,200+ smart vehicle owners saving ₦150k/year with automated maintenance alerts.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 relative z-10">
                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
                    <div className="text-xl mb-2">📈</div>
-                   <div className="text-[9px] font-black text-white uppercase tracking-widest">Track Resale Value</div>
+                   <div className="text-[9px] font-black text-white uppercase tracking-widest">Resale Estimates</div>
                 </div>
                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
                    <div className="text-xl mb-2">⛽</div>
-                   <div className="text-[9px] font-black text-white uppercase tracking-widest">Fuel Monitoring</div>
+                   <div className="text-[9px] font-black text-white uppercase tracking-widest">Fuel Logic</div>
                 </div>
                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
                    <div className="text-xl mb-2">✧</div>
-                   <div className="text-[9px] font-black text-white uppercase tracking-widest">AI Diagnostics</div>
+                   <div className="text-[9px] font-black text-white uppercase tracking-widest">AI Mechanic</div>
                 </div>
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center relative z-10 pt-4">
                 <button onClick={() => setCurrentView('garage')} className="bg-white text-slate-900 px-12 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl hover:bg-blue-600 hover:text-white transition-all active:scale-95">
-                  Create My Free ID
+                  Get Started for Free
                 </button>
                 <button onClick={handleExit} className="px-10 py-5 text-slate-500 text-[10px] font-black uppercase tracking-widest hover:text-rose-500 transition-colors">
-                  Exit & Purge Data
+                  Exit & Discard
                 </button>
               </div>
             </div>
@@ -179,8 +179,8 @@ const GuestReport: React.FC = () => {
           <div className="py-24 flex flex-col items-center justify-center space-y-6">
             <div className="w-14 h-14 border-[5px] border-blue-600 border-t-transparent rounded-full animate-spin"></div>
             <div className="text-center space-y-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Expert System Analysis...</p>
-              <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Building your custom lifecycle plan</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Analyzing Vehicle Data...</p>
+              <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Building your custom service plan</p>
             </div>
           </div>
         )}

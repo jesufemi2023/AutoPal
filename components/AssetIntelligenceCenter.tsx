@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { initializeVehicleAsset, prepareProposedRoadmap, commitFinalRoadmap } from '../services/vehicleRegistrationService.ts';
@@ -68,7 +69,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
     }
   };
 
-  const handleStartCalibration = async () => {
+  const handleStartSetup = async () => {
     if (!form.make || !form.model) {
       alert("Please provide the car make and model to continue.");
       return;
@@ -144,10 +145,10 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
     }
   };
 
-  const handleDecommission = async () => {
+  const handleRemoveVehicle = async () => {
     if (!initialVehicle) return;
     const confirmed = confirm(
-      "Are you sure you want to remove this vehicle from your garage? All history for this car will be archived."
+      "Are you sure you want to remove this vehicle from your garage? All history for this car will be permanently deleted."
     );
     if (!confirmed) return;
 
@@ -225,7 +226,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
             onClick={handleClose}
             className="w-full bg-white text-slate-900 py-6 rounded-2xl font-black uppercase tracking-[0.3em] text-[11px] shadow-3xl hover:bg-emerald-600 hover:text-white transition-all active:scale-95"
           >
-            Enter Dashboard
+            Enter Garage
           </button>
         </div>
       </div>
@@ -236,7 +237,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
     return (
       <div className="fixed inset-0 bg-slate-950 flex flex-col items-center justify-center p-8 z-[9999] text-center">
         <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-8"></div>
-        <h2 className="text-white text-2xl font-black tracking-tighter uppercase mb-2">Analyzing Vehicle</h2>
+        <h2 className="text-white text-2xl font-black tracking-tighter uppercase mb-2">Creating Profile</h2>
         <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.4em]">Preparing your custom maintenance schedule...</p>
       </div>
     );
@@ -247,7 +248,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
       <div className="fixed inset-0 bg-[#fcfcfd] z-[9999] flex flex-col overflow-hidden animate-in fade-in duration-500">
         <header className="p-6 sm:p-10 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-6 bg-white shrink-0 pt-safe">
           <div className="text-center sm:text-left">
-            <h2 className="text-2xl font-black tracking-tighter uppercase">Review Schedule</h2>
+            <h2 className="text-2xl font-black tracking-tighter uppercase">Review Plan</h2>
             <p className="text-slate-400 text-[8px] font-black uppercase tracking-[0.3em]">Step 2: Confirm your roadmap</p>
           </div>
           <button 
@@ -255,7 +256,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
             disabled={isProcessing}
             className="w-full sm:w-auto bg-slate-900 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-4"
           >
-            {isProcessing ? 'Syncing...' : 'Start My Garage →'}
+            {isProcessing ? 'Saving...' : 'Enter My Garage →'}
           </button>
         </header>
 
@@ -342,15 +343,14 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
         
         <header className="p-6 sm:p-10 relative z-10 shrink-0 flex justify-between items-center">
           <div className="flex items-center gap-4 sm:gap-5">
-            {/* LOGO UNIFORMITY: STANDARD SLATE COMMAND LOGO */}
             <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-slate-800 to-slate-950 rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-xl shadow-slate-900/20">
               <Car size={24} strokeWidth={2.5} />
             </div>
             <div>
               <h1 className="text-white font-black text-sm sm:text-xl tracking-tighter uppercase leading-tight">
-                {mode === 'edit' ? 'Update Car' : 'New Vehicle Setup'}
+                {mode === 'edit' ? 'Edit Vehicle' : 'New Vehicle Setup'}
               </h1>
-              <p className="text-blue-500/60 text-[7px] sm:text-[8px] font-black uppercase tracking-[0.3em]">{mode === 'edit' ? 'Modifying details' : 'Getting started'}</p>
+              <p className="text-blue-500/60 text-[7px] sm:text-[8px] font-black uppercase tracking-[0.3em]">{mode === 'edit' ? 'Update your info' : 'Link your first asset'}</p>
             </div>
           </div>
           <button onClick={handleClose} className="lg:hidden w-10 h-10 rounded-full bg-white/5 border border-white/10 text-white flex items-center justify-center text-xl transition-all active:scale-90">×</button>
@@ -361,7 +361,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
             <div className="text-center space-y-2 mb-4 lg:mb-0">
                <h2 className="text-2xl sm:text-5xl lg:text-6xl font-black text-white tracking-tighter leading-[0.9] truncate px-4">
                  {form.make || 'Draft'} <br className="hidden sm:block" />
-                 <span className="text-blue-500"> {form.model || 'Asset'}</span>
+                 <span className="text-blue-500"> {form.model || 'Vehicle'}</span>
                </h2>
                <div className="inline-block px-3 py-1 bg-slate-800 rounded-full text-slate-500 font-mono text-[8px] uppercase tracking-widest border border-slate-700">
                  {form.vin || 'VIN NOT SET'}
@@ -408,7 +408,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
           <div className="flex items-center gap-3">
              <span className="w-8 h-8 bg-slate-900 text-white rounded-xl flex items-center justify-center text-[10px] font-black">01</span>
              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900">
-               {mode === 'edit' ? 'Modify Vehicle Details' : 'Basic Information'}
+               {mode === 'edit' ? 'Update Vehicle Info' : 'Basic Information'}
              </h3>
           </div>
           <button onClick={handleClose} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors hidden lg:block">Cancel & Exit</button>
@@ -418,7 +418,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
           <div className="max-w-2xl mx-auto space-y-12 sm:space-y-16">
             <section className="space-y-6 sm:space-y-10">
               <div className="space-y-6">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] ml-2">Car Details</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] ml-2">Vehicle Identity</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div className="space-y-2">
                     <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Make / Manufacturer</div>
@@ -435,7 +435,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
                     <input type="number" className="w-full px-6 sm:px-8 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black outline-none text-sm focus:border-blue-500" value={form.year} onChange={e => setForm({...form, year: parseInt(e.target.value)})} />
                   </div>
                   <div className="space-y-2">
-                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">VIN Number</div>
+                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">VIN / Chassis Number</div>
                     <input type="text" placeholder="Optional" className="w-full px-6 sm:px-8 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-mono font-black text-center tracking-widest outline-none uppercase text-sm focus:border-blue-500" value={form.vin} onChange={e => setForm({...form, vin: e.target.value.toUpperCase()})} />
                   </div>
                 </div>
@@ -444,10 +444,10 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
 
             <section className="space-y-6 sm:space-y-10">
               <div className="space-y-6">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] ml-2">Technical Specs</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] ml-2">Specifications</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div className="space-y-2">
-                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Car Type</div>
+                    <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">Vehicle Type</div>
                     <select className="w-full px-6 sm:px-8 py-4 sm:py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black outline-none text-sm focus:border-blue-500" value={form.bodyType} onChange={e => setForm({...form, bodyType: e.target.value as BodyType})}>
                       <option value="sedan">Saloon / Sedan</option>
                       <option value="suv">SUV / Cross-over</option>
@@ -471,7 +471,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
 
             <section className="space-y-10">
               <div className="space-y-6 sm:space-y-8">
-                <label className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em] ml-2">Current Odometer (KM)</label>
+                <label className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em] ml-2">Current Mileage (KM)</label>
                 <div className="relative">
                   <input 
                     type="number" 
@@ -488,13 +488,13 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
                 <div className="h-px bg-slate-100 w-full"></div>
                 <div className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 bg-rose-50 rounded-[2rem] border border-rose-100">
                   <div className="space-y-1 text-center sm:text-left">
-                    <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.4em]">Danger Zone</h4>
+                    <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.4em]">Removal Zone</h4>
                     <p className="text-[9px] text-rose-400 font-bold uppercase tracking-widest leading-relaxed">
-                      Remove this vehicle and archive all its history.
+                      Remove this vehicle from your garage permanently.
                     </p>
                   </div>
                   <button 
-                    onClick={handleDecommission}
+                    onClick={handleRemoveVehicle}
                     disabled={isProcessing}
                     className="w-full sm:w-auto bg-rose-600 text-white px-8 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-xl shadow-rose-600/20 active:scale-95 transition-all"
                   >
@@ -511,7 +511,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
             onClick={handleClose}
             className="hidden sm:block px-10 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all rounded-3xl active:scale-95"
           >
-            Go Back
+            Cancel
           </button>
           
           {mode === 'edit' ? (
@@ -529,13 +529,13 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
           ) : (
             <button 
               disabled={isProcessing}
-              onClick={handleStartCalibration}
+              onClick={handleStartSetup}
               className="flex-grow bg-slate-900 text-white py-6 sm:py-8 rounded-[2rem] sm:rounded-[2.5rem] font-black uppercase tracking-[0.3em] text-[11px] sm:text-[12px] shadow-4xl hover:bg-blue-600 transition-all flex items-center justify-center gap-6 disabled:opacity-50 active:scale-95"
             >
               {isProcessing ? (
                 <div className="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
               ) : (
-                <>Create My Schedule →</>
+                <>Generate Maintenance Plan →</>
               )}
             </button>
           )}

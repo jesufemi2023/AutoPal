@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { supabase } from '../auth/supabaseClient.ts';
@@ -47,7 +48,6 @@ const CapacityMeter: React.FC<{
 
 /**
  * NeuralProvisioningOverlay
- * Refined with step-by-step progress and manual reference input.
  */
 const NeuralProvisioningOverlay: React.FC<{ 
   tier: Tier; 
@@ -65,11 +65,11 @@ const NeuralProvisioningOverlay: React.FC<{
   useEffect(() => {
     let currentIdx = 0;
     const sequence = [
-      "> SECURING NEURAL CONNECTION...",
-      "> AUTHENTICATING GATEWAY...",
-      `> ACTIVATING ${tier.toUpperCase()} LICENSE...`,
-      "> SYNCHRONIZING CLOUD PROFILE...",
-      "> FINALIZING PROVISIONING..."
+      "> SECURING CONNECTION...",
+      "> AUTHENTICATING...",
+      `> ACTIVATING ${tier.toUpperCase()} PLAN...`,
+      "> SYNCHRONIZING PROFILE...",
+      "> FINALIZING SETUP..."
     ];
 
     const interval = setInterval(() => {
@@ -101,8 +101,8 @@ const NeuralProvisioningOverlay: React.FC<{
             <TerminalIcon size={24} />
           </div>
           <div>
-            <h3 className="text-white font-black uppercase tracking-tighter text-xl">Command Center</h3>
-            <p className="text-blue-500 text-[8px] font-black uppercase tracking-[0.4em]">License Activation Flow</p>
+            <h3 className="text-white font-black uppercase tracking-tighter text-xl">License Status</h3>
+            <p className="text-blue-500 text-[8px] font-black uppercase tracking-[0.4em]">Activating your new plan</p>
           </div>
         </div>
         
@@ -117,7 +117,7 @@ const NeuralProvisioningOverlay: React.FC<{
 
         {remoteStatus && (
           <div className={`p-4 rounded-xl text-[9px] font-black uppercase tracking-widest text-center mb-6 border animate-pulse ${remoteStatus === 'success' ? 'bg-emerald-600/10 border-emerald-500/30 text-emerald-400' : 'bg-blue-600/10 border-blue-600/30 text-blue-400'}`}>
-            System Status: {remoteStatus === 'success' ? 'Provisioning Confirmed' : 'Handshake Pending...'}
+            Status: {remoteStatus === 'success' ? 'Plan Activated' : 'Checking Payment...'}
           </div>
         )}
 
@@ -125,7 +125,7 @@ const NeuralProvisioningOverlay: React.FC<{
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-700 space-y-6">
             <div className="bg-amber-500/10 border border-amber-500/20 p-6 rounded-2xl text-center">
               <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest leading-relaxed">
-                Network latency detected. If your payment was deducted but the plan is inactive, please trigger a manual handshake.
+                If your payment was successful but the plan hasn't updated yet, please click verify below.
               </p>
             </div>
             
@@ -135,7 +135,7 @@ const NeuralProvisioningOverlay: React.FC<{
               className="w-full bg-blue-600 text-white py-5 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-blue-500 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
             >
               {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
-              {isSyncing ? "Verifying with Gateway..." : "Verify Payment & Sync Plan"}
+              {isSyncing ? "Verifying..." : "Verify Payment Now"}
             </button>
             
             <div className="text-center">
@@ -144,7 +144,7 @@ const NeuralProvisioningOverlay: React.FC<{
                   onClick={() => setShowManualInput(true)}
                   className="text-[8px] text-slate-500 font-black uppercase tracking-widest hover:text-blue-400 transition-colors"
                 >
-                  Can't find transaction? Enter Reference Manually
+                  Enter Payment Reference Manually
                 </button>
               ) : (
                 <div className="space-y-4 pt-4 border-t border-white/5">
@@ -160,7 +160,7 @@ const NeuralProvisioningOverlay: React.FC<{
                      onClick={() => onManualVerify(manualRef)}
                      className="w-full bg-white text-slate-900 py-3 rounded-xl font-black uppercase tracking-widest text-[9px] hover:bg-blue-50 transition-all disabled:opacity-30"
                    >
-                     Apply Custom Reference
+                     Apply Reference
                    </button>
                 </div>
               )}
@@ -198,9 +198,6 @@ const ProfileDossier: React.FC = () => {
     }
   }, [user]);
 
-  /**
-   * AUTOMATIC REDIRECT WATCHER
-   */
   useEffect(() => {
     if (isWaitingForServer && user?.tier && provisioningTier === user.tier) {
       setIsWaitingForServer(false);
@@ -208,7 +205,7 @@ const ProfileDossier: React.FC = () => {
       setRemoteStatus('success');
       setStatusMsg({ 
         type: 'success', 
-        text: `Upgrade complete. Your ${user.tier.toUpperCase()} plan is now active.` 
+        text: `Upgrade successful. Your ${user.tier.toUpperCase()} plan is now active.` 
       });
       
       setTimeout(() => {
@@ -217,19 +214,13 @@ const ProfileDossier: React.FC = () => {
     }
   }, [user?.tier, isWaitingForServer, provisioningTier, setCurrentView]);
 
-  /**
-   * HEARTBEAT POLLING
-   * Silently checks the DB every few seconds when modal is open.
-   */
   useEffect(() => {
     let pollInterval: number;
-    
     if (isWaitingForServer) {
       pollInterval = window.setInterval(async () => {
         await forceProfileSync(true);
       }, 4000);
     }
-
     return () => clearInterval(pollInterval);
   }, [isWaitingForServer]);
 
@@ -259,42 +250,36 @@ const ProfileDossier: React.FC = () => {
         });
 
         if (profile.tier === provisioningTier && !silent) {
-          setStatusMsg({ type: 'success', text: "Handshake complete. Profile updated." });
+          setStatusMsg({ type: 'success', text: "Profile successfully updated." });
           setIsWaitingForServer(false);
         }
       }
     } catch (e: any) {
-      if (!silent) setStatusMsg({ type: 'error', text: "Cloud sync failed. Check connection." });
+      if (!silent) setStatusMsg({ type: 'error', text: "Sync failed. Please check connection." });
     } finally {
       if (!silent) setIsManualSyncing(false);
     }
   };
 
-  /**
-   * REFINED MANUAL VERIFICATION
-   * Triggers the server-side verification before syncing local profile.
-   */
   const handleManualVerify = async (refOverride?: string) => {
     const reference = refOverride || lastRef;
     if (!reference) {
-      setStatusMsg({ type: 'error', text: "Critical: Transaction reference missing." });
+      setStatusMsg({ type: 'error', text: "Transaction reference is missing." });
       return;
     }
 
     setIsManualSyncing(true);
     try {
-      // 1. Force Server-Side Verification with Gateway
       const result = await verifyTransaction(reference);
       setRemoteStatus(result.status);
 
       if (result.status === 'success') {
-        // 2. If Gateway confirms, pull latest user row
         await forceProfileSync(true);
       } else {
-        setStatusMsg({ type: 'error', text: `Gateway status: ${result.status.toUpperCase()}. Handshake failed.` });
+        setStatusMsg({ type: 'error', text: `Status: ${result.status.toUpperCase()}. Handshake failed.` });
       }
     } catch (e: any) {
-      setStatusMsg({ type: 'error', text: "Neural link timeout. Please try again in 5 seconds." });
+      setStatusMsg({ type: 'error', text: "Connection error. Please try again." });
     } finally {
       setIsManualSyncing(false);
     }
@@ -323,7 +308,7 @@ const ProfileDossier: React.FC = () => {
       });
 
       setIsEditing(false);
-      setStatusMsg({ type: 'success', text: "Account profile updated." });
+      setStatusMsg({ type: 'success', text: "Profile updated successfully." });
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: `Failed to save changes: ${err.message}` });
     } finally {
@@ -334,7 +319,7 @@ const ProfileDossier: React.FC = () => {
   const handleNuclearDelete = async () => {
     if (!user) return;
     const confirmation = window.confirm(
-      "NUCLEAR OPTION: This will permanently delete your account and all linked vehicle data. This action is irreversible. Proceed?"
+      "DELETE ACCOUNT: This will permanently delete your account and all vehicle records. This cannot be undone. Proceed?"
     );
     
     if (!confirmation) return;
@@ -345,7 +330,7 @@ const ProfileDossier: React.FC = () => {
       await reset();
       setCurrentView('landing');
     } catch (err: any) {
-      alert(`System fault: ${err.message}`);
+      alert(`Error deleting account: ${err.message}`);
       setIsDeletingAccount(false);
     }
   };
@@ -363,7 +348,6 @@ const ProfileDossier: React.FC = () => {
       onSuccess: async (ref) => {
         try {
           if (supabase) {
-            // Pre-emptive Ledger entry
             await supabase.from('payments').insert([{
               user_id: user.id,
               tier: tier,
@@ -376,12 +360,10 @@ const ProfileDossier: React.FC = () => {
             setLastRef(ref);
             setRemoteStatus('pending');
             setIsWaitingForServer(true);
-            
-            // Immediate async verification
             verifyTransaction(ref).catch(() => {});
           }
         } catch (err: any) {
-          setStatusMsg({ type: 'error', text: `Gateway linkage error: ${err.message}` });
+          setStatusMsg({ type: 'error', text: `Linkage error: ${err.message}` });
         }
       },
       onCancel: () => {
@@ -436,11 +418,11 @@ const ProfileDossier: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center gap-3">
              <div className={`w-2 h-2 rounded-full ${isExpired ? 'bg-rose-500' : 'bg-blue-600 animate-pulse'}`}></div>
-             <p className="text-slate-400 text-[9px] font-black uppercase tracking-[0.4em]">Account Settings & Plan</p>
+             <p className="text-slate-400 text-[9px] font-black uppercase tracking-[0.4em]">Account Settings</p>
           </div>
           <h1 className="text-5xl sm:text-7xl font-black text-slate-900 tracking-tighter uppercase leading-none">
-            {activeTab === 'identity' ? 'My Profile' : 'Current'} <br/>
-            <span className="text-blue-600">{activeTab === 'identity' ? 'Information' : 'Plan'}</span>
+            {activeTab === 'identity' ? 'My Profile' : 'Plan'} <br/>
+            <span className="text-blue-600">{activeTab === 'identity' ? 'Details' : 'Subscription'}</span>
           </h1>
         </div>
 
@@ -455,7 +437,7 @@ const ProfileDossier: React.FC = () => {
             onClick={() => setActiveTab('license')}
             className={`px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'license' ? 'bg-slate-900 text-white shadow-xl' : 'text-slate-400 hover:text-slate-900'}`}
           >
-            Subscription Plan
+            Manage Plan
           </button>
         </div>
       </header>
@@ -491,11 +473,11 @@ const ProfileDossier: React.FC = () => {
                         <div className={`inline-block px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-[0.2em] mb-2 ${user?.tier === 'premium' ? 'bg-slate-900 text-blue-400' : user?.tier === 'standard' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
                           {user?.tier?.toUpperCase()} PLAN
                         </div>
-                        <h3 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none">{user?.displayName || 'Set your name'}</h3>
+                        <h3 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none">{user?.displayName || 'Add Name'}</h3>
                         <p className="text-slate-400 font-mono text-sm tracking-tight">{user?.email}</p>
                         {user?.licenseExpiresAt && (
                           <p className={`text-[9px] font-black uppercase tracking-widest pt-2 flex items-center gap-2 ${isExpired ? 'text-rose-500' : 'text-slate-400'}`}>
-                            <Clock size={10} /> Plan Expires: {formatDate(user.licenseExpiresAt)}
+                            <Clock size={10} /> Renews: {formatDate(user.licenseExpiresAt)}
                           </p>
                         )}
                     </div>
@@ -521,7 +503,7 @@ const ProfileDossier: React.FC = () => {
                         className={`w-full border-2 rounded-2xl px-6 py-5 font-bold text-sm outline-none transition-all ${isEditing ? 'bg-white border-blue-500 shadow-inner' : 'bg-slate-50 border-slate-100'}`} 
                         value={formData.displayName} 
                         onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
-                        placeholder="Your full name"
+                        placeholder="Your name"
                       />
                     </div>
                     <div className="space-y-2">
@@ -545,7 +527,7 @@ const ProfileDossier: React.FC = () => {
                         className="flex-grow bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-2xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 active:scale-95"
                       >
                         {isSavingProfile ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-                        Save Profile
+                        Update Profile
                       </button>
                       <button 
                         onClick={() => {
@@ -554,16 +536,15 @@ const ProfileDossier: React.FC = () => {
                         }}
                         className="px-10 py-5 text-slate-400 font-black uppercase tracking-widest text-[10px] hover:text-rose-500 transition-colors"
                       >
-                        Cancel Changes
+                        Cancel
                       </button>
                     </div>
                   ) : (
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] text-center">Update your contact information above.</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] text-center">Manage your personal settings above.</p>
                   )}
                 </div>
               </section>
 
-              {/* Danger Zone: Account Decommissioning */}
               <section className="bg-rose-50/30 rounded-[2.5rem] border border-rose-100 p-8 sm:p-12 shadow-sm group">
                 <div className="flex flex-col lg:flex-row items-center justify-between gap-10">
                   <div className="space-y-3 text-center lg:text-left">
@@ -572,7 +553,7 @@ const ProfileDossier: React.FC = () => {
                        <h3 className="text-xl font-black text-rose-600 uppercase tracking-tighter">Danger Zone</h3>
                     </div>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed max-w-sm">
-                      Irreversibly decommission your Pilot identity. This will purge all cloud assets, local telemetry, and auth metadata instantly.
+                      Permanently delete your account and all associated vehicle data. This action is irreversible.
                     </p>
                   </div>
                   
@@ -582,7 +563,7 @@ const ProfileDossier: React.FC = () => {
                     className="bg-rose-600 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-rose-700 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
                   >
                     {isDeletingAccount ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                    {isDeletingAccount ? "Purging Neural Link..." : "Permanently Delete Account"}
+                    {isDeletingAccount ? "Deleting..." : "Permanently Delete Account"}
                   </button>
                 </div>
               </section>
@@ -592,15 +573,15 @@ const ProfileDossier: React.FC = () => {
               <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white space-y-8 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[60px] rounded-full"></div>
                 <div className="space-y-1 relative z-10">
-                   <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]">Usage Summary</h4>
+                   <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]">Usage Limits</h4>
                    <p className="text-[9px] text-blue-500 font-bold uppercase tracking-widest">Monthly feature status</p>
                 </div>
                 
                 <div className="space-y-4 relative z-10">
-                   <CapacityMeter label="Garage Capacity" capability="MAX_VEHICLES" icon={<Shield size={14} />} color="text-blue-500" />
+                   <CapacityMeter label="Active Vehicles" capability="MAX_VEHICLES" icon={<Shield size={14} />} color="text-blue-500" />
                    <CapacityMeter label="AI Value Scans" capability="AI_SCAN_MONTHLY" icon={<Zap size={14} />} color="text-amber-500" />
                    <CapacityMeter label="AI Diagnostics" capability="AI_MECHANIC_MONTHLY" icon={<Cpu size={14} />} color="text-rose-500" />
-                   <CapacityMeter label="Fuel History logs" capability="FUEL_LOGS_MONTHLY" icon={<Database size={14} />} color="text-emerald-500" />
+                   <CapacityMeter label="Fuel logs" capability="FUEL_LOGS_MONTHLY" icon={<Database size={14} />} color="text-emerald-500" />
                    <CapacityMeter label="Service Records" capability="SERVICE_LOGS_MONTHLY" icon={<TerminalIcon size={14} />} color="text-indigo-500" />
                 </div>
               </div>
@@ -639,7 +620,7 @@ const ProfileDossier: React.FC = () => {
                       disabled={isActive && !isExpired}
                       className={`mt-12 w-full py-6 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] transition-all flex items-center justify-center gap-3 ${isActive && !isExpired ? 'bg-emerald-50 text-emerald-600 border-2 border-emerald-200 cursor-default' : plan.id === 'free' ? 'bg-slate-100 text-slate-400 border-2 border-slate-200 cursor-not-allowed' : 'bg-slate-900 text-white hover:bg-blue-600 shadow-2xl active:scale-0.98]'}`}
                     >
-                      {isActive && isExpired ? 'Renew Plan' : isActive ? 'Current Plan' : plan.id === 'free' ? 'Initial Plan' : `Upgrade to ${plan.label}`}
+                      {isActive && isExpired ? 'Renew Now' : isActive ? 'Active Plan' : plan.id === 'free' ? 'Initial Plan' : `Select ${plan.label}`}
                     </button>
                   </div>
                 );

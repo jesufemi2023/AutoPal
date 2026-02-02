@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
@@ -82,7 +83,6 @@ const App: React.FC = () => {
         onboarded: profile.onboarded || false,
         createdAt: profile.created_at || '',
         lastBillingResetAt: profile.last_billing_reset_at || profile.created_at || '',
-        // FIX: Replaced undefined 'meta' reference with 'profile'
         isRenewable: profile.is_renewable || false,
         licenseExpiresAt: profile.license_expires_at
       });
@@ -131,7 +131,7 @@ const App: React.FC = () => {
                     avatarUrl: updated.avatar_url
                   });
                 }
-                console.log("System Calibration: Real-time update received from Cloud.");
+                console.log("Profile update received from Cloud.");
               })
               .subscribe();
           }
@@ -167,7 +167,6 @@ const App: React.FC = () => {
   useEffect(() => {
     if (session?.user?.id && user) {
       fetchUserVehicles(session.user.id).then((fetchedVehicles) => {
-        // Fix for ghost data: Unconditionally update store
         setVehicles(fetchedVehicles);
         
         const isAtEntrance = currentView === 'landing';
@@ -186,13 +185,12 @@ const App: React.FC = () => {
   const handleSignOut = async () => {
     // SECURITY UX: Prevent logout if data is not synced
     if (hasDirtyData) {
-      const confirmed = window.confirm("UNSAVED DATA DETECTED: You have local records that haven't been synced to the vault. Signing out now might result in data loss. \n\nSync your data first?");
+      const confirmed = window.confirm("UNSAVED DATA DETECTED: You have local records that haven't been saved. Signing out now might result in data loss. \n\nSync your data first?");
       if (confirmed) {
         triggerSync();
         return;
       }
-      // If they cancel or say "No", we still ask one last time for confirmation to proceed anyway
-      const proceedAnyway = window.confirm("DANGER: Are you absolutely sure you want to exit without syncing? Local data may be purged.");
+      const proceedAnyway = window.confirm("WARNING: Are you sure you want to exit without saving? Local records may be lost.");
       if (!proceedAnyway) return;
     }
 
@@ -219,9 +217,9 @@ const App: React.FC = () => {
 
   const closeManagement = () => setIsManagePanelOpen(false);
 
-  const handleArchiveAsset = async () => {
+  const handleRemoveAsset = async () => {
     if (!activeVehicleId || !activeVehicle) return;
-    const confirmed = confirm(`DELETE VEHICLE: Remove ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}?`);
+    const confirmed = confirm(`REMOVE VEHICLE: Permanently delete ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model} from your records?`);
     if (!confirmed) return;
 
     try {
@@ -272,23 +270,23 @@ const App: React.FC = () => {
         <div className={`w-1.5 h-1.5 rounded-full ${
           isSyncing ? 'bg-white' : hasDirtyData ? 'bg-amber-600' : 'bg-emerald-500'
         }`}></div>
-        {isSyncing ? 'Vaulting...' : hasDirtyData ? 'Sync Required' : 'Synced'}
+        {isSyncing ? 'Saving...' : hasDirtyData ? 'Unsaved Changes' : 'All Saved'}
       </button>
       
       {isSyncing && isSyncSlow && (
         <div className="bg-slate-900 text-white p-3 rounded-xl shadow-2xl absolute top-12 right-4 z-[200] max-w-[200px] border border-white/10 animate-in fade-in slide-in-from-top-2">
            <div className="flex items-center gap-2 text-amber-400 mb-1">
              <WifiOff size={12} />
-             <span className="text-[8px] font-black uppercase tracking-widest">Slow Network</span>
+             <span className="text-[8px] font-black uppercase tracking-widest">Slow Connection</span>
            </div>
            <p className="text-[7px] font-bold text-slate-400 uppercase leading-relaxed">
-             Sync is taking longer than expected. Refresh browser if connection fails.
+             Save is taking longer than expected. Refresh browser if it fails.
            </p>
            <button 
              onClick={() => window.location.reload()}
              className="mt-2 w-full bg-blue-600 text-white py-1.5 rounded-lg text-[7px] font-black uppercase tracking-widest"
            >
-             Refresh Interface
+             Refresh
            </button>
         </div>
       )}
@@ -313,7 +311,7 @@ const App: React.FC = () => {
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-black text-slate-900 uppercase tracking-tight truncate group-hover:text-blue-600 transition-colors">
-              {user.displayName || 'No Name Set'}
+              {user.displayName || 'Set Name'}
             </p>
             <p className="text-[8px] font-bold text-slate-400 truncate tracking-tight">{user.email}</p>
           </div>
@@ -328,7 +326,7 @@ const App: React.FC = () => {
           <p className="text-[7px] font-black text-slate-300 uppercase tracking-[0.4em]">Navigation</p>
           <SyncShield />
         </div>
-        <NavItem view="garage" label="Garage Overview" icon="🏠" />
+        <NavItem view="garage" label="My Garage" icon="🏠" />
         <NavItem view="diagnostic" label="AI Mechanic" icon="✧" isNeural />
         <NavItem view="service" label="Service History" icon="🛠️" />
         <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
@@ -336,12 +334,12 @@ const App: React.FC = () => {
       </div>
 
       <div className="pt-4 border-t border-slate-100 mx-2">
-        <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">Reports & Audit</p>
+        <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">My Reports</p>
         <TierGuard capability="OWNERSHIP_REPORT">
-           <NavItem view="report" label="Ownership Report" icon="📄" />
+           <NavItem view="report" label="Garage Report" icon="📄" />
         </TierGuard>
-        <NavItem view="profile" label="Account Profile" icon="👤" />
-        {user?.role === 'admin' && <NavItem view="admin" label="Admin Command" icon="⚡" />}
+        <NavItem view="profile" label="My Account" icon="👤" />
+        {user?.role === 'admin' && <NavItem view="admin" label="Admin Dashboard" icon="⚡" />}
         
         <button 
           onClick={() => setIsManagePanelOpen(!isManagePanelOpen)} 
@@ -349,7 +347,7 @@ const App: React.FC = () => {
         >
           <div className="flex items-center gap-4">
             <span className={`text-lg transition-transform ${isManagePanelOpen ? 'rotate-90 text-blue-400' : 'group-hover:rotate-12'}`}>⚙</span>
-            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Vehicle Controls</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Manage Vehicles</span>
           </div>
           <span className={`text-[10px] transition-transform duration-300 ${isManagePanelOpen ? 'rotate-180' : ''}`}>▾</span>
         </button>
@@ -377,7 +375,6 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
       <header className="lg:hidden h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 z-[100] w-full">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => setCurrentView('landing')}>
-          {/* LOGO UNIFORMITY: STANDARD SLATE COMMAND LOGO */}
           <div className="w-8 h-8 bg-gradient-to-br from-slate-800 to-slate-950 rounded-lg flex items-center justify-center text-white shadow-md">
             <Car size={18} strokeWidth={2.5} />
           </div>
@@ -395,13 +392,12 @@ const App: React.FC = () => {
       <aside className={`fixed lg:sticky top-0 left-0 z-[120] h-screen w-[300px] bg-white border-r border-slate-100 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-8 pb-6 shrink-0 bg-white">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setCurrentView('landing'); setIsMobileMenuOpen(false); }}>
-            {/* LOGO UNIFORMITY: STANDARD SLATE COMMAND LOGO */}
             <div className="w-10 h-10 bg-gradient-to-br from-slate-800 to-slate-950 rounded-xl flex items-center justify-center text-white shadow-lg">
               <Car size={22} strokeWidth={2.5} />
             </div>
             <div>
               <span className="block font-black tracking-tighter text-slate-900 text-base mb-1 uppercase">AutoPal NG</span>
-              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">Master Fleet</span>
+              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">My Garage</span>
             </div>
           </div>
         </div>
@@ -410,30 +406,30 @@ const App: React.FC = () => {
            {hasDirtyData && (
              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 animate-pulse">
                 <p className="text-[8px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-2 mb-1">
-                  <AlertTriangle size={10} /> Sync Advised
+                  <AlertTriangle size={10} /> Save Changes
                 </p>
-                <p className="text-[7px] font-bold text-amber-600 uppercase">Save changes before exiting session.</p>
+                <p className="text-[7px] font-bold text-amber-600 uppercase">Click the sync button above to save.</p>
              </div>
            )}
            <button onClick={handleSignOut} className={`w-full flex items-center justify-center gap-3 p-4 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center shadow-sm ${hasDirtyData ? 'bg-rose-50 text-rose-500 border border-rose-100' : 'text-slate-400 hover:bg-slate-50'}`}>
-             🚪 Sign Out Session
+             🚪 Sign Out
            </button>
         </div>
       </aside>
 
       <div className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[-300px] opacity-0 pointer-events-none translate-x-[-50px]'}`}>
         <div className="mb-10 px-2">
-          <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Fleet Ops</h4>
+          <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Quick Actions</h4>
           <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
         </div>
         <div className="space-y-1">
           <TierGuard capability="MAX_VEHICLES">
-            <button onClick={() => { setCurrentView('onboarding'); closeManagement(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all">+ Add New Asset</button>
+            <button onClick={() => { setCurrentView('onboarding'); closeManagement(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all">+ Add New Vehicle</button>
           </TierGuard>
           {activeVehicle && (
             <>
-              <button onClick={() => { handleEditAsset(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-slate-600 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 rounded-xl transition-all">✎ Modify Specs</button>
-              <button onClick={() => { handleArchiveAsset(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-rose-500 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 rounded-xl transition-all">📁 Decommission</button>
+              <button onClick={() => { handleEditAsset(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-slate-600 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 rounded-xl transition-all">✎ Edit Details</button>
+              <button onClick={() => { handleRemoveAsset(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-rose-500 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 rounded-xl transition-all">📁 Remove Vehicle</button>
             </>
           )}
         </div>
@@ -454,8 +450,8 @@ const App: React.FC = () => {
             {currentView === 'diagnostic' && activeVehicle && (
               <div className="max-w-4xl mx-auto w-full space-y-8">
                 <header className="px-1">
-                  <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter mb-1 leading-none uppercase">AI Diagnostics</h1>
-                  <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[9px]">Neural Mechanical Link</p>
+                  <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter mb-1 leading-none uppercase">AI Mechanic</h1>
+                  <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[9px]">Intelligent Symptom Analysis</p>
                 </header>
                 <DiagnosticsPanel 
                   vehicle={activeVehicle} symptom={symptom} setSymptom={setSymptom} diagImage={diagImage} setDiagImage={setDiagImage} isAskingAI={isAskingAI} 
@@ -467,7 +463,7 @@ const App: React.FC = () => {
                       setAiAdvice(advice);
                       if (advice.partsIdentified) setSuggestedParts(advice.partsIdentified);
                     } catch (e) { 
-                      throw e; // Important for verified consumption re-entry
+                      throw e;
                     } finally { setIsAskingAI(false); }
                   }} aiAdvice={aiAdvice} compact={false}
                 />
@@ -479,7 +475,7 @@ const App: React.FC = () => {
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/95 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
         <button onClick={() => { setCurrentView('garage'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">🏠</span><span className="text-[7px] font-black uppercase tracking-widest">Garage</span></button>
-        <button onClick={() => { setCurrentView('diagnostic'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">✧</span><span className="text-[7px] font-black uppercase tracking-widest">Repair</span></button>
+        <button onClick={() => { setCurrentView('diagnostic'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">✧</span><span className="text-[7px] font-black uppercase tracking-widest">Diagnostic</span></button>
         <button onClick={() => { setCurrentView('onboarding'); setIsMobileMenuOpen(false); }} className="flex flex-col items-center -translate-y-4 flex-none px-4">
           <div className="w-12 h-12 bg-gradient-to-br from-slate-800 to-slate-950 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl border-4 border-white">
             <Car size={24} strokeWidth={2.5} />
