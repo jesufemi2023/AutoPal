@@ -152,7 +152,22 @@ export const updateTaskStatus = async (taskId: string, status: TaskStatus): Prom
 export const archiveVehicle = async (vehicleId: string): Promise<void> => {
   const v = await localDb.getVehicle(vehicleId);
   if (v) {
+    // 1. Update Local Record
     await localDb.saveVehicle({ ...v, status: 'archived', isDirty: true, syncStatus: 'pending' });
+    
+    // 2. Immediate Remote Update
+    // Since removeVehicleStore is often called immediately after this, 
+    // we cannot rely solely on background sync. We must signal the cloud now.
+    if (supabase) {
+      try {
+        await supabase
+          .from(DB_TABLES.VEHICLES)
+          .update({ status: 'archived' })
+          .eq('id', vehicleId);
+      } catch (e) {
+        console.warn("Cloud archive signal failed, relying on background sync retry.", e);
+      }
+    }
   }
 };
 
