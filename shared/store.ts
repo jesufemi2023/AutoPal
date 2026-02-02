@@ -1,3 +1,4 @@
+
 import { create } from 'zustand';
 import { UserProfile, Vehicle, MaintenanceTask, ServiceLog, FuelLog, TransientVehicle, AIValuationReport } from './types.ts';
 import { localDb } from '../services/localDb.ts';
@@ -37,7 +38,7 @@ interface AutoPalState {
   setTransientVehicle: (vehicle: TransientVehicle | null) => void;
   incrementGuestAttempts: () => void;
   setVehicles: (vehicles: Vehicle[]) => void;
-  addVehicle: (vehicle: Vehicle) => void;
+  addVehicle: (vehicle) => void;
   updateVehicleStore: (vehicle: Vehicle) => void;
   syncVehicleState: (vehicleId: string, updates: Partial<Vehicle>) => void;
   removeVehicleStore: (vehicleId: string) => void;
@@ -214,12 +215,24 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
     }
   },
   removeVehicleStore: (vehicleId) => {
+    // 1. Clear Memory State
+    const remainingVehicles = get().vehicles.filter(v => v.id !== vehicleId);
+    const newActiveId = get().activeVehicleId === vehicleId 
+      ? (remainingVehicles.length > 0 ? remainingVehicles[0].id : null)
+      : get().activeVehicleId;
+
     set((state) => ({
-      vehicles: state.vehicles.filter(v => v.id !== vehicleId),
-      activeVehicleId: state.activeVehicleId === vehicleId ? (state.vehicles.find(v => v.id !== vehicleId)?.id || null) : state.activeVehicleId
+      vehicles: remainingVehicles,
+      activeVehicleId: newActiveId,
+      tasks: state.tasks.filter(t => t.vehicleId !== vehicleId),
+      serviceLogs: state.serviceLogs.filter(l => l.vehicleId !== vehicleId),
+      fuelLogs: state.fuelLogs.filter(f => f.vehicleId !== vehicleId)
     }));
-    localDb.deleteVehicle(vehicleId);
-    get().checkDirtyStatus();
+    
+    // 2. Clear IndexedDB deep hierarchy
+    localDb.purgeVehicleDeep(vehicleId).then(() => {
+      get().checkDirtyStatus();
+    });
   },
   updateMileage: (vehicleId, mileage) => {
     set((state) => ({

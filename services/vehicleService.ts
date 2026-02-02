@@ -149,26 +149,28 @@ export const updateTaskStatus = async (taskId: string, status: TaskStatus): Prom
   }
 };
 
+/**
+ * Hard Deletion Protocol
+ * Replaces soft-archiving to satisfy the requirement of permanent removal.
+ * Deleting the vehicle row triggers SQL Cascades on the server.
+ */
 export const archiveVehicle = async (vehicleId: string): Promise<void> => {
-  const v = await localDb.getVehicle(vehicleId);
-  if (v) {
-    // 1. Update Local Record
-    await localDb.saveVehicle({ ...v, status: 'archived', isDirty: true, syncStatus: 'pending' });
-    
-    // 2. Immediate Remote Update
-    // Since removeVehicleStore is often called immediately after this, 
-    // we cannot rely solely on background sync. We must signal the cloud now.
-    if (supabase) {
-      try {
-        await supabase
-          .from(DB_TABLES.VEHICLES)
-          .update({ status: 'archived' })
-          .eq('id', vehicleId);
-      } catch (e) {
-        console.warn("Cloud archive signal failed, relying on background sync retry.", e);
-      }
+  if (supabase) {
+    try {
+      // 1. Permanent Cloud Deletion
+      const { error } = await supabase
+        .from(DB_TABLES.VEHICLES)
+        .delete()
+        .eq('id', vehicleId);
+      
+      if (error) throw error;
+    } catch (e) {
+      console.warn("Cloud purge failed. Local cleanup will still proceed.", e);
     }
   }
+
+  // 2. Transactional Local Purge (Cascades manually in IndexedDB)
+  await localDb.purgeVehicleDeep(vehicleId);
 };
 
 export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceTask[]> => {
@@ -191,7 +193,7 @@ export const fetchVehicleTasks = async (vehicleId: string): Promise<MaintenanceT
     category: t.category,
     estimated_cost: t.estimated_cost,
     intervalKm: t.interval_km,
-    intervalMonths: t.interval_months,
+    interval_months: t.interval_months,
     syncStatus: 'synced',
     isDirty: false
   }));

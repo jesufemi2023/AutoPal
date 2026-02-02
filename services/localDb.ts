@@ -31,6 +31,22 @@ export const localDb = {
   },
   getVehicle: (id: string) => db.vehicles.get(id),
   deleteVehicle: (id: string) => db.vehicles.delete(id),
+
+  /**
+   * Deep Purge Protocol
+   * Transactionally removes a vehicle and all its associated child data
+   * to maintain local database integrity and prevent "ghost" data.
+   */
+  purgeVehicleDeep: async (vehicleId: string) => {
+    return db.transaction('rw', [db.vehicles, db.tasks, db.serviceLogs, db.fuelLogs], async () => {
+      await Promise.all([
+        db.vehicles.where('id').equals(vehicleId).delete(),
+        db.tasks.where('vehicleId').equals(vehicleId).delete(),
+        db.serviceLogs.where('vehicleId').equals(vehicleId).delete(),
+        db.fuelLogs.where('vehicleId').equals(vehicleId).delete()
+      ]);
+    });
+  },
   
   // Tasks
   saveTask: (t: MaintenanceTask) => db.tasks.put(t),
