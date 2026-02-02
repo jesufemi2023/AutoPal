@@ -110,7 +110,10 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   },
 
   loadLocalData: async () => {
-    const localVehicles = await localDb.getVehicles();
+    const currentUserId = get().user?.id;
+    // Strictly filter local data by the current user identity to prevent leakage
+    const localVehicles = await localDb.getVehicles(currentUserId);
+    
     const activeId = get().activeVehicleId || (localVehicles.length > 0 ? localVehicles[0].id : null);
     
     let localFuel: FuelLog[] = [];
@@ -182,10 +185,14 @@ export const useAutoPalStore = create<AutoPalState>((set, get) => ({
   }),
 
   setVehicles: (vehicles) => {
+    const currentActiveId = get().activeVehicleId;
+    const isStillValid = vehicles.some(v => v.id === currentActiveId);
+    
     set({ 
       vehicles,
-      activeVehicleId: get().activeVehicleId || (vehicles.length > 0 ? vehicles[0].id : null)
+      activeVehicleId: isStillValid ? currentActiveId : (vehicles.length > 0 ? vehicles[0].id : null)
     });
+    
     vehicles.forEach(v => localDb.saveVehicle(v));
     get().checkDirtyStatus();
   },

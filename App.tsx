@@ -83,6 +83,8 @@ const App: React.FC = () => {
         onboarded: profile.onboarded || false,
         createdAt: profile.created_at || '',
         lastBillingResetAt: profile.last_billing_reset_at || profile.created_at || '',
+        // DO add comment above each fix.
+        // FIX: Replaced undefined 'meta' reference with 'profile' from database query results.
         isRenewable: profile.is_renewable || false,
         licenseExpiresAt: profile.license_expires_at
       });
@@ -167,17 +169,10 @@ const App: React.FC = () => {
   useEffect(() => {
     if (session?.user?.id && user) {
       fetchUserVehicles(session.user.id).then((fetchedVehicles) => {
-        if (fetchedVehicles.length > 0) {
-          setVehicles(fetchedVehicles);
-        }
+        // Fix: Unconditionally update the store with fetched vehicles.
+        // This ensures ghost/guest data is cleared when the cloud returns an empty set for a new user.
+        setVehicles(fetchedVehicles);
         
-        /**
-         * REDIRECT LOGIC: FIX FOR CIRCULAR MOVEMENT
-         * We only trigger an automatic view shift if the user is specifically on the 'landing' page.
-         * We removed 'garage' from isAtEntrance because Dashboard handles its own empty state.
-         * Forcing 'onboarding' from here while the user is already transitioning to 'garage'
-         * caused the race condition loop.
-         */
         const isAtEntrance = currentView === 'landing';
         if (isAtEntrance) {
           const hasAssets = fetchedVehicles.length > 0 || vehicles.length > 0;
