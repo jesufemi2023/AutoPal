@@ -163,14 +163,24 @@ const App: React.FC = () => {
     };
   }, [setSession, setInitialized, reset, setUser, syncLatestProfile]);
 
+  // Synchronize Assets and Manage Post-Auth View Redirection
   useEffect(() => {
-    if (session?.user?.id && user && vehicles.length === 0) {
+    if (session?.user?.id && user) {
       fetchUserVehicles(session.user.id).then((fetchedVehicles) => {
-        if (fetchedVehicles.length > 0) setVehicles(fetchedVehicles);
-        const isTransitioning = currentView === 'landing' || currentView === 'garage';
-        if (isTransitioning) {
-          if (fetchedVehicles.length === 0) setCurrentView('onboarding');
-          else setCurrentView('garage');
+        if (fetchedVehicles.length > 0) {
+          setVehicles(fetchedVehicles);
+        }
+        
+        // REDIRECT LOGIC: If a pilot is authenticated and stuck on entrance views,
+        // move them to the Hub (Garage) if they have assets, otherwise Onboarding.
+        const isAtEntrance = currentView === 'landing' || currentView === 'garage';
+        if (isAtEntrance) {
+          const hasAssets = fetchedVehicles.length > 0 || vehicles.length > 0;
+          if (hasAssets) {
+            setCurrentView('garage');
+          } else {
+            setCurrentView('onboarding');
+          }
         }
       }).catch(console.error);
     }
