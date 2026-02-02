@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { initializeVehicleAsset, prepareProposedRoadmap, commitFinalRoadmap } from '../services/vehicleRegistrationService.ts';
@@ -343,7 +342,8 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
         
         <header className="p-6 sm:p-10 relative z-10 shrink-0 flex justify-between items-center">
           <div className="flex items-center gap-4 sm:gap-5">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-600/20">
+            {/* LOGO UNIFORMITY: STANDARD SLATE COMMAND LOGO */}
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-slate-800 to-slate-950 rounded-xl sm:rounded-2xl flex items-center justify-center text-white shadow-xl shadow-slate-900/20">
               <Car size={24} strokeWidth={2.5} />
             </div>
             <div>

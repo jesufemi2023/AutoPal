@@ -51,7 +51,8 @@ const GuestReport: React.FC = () => {
           className="flex items-center gap-3 cursor-pointer group"
           onClick={() => setCurrentView('landing')}
         >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-lg shadow-blue-500/30 group-hover:scale-110 transition-transform">
+          {/* LOGO UNIFORMITY: STANDARD SLATE COMMAND LOGO */}
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-950 flex items-center justify-center shadow-lg shadow-slate-900/30 group-hover:scale-110 transition-transform">
             <Car size={16} strokeWidth={2.5} />
           </div>
           <div className="space-y-0.5">
