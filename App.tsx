@@ -171,9 +171,14 @@ const App: React.FC = () => {
           setVehicles(fetchedVehicles);
         }
         
-        // REDIRECT LOGIC: If a pilot is authenticated and stuck on entrance views,
-        // move them to the Hub (Garage) if they have assets, otherwise Onboarding.
-        const isAtEntrance = currentView === 'landing' || currentView === 'garage';
+        /**
+         * REDIRECT LOGIC: FIX FOR CIRCULAR MOVEMENT
+         * We only trigger an automatic view shift if the user is specifically on the 'landing' page.
+         * We removed 'garage' from isAtEntrance because Dashboard handles its own empty state.
+         * Forcing 'onboarding' from here while the user is already transitioning to 'garage'
+         * caused the race condition loop.
+         */
+        const isAtEntrance = currentView === 'landing';
         if (isAtEntrance) {
           const hasAssets = fetchedVehicles.length > 0 || vehicles.length > 0;
           if (hasAssets) {
