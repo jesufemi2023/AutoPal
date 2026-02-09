@@ -55,7 +55,7 @@ const Marketplace: React.FC = () => {
     <div className="animate-slide-up space-y-8 sm:space-y-12 lg:space-y-16">
       <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 sm:gap-8 px-2">
         <div>
-          <h2 className="text-4xl sm:text-6xl lg:text-7xl font-black text-slate-900 tracking-tighter">Marketplace</h2>
+          <h2 className="text-4xl sm:text-6xl lg:text-7xl font-black text-slate-900 tracking-tighter">Find Part</h2>
           <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px] sm:text-[10px] mt-2 sm:mt-4">Supply Chain v1.3</p>
         </div>
         
