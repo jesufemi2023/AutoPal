@@ -5,6 +5,7 @@ import { useAutoPalStore } from './shared/store.ts';
 import AuthScreen from './components/AuthScreen.tsx';
 import Dashboard from './Dashboard.tsx';
 import Marketplace from './components/Marketplace.tsx';
+import FindMechanic from './components/FindMechanic.tsx';
 import AdminPanel from './components/AdminPanel.tsx';
 import FuelIntelligenceCenter from './components/dashboard/FuelIntelligenceCenter.tsx';
 import ServiceIntelligenceCenter from './components/dashboard/ServiceIntelligenceCenter.tsx';
@@ -228,7 +229,7 @@ const App: React.FC = () => {
     setCurrentView('edit');
   };
 
-  const NavItem = ({ view, label, icon, isNeural = false }: { view: any; label: string; icon: string; isNeural?: boolean }) => (
+  const NavItem = ({ view, label, icon, isNeural = false }: { view: any; label: string; icon: string | React.ReactNode; isNeural?: boolean }) => (
     <button 
       onClick={() => { 
         setCurrentView(view); 
@@ -299,6 +300,7 @@ const App: React.FC = () => {
         <NavItem view="service" label="Service History" icon="🛠️" />
         <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
         <NavItem view="marketplace" label="Find Part" icon="🛒" />
+        <NavItem view="mechanic" label="Find Mechanic" icon="👨‍🔧" />
       </div>
 
       <div className="pt-4 border-t border-slate-100 mx-2">
@@ -406,6 +408,7 @@ const App: React.FC = () => {
             {currentView === 'service' && <ServiceIntelligenceCenter />}
             {currentView === 'fuel' && <FuelIntelligenceCenter />}
             {currentView === 'marketplace' && <Marketplace />}
+            {currentView === 'mechanic' && <FindMechanic />}
             {currentView === 'admin' && <AdminPanel />}
             {currentView === 'profile' && <ProfileDossier />}
             {currentView === 'report' && <GlobalReportingCenter />}

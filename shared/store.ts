@@ -12,7 +12,7 @@ interface AutoPalState {
   isLoading: boolean;
   isSyncing: boolean;
   hasDirtyData: boolean;
-  currentView: 'garage' | 'onboarding' | 'marketplace' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service' | 'diagnostic' | 'landing' | 'profile' | 'report';
+  currentView: 'garage' | 'onboarding' | 'marketplace' | 'mechanic' | 'admin' | 'settings' | 'edit' | 'fuel' | 'service' | 'diagnostic' | 'landing' | 'profile' | 'report';
   editingVehicleId: string | null;
   activeVehicleId: string | null; 
   transientVehicle: TransientVehicle | null;
