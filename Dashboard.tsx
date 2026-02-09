@@ -127,7 +127,7 @@ const Dashboard: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">Garage <span className="text-blue-600">Home</span></h1>
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">My <span className="text-blue-600">Garage</span></h1>
               {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2"></div>}
             </div>
             <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">Daily Vehicle Overview</p>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { supabase } from '../auth/supabaseClient.ts';
 import { useAutoPalStore } from '../shared/store.ts';
@@ -36,7 +37,7 @@ export const CalibrationTerminal: React.FC = () => {
         rating: rating,
         tags: selectedTags,
         comment: comment,
-        vehicle_context: activeVehicle ? `${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}` : 'Garage Home'
+        vehicle_context: activeVehicle ? `${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model}` : 'My Garage'
       }]);
 
       if (error) throw error;
@@ -85,7 +86,7 @@ export const CalibrationTerminal: React.FC = () => {
             <div className="w-20 h-20 bg-emerald-600 rounded-full flex items-center justify-center text-white text-3xl mx-auto shadow-2xl border-4 border-white/10">✓</div>
             <div className="space-y-2">
               <h3 className="text-white text-2xl font-black uppercase tracking-tighter leading-none">Thank You!</h3>
-              <p className="text-slate-500 text-[9px] font-black uppercase tracking-[0.3em]">We appreciate your help in making AutoPal better.</p>
+              <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em]">We appreciate your help in making AutoPal better.</p>
             </div>
           </div>
         ) : (

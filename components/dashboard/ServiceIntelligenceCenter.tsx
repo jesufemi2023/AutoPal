@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useAutoPalStore } from '../../shared/store.ts';
 import { fetchVehicleTasks, fetchVehicleServiceLogs } from '../../services/vehicleService.ts';
@@ -104,7 +105,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
       <button onClick={(e) => { e.stopPropagation(); setActiveTooltip(activeTooltip === id ? null : id); }} className="text-slate-400 hover:text-blue-500 transition-colors">ℹ️</button>
       {activeTooltip === id && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 bg-slate-950/40 backdrop-blur-sm animate-in fade-in" onClick={() => setActiveTooltip(null)}>
-          <div className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-3xl max-w-sm w-full border border-white/10 text-center" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-slate-900 text-white p-8 rounded-[2rem] shadow-3xl max-sm w-full border border-white/10 text-center" onClick={(e) => e.stopPropagation()}>
             <div className="w-14 h-14 bg-blue-600/20 rounded-2xl flex items-center justify-center text-blue-400 text-2xl mx-auto mb-6">ℹ️</div>
             <h4 className="text-[11px] font-black text-blue-500 uppercase tracking-[0.3em] mb-4">Intelligence Insight</h4>
             <p className="text-xs font-bold uppercase tracking-widest text-slate-200 mb-8">{text}</p>
@@ -183,7 +184,7 @@ const ServiceIntelligenceCenter: React.FC = () => {
             <div className={`w-2 h-2 rounded-full ${isLoading ? 'bg-blue-500 animate-spin' : 'bg-blue-600 animate-pulse'}`}></div>
             <span className="text-slate-400 font-black uppercase tracking-[0.3em] text-[8px] sm:text-[9px]">{isLoading ? 'Syncing...' : 'Records Operational'}</span>
           </div>
-          <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Service <br/><span className="text-blue-600">Records</span></h2>
+          <h2 className="text-5xl sm:text-8xl font-black text-slate-900 tracking-tighter leading-[0.8]">Service <br/><span className="text-blue-600">History</span></h2>
           
           <div className="flex gap-3 pt-6">
              <TierGuard capability="EXPORT_EXCEL">
