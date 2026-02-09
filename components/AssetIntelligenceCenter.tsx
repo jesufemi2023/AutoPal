@@ -328,7 +328,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
             </div>
             <div>
               <h1 className="text-white font-black text-sm sm:text-xl tracking-tighter uppercase leading-tight">
-                {mode === 'edit' ? 'Edit Details' : 'Add New Car'}
+                {mode === 'edit' ? 'Edit Details' : 'Add New Vehicle'}
               </h1>
               <p className="text-blue-500/60 text-[7px] sm:text-[8px] font-black uppercase tracking-[0.3em]">{mode === 'edit' ? 'Update your info' : 'Basic details'}</p>
             </div>
@@ -340,7 +340,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
           <div className="w-full max-w-lg space-y-4 lg:space-y-12 animate-slide-up text-center">
                <h2 className="text-2xl sm:text-5xl lg:text-6xl font-black text-white tracking-tighter leading-[0.9] truncate px-4">
                  {form.make || 'Draft'} <br className="hidden sm:block" />
-                 <span className="text-blue-500"> {form.model || 'Car'}</span>
+                 <span className="text-blue-500"> {form.model || 'Vehicle'}</span>
                </h2>
                <div className="inline-block px-3 py-1 bg-slate-800 rounded-full text-slate-500 font-mono text-[8px] uppercase tracking-widest border border-slate-700">
                  {form.vin || 'VIN (CHASSIS #)'}
@@ -372,7 +372,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
       <div className="flex-grow flex flex-col min-h-0 bg-white shadow-[-40px_0_80px_-40px_rgba(0,0,0,0.1)] relative">
         <header className="p-6 sm:p-10 border-b border-slate-100 flex justify-between items-center bg-white/90 backdrop-blur-xl sticky top-0 z-50 shrink-0">
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900">
-            {mode === 'edit' ? 'Update Info' : 'Step 1: Car Details'}
+            {mode === 'edit' ? 'Update Info' : 'Step 1: Car Vehicle'}
           </h3>
           <button onClick={handleClose} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors hidden lg:block">Cancel</button>
         </header>
