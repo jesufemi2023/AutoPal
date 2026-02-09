@@ -20,7 +20,7 @@ import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
 import { TierGuard } from './components/TierGuard.tsx';
-import { Car, Menu, X, User, AlertTriangle, RefreshCw, WifiOff } from 'lucide-react';
+import { Car, Menu, X, User, AlertTriangle, RefreshCw, WifiOff, Info } from 'lucide-react';
 
 const App: React.FC = () => {
   const { 
@@ -245,7 +245,13 @@ const App: React.FC = () => {
   );
 
   const SyncShield = () => (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex items-center gap-2">
+      <div className="group relative">
+        <Info size={12} className="text-slate-300 hover:text-blue-500 cursor-help transition-colors" />
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-3 bg-slate-900 text-white text-[8px] font-black uppercase tracking-widest leading-relaxed rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-2xl border border-white/10 z-[300]">
+           Reminder: Always ensure status is "Saved" before closing browser to avoid losing your work.
+        </div>
+      </div>
       <button 
         onClick={() => (hasDirtyData || isSyncSlow) && triggerSync()}
         disabled={isSyncing && !isSyncSlow}
@@ -260,7 +266,7 @@ const App: React.FC = () => {
         <div className={`w-1.5 h-1.5 rounded-full ${
           isSyncing ? 'bg-white' : hasDirtyData ? 'bg-amber-600' : 'bg-emerald-500'
         }`}></div>
-        {isSyncing ? 'Saving...' : hasDirtyData ? 'Unsaved' : 'Synced'}
+        {isSyncing ? 'Saving...' : hasDirtyData ? 'Unsaved' : 'Saved'}
       </button>
     </div>
   );
