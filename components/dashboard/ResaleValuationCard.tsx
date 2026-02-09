@@ -131,7 +131,7 @@ export const ResaleValuationCard: React.FC<{
              </div>
              <div className="space-y-1">
                 <div className="text-5xl sm:text-6xl font-black tracking-tighter leading-none group-hover:text-blue-400 transition-colors">
-                  <span className="text-xl text-slate-600 mr-2">₦</span>
+                  <span className="textxl text-slate-600 mr-2">₦</span>
                   {cachedReport.valuationNGN?.toLocaleString() ?? '0'}
                 </div>
                 <div className="flex items-center gap-4 mt-2">
