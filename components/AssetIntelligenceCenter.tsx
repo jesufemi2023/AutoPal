@@ -372,7 +372,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
       <div className="flex-grow flex flex-col min-h-0 bg-white shadow-[-40px_0_80px_-40px_rgba(0,0,0,0.1)] relative">
         <header className="p-6 sm:p-10 border-b border-slate-100 flex justify-between items-center bg-white/90 backdrop-blur-xl sticky top-0 z-50 shrink-0">
           <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-900">
-            {mode === 'edit' ? 'Update Info' : 'Step 1: Car Registered'}
+            {mode === 'edit' ? 'Update Info' : 'Step 1: Register Vehicle'}
           </h3>
           <button onClick={handleClose} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-colors hidden lg:block">Cancel</button>
         </header>
