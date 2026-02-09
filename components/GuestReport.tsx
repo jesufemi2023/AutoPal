@@ -139,7 +139,7 @@ const GuestReport: React.FC = () => {
 
               <div className="space-y-4 relative z-10">
                 <h3 className="text-white text-3xl sm:text-5xl font-black uppercase tracking-tighter leading-none">
-                  Save Your Car's <br/><span className="text-blue-500">Future Value</span>
+                  Save Your Car's <br/><span className="text-blue-600">Future Value</span>
                 </h3>
                 <p className="text-slate-400 text-xs sm:text-sm font-bold uppercase tracking-widest max-w-sm mx-auto leading-relaxed">
                   Join 1,200+ smart vehicle owners saving ₦150k/year with Autopal maintenance alerts.

@@ -357,6 +357,7 @@ const App: React.FC = () => {
         <div className="lg:hidden fixed inset-0 z-[110] bg-slate-950/20 backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
+      {/* MOBILE SIDECAR: Updated width to 50% on mobile */}
       <aside className={`fixed lg:sticky top-0 left-0 z-[120] h-screen w-[50%] lg:w-[300px] bg-white border-r border-slate-100 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-8 pb-6 shrink-0 bg-white">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setCurrentView('landing'); setIsMobileMenuOpen(false); }}>
@@ -377,7 +378,8 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <div className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[-300px] opacity-0 pointer-events-none translate-x-[-50px]'}`}>
+      {/* VEHICLE OPTIONS SLIDEOUT: Enhanced for full visibility next to 50% sidebar on mobile */}
+      <div className={`fixed top-0 bottom-0 w-[50%] lg:w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-4 sm:px-6 ${isManagePanelOpen ? 'left-[50%] lg:left-[300px] opacity-100' : 'left-[-50%] lg:left-[-300px] opacity-0 pointer-events-none'}`}>
         <div className="mb-10 px-2">
           <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Settings</h4>
           <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
@@ -393,7 +395,7 @@ const App: React.FC = () => {
             </>
           )}
         </div>
-        <button onClick={closeManagement} className="absolute bottom-10 left-6 right-6 p-4 text-slate-400 text-[8px] font-black uppercase tracking-widest hover:text-slate-900 transition-colors border-t border-slate-50 pt-8">Close Menu</button>
+        <button onClick={closeManagement} className="absolute bottom-10 left-4 right-4 p-4 text-slate-400 text-[8px] font-black uppercase tracking-widest hover:text-slate-900 transition-colors border-t border-slate-50 pt-8">Close Menu</button>
       </div>
 
       <div className="flex-grow flex flex-col min-h-screen w-full overflow-x-hidden">
@@ -437,7 +439,7 @@ const App: React.FC = () => {
         <button onClick={() => { setCurrentView('garage'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">🏠</span><span className="text-[7px] font-black uppercase tracking-widest">Garage</span></button>
         <button onClick={() => { setCurrentView('diagnostic'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">✧</span><span className="text-[7px] font-black uppercase tracking-widest">Autopal Support</span></button>
         <button onClick={() => { setCurrentView('onboarding'); setIsMobileMenuOpen(false); }} className="flex flex-col items-center -translate-y-4 flex-none px-4">
-          <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl border-4 border-white">
+          <div className="w-12 h-12 bg-gradient-to-br from-slate-800 to-slate-950 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl border-4 border-white">
             <Car size={24} strokeWidth={2.5} />
           </div>
         </button>

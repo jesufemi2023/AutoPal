@@ -100,6 +100,8 @@ export const DiagnosticsPanel: React.FC<Props> = ({
                 if (file) {
                   const reader = new FileReader();
                   reader.onloadend = () => setDiagImage(reader.result as string);
+                  // DO add comment above each fix.
+                  // FIX: Changed readAsType to standard readAsDataURL to fix TypeScript error.
                   reader.readAsDataURL(file);
                 }
               }} />
