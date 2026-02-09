@@ -46,7 +46,6 @@ const GuestReport: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#fcfcfd] flex flex-col animate-slide-up">
-      {/* Warning Header */}
       <div className="bg-slate-900 text-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-white/10 relative z-50">
         <div 
           className="flex items-center gap-3 cursor-pointer group"
@@ -83,14 +82,12 @@ const GuestReport: React.FC = () => {
 
         {report ? (
           <div className="space-y-12">
-            {/* Overview Section */}
             <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 border border-slate-100 shadow-sm relative overflow-hidden group">
               <div className="absolute top-0 right-0 p-8 opacity-5 text-8xl pointer-events-none select-none group-hover:scale-110 transition-transform duration-700">📋</div>
               <h3 className="text-2xl font-black text-slate-900 mb-6 uppercase tracking-tight relative z-10">What your car needs</h3>
               <p className="text-slate-500 text-sm sm:text-base leading-relaxed font-medium relative z-10">{report.summary}</p>
             </div>
 
-            {/* Checklist Section */}
             <div className="space-y-6">
               <div className="flex justify-between items-center px-2">
                 <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Upcoming Maintenance</h3>
@@ -135,7 +132,6 @@ const GuestReport: React.FC = () => {
               </div>
             </div>
 
-            {/* Why Join? CTA Section */}
             <div className="bg-slate-900 p-10 sm:p-16 rounded-[3rem] text-center space-y-10 border-4 border-blue-600/30 shadow-2xl relative overflow-hidden">
               <div className="absolute inset-0 opacity-10 pointer-events-none">
                 <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:24px_24px]"></div>
@@ -146,7 +142,7 @@ const GuestReport: React.FC = () => {
                   Save Your Car's <br/><span className="text-blue-500">Future Value</span>
                 </h3>
                 <p className="text-slate-400 text-xs sm:text-sm font-bold uppercase tracking-widest max-w-sm mx-auto leading-relaxed">
-                  Join 1,200+ smart vehicle owners saving ₦150k/year with automated maintenance alerts.
+                  Join 1,200+ smart vehicle owners saving ₦150k/year with Autopal maintenance alerts.
                 </p>
               </div>
 
@@ -157,11 +153,11 @@ const GuestReport: React.FC = () => {
                 </div>
                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
                    <div className="text-xl mb-2">⛽</div>
-                   <div className="text-[9px] font-black text-white uppercase tracking-widest">Fuel Logic</div>
+                   <div className="text-[9px] font-black text-white uppercase tracking-widest">Fuel Health</div>
                 </div>
                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
                    <div className="text-xl mb-2">✧</div>
-                   <div className="text-[9px] font-black text-white uppercase tracking-widest">AI Mechanic</div>
+                   <div className="text-[9px] font-black text-white uppercase tracking-widest">Autopal Support</div>
                 </div>
               </div>
 
@@ -179,7 +175,7 @@ const GuestReport: React.FC = () => {
           <div className="py-24 flex flex-col items-center justify-center space-y-6">
             <div className="w-14 h-14 border-[5px] border-blue-600 border-t-transparent rounded-full animate-spin"></div>
             <div className="text-center space-y-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Analyzing Vehicle Data...</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Autopal Data Scan...</p>
               <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Building your custom service plan</p>
             </div>
           </div>

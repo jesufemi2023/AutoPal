@@ -10,9 +10,6 @@ import { ENV } from '../services/envService.ts';
 import { Shield, Zap, Database, CheckCircle2, AlertTriangle, Terminal as TerminalIcon, Sparkles, Clock, Ban, RefreshCw, Bug, Cpu, Globe, Edit3, Save, X as CloseIcon, Trash2, Key } from 'lucide-react';
 import { formatDate } from '../shared/utils.ts';
 
-/**
- * CapacityMeter
- */
 const CapacityMeter: React.FC<{ 
   label: string; 
   capability: CapabilityKey; 
@@ -46,9 +43,6 @@ const CapacityMeter: React.FC<{
   );
 };
 
-/**
- * NeuralProvisioningOverlay
- */
 const NeuralProvisioningOverlay: React.FC<{ 
   tier: Tier; 
   isSyncing: boolean;
@@ -102,7 +96,7 @@ const NeuralProvisioningOverlay: React.FC<{
           </div>
           <div>
             <h3 className="text-white font-black uppercase tracking-tighter text-xl">License Status</h3>
-            <p className="text-blue-500 text-[8px] font-black uppercase tracking-[0.4em]">Activating your new plan</p>
+            <p className="text-blue-500 text-[8px] font-black uppercase tracking-[0.4em]">Activating your plan</p>
           </div>
         </div>
         
@@ -144,7 +138,7 @@ const NeuralProvisioningOverlay: React.FC<{
                   onClick={() => setShowManualInput(true)}
                   className="text-[8px] text-slate-500 font-black uppercase tracking-widest hover:text-blue-400 transition-colors"
                 >
-                  Enter Payment Reference Manually
+                  Enter Reference Manually
                 </button>
               ) : (
                 <div className="space-y-4 pt-4 border-t border-white/5">
@@ -250,12 +244,12 @@ const ProfileDossier: React.FC = () => {
         });
 
         if (profile.tier === provisioningTier && !silent) {
-          setStatusMsg({ type: 'success', text: "Profile successfully updated." });
+          setStatusMsg({ type: 'success', text: "Profile updated." });
           setIsWaitingForServer(false);
         }
       }
     } catch (e: any) {
-      if (!silent) setStatusMsg({ type: 'error', text: "Sync failed. Please check connection." });
+      if (!silent) setStatusMsg({ type: 'error', text: "Sync failed." });
     } finally {
       if (!silent) setIsManualSyncing(false);
     }
@@ -264,7 +258,7 @@ const ProfileDossier: React.FC = () => {
   const handleManualVerify = async (refOverride?: string) => {
     const reference = refOverride || lastRef;
     if (!reference) {
-      setStatusMsg({ type: 'error', text: "Transaction reference is missing." });
+      setStatusMsg({ type: 'error', text: "Transaction ID is missing." });
       return;
     }
 
@@ -279,7 +273,7 @@ const ProfileDossier: React.FC = () => {
         setStatusMsg({ type: 'error', text: `Status: ${result.status.toUpperCase()}. Handshake failed.` });
       }
     } catch (e: any) {
-      setStatusMsg({ type: 'error', text: "Connection error. Please try again." });
+      setStatusMsg({ type: 'error', text: "Connection error." });
     } finally {
       setIsManualSyncing(false);
     }
@@ -308,7 +302,7 @@ const ProfileDossier: React.FC = () => {
       });
 
       setIsEditing(false);
-      setStatusMsg({ type: 'success', text: "Profile updated successfully." });
+      setStatusMsg({ type: 'success', text: "Profile updated." });
     } catch (err: any) {
       setStatusMsg({ type: 'error', text: `Failed to save changes: ${err.message}` });
     } finally {
@@ -319,7 +313,7 @@ const ProfileDossier: React.FC = () => {
   const handleNuclearDelete = async () => {
     if (!user) return;
     const confirmation = window.confirm(
-      "DELETE ACCOUNT: This will permanently delete your account and all vehicle records. This cannot be undone. Proceed?"
+      "DELETE ACCOUNT: This will permanently delete your account and all records. Proceed?"
     );
     
     if (!confirmation) return;
@@ -363,11 +357,11 @@ const ProfileDossier: React.FC = () => {
             verifyTransaction(ref).catch(() => {});
           }
         } catch (err: any) {
-          setStatusMsg({ type: 'error', text: `Linkage error: ${err.message}` });
+          setStatusMsg({ type: 'error', text: `Error: ${err.message}` });
         }
       },
       onCancel: () => {
-        setStatusMsg({ type: 'error', text: 'Activation sequence cancelled.' });
+        setStatusMsg({ type: 'error', text: 'Activation cancelled.' });
       }
     });
   };
@@ -378,24 +372,24 @@ const ProfileDossier: React.FC = () => {
       label: 'Free Plan', 
       price: 0,
       priceLabel: '₦0',
-      tagline: 'Basic vehicle tracking',
-      features: ['1 Active Vehicle', '2 Monthly Fuel Logs', 'No AI Diagnostic Scans', 'Limited Market Data', 'Non-renewable after 30 days']
+      tagline: 'Basic car tracking',
+      features: ['1 Active Vehicle', '2 Monthly Fuel Logs', 'No Autopal Scans', 'Basic Market Data', 'Expires after 30 days']
     },
     { 
       id: 'standard' as Tier, 
       label: 'Standard Plan', 
       price: 2500,
       priceLabel: '₦2,500/mo',
-      tagline: 'Enhanced maintenance tracking',
-      features: ['3 Active Vehicles', '7 Monthly Fuel Logs', '2 Monthly AI Scans', 'Professional Exports', 'Fully Renewable Monthly']
+      tagline: 'Better tracking tools',
+      features: ['3 Active Vehicles', '7 Monthly Fuel Logs', '2 Monthly Autopal Scans', 'PDF Exports', 'Renewable Monthly']
     },
     { 
       id: 'premium' as Tier, 
       label: 'Premium Plan', 
       price: 7500,
       priceLabel: '₦7,500/mo',
-      tagline: 'Full fleet intelligence',
-      features: ['10 Active Vehicles', 'Unlimited Fuel logs', '4 Monthly AI Scans', 'Detailed Garage Reports', 'Priority Support']
+      tagline: 'Full car intelligence',
+      features: ['10 Active Vehicles', 'Unlimited Fuel logs', '4 Monthly Autopal Scans', 'Detailed Reports', 'Priority Support']
     }
   ];
 
@@ -462,7 +456,7 @@ const ProfileDossier: React.FC = () => {
                 
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-10 mb-12 relative z-10">
                   <div className="flex flex-col sm:flex-row items-center gap-10">
-                    <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-[2.5rem] bg-slate-900 flex items-center justify-center text-white text-4xl sm:text-5xl font-black shadow-2xl border-4 border-slate-800 rotate-3 group-hover:rotate-0 transition-transform overflow-hidden">
+                    <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-[2.5rem] bg-slate-900 flex items-center justify-center text-white text-4xl sm:text-5xl font-black shadow-2xl border-4 border-slate-800 transition-transform overflow-hidden">
                       {user?.avatarUrl ? (
                         <img src={user.avatarUrl} alt={user.displayName} className="w-full h-full object-cover" />
                       ) : (
@@ -473,7 +467,7 @@ const ProfileDossier: React.FC = () => {
                         <div className={`inline-block px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-[0.2em] mb-2 ${user?.tier === 'premium' ? 'bg-slate-900 text-blue-400' : user?.tier === 'standard' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
                           {user?.tier?.toUpperCase()} PLAN
                         </div>
-                        <h3 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none">{user?.displayName || 'Add Name'}</h3>
+                        <h3 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tighter leading-none">{user?.displayName || 'Set Name'}</h3>
                         <p className="text-slate-400 font-mono text-sm tracking-tight">{user?.email}</p>
                         {user?.licenseExpiresAt && (
                           <p className={`text-[9px] font-black uppercase tracking-widest pt-2 flex items-center gap-2 ${isExpired ? 'text-rose-500' : 'text-slate-400'}`}>
@@ -488,7 +482,7 @@ const ProfileDossier: React.FC = () => {
                       onClick={() => setIsEditing(true)}
                       className="bg-slate-50 border border-slate-100 text-slate-400 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-blue-50 hover:text-blue-600 transition-all"
                     >
-                      <Edit3 size={12} /> Edit Profile
+                      <Edit3 size={12} /> Edit Info
                     </button>
                   )}
                 </div>
@@ -527,7 +521,7 @@ const ProfileDossier: React.FC = () => {
                         className="flex-grow bg-slate-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-2xl hover:bg-emerald-600 transition-all flex items-center justify-center gap-3 active:scale-95"
                       >
                         {isSavingProfile ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
-                        Update Profile
+                        Save Profile
                       </button>
                       <button 
                         onClick={() => {
@@ -540,7 +534,7 @@ const ProfileDossier: React.FC = () => {
                       </button>
                     </div>
                   ) : (
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] text-center">Manage your personal settings above.</p>
+                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-[0.3em] text-center">Manage your settings above.</p>
                   )}
                 </div>
               </section>
@@ -553,7 +547,7 @@ const ProfileDossier: React.FC = () => {
                        <h3 className="text-xl font-black text-rose-600 uppercase tracking-tighter">Danger Zone</h3>
                     </div>
                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-relaxed max-w-sm">
-                      Permanently delete your account and all associated vehicle data. This action is irreversible.
+                      Permanently delete your account. This cannot be undone.
                     </p>
                   </div>
                   
@@ -563,7 +557,7 @@ const ProfileDossier: React.FC = () => {
                     className="bg-rose-600 text-white px-10 py-5 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-xl hover:bg-rose-700 transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
                   >
                     {isDeletingAccount ? <RefreshCw size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                    {isDeletingAccount ? "Deleting..." : "Permanently Delete Account"}
+                    {isDeletingAccount ? "Deleting..." : "Delete Account"}
                   </button>
                 </div>
               </section>
@@ -573,14 +567,14 @@ const ProfileDossier: React.FC = () => {
               <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white space-y-8 shadow-2xl relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/10 blur-[60px] rounded-full"></div>
                 <div className="space-y-1 relative z-10">
-                   <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]">Usage Limits</h4>
-                   <p className="text-[9px] text-blue-500 font-bold uppercase tracking-widest">Monthly feature status</p>
+                   <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em]">Monthly Limits</h4>
+                   <p className="text-[9px] text-blue-500 font-bold uppercase tracking-widest">Plan usage status</p>
                 </div>
                 
                 <div className="space-y-4 relative z-10">
                    <CapacityMeter label="Active Vehicles" capability="MAX_VEHICLES" icon={<Shield size={14} />} color="text-blue-500" />
-                   <CapacityMeter label="AI Value Scans" capability="AI_SCAN_MONTHLY" icon={<Zap size={14} />} color="text-amber-500" />
-                   <CapacityMeter label="AI Diagnostics" capability="AI_MECHANIC_MONTHLY" icon={<Cpu size={14} />} color="text-rose-500" />
+                   <CapacityMeter label="Autopal Scans" capability="AI_SCAN_MONTHLY" icon={<Zap size={14} />} color="text-amber-500" />
+                   <CapacityMeter label="Autopal Support" capability="AI_MECHANIC_MONTHLY" icon={<Cpu size={14} />} color="text-rose-500" />
                    <CapacityMeter label="Fuel logs" capability="FUEL_LOGS_MONTHLY" icon={<Database size={14} />} color="text-emerald-500" />
                    <CapacityMeter label="Service Records" capability="SERVICE_LOGS_MONTHLY" icon={<TerminalIcon size={14} />} color="text-indigo-500" />
                 </div>

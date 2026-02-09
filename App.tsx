@@ -295,7 +295,7 @@ const App: React.FC = () => {
           <SyncShield />
         </div>
         <NavItem view="garage" label="My Garage" icon="🏠" />
-        <NavItem view="diagnostic" label="AI Mechanic" icon="✧" isNeural />
+        <NavItem view="diagnostic" label="Autopal Mechanic" icon="✧" isNeural />
         <NavItem view="service" label="Service History" icon="🛠️" />
         <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
         <NavItem view="marketplace" label="Buy Parts" icon="🛒" />
@@ -357,7 +357,8 @@ const App: React.FC = () => {
         <div className="lg:hidden fixed inset-0 z-[110] bg-slate-950/20 backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
-      <aside className={`fixed lg:sticky top-0 left-0 z-[120] h-screen w-[300px] bg-white border-r border-slate-100 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
+      {/* MOBILE SIDECAR: Updated width to 50% on mobile */}
+      <aside className={`fixed lg:sticky top-0 left-0 z-[120] h-screen w-[50%] lg:w-[300px] bg-white border-r border-slate-100 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
         <div className="p-8 pb-6 shrink-0 bg-white">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setCurrentView('landing'); setIsMobileMenuOpen(false); }}>
             <div className="w-10 h-10 bg-gradient-to-br from-slate-800 to-slate-950 rounded-xl flex items-center justify-center text-white shadow-lg">
@@ -410,8 +411,8 @@ const App: React.FC = () => {
             {currentView === 'diagnostic' && activeVehicle && (
               <div className="max-w-4xl mx-auto w-full space-y-8">
                 <header className="px-1">
-                  <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter mb-1 leading-none uppercase">AI Mechanic</h1>
-                  <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[9px]">Symptom Analysis</p>
+                  <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter mb-1 leading-none uppercase">Autopal Mechanic</h1>
+                  <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[9px]">Autopal Symptom Analysis</p>
                 </header>
                 <DiagnosticsPanel 
                   vehicle={activeVehicle} symptom={symptom} setSymptom={setSymptom} diagImage={diagImage} setDiagImage={setDiagImage} isAskingAI={isAskingAI} 
@@ -435,9 +436,9 @@ const App: React.FC = () => {
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/95 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
         <button onClick={() => { setCurrentView('garage'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">🏠</span><span className="text-[7px] font-black uppercase tracking-widest">Garage</span></button>
-        <button onClick={() => { setCurrentView('diagnostic'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">✧</span><span className="text-[7px] font-black uppercase tracking-widest">AI Mechanic</span></button>
+        <button onClick={() => { setCurrentView('diagnostic'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">✧</span><span className="text-[7px] font-black uppercase tracking-widest">Autopal Support</span></button>
         <button onClick={() => { setCurrentView('onboarding'); setIsMobileMenuOpen(false); }} className="flex flex-col items-center -translate-y-4 flex-none px-4">
-          <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl border-4 border-white">
+          <div className="w-12 h-12 bg-gradient-to-br from-slate-800 to-slate-950 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl border-4 border-white">
             <Car size={24} strokeWidth={2.5} />
           </div>
         </button>

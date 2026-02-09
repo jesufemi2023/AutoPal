@@ -1,3 +1,4 @@
+
 import React, { useRef, useState } from 'react';
 import { AIResponse, Vehicle } from '../../shared/types.ts';
 import { TierGuard } from '../TierGuard.tsx';
@@ -11,7 +12,7 @@ interface Props {
   diagImage: string | null;
   setDiagImage: (img: string | null) => void;
   isAskingAI: boolean;
-  onAnalyze: () => Promise<void>; // Updated to return promise for order control
+  onAnalyze: () => Promise<void>; 
   aiAdvice: AIResponse | null;
   compact?: boolean;
 }
@@ -26,27 +27,22 @@ export const DiagnosticsPanel: React.FC<Props> = ({
   const handleAnalyzeWithUsage = async () => {
     setLocalError(null);
     try {
-      // 1. PRE-FLIGHT VERIFICATION
       if (!navigator.onLine) {
         throw new Error("OFFLINE_LINK_FAILURE");
       }
 
-      // 2. PERFORM AI ANALYSIS FIRST
-      // If this throws (Safety block, Gemini error, etc), code jumps to catch.
       await onAnalyze();
       
-      // 3. LOG USAGE ONLY ON SUCCESS
-      // If the above line succeeded, the user has seen the result.
       if (user?.id) {
         await logFeatureUsage(user.id, 'ai_mechanic_monthly');
       }
     } catch (e: any) {
       if (e.message?.includes("QUOTA_EXHAUSTED")) {
-        setLocalError("Access limit reached. Upgrade your license for unlimited diagnostics.");
+        setLocalError("Access limit reached. Upgrade your plan for unlimited scans.");
       } else if (e.message?.includes("OFFLINE_LINK_FAILURE")) {
-        setLocalError("Satellite link lost. Connect to network to run AI diagnostics (No quota deducted).");
+        setLocalError("Satellite link lost. Connect to network to run Autopal scan.");
       } else {
-        setLocalError(e.message || "A neural link error occurred. Please try again (No quota deducted).");
+        setLocalError(e.message || "A link error occurred. Please try again.");
       }
     }
   };
@@ -62,8 +58,8 @@ export const DiagnosticsPanel: React.FC<Props> = ({
       {isAskingAI && (
         <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex flex-col items-center justify-center p-4 text-center animate-in fade-in duration-300">
           <div className="w-12 h-12 border-[4px] border-blue-500 border-t-transparent rounded-full animate-spin mb-6 shadow-[0_0_20px_#3b82f6]"></div>
-          <h4 className="text-sm font-black tracking-tight mb-2 uppercase">Analyzing...</h4>
-          <p className="text-slate-400 text-[8px] font-black uppercase tracking-[0.3em]">AI Assistant is Processing Your Input</p>
+          <h4 className="text-sm font-black tracking-tight mb-2 uppercase">Scanning...</h4>
+          <p className="text-slate-400 text-[8px] font-black uppercase tracking-[0.3em]">Autopal Assistant is Processing Your Input</p>
         </div>
       )}
       
@@ -74,8 +70,8 @@ export const DiagnosticsPanel: React.FC<Props> = ({
               <span className="text-xl animate-pulse text-white">✧</span>
             </div>
             <div>
-              <h3 className="text-xl font-black tracking-tighter leading-none uppercase">AI Diagnostic</h3>
-              <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Active Link: {vehicle.make} {vehicle.model}</p>
+              <h3 className="text-xl font-black tracking-tighter leading-none uppercase">Autopal Diagnostic</h3>
+              <p className="text-slate-500 text-[8px] font-black uppercase tracking-[0.3em] mt-2">Active Car: {vehicle.make} {vehicle.model}</p>
             </div>
           </div>
         )}
@@ -130,7 +126,7 @@ export const DiagnosticsPanel: React.FC<Props> = ({
                 onClick={handleAnalyzeWithUsage}
                 className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl disabled:opacity-20 transition-all hover:bg-blue-700 active:scale-95"
               >
-                Analyze Symptoms
+                Run Autopal Scan
               </button>
             </TierGuard>
           </div>
@@ -144,7 +140,7 @@ export const DiagnosticsPanel: React.FC<Props> = ({
                 </div>
                 <h5 className="text-xl font-black text-white leading-tight mb-6 font-sans">{aiAdvice.advice}</h5>
                 <div className="space-y-6">
-                  <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">AI Expert Recommendations</div>
+                  <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">Autopal Expert Recommendations</div>
                   <ul className="space-y-3">
                     {aiAdvice.recommendations.map((rec, i) => (
                       <li key={i} className="text-[11px] text-slate-300 flex items-start gap-3 leading-relaxed">
@@ -156,7 +152,7 @@ export const DiagnosticsPanel: React.FC<Props> = ({
 
                   {aiAdvice.partsIdentified && aiAdvice.partsIdentified.length > 0 && (
                     <div className="pt-4">
-                      <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-3">Parts Identified</div>
+                      <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-3">Parts Needed</div>
                       <div className="flex flex-wrap gap-2">
                         {aiAdvice.partsIdentified.map((part, i) => (
                           <span key={i} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[9px] font-bold text-blue-400 uppercase tracking-tight">{part}</span>
@@ -169,7 +165,7 @@ export const DiagnosticsPanel: React.FC<Props> = ({
             ) : (
               <div className="flex-grow flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-3xl text-center p-10 opacity-40">
                 <div className="text-4xl mb-4">🩺</div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 max-w-[200px]">Awaiting symptom description for AI analysis</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 max-w-[200px]">Waiting for your issue description to start scan</p>
               </div>
             )}
           </div>

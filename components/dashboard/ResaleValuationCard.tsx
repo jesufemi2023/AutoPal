@@ -10,11 +10,11 @@ import { useUsageQuota } from '../../hooks/useUsageQuota.ts';
 import { AlertCircle, Zap, ShieldCheck, BarChart3, ShoppingCart, Info } from 'lucide-react';
 
 const LOADING_STAGES = [
-  "Checking car details...",
-  "Analyzing fuel patterns...",
+  "Checking vehicle info...",
+  "Analyzing fuel logs...",
   "Verifying service records...",
-  "Scanning regional car market...",
-  "Building value report..."
+  "Checking local car market...",
+  "Building final report..."
 ];
 
 export const ResaleValuationCard: React.FC<{
@@ -48,7 +48,7 @@ export const ResaleValuationCard: React.FC<{
     }
     setLocalError(null);
     if (!navigator.onLine) {
-      setLocalError("You are offline. AI requires an internet connection.");
+      setLocalError("You are offline. Autopal requires an internet connection.");
       return;
     }
 
@@ -66,7 +66,7 @@ export const ResaleValuationCard: React.FC<{
       });
       updateVehicleStore(updatedVehicle);
     } catch (e: any) {
-      setLocalError("Could not connect to AI. Please try again.");
+      setLocalError("Could not connect to Autopal. Please try again.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -84,7 +84,7 @@ export const ResaleValuationCard: React.FC<{
         <div className="relative z-10 text-center space-y-10">
           <div className="w-20 h-20 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto"></div>
           <div className="space-y-4">
-            <h4 className="text-xl font-black uppercase">AI Market Audit</h4>
+            <h4 className="text-xl font-black uppercase">Autopal Value Check</h4>
             <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.4em] animate-pulse">
               {LOADING_STAGES[loadingStage]}
             </p>
@@ -106,14 +106,14 @@ export const ResaleValuationCard: React.FC<{
               {localError ? 'Action Required' : 'Scan Car Value'}
             </h4>
             <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-              {localError || 'AI will analyze your car condition and service history to estimate its current resale value in Nigeria.'}
+              {localError || 'Autopal will look at your car health and service history to estimate its current resale value in Nigeria.'}
             </p>
           </div>
           <button 
             onClick={handleAiAnalysis} 
             className="w-full py-8 bg-blue-600 text-white rounded-[2rem] font-black uppercase tracking-[0.4em] text-[11px] shadow-2xl active:scale-95 transition-all hover:bg-blue-500"
           >
-            Start AI Audit
+            Start Autopal Scan
           </button>
         </div>
       </section>
@@ -127,7 +127,7 @@ export const ResaleValuationCard: React.FC<{
           <div className="space-y-6">
              <div className="flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6] animate-pulse"></div>
-                <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.5em]">Market Value Estimate</h3>
+                <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.5em]">Current Resale Estimate</h3>
              </div>
              <div className="space-y-1">
                 <div className="text-5xl sm:text-6xl font-black tracking-tighter leading-none group-hover:text-blue-400 transition-colors">
@@ -144,7 +144,7 @@ export const ResaleValuationCard: React.FC<{
           </div>
           <div className="text-right">
              <div className="text-6xl font-black leading-none text-blue-500">{cachedReport.marketGrade}</div>
-             <div className="text-[8px] font-black text-slate-600 uppercase tracking-widest mt-2">Condition Grade</div>
+             <div className="text-[8px] font-black text-slate-600 uppercase tracking-widest mt-2">Value Grade</div>
           </div>
         </div>
 
@@ -163,11 +163,11 @@ export const ResaleValuationCard: React.FC<{
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-[2rem] p-8 border border-slate-100 space-y-6 shadow-sm">
            <div className="flex justify-between items-center">
-              <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">Efficiency Audit</h4>
-              <span className="text-[8px] font-black uppercase bg-emerald-50 text-emerald-600 px-2 py-1 rounded">Fuel Analysis</span>
+              <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">Fuel Health Check</h4>
+              <span className="text-[8px] font-black uppercase bg-emerald-50 text-emerald-600 px-2 py-1 rounded">Efficiency Check</span>
            </div>
            <p className="text-[11px] text-slate-500 font-medium leading-relaxed">
-             Compared to a new model, your car is using <span className="text-rose-500 font-bold">{cachedReport.metabolicAudit?.consumptionGap ?? 0}% more fuel</span> than it should.
+             Compared to a new model, your car uses <span className="text-rose-500 font-bold">{cachedReport.metabolicAudit?.consumptionGap ?? 0}% more fuel</span>.
            </p>
            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
               <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Measured KM per Liter</div>
@@ -176,7 +176,7 @@ export const ResaleValuationCard: React.FC<{
         </div>
 
         <div className="bg-white rounded-[2rem] p-8 border border-slate-100 space-y-6 shadow-sm">
-           <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">AI Diagnostic</h4>
+           <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">Autopal Summary</h4>
            <div className="space-y-4">
               <div className="space-y-1">
                 <div className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Top Finding</div>
@@ -191,7 +191,7 @@ export const ResaleValuationCard: React.FC<{
              onClick={handleAiAnalysis} 
              className="w-full bg-slate-900 text-white py-8 rounded-[2.5rem] font-black uppercase tracking-[0.5em] text-[11px] shadow-2xl hover:bg-blue-600 transition-all flex items-center justify-center gap-4"
            >
-             <span>✧</span> Refresh AI Value Report
+             <span>✧</span> Refresh Autopal Report
            </button>
         </div>
       </div>
