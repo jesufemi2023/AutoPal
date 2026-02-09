@@ -109,11 +109,10 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  // Environment Theming
   const protocolMeta = {
     free: { label: 'Standard Access', color: 'bg-slate-100 text-slate-500 border-slate-200', icon: <Activity size={10} /> },
-    standard: { label: 'Enthusiast Access', color: 'bg-blue-600 text-white border-blue-500 shadow-blue-500/20', icon: <ShieldCheck size={10} /> },
-    premium: { label: 'Full Garage Access', color: 'bg-slate-900 text-blue-400 border-slate-800 shadow-xl', icon: <Zap size={10} className="animate-pulse" /> }
+    standard: { label: 'Plus Features', color: 'bg-blue-600 text-white border-blue-500 shadow-blue-500/20', icon: <ShieldCheck size={10} /> },
+    premium: { label: 'Full Access', color: 'bg-slate-900 text-blue-400 border-slate-800 shadow-xl', icon: <Zap size={10} className="animate-pulse" /> }
   };
 
   const currentProtocol = protocolMeta[user?.tier || 'free'];
@@ -128,21 +127,14 @@ const Dashboard: React.FC = () => {
           </div>
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">My <span className="text-blue-600">Garage</span></h1>
+              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter leading-none uppercase">Garage <span className="text-blue-600">Home</span></h1>
               {isSyncing && <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse ml-2"></div>}
             </div>
-            <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">Real-time Vehicle Monitoring</p>
+            <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[8px]">Daily Vehicle Overview</p>
           </div>
         </div>
         
         <div className="relative group/scroll flex-grow lg:max-w-xl xl:max-w-3xl">
-          <button 
-            onClick={() => handleScroll('left')}
-            className="hidden lg:flex absolute left-4 top-1/2 -translate-y-1/2 z-[30] w-10 h-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
-          >
-            ←
-          </button>
-          
           <div 
             ref={scrollContainerRef}
             className="flex gap-3 overflow-x-auto scrollbar-hide scrollbar-desktop-show py-1.5 px-0.5 -mx-0.5 flex-nowrap snap-x snap-mandatory scroll-smooth"
@@ -157,24 +149,15 @@ const Dashboard: React.FC = () => {
                 <div className="text-base font-black tracking-tight truncate w-full">{v.model}</div>
                 <div className="flex items-center gap-2 mt-3">
                    <div className={`w-2 h-2 rounded-full ${activeVehicleId === v.id ? 'bg-blue-500 shadow-[0_0_8px_#3b82f6]' : 'bg-slate-200'}`}></div>
-                   <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year} Model</div>
+                   <div className="text-[8px] font-black uppercase tracking-tighter opacity-40">{v.year}</div>
                 </div>
               </button>
             ))}
-            {vehicles.length < (user?.tier === 'premium' ? 10 : user?.tier === 'standard' ? 3 : 1) && (
-              <button onClick={() => setCurrentView('onboarding')} className="flex-shrink-0 px-6 py-5 rounded-[1.75rem] border-2 border-dashed border-slate-200 text-slate-300 hover:border-blue-300 hover:text-blue-500 transition-all min-w-[140px] flex flex-col items-center justify-center gap-2 group/add">
-                <span className="text-xl group-hover/add:scale-125 transition-transform">+</span>
-                <span className="text-[8px] font-black uppercase tracking-widest">Add Vehicle</span>
-              </button>
-            )}
+            <button onClick={() => setCurrentView('onboarding')} className="flex-shrink-0 px-6 py-5 rounded-[1.75rem] border-2 border-dashed border-slate-200 text-slate-300 hover:border-blue-300 hover:text-blue-500 transition-all min-w-[140px] flex flex-col items-center justify-center gap-2 group/add">
+              <span className="text-xl group-hover/add:scale-125 transition-transform">+</span>
+              <span className="text-[8px] font-black uppercase tracking-widest">Add Car</span>
+            </button>
           </div>
-
-          <button 
-            onClick={() => handleScroll('right')}
-            className="hidden lg:flex absolute right-4 top-1/2 -translate-y-1/2 z-[30] w-10 h-10 bg-white/95 backdrop-blur-md border border-slate-200 rounded-full items-center justify-center shadow-xl text-slate-900 hover:bg-blue-600 hover:text-white transition-all opacity-0 group-hover/scroll:opacity-100"
-          >
-            →
-          </button>
         </div>
       </header>
 
@@ -202,9 +185,9 @@ const Dashboard: React.FC = () => {
         !isLoadingDetails && (
           <div className="py-20 sm:py-24 text-center bg-white rounded-[2.5rem] border border-slate-100 p-8 sm:p-14 shadow-sm mx-auto max-w-2xl w-full">
              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-50 rounded-[1.5rem] flex items-center justify-center text-3xl mx-auto mb-6 sm:mb-8 shadow-inner">🚙</div>
-             <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-1.5">Your Garage is Empty</h3>
-             <p className="text-slate-400 mb-8 text-[8px] sm:text-[9px] font-black uppercase tracking-widest max-w-xs mx-auto">Add your first vehicle to start tracking health and maintenance.</p>
-             <button onClick={() => setCurrentView('onboarding')} className="w-full sm:w-auto bg-slate-900 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-[1.25rem] font-black uppercase tracking-widest text-[9px] shadow-lg hover:bg-blue-600 transition-all">Add New Vehicle →</button>
+             <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-1.5">No cars in your garage</h3>
+             <p className="text-slate-400 mb-8 text-[8px] sm:text-[9px] font-black uppercase tracking-widest max-w-xs mx-auto">Add a vehicle to start tracking its value and health.</p>
+             <button onClick={() => setCurrentView('onboarding')} className="w-full sm:w-auto bg-slate-900 text-white px-8 sm:px-10 py-4 sm:py-5 rounded-[1.25rem] font-black uppercase tracking-widest text-[9px] shadow-lg hover:bg-blue-600 transition-all">Add My Car →</button>
           </div>
         )
       )}

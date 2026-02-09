@@ -1,9 +1,11 @@
+
 import React, { useMemo } from 'react';
 import { Vehicle, MaintenanceTask, ServiceLog, FuelLog, ServiceCategory } from '../../shared/types.ts';
 import { 
   calculateIntelligentHealth,
   getTaskMaintenanceStatus
 } from '../../services/maintenanceLogic.ts';
+import { Info } from 'lucide-react';
 
 interface Props {
   vehicle: Vehicle;
@@ -23,15 +25,15 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
 
   const getPillarStatus = (cat: ServiceCategory) => {
     const pillarTasks = tasks.filter(t => t.category === cat);
-    if (pillarTasks.length === 0) return { score: 100, label: 'Optimized', count: 0, overdue: 0 };
+    if (pillarTasks.length === 0) return { score: 100, label: 'Optimal', count: 0, overdue: 0 };
     
     const overdue = pillarTasks.filter(t => t.status === 'pending' && getTaskMaintenanceStatus(vehicle, t) === 'overdue');
     const upcoming = pillarTasks.filter(t => t.status === 'pending' && getTaskMaintenanceStatus(vehicle, t) === 'upcoming');
     const score = Math.max(0, 100 - (overdue.length / pillarTasks.length) * 100);
     
     let label = 'Healthy';
-    if (overdue.length > 0) label = 'Attention Needed';
-    else if (upcoming.length > 0) label = 'Service Soon';
+    if (overdue.length > 0) label = 'Fix Needed';
+    else if (upcoming.length > 0) label = 'Check Soon';
 
     return { score, label, count: pillarTasks.length, overdue: overdue.length };
   };
@@ -39,54 +41,44 @@ export const VitalityDashboard: React.FC<Props> = ({ vehicle, tasks, logs, fuelL
   return (
     <div className="w-full h-full flex flex-col gap-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        <div 
-          className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl border border-white/5 group"
-          title="This score reflects the physical condition of your car based on maintenance history and age."
-        >
-          <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6">
-            Car Health Score
+        <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl border border-white/5 group">
+          <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6 flex items-center gap-2">
+            Car Health Score <Info size={10} />
           </div>
           <div className="flex items-baseline gap-3">
             <div className={`text-6xl font-black tracking-tighter transition-all text-blue-500 group-hover:scale-105`}>
               {displayVitality}%
             </div>
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Vehicle Vitality</div>
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Overall Condition</div>
           </div>
         </div>
 
-        <div 
-          className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl border border-white/5 group"
-          title="Confidence level in your records. High scores come from verified mechanic logs and receipts."
-        >
-          <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6">
-            Record Accuracy
+        <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-xl border border-white/5 group">
+          <div className="text-[9px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6 flex items-center gap-2">
+            Record Integrity <Info size={10} />
           </div>
           <div className="flex items-baseline gap-3">
             <div className={`text-6xl font-black tracking-tighter transition-all text-emerald-500 group-hover:scale-105`}>
               {Math.round(displayDiscipline)}%
             </div>
-            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">History Confidence</div>
+            <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">History Trust</div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white p-8 sm:p-12 rounded-[3rem] border border-slate-100 shadow-sm relative overflow-hidden group w-full flex-grow">
+      <div className="bg-white p-8 sm:p-12 rounded-[3rem] border border-slate-100 shadow-sm w-full flex-grow">
         <div className="space-y-1.5 mb-12">
           <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">
-            System Health Analysis
+            System Breakdown
           </h4>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Component Breakdown</p>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Individual Car Systems Health</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-10 gap-y-12">
           {pillars.map(pillar => {
             const status = getPillarStatus(pillar);
             return (
-              <div 
-                key={pillar} 
-                className="space-y-5 group/pillar relative"
-                title={`Status of your ${pillar} system components based on recent service intervals.`}
-              >
+              <div key={pillar} className="space-y-5 group/pillar relative">
                 <div className="flex justify-between items-end mb-2">
                   <div className="space-y-1">
                     <h5 className="text-[10px] font-black text-slate-900 uppercase tracking-widest">{pillar}</h5>

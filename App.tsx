@@ -35,7 +35,6 @@ const App: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isManagePanelOpen, setIsManagePanelOpen] = useState(false);
   
-  // Sync UX State
   const [isSyncSlow, setIsSyncSlow] = useState(false);
   const syncTimerRef = useRef<number | null>(null);
 
@@ -46,13 +45,12 @@ const App: React.FC = () => {
     loadLocalData();
   }, []);
 
-  // Monitor Sync Speed for UX Feedback
   useEffect(() => {
     if (isSyncing) {
       setIsSyncSlow(false);
       syncTimerRef.current = window.setTimeout(() => {
         setIsSyncSlow(true);
-      }, 7000); // 7 seconds threshold for "slow"
+      }, 7000);
     } else {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
       setIsSyncSlow(false);
@@ -131,7 +129,6 @@ const App: React.FC = () => {
                     avatarUrl: updated.avatar_url
                   });
                 }
-                console.log("Profile update received from Cloud.");
               })
               .subscribe();
           }
@@ -163,7 +160,6 @@ const App: React.FC = () => {
     };
   }, [setSession, setInitialized, reset, setUser, syncLatestProfile]);
 
-  // Synchronize Assets and Manage Post-Auth View Redirection
   useEffect(() => {
     if (session?.user?.id && user) {
       fetchUserVehicles(session.user.id).then((fetchedVehicles) => {
@@ -183,15 +179,9 @@ const App: React.FC = () => {
   }, [session?.user?.id, user?.id]);
 
   const handleSignOut = async () => {
-    // SECURITY UX: Prevent logout if data is not synced
     if (hasDirtyData) {
-      const confirmed = window.confirm("UNSAVED DATA DETECTED: You have local records that haven't been saved. Signing out now might result in data loss. \n\nSync your data first?");
-      if (confirmed) {
-        triggerSync();
-        return;
-      }
-      const proceedAnyway = window.confirm("WARNING: Are you sure you want to exit without saving? Local records may be lost.");
-      if (!proceedAnyway) return;
+      const confirmed = window.confirm("UNSAVED DATA: You have changes that haven't been saved to your account. Log out anyway?");
+      if (!confirmed) return;
     }
 
     setIsMobileMenuOpen(false);
@@ -209,7 +199,6 @@ const App: React.FC = () => {
       await reset();
       setCurrentView('landing');
     } catch (e) {
-      console.error("Signout Error:", e);
       await reset();
       window.location.reload(); 
     }
@@ -219,7 +208,7 @@ const App: React.FC = () => {
 
   const handleRemoveAsset = async () => {
     if (!activeVehicleId || !activeVehicle) return;
-    const confirmed = confirm(`REMOVE VEHICLE: Permanently delete ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model} from your records?`);
+    const confirmed = confirm(`DELETE VEHICLE: Permanently remove ${activeVehicle.year} ${activeVehicle.make} ${activeVehicle.model} from your garage?`);
     if (!confirmed) return;
 
     try {
@@ -228,7 +217,7 @@ const App: React.FC = () => {
       closeManagement();
       setCurrentView('garage');
     } catch (e: any) {
-      alert(`System Error: ${e.message}`);
+      alert(`Error: ${e.message}`);
     }
   };
 
@@ -270,26 +259,8 @@ const App: React.FC = () => {
         <div className={`w-1.5 h-1.5 rounded-full ${
           isSyncing ? 'bg-white' : hasDirtyData ? 'bg-amber-600' : 'bg-emerald-500'
         }`}></div>
-        {isSyncing ? 'Saving...' : hasDirtyData ? 'Unsaved Changes' : 'All Saved'}
+        {isSyncing ? 'Saving...' : hasDirtyData ? 'Unsaved' : 'Synced'}
       </button>
-      
-      {isSyncing && isSyncSlow && (
-        <div className="bg-slate-900 text-white p-3 rounded-xl shadow-2xl absolute top-12 right-4 z-[200] max-w-[200px] border border-white/10 animate-in fade-in slide-in-from-top-2">
-           <div className="flex items-center gap-2 text-amber-400 mb-1">
-             <WifiOff size={12} />
-             <span className="text-[8px] font-black uppercase tracking-widest">Slow Connection</span>
-           </div>
-           <p className="text-[7px] font-bold text-slate-400 uppercase leading-relaxed">
-             Save is taking longer than expected. Refresh browser if it fails.
-           </p>
-           <button 
-             onClick={() => window.location.reload()}
-             className="mt-2 w-full bg-blue-600 text-white py-1.5 rounded-lg text-[7px] font-black uppercase tracking-widest"
-           >
-             Refresh
-           </button>
-        </div>
-      )}
     </div>
   );
 
@@ -315,9 +286,6 @@ const App: React.FC = () => {
             </p>
             <p className="text-[8px] font-bold text-slate-400 truncate tracking-tight">{user.email}</p>
           </div>
-          <div className={`px-1.5 py-0.5 rounded text-[6px] font-black uppercase tracking-widest ${user.tier === 'premium' ? 'bg-slate-900 text-blue-400' : user.tier === 'standard' ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
-            {user.tier}
-          </div>
         </div>
       )}
 
@@ -330,16 +298,16 @@ const App: React.FC = () => {
         <NavItem view="diagnostic" label="AI Mechanic" icon="✧" isNeural />
         <NavItem view="service" label="Service History" icon="🛠️" />
         <NavItem view="fuel" label="Fuel Tracker" icon="⛽" />
-        <NavItem view="marketplace" label="Find Parts" icon="🛒" />
+        <NavItem view="marketplace" label="Buy Parts" icon="🛒" />
       </div>
 
       <div className="pt-4 border-t border-slate-100 mx-2">
-        <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">My Reports</p>
+        <p className="px-5 text-[7px] font-black text-slate-300 uppercase tracking-[0.4em] mb-2">My Data</p>
         <TierGuard capability="OWNERSHIP_REPORT">
            <NavItem view="report" label="Garage Report" icon="📄" />
         </TierGuard>
-        <NavItem view="profile" label="My Account" icon="👤" />
-        {user?.role === 'admin' && <NavItem view="admin" label="Admin Dashboard" icon="⚡" />}
+        <NavItem view="profile" label="Account Plan" icon="👤" />
+        {user?.role === 'admin' && <NavItem view="admin" label="Admin Center" icon="⚡" />}
         
         <button 
           onClick={() => setIsManagePanelOpen(!isManagePanelOpen)} 
@@ -347,7 +315,7 @@ const App: React.FC = () => {
         >
           <div className="flex items-center gap-4">
             <span className={`text-lg transition-transform ${isManagePanelOpen ? 'rotate-90 text-blue-400' : 'group-hover:rotate-12'}`}>⚙</span>
-            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Manage Vehicles</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.2em]">Vehicle Options</span>
           </div>
           <span className={`text-[10px] transition-transform duration-300 ${isManagePanelOpen ? 'rotate-180' : ''}`}>▾</span>
         </button>
@@ -397,43 +365,35 @@ const App: React.FC = () => {
             </div>
             <div>
               <span className="block font-black tracking-tighter text-slate-900 text-base mb-1 uppercase">AutoPal NG</span>
-              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">My Garage</span>
+              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">Garage Portal</span>
             </div>
           </div>
         </div>
         <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 pb-8 bg-white"><NavigationMenu /></nav>
         <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white space-y-4">
-           {hasDirtyData && (
-             <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 animate-pulse">
-                <p className="text-[8px] font-black text-amber-700 uppercase tracking-widest flex items-center gap-2 mb-1">
-                  <AlertTriangle size={10} /> Save Changes
-                </p>
-                <p className="text-[7px] font-bold text-amber-600 uppercase">Click the sync button above to save.</p>
-             </div>
-           )}
            <button onClick={handleSignOut} className={`w-full flex items-center justify-center gap-3 p-4 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center shadow-sm ${hasDirtyData ? 'bg-rose-50 text-rose-500 border border-rose-100' : 'text-slate-400 hover:bg-slate-50'}`}>
-             🚪 Sign Out
+             🚪 Log Out
            </button>
         </div>
       </aside>
 
       <div className={`fixed top-0 bottom-0 w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-6 ${isManagePanelOpen ? 'left-[300px] opacity-100' : 'left-[-300px] opacity-0 pointer-events-none translate-x-[-50px]'}`}>
         <div className="mb-10 px-2">
-          <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Quick Actions</h4>
+          <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Settings</h4>
           <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
         </div>
         <div className="space-y-1">
           <TierGuard capability="MAX_VEHICLES">
-            <button onClick={() => { setCurrentView('onboarding'); closeManagement(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all">+ Add New Vehicle</button>
+            <button onClick={() => { setCurrentView('onboarding'); closeManagement(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all">+ Add Vehicle</button>
           </TierGuard>
           {activeVehicle && (
             <>
               <button onClick={() => { handleEditAsset(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-slate-600 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 rounded-xl transition-all">✎ Edit Details</button>
-              <button onClick={() => { handleRemoveAsset(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-rose-500 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 rounded-xl transition-all">📁 Remove Vehicle</button>
+              <button onClick={() => { handleRemoveAsset(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-rose-500 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 rounded-xl transition-all">📁 Delete Vehicle</button>
             </>
           )}
         </div>
-        <button onClick={closeManagement} className="absolute bottom-10 left-6 right-6 p-4 text-slate-400 text-[8px] font-black uppercase tracking-widest hover:text-slate-900 transition-colors border-t border-slate-50 pt-8">Close Panel</button>
+        <button onClick={closeManagement} className="absolute bottom-10 left-6 right-6 p-4 text-slate-400 text-[8px] font-black uppercase tracking-widest hover:text-slate-900 transition-colors border-t border-slate-50 pt-8">Close Menu</button>
       </div>
 
       <div className="flex-grow flex flex-col min-h-screen w-full overflow-x-hidden">
@@ -451,7 +411,7 @@ const App: React.FC = () => {
               <div className="max-w-4xl mx-auto w-full space-y-8">
                 <header className="px-1">
                   <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tighter mb-1 leading-none uppercase">AI Mechanic</h1>
-                  <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[9px]">Intelligent Symptom Analysis</p>
+                  <p className="text-slate-400 font-black uppercase tracking-widest text-[7px] sm:text-[9px]">Symptom Analysis</p>
                 </header>
                 <DiagnosticsPanel 
                   vehicle={activeVehicle} symptom={symptom} setSymptom={setSymptom} diagImage={diagImage} setDiagImage={setDiagImage} isAskingAI={isAskingAI} 
@@ -475,9 +435,9 @@ const App: React.FC = () => {
 
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-white/95 backdrop-blur-2xl border-t border-slate-100 flex justify-around items-center pb-safe pt-2 shadow-[0_-10px_30px_rgba(0,0,0,0.05)]">
         <button onClick={() => { setCurrentView('garage'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'garage' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">🏠</span><span className="text-[7px] font-black uppercase tracking-widest">Garage</span></button>
-        <button onClick={() => { setCurrentView('diagnostic'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">✧</span><span className="text-[7px] font-black uppercase tracking-widest">Diagnostic</span></button>
+        <button onClick={() => { setCurrentView('diagnostic'); setIsMobileMenuOpen(false); }} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all ${currentView === 'diagnostic' ? 'text-blue-600 scale-105' : 'text-slate-400'}`}><span className="text-lg">✧</span><span className="text-[7px] font-black uppercase tracking-widest">AI Mechanic</span></button>
         <button onClick={() => { setCurrentView('onboarding'); setIsMobileMenuOpen(false); }} className="flex flex-col items-center -translate-y-4 flex-none px-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-slate-800 to-slate-950 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl border-4 border-white">
+          <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white text-xl shadow-xl border-4 border-white">
             <Car size={24} strokeWidth={2.5} />
           </div>
         </button>
