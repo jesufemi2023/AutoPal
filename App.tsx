@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { supabase, isSupabaseConfigured } from './auth/supabaseClient.ts';
 import { useAutoPalStore } from './shared/store.ts';
 import AuthScreen from './components/AuthScreen.tsx';
@@ -457,6 +458,7 @@ const App: React.FC = () => {
       </nav>
 
       <CalibrationTerminal />
+      <Analytics />
     </div>
   );
 };
