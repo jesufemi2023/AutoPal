@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
+import { ArchitectModal } from './ArchitectModal.tsx';
 import { 
   Car, Shield, Zap, Database, BarChart3, ChevronRight, CheckCircle2, 
   AlertTriangle, Wrench, Fuel, Sparkles, ArrowUpRight, Lock, Clock, Activity,
-  HelpCircle, ChevronDown, Check, Star
+  HelpCircle, ChevronDown, Check, Star, Code2, Linkedin
 } from 'lucide-react';
 
 interface PresetVehicle {
@@ -77,6 +78,9 @@ const LandingTerminal: React.FC = () => {
   // FAQ Accordion State
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
+  // Architect & Engineering Dossier Modal
+  const [isArchitectOpen, setIsArchitectOpen] = useState(false);
+
   const handleGuestAccess = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!form.make || !form.model) {
@@ -148,6 +152,34 @@ const LandingTerminal: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans selection:bg-blue-600 selection:text-white w-full overflow-x-hidden">
       
+      {/* TOP ANNOUNCEMENT BANNER WITH AUTHOR ATTRIBUTION */}
+      <div className="bg-slate-950 text-white px-4 py-2 border-b border-slate-800 text-[11px] font-mono flex items-center justify-between">
+        <div className="flex items-center gap-2 mx-auto sm:mx-0">
+          <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></span>
+          <span className="text-slate-400 hidden sm:inline">Production Telemetry Platform</span>
+          <span className="text-slate-500 hidden sm:inline">•</span>
+          <span className="text-slate-300">Engineered by <strong className="text-white font-bold">Jesufemi Temitope Solomon</strong></span>
+        </div>
+        <div className="hidden sm:flex items-center gap-3">
+          <button 
+            onClick={() => setIsArchitectOpen(true)}
+            className="text-blue-400 hover:text-blue-300 font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <Code2 size={13} />
+            <span>View Architect Dossier</span>
+          </button>
+          <a 
+            href="https://www.linkedin.com/in/temitope-solomon-jesufemi-2620ab275/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-slate-400 hover:text-white transition-colors"
+            title="LinkedIn Profile"
+          >
+            <Linkedin size={13} />
+          </a>
+        </div>
+      </div>
+
       {/* INDUSTRIAL TOPBAR */}
       <nav className="h-20 border-b border-slate-200/80 bg-white/90 backdrop-blur-xl sticky top-0 z-50 px-6 sm:px-12 flex items-center justify-between">
         <div className="flex items-center gap-3.5">
@@ -169,10 +201,24 @@ const LandingTerminal: React.FC = () => {
           <a href="#cockpit" className="hover:text-blue-600 transition-colors">Telemetry HUD</a>
           <a href="#calculator" className="hover:text-blue-600 transition-colors">Equity Calculator</a>
           <a href="#trial-scanner" className="hover:text-blue-600 transition-colors">Trial Scan</a>
+          <button 
+            onClick={() => setIsArchitectOpen(true)}
+            className="hover:text-blue-600 text-blue-600 font-black flex items-center gap-1 transition-colors uppercase cursor-pointer"
+          >
+            <Code2 size={13} />
+            <span>Architect Bio</span>
+          </button>
           <a href="#faq" className="hover:text-blue-600 transition-colors">FAQ</a>
         </div>
 
         <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsArchitectOpen(true)}
+            className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 md:hidden"
+          >
+            <Code2 size={12} />
+            <span>Architect</span>
+          </button>
           <button 
             onClick={() => setCurrentView('garage')}
             className="text-slate-700 hover:text-slate-950 px-4 py-2.5 text-[11px] font-black uppercase tracking-wider transition-colors hidden sm:block"
@@ -929,19 +975,46 @@ const LandingTerminal: React.FC = () => {
 
       {/* INDUSTRIAL FOOTER */}
       <footer className="py-12 border-t border-slate-200/80 bg-white text-slate-600 text-xs">
-        <div className="max-w-7xl mx-auto px-6 sm:px-12 flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div className="max-w-7xl mx-auto px-6 sm:px-12 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-slate-950 rounded-lg flex items-center justify-center text-white">
               <Car size={16} strokeWidth={2.5} />
             </div>
             <span className="font-black tracking-tight text-sm uppercase text-slate-950">AutoPal NG</span>
-            <span className="text-[10px] font-mono text-slate-400 ml-2">v4.2.0 • Precision Automotive Platform</span>
+            <span className="text-[10px] font-mono text-slate-400 ml-2">v4.2.0 • Precision Telemetry</span>
           </div>
-          <div className="text-[10px] font-mono text-slate-400 uppercase tracking-widest text-center sm:text-right">
+
+          {/* Centered Author Attribution Button */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsArchitectOpen(true)}
+              className="px-4 py-2 bg-slate-900 hover:bg-blue-600 text-white rounded-xl text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
+            >
+              <Code2 size={14} className="text-blue-400" />
+              <span>Engineered by Jesufemi Temitope Solomon</span>
+            </button>
+            <a 
+              href="https://www.linkedin.com/in/temitope-solomon-jesufemi-2620ab275/" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="p-2 bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 rounded-xl transition-colors"
+              title="Author LinkedIn"
+            >
+              <Linkedin size={16} />
+            </a>
+          </div>
+
+          <div className="text-[10px] font-mono text-slate-400 uppercase tracking-widest text-center md:text-right">
             Engineered For Nigerian Climate & High-Value Vehicle Preservation
           </div>
         </div>
       </footer>
+
+      {/* LEAD ARCHITECT & SYSTEM DOSSIER MODAL */}
+      <ArchitectModal 
+        isOpen={isArchitectOpen} 
+        onClose={() => setIsArchitectOpen(false)} 
+      />
 
     </div>
   );

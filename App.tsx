@@ -20,7 +20,8 @@ import { DiagnosticsPanel } from './components/dashboard/DiagnosticsPanel.tsx';
 import { getAdvancedDiagnostic } from './services/geminiService.ts';
 import { CalibrationTerminal } from './components/CalibrationTerminal.tsx';
 import { TierGuard } from './components/TierGuard.tsx';
-import { Car, Menu, X, User, AlertTriangle, RefreshCw, WifiOff, Info } from 'lucide-react';
+import { ArchitectModal } from './components/ArchitectModal.tsx';
+import { Car, Menu, X, User, AlertTriangle, RefreshCw, WifiOff, Info, Code2, Linkedin } from 'lucide-react';
 
 const App: React.FC = () => {
   const { 
@@ -35,6 +36,7 @@ const App: React.FC = () => {
   const [aiAdvice, setAiAdvice] = useState<any>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isManagePanelOpen, setIsManagePanelOpen] = useState(false);
+  const [isArchitectOpen, setIsArchitectOpen] = useState(false);
   
   const [isSyncSlow, setIsSyncSlow] = useState(false);
   const syncTimerRef = useRef<number | null>(null);
@@ -380,7 +382,14 @@ const App: React.FC = () => {
         </div>
         <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 py-4 bg-white"><NavigationMenu /></nav>
         <div className="p-4 mt-auto border-t border-slate-100 shrink-0 bg-white space-y-2">
-           <button onClick={handleSignOut} className={`w-full flex items-center justify-center gap-2.5 p-3 rounded-xl transition-all text-[9px] font-black uppercase tracking-wider text-center ${hasDirtyData ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-800'}`}>
+           <button 
+             onClick={() => setIsArchitectOpen(true)} 
+             className="w-full flex items-center justify-center gap-2 p-2.5 rounded-xl transition-all text-[9px] font-mono font-bold uppercase tracking-wider text-blue-600 bg-blue-50/80 hover:bg-blue-100 border border-blue-100 text-center cursor-pointer"
+           >
+             <Code2 size={13} />
+             <span>Architect Dossier</span>
+           </button>
+           <button onClick={handleSignOut} className={`w-full flex items-center justify-center gap-2.5 p-2.5 rounded-xl transition-all text-[9px] font-black uppercase tracking-wider text-center ${hasDirtyData ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-800'}`}>
              <span>Log Out</span>
            </button>
         </div>
@@ -457,6 +466,12 @@ const App: React.FC = () => {
       </nav>
 
       <CalibrationTerminal />
+      
+      {/* LEAD ARCHITECT & SYSTEM DOSSIER MODAL */}
+      <ArchitectModal 
+        isOpen={isArchitectOpen} 
+        onClose={() => setIsArchitectOpen(false)} 
+      />
     </div>
   );
 };
