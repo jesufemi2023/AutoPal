@@ -236,11 +236,11 @@ const App: React.FC = () => {
         setIsMobileMenuOpen(false); 
         closeManagement();
       }}
-      className={`flex items-center gap-4 px-5 py-3.5 w-full transition-all group relative rounded-xl ${currentView === view ? 'bg-blue-50 text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-900 hover:bg-slate-50'}`}
+      className={`flex items-center gap-3.5 px-4 py-3 w-full transition-all group relative rounded-xl ${currentView === view ? 'bg-blue-50 text-blue-600 font-bold border border-blue-100 shadow-sm' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}
     >
-      <span className={`text-lg group-hover:scale-110 transition-transform ${isNeural && 'text-blue-500 animate-pulse'}`}>{icon}</span>
-      <span className="text-[9px] font-black uppercase tracking-[0.2em]">{label}</span>
-      {currentView === view && <div className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-blue-600 rounded-full"></div>}
+      <span className={`text-base group-hover:scale-110 transition-transform ${isNeural && 'text-blue-500 animate-pulse'}`}>{icon}</span>
+      <span className="text-[10px] font-black uppercase tracking-wider">{label}</span>
+      {currentView === view && <div className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-blue-600 rounded-full shadow-[0_0_6px_#2563eb]"></div>}
     </button>
   );
 
@@ -365,45 +365,45 @@ const App: React.FC = () => {
         <div className="lg:hidden fixed inset-0 z-[110] bg-slate-950/20 backdrop-blur-sm transition-opacity" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
-      {/* MOBILE SIDECAR: Updated width to 50% on mobile */}
-      <aside className={`fixed lg:sticky top-0 left-0 z-[120] h-screen w-[50%] lg:w-[300px] bg-white border-r border-slate-100 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="p-8 pb-6 shrink-0 bg-white">
+      {/* MOBILE SIDECAR: Standard 280px responsive drawer */}
+      <aside className={`fixed lg:sticky top-0 left-0 z-[120] h-screen w-[280px] max-w-[85vw] lg:w-[300px] bg-white border-r border-slate-200/90 flex flex-col transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'}`}>
+        <div className="p-6 pb-5 shrink-0 bg-white border-b border-slate-100">
           <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setCurrentView('landing'); setIsMobileMenuOpen(false); }}>
-            <div className="w-10 h-10 bg-gradient-to-br from-slate-800 to-slate-950 rounded-xl flex items-center justify-center text-white shadow-lg">
-              <Car size={22} strokeWidth={2.5} />
+            <div className="w-10 h-10 bg-slate-950 rounded-xl flex items-center justify-center text-white shadow-md border border-slate-800">
+              <Car size={20} strokeWidth={2.5} />
             </div>
             <div>
-              <span className="block font-black tracking-tighter text-slate-900 text-base mb-1 uppercase">AutoPal NG</span>
-              <span className="block text-[7px] font-black uppercase tracking-widest text-blue-500">Garage Portal</span>
+              <span className="block font-black tracking-tight text-slate-950 text-base uppercase leading-none">AutoPal <span className="text-blue-600">NG</span></span>
+              <span className="block text-[8px] font-mono font-bold uppercase tracking-widest text-slate-400 mt-1">Industrial Garage</span>
             </div>
           </div>
         </div>
-        <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 pb-8 bg-white"><NavigationMenu /></nav>
-        <div className="p-6 mt-auto border-t border-slate-50 shrink-0 bg-white space-y-4">
-           <button onClick={handleSignOut} className={`w-full flex items-center justify-center gap-3 p-4 rounded-xl transition-all text-[8px] font-black uppercase tracking-widest text-center shadow-sm ${hasDirtyData ? 'bg-rose-50 text-rose-500 border border-rose-100' : 'text-slate-400 hover:bg-slate-50'}`}>
-             🚪 Log Out
+        <nav className="flex-1 overflow-y-auto scrollbar-hide px-3 py-4 bg-white"><NavigationMenu /></nav>
+        <div className="p-4 mt-auto border-t border-slate-100 shrink-0 bg-white space-y-2">
+           <button onClick={handleSignOut} className={`w-full flex items-center justify-center gap-2.5 p-3 rounded-xl transition-all text-[9px] font-black uppercase tracking-wider text-center ${hasDirtyData ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-800'}`}>
+             <span>Log Out</span>
            </button>
         </div>
       </aside>
 
-      {/* VEHICLE OPTIONS SLIDEOUT: Enhanced for full visibility next to 50% sidebar on mobile */}
-      <div className={`fixed top-0 bottom-0 w-[50%] lg:w-[280px] bg-white border-r border-slate-100 shadow-[40px_0_60px_-15px_rgba(0,0,0,0.1)] z-[150] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] pt-24 px-4 sm:px-6 ${isManagePanelOpen ? 'left-[50%] lg:left-[300px] opacity-100' : 'left-[-50%] lg:left-[-300px] opacity-0 pointer-events-none'}`}>
-        <div className="mb-10 px-2">
-          <h4 className="text-[10px] font-black text-slate-900 uppercase tracking-[0.4em] mb-1.5">Settings</h4>
-          <div className="w-10 h-1 bg-blue-600 rounded-full"></div>
+      {/* VEHICLE OPTIONS SLIDEOUT */}
+      <div className={`fixed top-0 bottom-0 w-[260px] max-w-[80vw] bg-white border-r border-slate-200 shadow-2xl z-[150] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pt-20 px-5 ${isManagePanelOpen ? 'left-[280px] lg:left-[300px] opacity-100' : 'left-[-300px] opacity-0 pointer-events-none'}`}>
+        <div className="mb-6 px-1">
+          <h4 className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest mb-1">Vehicle Control</h4>
+          <div className="text-sm font-black text-slate-950 uppercase tracking-tight">Settings</div>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <TierGuard capability="MAX_VEHICLES">
-            <button onClick={() => { setCurrentView('onboarding'); closeManagement(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-blue-600 text-[9px] font-black uppercase tracking-widest hover:bg-blue-50 rounded-xl transition-all">+ Add Vehicle</button>
+            <button onClick={() => { setCurrentView('onboarding'); closeManagement(); setIsMobileMenuOpen(false); }} className="w-full p-3.5 text-left text-blue-600 text-[10px] font-black uppercase tracking-wider hover:bg-blue-50 rounded-xl transition-all flex items-center gap-2">+ Add Vehicle</button>
           </TierGuard>
           {activeVehicle && (
             <>
-              <button onClick={() => { handleEditAsset(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-slate-600 text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 rounded-xl transition-all">✎ Edit Details</button>
-              <button onClick={() => { handleRemoveAsset(); setIsMobileMenuOpen(false); }} className="w-full p-4 text-left text-rose-500 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 rounded-xl transition-all">📁 Delete Vehicle</button>
+              <button onClick={() => { handleEditAsset(); setIsMobileMenuOpen(false); }} className="w-full p-3.5 text-left text-slate-700 text-[10px] font-black uppercase tracking-wider hover:bg-slate-50 rounded-xl transition-all">✎ Edit Details</button>
+              <button onClick={() => { handleRemoveAsset(); setIsMobileMenuOpen(false); }} className="w-full p-3.5 text-left text-rose-600 text-[10px] font-black uppercase tracking-wider hover:bg-rose-50 rounded-xl transition-all">🗑 Delete Vehicle</button>
             </>
           )}
         </div>
-        <button onClick={closeManagement} className="absolute bottom-10 left-4 right-4 p-4 text-slate-400 text-[8px] font-black uppercase tracking-widest hover:text-slate-900 transition-colors border-t border-slate-50 pt-8">Close Menu</button>
+        <button onClick={closeManagement} className="absolute bottom-8 left-5 right-5 p-3 text-slate-400 text-[9px] font-mono uppercase tracking-wider hover:text-slate-900 transition-colors border-t border-slate-100 text-center">Close Panel</button>
       </div>
 
       <div className="flex-grow flex flex-col min-h-screen w-full overflow-x-hidden">

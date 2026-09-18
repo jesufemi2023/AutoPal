@@ -1,14 +1,16 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { generateMaintenanceSchedule } from '../services/geminiService.ts';
 import { MaintenanceScheduleResponse } from '../shared/types.ts';
-import { Car } from 'lucide-react';
+import { 
+  Car, Shield, CheckCircle2, Clock, AlertTriangle, ArrowRight, ArrowLeft, 
+  Sparkles, Fuel, Wrench, Lock, Save, Share2 
+} from 'lucide-react';
 
 const GuestReport: React.FC = () => {
   const { transientVehicle, setTransientVehicle, setCurrentView } = useAutoPalStore();
   const [report, setReport] = useState<MaintenanceScheduleResponse | null>(null);
-  const [isSad, setIsSad] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
     if (transientVehicle) {
@@ -17,170 +19,226 @@ const GuestReport: React.FC = () => {
         transientVehicle.model,
         transientVehicle.year,
         transientVehicle.mileage
-      ).then(setReport);
+      ).then(setReport).catch((err) => {
+        console.error("Diagnostic report generation error:", err);
+      });
     }
   }, [transientVehicle]);
 
   const handleExit = () => {
-    setIsSad(true);
+    setIsExiting(true);
     setTimeout(() => {
       setTransientVehicle(null);
       setCurrentView('landing');
-      setIsSad(false);
-    }, 2500);
+      setIsExiting(false);
+    }, 1500);
   };
 
-  if (isSad) {
+  if (isExiting) {
     return (
-      <div className="fixed inset-0 bg-slate-950 z-[9999] flex items-center justify-center p-6 text-center animate-in fade-in duration-500">
-        <div className="space-y-8">
-           <div className="text-6xl">👋</div>
-           <h2 className="text-3xl font-black text-white uppercase tracking-tighter">See you soon</h2>
-           <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] max-w-xs leading-relaxed">
-             Your temporary report has been cleared. Come back anytime to start a new plan.
-           </p>
+      <div className="fixed inset-0 bg-slate-950 z-[9999] flex items-center justify-center p-6 text-center animate-in fade-in duration-300">
+        <div className="space-y-6 max-w-sm">
+          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center text-white mx-auto text-2xl">
+            👋
+          </div>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tight">Temporary Buffer Cleared</h2>
+          <p className="text-slate-400 text-xs font-mono uppercase tracking-wider leading-relaxed">
+            Your guest session has ended. You can initialize a permanent free garage anytime.
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#fcfcfd] flex flex-col animate-slide-up">
-      <div className="bg-slate-900 text-white px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-white/10 relative z-50">
+    <div className="min-h-screen bg-[#f8fafc] flex flex-col animate-slide-up text-slate-900 font-sans">
+      
+      {/* INDUSTRIAL TOP COMMAND BANNER */}
+      <header className="bg-slate-950 text-white px-6 sm:px-12 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-slate-800 sticky top-0 z-50 shadow-md">
         <div 
           className="flex items-center gap-3 cursor-pointer group"
           onClick={() => setCurrentView('landing')}
         >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-950 flex items-center justify-center shadow-lg shadow-slate-900/30 group-hover:scale-110 transition-transform">
-            <Car size={16} strokeWidth={2.5} />
+          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-600/30 group-hover:scale-105 transition-transform">
+            <Car size={18} strokeWidth={2.5} />
           </div>
-          <div className="space-y-0.5">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-blue-400">One-Time Guest Access</h4>
-            <p className="text-[8px] font-bold uppercase tracking-widest text-slate-400">Save this plan by creating an account before leaving.</p>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-blue-400">
+                GUEST TELEMETRY AUDIT
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+            </div>
+            <p className="text-xs text-slate-300 font-medium">
+              Temporary buffer • Save this plan to prevent data loss
+            </p>
           </div>
         </div>
-        <button 
-          onClick={() => setCurrentView('garage')}
-          className="bg-white text-slate-900 text-[9px] font-black px-8 py-2.5 rounded-lg uppercase tracking-widest shadow-xl hover:bg-blue-600 hover:text-white transition-all"
-        >
-          Save This Plan
-        </button>
-      </div>
 
-      <div className="max-w-4xl mx-auto w-full p-6 sm:p-12 space-y-12 flex-grow pb-32">
-        <header className="space-y-4 text-center sm:text-left">
-          <div className="flex flex-col sm:flex-row sm:items-end gap-2 sm:gap-4">
-            <h1 className="text-4xl sm:text-6xl font-black text-slate-900 tracking-tighter uppercase leading-none">
-              {transientVehicle?.year} {transientVehicle?.make} <span className="text-blue-600">{transientVehicle?.model}</span>
-            </h1>
-            <span className="bg-slate-100 text-slate-400 text-[9px] font-black px-3 py-1 rounded-md uppercase tracking-widest inline-block w-fit mx-auto sm:mx-0">
-              {transientVehicle?.mileage.toLocaleString()} KM
-            </span>
-          </div>
-          <p className="text-slate-400 font-black uppercase tracking-[0.4em] text-[10px]">Your Maintenance Summary</p>
-        </header>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button 
+            onClick={handleExit}
+            className="text-slate-400 hover:text-white px-4 py-2 text-xs font-mono uppercase tracking-wider transition-colors"
+          >
+            Discard
+          </button>
+          <button 
+            onClick={() => setCurrentView('garage')}
+            className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-500 text-white text-xs font-black px-6 py-2.5 rounded-xl uppercase tracking-wider shadow-lg shadow-blue-600/30 transition-all active:scale-95 flex items-center justify-center gap-2 border border-blue-400/30"
+          >
+            <Save size={14} />
+            <span>Save to Free Garage</span>
+          </button>
+        </div>
+      </header>
 
-        {report ? (
-          <div className="space-y-12">
-            <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 border border-slate-100 shadow-sm relative overflow-hidden group">
-              <div className="absolute top-0 right-0 p-8 opacity-5 text-8xl pointer-events-none select-none group-hover:scale-110 transition-transform duration-700">📋</div>
-              <h3 className="text-2xl font-black text-slate-900 mb-6 uppercase tracking-tight relative z-10">What your car needs</h3>
-              <p className="text-slate-500 text-sm sm:text-base leading-relaxed font-medium relative z-10">{report.summary}</p>
+      {/* REPORT CONTENT */}
+      <main className="max-w-5xl mx-auto w-full p-6 sm:p-12 space-y-10 flex-grow pb-24">
+        
+        {/* Vehicle Header Card */}
+        <section className="bg-slate-950 text-white rounded-3xl p-8 sm:p-10 border border-slate-800 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 relative z-10">
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-blue-500/20 text-blue-400 text-[10px] font-mono font-bold uppercase border border-blue-500/30">
+                <Sparkles size={12} />
+                <span>AI WEAR CALIBRATION COMPLETE</span>
+              </div>
+              <h1 className="text-3xl sm:text-5xl font-black uppercase tracking-tight text-white leading-none">
+                {transientVehicle?.year} {transientVehicle?.make} <span className="text-blue-400">{transientVehicle?.model}</span>
+              </h1>
+              <p className="text-slate-400 text-xs sm:text-sm font-mono uppercase tracking-wider">
+                Audited at {transientVehicle?.mileage.toLocaleString()} KM // Regional Fuel & Heat Calibrated
+              </p>
             </div>
 
-            <div className="space-y-6">
-              <div className="flex justify-between items-center px-2">
-                <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.3em]">Upcoming Maintenance</h3>
-                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{report.tasks.length} Checkpoints</span>
+            <div className="flex items-center gap-3">
+              <div className="bg-white/5 border border-white/10 p-4 rounded-2xl text-center min-w-[120px]">
+                <div className="text-[8px] font-mono uppercase text-slate-400 font-bold mb-1">Checkpoints</div>
+                <div className="text-2xl font-black font-mono text-emerald-400">
+                  {report?.tasks?.length || '...'}
+                </div>
               </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {report.tasks.slice(0, 4).map((task, i) => (
-                  <div key={i} className="bg-white border border-slate-100 rounded-[2rem] p-8 space-y-5 hover:shadow-xl hover:border-blue-100 transition-all group animate-slide-up" style={{ animationDelay: `${i * 0.1}s` }}>
+              <div className="bg-white/5 border border-white/10 p-4 rounded-2xl text-center min-w-[120px]">
+                <div className="text-[8px] font-mono uppercase text-slate-400 font-bold mb-1">Audit Status</div>
+                <div className="text-xs font-black font-mono text-blue-400 uppercase">
+                  Verified
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {report ? (
+          <div className="space-y-10">
+            
+            {/* Executive Summary Card */}
+            <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm space-y-4">
+              <div className="flex items-center gap-2.5 text-xs font-mono font-bold uppercase tracking-wider text-slate-500">
+                <Wrench size={16} className="text-blue-600" />
+                <span>Mechanical Diagnostic Summary</span>
+              </div>
+              <p className="text-slate-700 text-base leading-relaxed font-medium">
+                {report.summary}
+              </p>
+            </div>
+
+            {/* Checkpoints Section */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center px-1">
+                <h3 className="text-xs font-mono font-bold uppercase tracking-widest text-slate-500">
+                  Critical Service Road Map
+                </h3>
+                <span className="text-xs font-mono text-slate-400">
+                  {report.tasks.length} Checkpoints Calculated
+                </span>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4">
+                {report.tasks.map((task, idx) => (
+                  <div 
+                    key={idx}
+                    className="bg-white border border-slate-200/90 rounded-2xl p-6 space-y-4 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group"
+                  >
                     <div className="flex justify-between items-start">
-                      <span className={`px-4 py-1.5 rounded-xl text-[8px] font-black uppercase tracking-widest shadow-sm ${
-                        task.category === 'fluids' ? 'bg-blue-50 text-blue-600' :
-                        task.category === 'engine' ? 'bg-amber-50 text-amber-600' :
-                        'bg-slate-50 text-slate-500'
+                      <span className={`px-3 py-1 rounded-lg text-[9px] font-mono font-bold uppercase tracking-wider ${
+                        task.category === 'engine' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                        task.category === 'fluids' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
+                        task.category === 'brakes' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                        'bg-slate-100 text-slate-700 border border-slate-200'
                       }`}>
                         {task.category}
                       </span>
-                      <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-[10px] font-black text-slate-300 group-hover:text-blue-500 transition-colors">
-                        {i + 1}
+                      <div className={`text-[9px] font-mono font-bold uppercase px-2.5 py-0.5 rounded-full ${
+                        task.priority === 'high' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {task.priority} Priority
                       </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <h4 className="text-xl font-black text-slate-900 tracking-tight group-hover:text-blue-600 transition-colors">{task.title}</h4>
-                      <p className="text-[11px] text-slate-400 font-bold leading-relaxed">{task.description}</p>
                     </div>
 
-                    <div className="pt-4 border-t border-slate-50 flex justify-between items-end">
-                      <div>
-                        <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Check at</div>
-                        <div className="text-base font-black font-mono text-slate-900">{task.dueMileage.toLocaleString()} <span className="text-[10px] opacity-40">KM</span></div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Priority</div>
-                        <div className={`text-[9px] font-black uppercase tracking-widest ${
-                          task.priority === 'high' ? 'text-rose-500' : 'text-slate-400'
-                        }`}>{task.priority}</div>
-                      </div>
+                    <div className="space-y-1.5">
+                      <h4 className="text-base font-black text-slate-950 uppercase tracking-tight group-hover:text-blue-600 transition-colors">
+                        {task.title}
+                      </h4>
+                      <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                        {task.description}
+                      </p>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-mono">
+                      <span className="text-slate-400">Interval Trigger:</span>
+                      <span className="font-bold text-slate-900">{task.dueMileage.toLocaleString()} KM</span>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="bg-slate-900 p-10 sm:p-16 rounded-[3rem] text-center space-y-10 border-4 border-blue-600/30 shadow-2xl relative overflow-hidden">
-              <div className="absolute inset-0 opacity-10 pointer-events-none">
-                <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:24px_24px]"></div>
-              </div>
-
-              <div className="space-y-4 relative z-10">
-                <h3 className="text-white text-3xl sm:text-5xl font-black uppercase tracking-tighter leading-none">
-                  Save Your Car's <br/><span className="text-blue-600">Future Value</span>
+            {/* High-Impact Signup Conversion Banner */}
+            <section className="bg-gradient-to-br from-slate-950 to-slate-900 text-white rounded-3xl p-8 sm:p-12 border-2 border-blue-600/40 shadow-2xl relative overflow-hidden space-y-8">
+              <div className="space-y-3 relative z-10 max-w-xl">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-blue-400">
+                  NEVER FORGET A CRITICAL SERVICE AGAIN
+                </span>
+                <h3 className="text-2xl sm:text-4xl font-black uppercase tracking-tight text-white leading-tight">
+                  Keep This Plan In Your <br />
+                  <span className="text-blue-400">Permanent Free Garage</span>
                 </h3>
-                <p className="text-slate-400 text-xs sm:text-sm font-bold uppercase tracking-widest max-w-sm mx-auto leading-relaxed">
-                  Join 1,200+ smart vehicle owners saving ₦150k/year with Autopal maintenance alerts.
+                <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">
+                  Save your car's digital record before you close this window. You'll receive automated mileage-based notifications, AI diagnostic lookups, and a verified resale dossier.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 relative z-10">
-                <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                   <div className="text-xl mb-2">📈</div>
-                   <div className="text-[9px] font-black text-white uppercase tracking-widest">Resale Estimates</div>
-                </div>
-                <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                   <div className="text-xl mb-2">⛽</div>
-                   <div className="text-[9px] font-black text-white uppercase tracking-widest">Fuel Health</div>
-                </div>
-                <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                   <div className="text-xl mb-2">✧</div>
-                   <div className="text-[9px] font-black text-white uppercase tracking-widest">Autopal Support</div>
-                </div>
+              <div className="flex flex-col sm:flex-row gap-4 relative z-10 pt-2">
+                <button 
+                  onClick={() => setCurrentView('garage')}
+                  className="px-8 py-4 bg-blue-600 text-white rounded-xl font-black uppercase tracking-wider text-xs hover:bg-blue-500 transition-all shadow-xl active:scale-95 flex items-center justify-center gap-2 border border-blue-400/30"
+                >
+                  <span>Save Plan & Create Free Account</span>
+                  <ArrowRight size={16} />
+                </button>
+                <button 
+                  onClick={handleExit}
+                  className="px-6 py-4 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white rounded-xl text-xs font-mono uppercase tracking-wider transition-colors text-center"
+                >
+                  Discard & Exit
+                </button>
               </div>
+            </section>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center relative z-10 pt-4">
-                <button onClick={() => setCurrentView('garage')} className="bg-white text-slate-900 px-12 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-[11px] shadow-2xl hover:bg-blue-600 hover:text-white transition-all active:scale-95">
-                  Get Started for Free
-                </button>
-                <button onClick={handleExit} className="px-10 py-5 text-slate-500 text-[10px] font-black uppercase tracking-widest hover:text-rose-500 transition-colors">
-                  Exit & Discard
-                </button>
-              </div>
-            </div>
           </div>
         ) : (
-          <div className="py-24 flex flex-col items-center justify-center space-y-6">
-            <div className="w-14 h-14 border-[5px] border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <div className="text-center space-y-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Autopal Data Scan...</p>
-              <p className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Building your custom service plan</p>
-            </div>
+          <div className="py-24 text-center space-y-4">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p className="text-xs font-mono uppercase tracking-widest text-slate-400">
+              Generating Precision Maintenance Dossier...
+            </p>
           </div>
         )}
-      </div>
+
+      </main>
+
     </div>
   );
 };
