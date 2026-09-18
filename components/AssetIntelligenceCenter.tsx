@@ -3,10 +3,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAutoPalStore } from '../shared/store.ts';
 import { initializeVehicleAsset, prepareProposedRoadmap, commitFinalRoadmap } from '../services/vehicleRegistrationService.ts';
 import { uploadVehicleImage, updateVehicle, archiveVehicle, syncVehicleVitals } from '../services/vehicleService.ts';
+import { decodeVIN } from '../services/geminiService.ts';
 import { BodyType, Vehicle, MaintenanceTask, Priority, ServiceCategory } from '../shared/types.ts';
 import { compressImage } from '../shared/utils.ts';
 import { VehicleBlueprint } from './VehicleBlueprint.tsx';
-import { Car } from 'lucide-react';
+import { Car, Sparkles, Loader2, AlertCircle, Trash2 } from 'lucide-react';
 
 interface AssetIntelligenceCenterProps {
   mode: 'onboarding' | 'edit';
@@ -22,6 +23,10 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
   
   const [currentStep, setCurrentStep] = useState<OnboardingStep>('parameters');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDecodingVin, setIsDecodingVin] = useState(false);
+  const [vinFeedback, setVinFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -69,11 +74,43 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
     }
   };
 
-  const handleStartSetup = async () => {
-    if (!form.make || !form.model) {
-      alert("Please enter car make and model.");
+  const handleDecodeVIN = async () => {
+    if (!form.vin || form.vin.trim().length < 5) {
+      setVinFeedback({ type: 'error', message: 'Enter at least 5 characters of your Chassis/VIN.' });
       return;
     }
+    setIsDecodingVin(true);
+    setVinFeedback(null);
+    try {
+      const decoded = await decodeVIN(form.vin.trim());
+      if (decoded && (decoded.make || decoded.model)) {
+        setForm(prev => ({
+          ...prev,
+          make: decoded.make || prev.make,
+          model: decoded.model || prev.model,
+          year: decoded.year || prev.year,
+          bodyType: (decoded.bodyType as BodyType) || prev.bodyType
+        }));
+        setVinFeedback({ 
+          type: 'success', 
+          message: `Decoded: ${decoded.year || ''} ${decoded.make || ''} ${decoded.model || ''} (${decoded.bodyType || 'Sedan'})` 
+        });
+      } else {
+        setVinFeedback({ type: 'error', message: 'Could not resolve chassis specifications. Enter details manually.' });
+      }
+    } catch (err: any) {
+      setVinFeedback({ type: 'error', message: 'VIN auto-decode service is unavailable. Enter details manually.' });
+    } finally {
+      setIsDecodingVin(false);
+    }
+  };
+
+  const handleStartSetup = async () => {
+    if (!form.make || !form.model) {
+      setSetupError("Please enter car make and model.");
+      return;
+    }
+    setSetupError(null);
     setIsProcessing(true);
     setCurrentStep('calibrating');
     
@@ -99,7 +136,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
 
       setCurrentStep('review');
     } catch (err: any) {
-      alert(`Setup Error: ${err.message}`);
+      setSetupError(`Setup Error: ${err.message}`);
       setCurrentStep('parameters');
     } finally {
       setIsProcessing(false);
@@ -109,6 +146,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
   const handleUpdateAsset = async () => {
     if (!initialVehicle) return;
     setIsProcessing(true);
+    setSetupError(null);
 
     try {
       let finalImageUrl = form.imageUrl;
@@ -139,7 +177,7 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
       setEditingVehicle(null);
       setCurrentView('garage');
     } catch (err: any) {
-      alert(`Update Error: ${err.message}`);
+      setSetupError(`Update Error: ${err.message}`);
     } finally {
       setIsProcessing(false);
     }
@@ -147,9 +185,6 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
 
   const handleRemoveVehicle = async () => {
     if (!initialVehicle) return;
-    const confirmed = confirm("Are you sure? This will delete the car and all its records permanently.");
-    if (!confirmed) return;
-
     setIsProcessing(true);
     try {
       await archiveVehicle(initialVehicle.id);
@@ -157,21 +192,23 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
       setEditingVehicle(null);
       setCurrentView('garage');
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      setSetupError(`Error: ${err.message}`);
     } finally {
       setIsProcessing(false);
+      setShowDeleteConfirm(false);
     }
   };
 
   const handleFinalize = async () => {
     if (!activeVehicle) return;
     setIsProcessing(true);
+    setSetupError(null);
     try {
       await commitFinalRoadmap(activeVehicle, proposedTasks, isNewTemplate, rawRoadmap);
       addVehicle(activeVehicle);
       setCurrentStep('success');
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      setSetupError(`Error: ${err.message}`);
     } finally {
       setIsProcessing(false);
     }
@@ -378,39 +415,108 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
         </header>
 
         <div className="flex-grow overflow-y-auto p-6 sm:p-10 lg:p-20 scrollbar-hide pb-32">
-          <div className="max-w-2xl mx-auto space-y-12">
-            <section className="space-y-6">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] ml-2">Identity</label>
+          <div className="max-w-2xl mx-auto space-y-10">
+            {setupError && (
+              <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-rose-700 text-xs font-bold animate-in fade-in">
+                <AlertCircle size={16} className="shrink-0" />
+                <span>{setupError}</span>
+              </div>
+            )}
+
+            <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] ml-2">Vehicle Identity</label>
+                  <button
+                    type="button"
+                    disabled={isDecodingVin || !form.vin}
+                    onClick={handleDecodeVIN}
+                    className="text-[9px] font-black text-blue-600 hover:text-blue-700 uppercase tracking-widest flex items-center gap-1.5 px-3 py-1 bg-blue-50 hover:bg-blue-100 rounded-full transition-all disabled:opacity-40"
+                  >
+                    {isDecodingVin ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                    <span>Auto-Fill with AI</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  <input 
+                    type="text" 
+                    placeholder="Chassis # / VIN (e.g. 4T1BK32K...)" 
+                    className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-mono font-bold text-center tracking-widest outline-none uppercase text-sm focus:border-blue-500 transition-all" 
+                    value={form.vin} 
+                    onChange={e => {
+                      setForm({...form, vin: e.target.value.toUpperCase()});
+                      setVinFeedback(null);
+                    }} 
+                  />
+                  {vinFeedback && (
+                    <div className={`text-[10px] font-bold px-4 py-2 rounded-xl flex items-center gap-2 ${
+                      vinFeedback.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}>
+                      <span>{vinFeedback.type === 'success' ? '✓' : 'ℹ'}</span>
+                      <span>{vinFeedback.message}</span>
+                    </div>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <input type="text" placeholder="Make (e.g. Toyota)" className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black outline-none transition-all text-sm focus:border-blue-500" value={form.make} onChange={e => setForm({...form, make: e.target.value})} />
                   <input type="text" placeholder="Model (e.g. Camry)" className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black outline-none transition-all text-sm focus:border-blue-500" value={form.model} onChange={e => setForm({...form, model: e.target.value})} />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <input type="number" placeholder="Year" className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black outline-none text-sm focus:border-blue-500" value={form.year} onChange={e => setForm({...form, year: parseInt(e.target.value)})} />
-                  <input type="text" placeholder="Chassis # (Optional)" className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-mono font-black text-center tracking-widest outline-none uppercase text-sm focus:border-blue-500" value={form.vin} onChange={e => setForm({...form, vin: e.target.value.toUpperCase()})} />
+                  <input type="number" placeholder="Year" className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black outline-none text-sm focus:border-blue-500" value={form.year} onChange={e => setForm({...form, year: parseInt(e.target.value) || 2020})} />
+                  <input type="text" placeholder="Engine Size (e.g. 2.4L 4-Cyl)" className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black outline-none text-sm focus:border-blue-500" value={form.engineSize} onChange={e => setForm({...form, engineSize: e.target.value})} />
                 </div>
             </section>
 
-            <section className="space-y-6">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] ml-2">Type</label>
+            <section className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] ml-2">Type & Fuel</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <select className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black outline-none text-sm focus:border-blue-500" value={form.bodyType} onChange={e => setForm({...form, bodyType: e.target.value as BodyType})}>
-                      <option value="sedan">Saloon</option>
-                      <option value="suv">SUV</option>
-                      <option value="truck">Truck</option>
-                      <option value="van">Van</option>
+                      <option value="sedan">Saloon / Sedan</option>
+                      <option value="suv">SUV / Crossover</option>
+                      <option value="truck">Truck / Pickup</option>
+                      <option value="van">Van / Minivan</option>
                       <option value="other">Other</option>
                     </select>
                     <select className="w-full px-6 py-5 bg-slate-50 border-2 border-slate-100 rounded-3xl font-black outline-none text-sm focus:border-blue-500" value={form.fuelType} onChange={e => setForm({...form, fuelType: e.target.value})}>
-                      <option value="petrol">Petrol</option>
-                      <option value="diesel">Diesel</option>
-                      <option value="hybrid">Hybrid</option>
-                      <option value="electric">Electric</option>
+                      <option value="petrol">Petrol (PMS)</option>
+                      <option value="diesel">Diesel (AGO)</option>
+                      <option value="hybrid">Hybrid (Gas/Electric)</option>
+                      <option value="electric">Electric (EV)</option>
                     </select>
                 </div>
             </section>
 
-            <section className="space-y-6">
+            <section className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em] ml-2">Digital Twin Specifications</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input 
+                    type="text" 
+                    placeholder="Oil Grade (e.g. 0W-20)" 
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-xs outline-none focus:border-blue-500"
+                    value={form.specs?.oilGrade || ''}
+                    onChange={e => setForm({...form, specs: { ...form.specs, oilGrade: e.target.value }})}
+                  />
+                  <input 
+                    type="text" 
+                    placeholder="Tire Spec (e.g. 215/55 R17)" 
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-xs outline-none focus:border-blue-500"
+                    value={form.specs?.tireSize || ''}
+                    onChange={e => setForm({...form, specs: { ...form.specs, tireSize: e.target.value }})}
+                  />
+                  <select 
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl font-bold text-xs outline-none focus:border-blue-500"
+                    value={form.specs?.transmission || 'automatic'}
+                    onChange={e => setForm({...form, specs: { ...form.specs, transmission: e.target.value }})}
+                  >
+                    <option value="automatic">Automatic Transmission</option>
+                    <option value="manual">Manual Transmission</option>
+                    <option value="cvt">CVT Transmission</option>
+                  </select>
+                </div>
+            </section>
+
+            <section className="space-y-4">
                 <label className="text-[10px] font-black text-blue-600 uppercase tracking-[0.4em] ml-2">Current KM Reading</label>
                 <input 
                   type="number" 
@@ -421,18 +527,42 @@ const AssetIntelligenceCenter: React.FC<AssetIntelligenceCenterProps> = ({ mode 
             </section>
 
             {mode === 'edit' && (
-              <section className="pt-10">
-                <div className="flex flex-col sm:flex-row gap-6 items-center justify-between p-8 bg-rose-50 rounded-[2rem] border border-rose-100">
-                  <div className="text-center sm:text-left">
-                    <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.4em]">Danger Zone</h4>
-                    <p className="text-[9px] text-rose-400 font-bold uppercase tracking-widest">Permanently delete this car.</p>
+              <section className="pt-8">
+                <div className="p-8 bg-rose-50 rounded-[2rem] border border-rose-100 space-y-4">
+                  <div className="flex flex-col sm:flex-row gap-6 items-center justify-between">
+                    <div className="text-center sm:text-left">
+                      <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-[0.4em]">Danger Zone</h4>
+                      <p className="text-[9px] text-rose-400 font-bold uppercase tracking-widest">Permanently remove this vehicle asset.</p>
+                    </div>
+                    {!showDeleteConfirm ? (
+                      <button 
+                        type="button"
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white px-8 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+                      >
+                        <Trash2 size={14} />
+                        <span>Delete Car</span>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={isProcessing}
+                          onClick={handleRemoveVehicle}
+                          className="bg-rose-700 hover:bg-rose-800 text-white px-5 py-3 rounded-xl text-[9px] font-black uppercase tracking-wider"
+                        >
+                          {isProcessing ? 'Deleting...' : 'Confirm Delete'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowDeleteConfirm(false)}
+                          className="bg-white border border-rose-200 text-slate-700 px-4 py-3 rounded-xl text-[9px] font-black uppercase tracking-wider"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <button 
-                    onClick={handleRemoveVehicle}
-                    className="w-full sm:w-auto bg-rose-600 text-white px-8 py-4 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all"
-                  >
-                    Delete Car
-                  </button>
                 </div>
               </section>
             )}

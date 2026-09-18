@@ -70,7 +70,7 @@ export const generateAIValuation = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.8-flash',
       contents: JSON.stringify(telemetry),
       config: {
         temperature: 0.1, 
@@ -206,7 +206,7 @@ export const generateMaintenanceSchedule = async (
   
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview', 
+      model: 'gemini-3.8-flash', 
       contents: `Vehicle Profile: ${year} ${make} ${model}. Current Telemetry: ${mileage}km. Environment: ${ENV.REGIONAL_CONTEXT}`,
       config: {
         systemInstruction: PROMPTS.MAINTENANCE_ROADMAP,
@@ -250,7 +250,7 @@ export const decodeVIN = async (vin: string): Promise<{ make: string; model: str
   const ai = getAIClient();
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.8-flash',
       contents: `Chassis Number (VIN) to analyze: ${vin}`,
       config: {
         systemInstruction: PROMPTS.VIN_DECODER,
@@ -278,16 +278,33 @@ export const getAdvancedDiagnostic = async (
   vehicle: any, symptoms: string, isPremium: boolean, imageBase64?: string
 ): Promise<AIResponse> => {
   const ai = getAIClient();
-  const parts: any[] = [{ text: `Vehicle Asset: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km). Reported Symptoms: ${symptoms}` }];
+  const parts: any[] = [{ 
+    text: `Vehicle Asset: ${vehicle.year} ${vehicle.make} ${vehicle.model} (${vehicle.mileage}km, ${vehicle.fuelType || 'Petrol'}).
+Reported Symptoms / Telemetry Note: ${symptoms}
+Plan Level: ${isPremium ? 'Premium Diagnostics Tier' : 'Standard Diagnostics Tier'}` 
+  }];
+
   if (imageBase64) {
+    let mimeType = "image/jpeg";
+    if (imageBase64.startsWith("data:")) {
+      const match = imageBase64.match(/^data:([^;]+);base64,/);
+      if (match) mimeType = match[1];
+    }
     const data = imageBase64.includes(",") ? imageBase64.split(",")[1] : imageBase64;
-    parts.push({ inlineData: { mimeType: "image/jpeg", data: data } });
+    parts.push({ 
+      inlineData: { 
+        mimeType: mimeType, 
+        data: data 
+      } 
+    });
   }
+
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3.8-flash',
       contents: { parts },
       config: {
+        temperature: 0.2,
         systemInstruction: PROMPTS.DIAGNOSTIC_EXPERT,
         responseMimeType: "application/json",
         responseSchema: {
@@ -298,7 +315,7 @@ export const getAdvancedDiagnostic = async (
             severity: { type: Type.STRING, enum: ["info", "warning", "critical"] },
             partsIdentified: { type: Type.ARRAY, items: { type: Type.STRING } }
           },
-          required: ["advice", "recommendations", "severity"]
+          required: ["advice", "recommendations", "severity", "partsIdentified"]
         }
       }
     });

@@ -20,7 +20,7 @@ interface Props {
 export const DiagnosticsPanel: React.FC<Props> = ({ 
   vehicle, symptom, setSymptom, diagImage, setDiagImage, isAskingAI, onAnalyze, aiAdvice, compact = false 
 }) => {
-  const { user } = useAutoPalStore();
+  const { user, setCurrentView, setMarketplaceFilter } = useAutoPalStore();
   const diagImageRef = useRef<HTMLInputElement>(null);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -153,11 +153,33 @@ export const DiagnosticsPanel: React.FC<Props> = ({
                   </ul>
 
                   {aiAdvice.partsIdentified && aiAdvice.partsIdentified.length > 0 && (
-                    <div className="pt-4">
-                      <div className="text-[7px] font-black text-slate-500 uppercase tracking-widest mb-3">Parts Needed</div>
+                    <div className="pt-4 border-t border-white/5">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[7px] font-black text-slate-500 uppercase tracking-widest">Identified Components ({aiAdvice.partsIdentified.length})</span>
+                        <button 
+                          onClick={() => {
+                            if (aiAdvice.partsIdentified?.[0]) setMarketplaceFilter(aiAdvice.partsIdentified[0]);
+                            setCurrentView('marketplace');
+                          }}
+                          className="text-[8px] font-black text-blue-400 hover:text-blue-300 uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+                        >
+                          Find in Marketplace 🛒 →
+                        </button>
+                      </div>
                       <div className="flex flex-wrap gap-2">
                         {aiAdvice.partsIdentified.map((part, i) => (
-                          <span key={i} className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[9px] font-bold text-blue-400 uppercase tracking-tight">{part}</span>
+                          <button
+                            key={i}
+                            onClick={() => {
+                              setMarketplaceFilter(part);
+                              setCurrentView('marketplace');
+                            }}
+                            title={`Search for ${part} in Marketplace`}
+                            className="px-3 py-1.5 bg-blue-500/10 border border-blue-500/30 hover:border-blue-400 hover:bg-blue-500/20 rounded-lg text-[9px] font-bold text-blue-300 uppercase tracking-tight transition-all flex items-center gap-1.5 active:scale-95 text-left"
+                          >
+                            <span>{part}</span>
+                            <span className="text-[10px]">↗</span>
+                          </button>
                         ))}
                       </div>
                     </div>

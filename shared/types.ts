@@ -212,4 +212,7 @@ export interface MarketplaceProduct {
   vendorName: string;
   isVerified: boolean;
   compatibility: string[];
+  location?: string;
+  phone?: string;
+  inStock?: boolean;
 }
