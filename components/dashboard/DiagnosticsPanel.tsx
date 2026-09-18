@@ -41,8 +41,14 @@ export const DiagnosticsPanel: React.FC<Props> = ({
         setLocalError("Access limit reached. Upgrade your plan for unlimited scans.");
       } else if (e.message?.includes("OFFLINE_LINK_FAILURE")) {
         setLocalError("Satellite link lost. Connect to network to run Autopal scan.");
+      } else if (e.message?.includes("AI_KEY_SUSPENDED")) {
+        setLocalError("Gemini API key is currently suspended or unauthorized. Please verify your API key in project settings.");
+      } else if (e.message?.includes("SERVICE_OVERLOADED")) {
+        setLocalError("AI model is currently experiencing high demand. Please retry in a few moments.");
       } else {
-        setLocalError(e.message || "A link error occurred. Please try again.");
+        // Strip raw JSON or stack details if present
+        const cleanMsg = (e.message || "A link error occurred. Please try again.").split('\n')[0].replace(/ClientError: got status: \d+ \. \{.*\}/, "API authentication or connection issue.");
+        setLocalError(cleanMsg);
       }
     }
   };
